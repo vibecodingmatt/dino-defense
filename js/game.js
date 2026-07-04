@@ -1196,6 +1196,7 @@ function placeTower(key, x, y, force){
   updateHUD();
 }
 function selectTower(t){
+  disarmSell();            // reset any pending sell-confirm when selection changes
   G.selected = t;
   const pop = $('#towerPop');
   if (!t){ pop.classList.add('hidden'); return; }
@@ -1238,14 +1239,19 @@ function renderTowerPanel(){
   if (maxed){
     btn.textContent = '★ Fully upgraded';
     btn.disabled = true;
+    btn.classList.remove('can');
   } else {
     const cost = UPG.cost(def, t.ulv);
     const extra = t.key === 'missile' ? ` (+1 rocket)` : t.key === 'mortar' ? ' (huge blast)' : '';
     btn.textContent = `⬆ Upgrade to Lv ${t.ulv + 2}${extra} — $${cost}`;
-    btn.disabled = G.cash < cost;
+    const afford = G.cash >= cost;
+    btn.disabled = !afford;                 // greyed-out disabled look when broke
+    btn.classList.toggle('can', afford);    // bright green when you can afford it
   }
   $('#tpMode').textContent = 'Target: ' + t.mode.toUpperCase();
-  $('#tpSell').textContent = `💰 Sell — $${Math.round(t.invested * 0.7)}`;
+  const sell = $('#tpSell'), refund = Math.round(t.invested * 0.7);
+  sell.classList.toggle('confirm', sellArmed);
+  sell.textContent = sellArmed ? `⚠ Tap to confirm sell` : `💰 Sell — $${refund}`;
   positionTowerPop(t);   // keep it glued over the tower as content/layout changes
 }
 function upgrade(){
@@ -1258,6 +1264,20 @@ function upgrade(){
   SFX.upgrade();
   saveRun();
   renderTowerPanel(); updateHUD();
+}
+/* selling asks for a confirming second tap so an accidental tap can't sell */
+let sellArmed = false, sellTimer = null;
+function disarmSell(){ sellArmed = false; if (sellTimer){ clearTimeout(sellTimer); sellTimer = null; } }
+function armOrSell(){
+  const t = G.selected; if (!t) return;
+  if (!sellArmed){
+    sellArmed = true;
+    renderTowerPanel();
+    sellTimer = setTimeout(() => { sellArmed = false; if (G.selected) renderTowerPanel(); }, 3000);
+    return;
+  }
+  disarmSell();
+  sellSelected();
 }
 function sellSelected(){
   const t = G.selected; if (!t) return;
@@ -2276,7 +2296,7 @@ $('#airCard').onclick = () => {
   updateHUD();
 };
 $('#tpClose').onclick = () => selectTower(null);
-$('#tpSell').onclick = sellSelected;
+$('#tpSell').onclick = armOrSell;
 $('#tpMode').onclick = () => {
   const modes = ['first', 'last', 'strong', 'close'];
   const t = G.selected; if (!t) return;
@@ -2414,7 +2434,12 @@ if (testParams.has('test')){
     const idx = clamp(parseInt(testParams.get('pop'), 10) || 0, 0, G.towers.length - 1);
     const t = G.towers[idx];
     if (testParams.has('upg')) t.ulv = Math.min(TOWERS[t.key].maxUp, parseInt(testParams.get('upg'), 10) || 1);
-    setTimeout(() => { selectTower(t); G.paused = true; }, 60); // let layout settle so positioning is correct
+    if (testParams.has('broke')) G.cash = 0;   // exercise the disabled upgrade look
+    setTimeout(() => {
+      selectTower(t);
+      if (testParams.has('armsell')) armOrSell(); // exercise the sell-confirm look
+      G.paused = true;
+    }, 60);
   }
   if (testParams.has('econ')){ // measure DNA a PERFECT run yields vs upgrade cost
     const rows = [];

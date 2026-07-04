@@ -148,10 +148,22 @@ canvas#game {
 #tpStats { font-size: 11px; color: var(--text); line-height: 1.5; }
 #tpStats .warn { color: var(--red); }
 #towerPop button { font-size: 12px; text-align: center; padding: 8px 10px; }
-#up_main { background: #3d5226; font-weight: bold; }
+/* upgrade button: obviously-disabled grey when broke, bright green when affordable */
+#up_main { font-weight: bold; }
+#up_main:disabled { background: #23281d !important; color: #6a7060 !important; border-color: #333a2b !important; opacity: 1; }
+#up_main.can {
+  background: var(--green); color: #14200a; border-color: #b6ef6e;
+  box-shadow: 0 0 12px #8fd14f66;
+}
+#up_main.can:hover:not(:disabled) { background: #a6e35f; color: #14200a; }
 .tpRow { display: flex; gap: 6px; }
 .tpRow button { flex: 1; }
 #tpSell { color: var(--red); }
+/* armed sell button (awaiting confirming second tap) */
+#tpSell.confirm {
+  background: var(--red); color: #fff; border-color: #ff8a7a;
+  box-shadow: 0 0 12px #e05a4a77; font-weight: bold;
+}
 .hint { font-size: 10.5px; color: var(--dim); line-height: 1.5; }
 
 /* ---------- menu ---------- */
