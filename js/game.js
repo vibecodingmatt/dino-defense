@@ -507,6 +507,7 @@ function distToAnyPath(x, y){
 
 /* ---------------- scaling / economy ---------------- */
 const BOSS_HP_MULT = 3; // bosses are far tankier than regular dinos — 3× the health bar
+const FIRST_WAVE_DELAY = 3; // seconds after the first weapon is placed before wave 1 auto-starts
 const hpScale    = w => (0.7 + 0.3*w) * Math.pow(1.020, w) * G.level.hpMult;
 const speedScale = w => Math.min(1.4, 1 + w*0.0035);
 const bountyOf   = (def, w) => Math.max(1, Math.round(def.bounty * (1 + w*0.008)));
@@ -1241,6 +1242,10 @@ function placeTower(key, x, y, force){
   G.towers.push({key, x, y, ulv: 0, cd: 0, angle: rand(0, 6.28), flash: 0, invested: cost, mode: 'first'});
   SFX.build();
   addFx('ring', x, y, 10);
+  // onboarding: the moment the very first weapon is down, count wave 1 in
+  if (G.wave === 0 && !G.waveActive && !G.over && G.towers.length === 1 && !(G.autoTimer > 0)){
+    G.autoTimer = FIRST_WAVE_DELAY;
+  }
   saveRun();
   updateHUD();
 }
@@ -1332,6 +1337,8 @@ function sellSelected(){
   const t = G.selected; if (!t) return;
   G.cash += Math.round(t.invested * 0.7);
   G.towers = G.towers.filter(x => x !== t);
+  // sold the last weapon before wave 1 started → cancel the auto-start countdown
+  if (G.wave === 0 && !G.waveActive && !G.over && G.towers.length === 0) G.autoTimer = -1;
   selectTower(null);
   SFX.coin(); saveRun(); updateHUD();
 }
@@ -1437,7 +1444,10 @@ function updateHUD(){
   $('#invBadge').classList.toggle('hidden', !save.settings.invincible);
   $('#btnSkip').classList.toggle('hidden', !save.settings.levelSkip);
   $('#btnWave').disabled = G.waveActive || G.over;
-  $('#btnWave').textContent = G.waveActive ? '⚔ Wave in progress' : (G.autoTimer > 0 ? `▶ Next in ${Math.ceil(G.autoTimer)}…` : '▶ Start Wave ' + (G.wave + 1));
+  $('#btnWave').textContent = G.waveActive ? '⚔ Wave in progress'
+    : (G.autoTimer > 0 ? (G.wave === 0 ? `▶ First wave in ${Math.ceil(G.autoTimer)}…` : `▶ Next in ${Math.ceil(G.autoTimer)}…`)
+    : '▶ Start Wave ' + (G.wave + 1));
+  updateStartPrompt();
   $$('#speedBtns button').forEach(b => b.classList.toggle('on', +b.dataset.s === G.speed && !G.paused));
   $('#btnPause').classList.toggle('on', G.paused);
   $('#btnMute').textContent = save.settings.mute ? '🔇' : '🔊';
@@ -1457,6 +1467,23 @@ function updateHUD(){
   updateAirCard();
   // keep the upgrade button in sync with cash while a tower is selected
   if (G.selected) renderTowerPanel();
+}
+/* onboarding banner: prompt to place a weapon before wave 1, then count it in */
+function updateStartPrompt(){
+  const el = $('#startPrompt');
+  if (!el) return;
+  const prep = G.state === 'playing' && G.wave === 0 && !G.waveActive && !G.over;
+  el.classList.toggle('hidden', !prep);
+  if (!prep) return;
+  const counting = G.autoTimer > 0;
+  el.classList.toggle('counting', counting);
+  if (counting){
+    el.querySelector('.sp-main').textContent = `⚔ First wave in ${Math.ceil(G.autoTimer)}…`;
+    el.querySelector('.sp-sub').textContent = 'Build while you can — or press Start Wave to go now';
+  } else {
+    el.querySelector('.sp-main').textContent = '🦖 Place a weapon to begin';
+    el.querySelector('.sp-sub').textContent = 'Pick one from the Armory, then tap the map';
+  }
 }
 function buildShop(){
   const el = $('#shopCards');
@@ -2461,6 +2488,14 @@ if (new URLSearchParams(location.search).has('dbg')){
 }
 
 if (new URLSearchParams(location.search).has('lab')){ const lv = new URLSearchParams(location.search).get('lab'); if (lv === 'rich'){ save.dna = 50000; } else if (!isNaN(parseFloat(lv))){ save.dna = parseFloat(lv); } buildLab(); $('#lab').classList.remove('hidden'); }
+if (new URLSearchParams(location.search).has('firstwave')){ // preview the onboarding banner
+  save.run = null; startLevel(0, 'fresh', 1);
+  if (new URLSearchParams(location.search).get('firstwave') === 'count'){
+    placeTower('gatling', 420, 260, true);
+    for (let s = 0; s < 1.2; s += 0.05) step(0.05); // tick the countdown down a bit
+  }
+  updateHUD(); G.paused = true;
+}
 if (new URLSearchParams(location.search).has('settings')){ syncSettings(); $('#settings').classList.remove('hidden'); }
 if (new URLSearchParams(location.search).has('ach')){ if (new URLSearchParams(location.search).get('ach') === 'some'){ save.ach = {boss_first:1, wave50:1, secure_0:1, apex:1}; } buildAchievements(); $('#achievements').classList.remove('hidden'); }
 if (new URLSearchParams(location.search).has('tips')){ buildTips(); $('#tips').classList.remove('hidden'); }

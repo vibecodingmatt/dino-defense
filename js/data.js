@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.14.2';
+const VERSION = '1.14.3';
 /* Player-facing changelog — ONE entry per DAY (a daily recap), newest first.
    The `v` shown is the latest version released that day; `items` are the major,
    player-facing changes only. Keep it about what changed for the player — no
@@ -12,7 +12,8 @@ const VERSION = '1.14.2';
    new day, add a new daily entry; when shipping again the same day, update that
    day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.14.2', date: 'Jul 4, 2026', items: [
+  {v: '1.14.3', date: 'Jul 4, 2026', items: [
+    '🚦 Smoother opening: a "Place a weapon to begin" prompt now guides you at the start, and the first wave kicks off automatically a few seconds after you set down your first weapon (you can still press Start Wave to go early).',
     '🐣 Friendlier start: you now begin with 80 DNA to spend on a first upgrade, and the early difficulty levels have been softened so Level 1 is beatable with little or no upgrading — challenging, but fair. The full difficulty returns by Level 15, so the deep climb is untouched.',
     '🧬 DNA now banks every wave you clear — not just on a full 100-wave clear — so even a run that falls short earns DNA toward upgrades. No more getting stuck with nothing to spend. Reaching further pays more, and finishing all 100 still gives a bonus.',
     '🦖 The island comes alive: dinosaurs now screech, snarl and bellow — small ones shriek, big ones groan — as they fall, with the occasional distant roar drifting across the map. Boss roars are bigger and more menacing, and gunfire and explosions hit harder.',

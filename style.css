@@ -164,6 +164,22 @@ canvas#game {
   background: var(--red); color: #fff; border-color: #ff8a7a;
   box-shadow: 0 0 12px #e05a4a77; font-weight: bold;
 }
+
+/* onboarding banner shown over the map before wave 1 */
+#startPrompt {
+  position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+  z-index: 14; text-align: center; pointer-events: none; max-width: 92%;
+  background: linear-gradient(#1c2414ee, #141a0eee);
+  border: 1px solid var(--amber); border-radius: 12px;
+  padding: 11px 22px; box-shadow: 0 6px 22px #0008;
+  animation: spPulse 1.7s ease-in-out infinite;
+}
+#startPrompt.counting { border-color: var(--green); animation: none; }
+#startPrompt .sp-main { color: var(--amber2); font-weight: bold; font-size: 17px; letter-spacing: 0.3px; }
+#startPrompt.counting .sp-main { color: var(--green); }
+#startPrompt .sp-sub { color: var(--dim); font-size: 12px; margin-top: 3px; }
+@keyframes spPulse { 50% { box-shadow: 0 6px 26px #0008, 0 0 16px #e8b93a66; border-color: var(--amber2); } }
+@media (prefers-reduced-motion: reduce){ #startPrompt { animation: none; } }
 .hint { font-size: 10.5px; color: var(--dim); line-height: 1.5; }
 
 /* ---------- menu ---------- */
