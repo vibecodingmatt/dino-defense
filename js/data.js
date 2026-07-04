@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.13.1';
+const VERSION = '1.14.0';
 /* Player-facing changelog — ONE entry per DAY (a daily recap), newest first.
    The `v` shown is the latest version released that day; `items` are the major,
    player-facing changes only. Keep it about what changed for the player — no
@@ -12,7 +12,8 @@ const VERSION = '1.13.1';
    new day, add a new daily entry; when shipping again the same day, update that
    day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.13.1', date: 'Jul 4, 2026', items: [
+  {v: '1.14.0', date: 'Jul 4, 2026', items: [
+    '🦖 The island comes alive: dinosaurs now screech, snarl and bellow — small ones shriek, big ones groan — as they fall, with the occasional distant roar drifting across the map. Boss roars are bigger and more menacing, and gunfire and explosions hit harder.',
     '🛠️ Tap or click any placed weapon and a little menu now pops up right over it — upgrade it (with the cost shown) or sell it (with the refund shown), and close it with the ✕ in the corner. The Upgrade button glows green the moment you can afford it and greys out when you can\'t, and selling asks for a confirming second tap so a stray tap can\'t sell your weapon.',
     '🎚️ New progression: choose a map and a difficulty level from 1 to 1000. Levels unlock 10 at a time — beat the highest one available to open the next block.',
     '🧬 Research Lab reworked: spend DNA to permanently level up every weapon — plus your base health and starting cash — with no cap. DNA now drops from every kill, and pays out more the higher you climb.',
