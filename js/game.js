@@ -92,6 +92,7 @@ const G = {
   mouse: {x: 0, y: 0, on: false},
   autoTimer: -1,
   shake: 0, banner: null,
+  time: 0,
   checkpoint: null,
   over: false,
 };
@@ -251,6 +252,10 @@ function damage(d, amt, pierce, src){
   if (d.dead || d.leaked) return;
   const eff = pierce ? amt : Math.max(1, amt - d.armor);
   d.hp -= eff;
+  if (eff >= 30){ // big hits pop a damage number
+    const p = dinoPos(d);
+    addText(p.x + rand(-8, 8), p.y - d.size - 4, '−' + Math.round(eff), 'rgba(255,235,200,0.95)', 12);
+  }
   if (d.hp <= 0){
     d.dead = true;
     const p = dinoPos(d);
@@ -279,6 +284,7 @@ function fireTower(t, dt){
   const st = towerStats(t);
   t.cd -= dt;
   t.flash = Math.max(0, (t.flash || 0) - dt * 3);
+  t.recoil = Math.max(0, (t.recoil || 0) - dt * 6);
 
   if (t.key === 'sonic'){
     if (t.cd > 0) return;
@@ -308,9 +314,11 @@ function fireTower(t, dt){
     const p = dinoPos(target);
     t.angle = Math.atan2(p.y - t.y, p.x - t.x);
   }
+  if (t.key === 'gatling') t.spin = (t.spin || 0) + dt * (target ? 26 : 2);
   if (t.cd > 0 || !target) return;
   t.cd = 1 / st.rof;
   t.flash = 0.12;
+  t.recoil = 1;
   const tp = dinoPos(target);
 
   switch (def.proj){
@@ -429,9 +437,9 @@ function addFx(kind, x, y, r, ang){
   G.fx.push({kind, x, y, r, ang: ang || 0, t: 0,
              dur: kind === 'sonic' ? 0.5 : kind === 'boom' ? 0.45 : kind === 'frost' ? 0.5 : kind === 'flame' ? 0.22 : kind === 'ring' ? 0.8 : 0.3});
 }
-function addText(x, y, txt, color){
+function addText(x, y, txt, color, size){
   if (G.texts.length > 40) return;
-  G.texts.push({x, y, txt, color, t: 0});
+  G.texts.push({x, y, txt, color, size: size || 15, t: 0});
 }
 
 /* ---------------- dino update ---------------- */
@@ -461,6 +469,7 @@ function updateDinos(dt){
       if (!save.settings.invincible){
         G.lives -= d.dmgToBase * (d.boss ? 1 : 1);
         G.shake = Math.max(G.shake, 4);
+        G.hurtT = 0.6;
       }
       SFX.leak();
       if (G.lives <= 0 && !G.over){ G.lives = 0; defeat(); }
@@ -475,7 +484,10 @@ function startWave(){
   G.wave++;
   G.waveActive = true;
   G.autoTimer = -1;
-  G.spawnQ = buildWave(G.wave);
+  G.spawnQ = G.pendingWave || buildWave(G.wave);
+  G.waveTotal = G.spawnQ.length;
+  G.pendingWave = G.wave < WAVES_PER_LEVEL ? buildWave(G.wave + 1) : null;
+  updateIncoming();
   G.spawnT = 0;
   // record best
   const b = save.best[G.levelIdx] || 0;
@@ -490,6 +502,7 @@ function endWave(){
   save.dna += dna;
   persist();
   addText(W/2, 120, `Wave ${G.wave} cleared!  +$${bonus}  +${dna} DNA`, '#9fe870');
+  G.flashT = 0.45;
   SFX.coin();
   if (G.wave >= WAVES_PER_LEVEL){ victory(); return; }
   // checkpoint at start of each block of 10
@@ -530,7 +543,10 @@ function startLevel(idx, mode){
   G.levelIdx = idx;
   G.level = LEVELS[idx];
   G.paths = buildPaths(G.level);
-  G.bg = renderBackground(G.level, W, H, null);
+  const bg = renderBackground(G.level, W, H);
+  G.bg = bg.cv; G.flames = bg.flames; G.exitFx = bg.exit;
+  G.hurtT = 0; G.flashT = 0; G.waveTotal = 0;
+  initAmbient();
   G.dinos = []; G.projs = []; G.fx = []; G.bolts = []; G.texts = []; G.spawnQ = [];
   G.selected = null; G.placing = null;
   G.waveActive = false; G.autoTimer = -1; G.over = false; G.banner = null;
@@ -556,7 +572,40 @@ function startLevel(idx, mode){
   $('#levelTitle').textContent = G.level.name;
   buildShop();
   selectTower(null);
+  G.pendingWave = G.wave < WAVES_PER_LEVEL ? buildWave(G.wave + 1) : null;
+  updateIncoming();
   updateHUD();
+}
+
+/* ambient particles: fireflies at night, spores in mist, drifting leaves by day */
+function initAmbient(){
+  G.amb = [];
+  const n = G.level.night ? 34 : G.level.mist ? 24 : 14;
+  for (let i = 0; i < n; i++){
+    G.amb.push({x: rand(0, W), y: rand(0, H), p: rand(0, 6.28), v: rand(5, 12)});
+  }
+}
+
+/* "incoming" preview panel showing next wave composition */
+function updateIncoming(){
+  const el = $('#incoming');
+  if (!el) return;
+  if (!G.pendingWave){
+    el.innerHTML = '<div class="incTitle">All waves cleared</div>';
+    return;
+  }
+  const counts = {}, bosses = [];
+  for (const s of G.pendingWave){
+    if (s.boss) bosses.push(DINOS[s.key].name);
+    else counts[s.key] = (counts[s.key] || 0) + 1;
+  }
+  let html = `<div class="incTitle">📡 Wave ${G.wave + 1} incoming</div>`;
+  html += Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([k, n]) => {
+    const d = DINOS[k];
+    return `<span class="chip${d.flying ? ' fly' : ''}">${d.flying ? '🪽 ' : ''}${d.name} ×${n}</span>`;
+  }).join('');
+  for (const b of bosses) html += `<span class="chip boss">⚠ ${b}</span>`;
+  el.innerHTML = html;
 }
 function victory(){
   G.over = true;
@@ -683,6 +732,7 @@ function buildShop(){
     const card = document.createElement('div');
     card.className = 'shopCard';
     card.dataset.key = key;
+    card.style.borderTop = `3px solid ${def.color}`;
     card.innerHTML = `<div class="ico">${def.icon}</div><div class="nm">${def.name}</div><div class="cost">$${def.cost}</div>`;
     card.title = def.desc + (def.air ? '' : '  (Cannot hit flying dinosaurs.)');
     card.onclick = () => {
@@ -770,10 +820,16 @@ function frame(now){
   let dt = Math.min(0.05, (now - lastT) / 1000);
   lastT = now;
   if (G.state !== 'playing') return;
-  if (!G.paused && !G.over){
-    for (let i = 0; i < G.speed; i++) step(dt);
+  try {
+    if (!G.paused && !G.over){
+      for (let i = 0; i < G.speed; i++) step(dt);
+    }
+    render(dt);
+  } catch (e) {
+    const el = $('#errbox');
+    el.classList.remove('hidden');
+    el.textContent = 'Error: ' + e.message + ' @ ' + (e.stack || '').split('\n')[1];
   }
-  render(dt);
   hudTick -= dt;
   if (hudTick <= 0){ hudTick = 0.2; updateHUD(); }
 }
@@ -806,17 +862,19 @@ function step(dt){
 }
 
 function render(dt){
+  G.time += dt;
   ctx.save();
   if (G.shake > 0) ctx.translate(rand(-G.shake, G.shake), rand(-G.shake, G.shake));
   ctx.drawImage(G.bg, 0, 0);
 
   // tower bases + range of selected/placing
-  for (const t of G.towers) drawTowerBase(ctx, t.x, t.y, TOWERS[t.key].color, t === G.selected);
+  for (const t of G.towers) drawTowerBase(ctx, t.x, t.y, t.key, t === G.selected);
   if (G.selected){
     const st = towerStats(G.selected);
-    ctx.strokeStyle = 'rgba(255,220,120,0.5)'; ctx.setLineDash([6, 6]); ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(255,220,120,0.55)'; ctx.setLineDash([8, 7]); ctx.lineWidth = 1.6;
+    ctx.lineDashOffset = -G.time * 26;
     ctx.beginPath(); ctx.arc(G.selected.x, G.selected.y, st.range, 0, Math.PI*2); ctx.stroke();
-    ctx.setLineDash([]);
+    ctx.setLineDash([]); ctx.lineDashOffset = 0;
   }
 
   // dinos sorted by y (ground first, flyers on top)
@@ -928,7 +986,22 @@ function render(dt){
   }
 
   // turrets above ground dinos
-  for (const t of G.towers) drawTowerTurret(ctx, t, t.flash || 0);
+  for (const t of G.towers){
+    drawTowerTurret(ctx, t, t.flash || 0, G.time);
+    // upgrade pips
+    const total = t.lv.dmg + t.lv.rate + t.lv.range;
+    if (total > 0){
+      const tier = Math.min(5, Math.ceil(total / 3));
+      ctx.fillStyle = '#ffd24a';
+      for (let i = 0; i < tier; i++){
+        ctx.beginPath(); ctx.arc(t.x - (tier-1)*3 + i*6, t.y - 25, 1.9, 0, Math.PI*2); ctx.fill();
+      }
+    }
+  }
+
+  // animated set pieces: gate torches + checkpoint beacon
+  for (let i = 0; i < G.flames.length; i++) drawTorchFlame(ctx, G.flames[i].x, G.flames[i].y, G.time + i * 1.7);
+  if (G.exitFx) drawExitBeacon(ctx, G.exitFx, G.time, !!G.level.night);
 
   // flyers on top
   air.forEach(drawOne);
@@ -942,13 +1015,14 @@ function render(dt){
     ctx.fillStyle = ok ? 'rgba(140,240,140,0.12)' : 'rgba(255,90,90,0.12)';
     const rng = def.range * (1 + 0.04*labTier('range_all'));
     ctx.beginPath(); ctx.arc(G.mouse.x, G.mouse.y, rng, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-    drawTowerBase(ctx, G.mouse.x, G.mouse.y, def.color, false);
+    drawTowerBase(ctx, G.mouse.x, G.mouse.y, G.placing, false);
     ctx.globalAlpha = 1;
   }
 
   // floating texts
-  ctx.textAlign = 'center'; ctx.font = 'bold 15px Verdana, sans-serif';
+  ctx.textAlign = 'center';
   for (const tx of G.texts){
+    ctx.font = `bold ${tx.size}px Verdana, sans-serif`;
     ctx.globalAlpha = 1 - tx.t / 1.4;
     ctx.fillStyle = '#000'; ctx.fillText(tx.txt, tx.x + 1, tx.y - tx.t * 26 + 1);
     ctx.fillStyle = tx.color; ctx.fillText(tx.txt, tx.x, tx.y - tx.t * 26);
@@ -971,6 +1045,67 @@ function render(dt){
   if (G.level.mist){
     ctx.fillStyle = 'rgba(180,200,190,0.07)';
     ctx.fillRect(-20, -20, W + 40, H + 40);
+  }
+
+  // ambient particles (fireflies / spores / leaves) — above the light grading
+  for (const a of G.amb){
+    a.p += dt;
+    a.x += Math.sin(a.p * 0.7) * 0.4 - a.v * dt * (G.level.night ? 0.35 : 0.9);
+    a.y += Math.cos(a.p * 0.5) * 0.3 + (G.level.night ? 0 : a.v * dt * 0.35);
+    if (a.x < -12) a.x = W + 10; if (a.x > W + 12) a.x = -10;
+    if (a.y > H + 12) a.y = -10; if (a.y < -12) a.y = H + 10;
+    if (G.level.night){
+      const tw = (Math.sin(a.p * 3) + 1) / 2;
+      ctx.fillStyle = `rgba(255,240,140,${0.12 + 0.45 * tw})`;
+      ctx.beginPath(); ctx.arc(a.x, a.y, 1.4 + tw * 1.2, 0, Math.PI*2); ctx.fill();
+    } else if (G.level.mist){
+      ctx.fillStyle = 'rgba(222,235,226,0.16)';
+      ctx.beginPath(); ctx.arc(a.x, a.y, 2.4, 0, Math.PI*2); ctx.fill();
+    } else {
+      ctx.save(); ctx.translate(a.x, a.y); ctx.rotate(a.p);
+      ctx.fillStyle = 'rgba(130,170,75,0.45)'; ctx.fillRect(-2.6, -1.2, 5.2, 2.4);
+      ctx.restore();
+    }
+  }
+
+  // wave spawn progress (thin bar along the top)
+  if (G.waveActive && G.waveTotal){
+    const rem = clamp((G.spawnQ.length + G.dinos.length) / G.waveTotal, 0, 1);
+    ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, 0, W, 5);
+    ctx.fillStyle = '#e8b93a'; ctx.fillRect(0, 0, W * (1 - rem), 5);
+  }
+
+  // boss health bar
+  const bosses = G.dinos.filter(d => d.boss && !d.dead && !d.leaked);
+  if (bosses.length){
+    let b = bosses[0];
+    for (const d of bosses) if (d.maxHp > b.maxHp) b = d;
+    const bw = 460, bx = (W - bw) / 2, by = 30;
+    ctx.fillStyle = 'rgba(12,8,8,0.72)'; ctx.fillRect(bx - 10, by - 18, bw + 20, 38);
+    ctx.strokeStyle = '#a03828'; ctx.lineWidth = 1.5; ctx.strokeRect(bx - 10, by - 18, bw + 20, 38);
+    ctx.fillStyle = '#ffd24a'; ctx.font = 'bold 12px Verdana, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('☠  ' + b.name.toUpperCase() + (bosses.length > 1 ? `  (+${bosses.length - 1} more)` : ''), W/2, by - 4);
+    ctx.fillStyle = '#38130e'; ctx.fillRect(bx, by + 2, bw, 10);
+    const grd = ctx.createLinearGradient(bx, 0, bx + bw, 0);
+    grd.addColorStop(0, '#ff6a4a'); grd.addColorStop(1, '#c02818');
+    ctx.fillStyle = grd; ctx.fillRect(bx, by + 2, bw * clamp(b.hp / b.maxHp, 0, 1), 10);
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1;
+    for (let i = 1; i < 10; i++){ ctx.beginPath(); ctx.moveTo(bx + bw*i/10, by + 2); ctx.lineTo(bx + bw*i/10, by + 12); ctx.stroke(); }
+  }
+
+  // hurt vignette when a dino breaches
+  if (G.hurtT > 0){
+    G.hurtT = Math.max(0, G.hurtT - dt);
+    const a = G.hurtT / 0.6;
+    const hg = ctx.createRadialGradient(W/2, H/2, H*0.38, W/2, H/2, H*0.78);
+    hg.addColorStop(0, 'rgba(200,20,10,0)'); hg.addColorStop(1, `rgba(200,20,10,${0.3 * a})`);
+    ctx.fillStyle = hg; ctx.fillRect(0, 0, W, H);
+  }
+  // gold flash on wave clear
+  if (G.flashT > 0){
+    G.flashT = Math.max(0, G.flashT - dt);
+    ctx.fillStyle = `rgba(255,214,90,${0.16 * (G.flashT / 0.45)})`;
+    ctx.fillRect(0, 0, W, H);
   }
 
   // boss banner
