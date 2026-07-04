@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.15.0';
+const VERSION = '1.15.1';
 /* Player-facing changelog — ONE entry per DAY (a daily recap), newest first.
    The `v` shown is the latest version released that day; `items` are the major,
    player-facing changes only. Keep it about what changed for the player — no
@@ -12,8 +12,8 @@ const VERSION = '1.15.0';
    new day, add a new daily entry; when shipping again the same day, update that
    day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.15.0', date: 'Jul 4, 2026', items: [
-    '☣️ New weapon — MASON\'S GAS! It toots out a puff of green poison gas that lingers on the ground and hurts every dinosaur that walks through the cloud (ignoring armor). Flyers float above it. A little stronger than the Flame Thrower, and great against big packs. (Designed by Mason, age 9.)',
+  {v: '1.15.1', date: 'Jul 4, 2026', items: [
+    '☣️ New weapon — MASON\'S GAS! It rips a LOUD toot and blasts out a puff of green poison gas that lingers on the ground and hurts every dinosaur that walks through the cloud (ignoring armor). Flyers float above it. A little stronger than the Flame Thrower, and great against big packs. (Designed by Mason, age 9.)',
     '🚦 Smoother opening: a "Place a weapon to begin" prompt now guides you at the start, and the first wave kicks off automatically a few seconds after you set down your first weapon (you can still press Start Wave to go early).',
     '🐣 Friendlier start: you now begin with 80 DNA to spend on a first upgrade, and the early difficulty levels have been softened so Level 1 is beatable with little or no upgrading — challenging, but fair. The full difficulty returns by Level 15, so the deep climb is untouched.',
     '🧬 DNA now banks every wave you clear — not just on a full 100-wave clear — so even a run that falls short earns DNA toward upgrades. No more getting stuck with nothing to spend. Reaching further pays more, and finishing all 100 still gives a bonus.',

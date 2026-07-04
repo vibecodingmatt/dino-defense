@@ -432,11 +432,12 @@ const SFX = {
     sfxNoise({dur: 0.12, peak: 0.14, type: 'lowpass', f0: 520, f1: 140, wet: 0.15});
     sfxTone({type: 'triangle', f0: 1250, f1: 820, dur: 0.1, peak: 0.045, wet: 0.25, delay: 0.04});
   },
-  gas(){ // Mason's request: it toots. A wet, buzzy, deflating raspberry.
+  gas(){ // Mason's request: a REAL ripper — loud, long, wet and sputtery
     if (!sfxGate()) return;
-    sfxTone({type: 'sawtooth', f0: 150, f1: 72, dur: 0.44, peak: 0.13, dist: true, wet: 0.18, tremF: 27, tremF1: 13, tremD: 0.7, a: 0.02});
-    sfxTone({type: 'sawtooth', f0: 98,  f1: 58, dur: 0.4,  peak: 0.09, dist: true, wet: 0.18, tremF: 19, tremD: 0.6, a: 0.02});
-    sfxNoise({dur: 0.4, peak: 0.05, type: 'bandpass', f0: 700, f1: 300, Q: 1.2, wet: 0.2, a: 0.03}); // wet splatter
+    sfxTone({type: 'sawtooth', f0: 168, f1: 58, dur: 0.66, peak: 0.34, dist: true, wet: 0.22, tremF: 31, tremF1: 10, tremD: 0.9, a: 0.012}); // buzzy body
+    sfxTone({type: 'sawtooth', f0: 104, f1: 42, dur: 0.62, peak: 0.26, dist: true, wet: 0.22, tremF: 23, tremF1: 8,  tremD: 0.8, a: 0.012}); // lower harmonic
+    sfxTone({type: 'square',   f0: 66,  f1: 34, dur: 0.58, peak: 0.20, dist: true, wet: 0.15, tremF: 17, tremD: 0.7, a: 0.02});             // deep sub rumble
+    sfxNoise({dur: 0.58, peak: 0.12, type: 'bandpass', f0: 950, f1: 240, Q: 1.1, wet: 0.24, a: 0.015}); // wet splatter
   },
   upgrade(){ // ascending servo chime
     sfxTone({type: 'triangle', f0: 520, dur: 0.08, peak: 0.05, wet: 0.2});
