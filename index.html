@@ -15,7 +15,7 @@
     <span id="levelTitle">Level</span>
     <span class="stat" id="hWave">Wave 0/100</span>
     <span class="stat" id="hCash">$0</span>
-    <span class="stat" id="hDna">0 DNA</span>
+    <span class="stat" id="hDna" title="DNA is banked every wave — spend it on permanent upgrades in the Research Lab (island map)">0 DNA</span>
     <span class="stat" id="hLives">❤ 100</span>
     <span id="invBadge" class="hidden">🛡 INVINCIBLE</span>
     <span class="spacer"></span>
@@ -80,7 +80,7 @@
 <div id="lab" class="modal hidden">
   <div class="modalBox">
     <h2>🧬 Research Lab</h2>
-    <div class="sub">Permanent upgrades, paid in <span id="labDna">0 DNA</span>. DNA is earned every wave you clear — even on failed runs.</div>
+    <div class="sub">This is where DNA gets spent. You have <b><span id="labDna">0 DNA</span></b> to invest in permanent upgrades — they apply to every run, forever. DNA is earned every wave you clear, even on failed runs.</div>
     <div id="labList"></div>
     <div class="modalBtns"><button id="labClose" class="primary">Done</button></div>
   </div>
@@ -118,6 +118,7 @@
     <div class="modalBtns">
       <button id="retryCp" class="primary"></button>
       <button id="goRetry">↻ Restart Zone</button>
+      <button id="goLab">🧬 Spend DNA in the Lab</button>
       <button id="goMenu">🗺 Island Map</button>
     </div>
   </div>
@@ -130,6 +131,7 @@
     <p id="victoryText"></p>
     <div class="modalBtns">
       <button id="vNext" class="primary">➜ Next Zone</button>
+      <button id="vLab">🧬 Spend DNA in the Lab</button>
       <button id="vMenu">🗺 Island Map</button>
     </div>
   </div>

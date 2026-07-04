@@ -131,7 +131,20 @@ canvas#game {
   letter-spacing: 4px; text-shadow: 0 4px 20px #00000090, 0 0 40px #e8b93a30;
 }
 #menu .tag { color: var(--dim); margin: 8px 0 26px; font-size: 14px; letter-spacing: 1px; }
-#menuDna { color: var(--dna); font-weight: bold; margin-bottom: 18px; font-size: 16px; }
+#menuDna {
+  color: var(--dna); margin-bottom: 18px; font-size: 15px;
+  background: #16202a; border: 1px solid #2e4a62; border-radius: 20px;
+  padding: 8px 18px; cursor: pointer; transition: border-color 0.1s;
+}
+#menuDna:hover { border-color: var(--dna); }
+#btnLab.attention {
+  border-color: var(--amber2); color: var(--amber2);
+  animation: labPulse 1.4s infinite;
+}
+@keyframes labPulse {
+  0%, 100% { box-shadow: 0 0 4px #e8b93a40; }
+  50% { box-shadow: 0 0 18px #e8b93a90; }
+}
 #levelCards { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; max-width: 1100px; }
 .levelCard {
   width: 195px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
@@ -185,6 +198,36 @@ canvas#game {
 .optRow { display: flex; align-items: center; gap: 10px; padding: 9px 2px; font-size: 14px; }
 .optRow input { width: 17px; height: 17px; accent-color: var(--amber); cursor: pointer; }
 .optRow small { color: var(--dim); display: block; font-size: 11px; }
+
+/* lab opens above end-of-run modals */
+#lab { z-index: 30; }
+
+/* ---------- mobile / narrow screens ---------- */
+* { -webkit-tap-highlight-color: transparent; }
+canvas#game, #hud button, .shopCard, .modal button { touch-action: manipulation; }
+@media (max-width: 920px) {
+  #app { height: 100dvh; }
+  #main { flex-direction: column; overflow: hidden; }
+  #stage { flex: none; background: #0a0d08; }
+  canvas#game { width: 100%; max-height: 52vh; }
+  #shop {
+    width: 100%; flex: 1; min-height: 0;
+    border-left: none; border-top: 2px solid var(--line);
+    padding: 8px;
+  }
+  #shopCards { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .shopCard { padding: 6px 3px; min-width: 0; }
+  .shopCard .ico { font-size: 18px; }
+  .shopCard .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 9.5px; }
+  #hud { font-size: 11px; gap: 5px; padding: 5px 6px; }
+  #levelTitle { font-size: 13px; }
+  #hud button { padding: 7px 8px; font-size: 12px; }
+  #hud .stat { padding: 5px 7px; }
+  #towerPanel button { padding: 9px 12px; }
+  #menu h1 { letter-spacing: 2px; }
+  .levelCard { width: calc(50% - 10px); }
+  .hint { display: none; }
+}
 
 /* error overlay */
 #errbox {

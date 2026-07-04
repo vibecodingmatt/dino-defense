@@ -324,7 +324,8 @@ function spawnDino(key, pathI, isBoss){
   const d = {
     key, def, boss: !!isBoss,
     name: def.name, painter: def.painter, pal: def.pal, feat: def.feat, flying: !!def.flying,
-    size: def.size, armor: def.armor, dmgToBase: def.dmg,
+    size: Math.min(58, def.size * 1.35 + 3), // scaled up for visibility (small dinos get the biggest boost)
+    armor: def.armor, dmgToBase: def.dmg,
     hp, maxHp: hp,
     speed: def.speed * speedScale(w),
     pathI, dist: 0,
@@ -870,6 +871,7 @@ function buildShop(){
     card.title = def.desc + (def.air ? '' : '  (Cannot hit flying dinosaurs.)');
     card.onclick = () => {
       G.placing = (G.placing === key) ? null : key;
+      G.pendingTap = null;
       selectTower(null);
       updateHUD();
     };
@@ -877,7 +879,11 @@ function buildShop(){
   }
 }
 function buildMenu(){
-  $('#menuDna').textContent = fmt(save.dna) + ' DNA';
+  $('#menuDna').innerHTML = `🧬 <b>${fmt(save.dna)} DNA</b> banked &nbsp;·&nbsp; spend it in the Research Lab ▸`;
+  // pulse the Lab button whenever an upgrade is affordable
+  const canBuy = LAB.some(e => labTier(e.key) < e.max && save.dna >= labCost(e, labTier(e.key)));
+  $('#btnLab').classList.toggle('attention', canBuy);
+  $('#btnLab').innerHTML = canBuy ? '🧬 Research Lab — upgrades available!' : '🧬 Research Lab';
   const el = $('#levelCards');
   el.innerHTML = '';
   if (save.run){
@@ -1013,7 +1019,10 @@ function render(dt){
   ctx.drawImage(G.bg, 0, 0);
 
   // tower bases + range of selected/placing
-  for (const t of G.towers) drawTowerBase(ctx, t.x, t.y, t.key, t === G.selected);
+  for (const t of G.towers){
+    const tier = Math.min(5, Math.ceil((t.lv.dmg + t.lv.rate + t.lv.range) / 3));
+    drawTowerBase(ctx, t.x, t.y, t.key, t === G.selected, tier);
+  }
   if (G.selected){
     const st = towerStats(G.selected);
     ctx.strokeStyle = 'rgba(255,220,120,0.55)'; ctx.setLineDash([8, 7]); ctx.lineWidth = 1.6;
@@ -1189,7 +1198,14 @@ function render(dt){
     ctx.fillStyle = ok ? 'rgba(140,240,140,0.12)' : 'rgba(255,90,90,0.12)';
     const rng = def.range * (1 + 0.04*labTier('range_all'));
     ctx.beginPath(); ctx.arc(G.mouse.x, G.mouse.y, rng, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-    drawTowerBase(ctx, G.mouse.x, G.mouse.y, G.placing, false);
+    drawTowerBase(ctx, G.mouse.x, G.mouse.y, G.placing, false, 0);
+    if (G.pendingTap){
+      ctx.font = 'bold 13px Verdana, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillText(ok ? 'TAP AGAIN TO BUILD' : 'BLOCKED — TAP ELSEWHERE', G.mouse.x + 1, G.mouse.y - 33);
+      ctx.fillStyle = ok ? '#9fe870' : '#ff8a7a';
+      ctx.fillText(ok ? 'TAP AGAIN TO BUILD' : 'BLOCKED — TAP ELSEWHERE', G.mouse.x, G.mouse.y - 34);
+    }
     ctx.globalAlpha = 1;
   }
 
@@ -1311,23 +1327,35 @@ cv.addEventListener('mousemove', e => {
   G.mouse.x = p.x; G.mouse.y = p.y; G.mouse.on = true;
 });
 cv.addEventListener('mouseleave', () => { G.mouse.on = false; });
+const IS_COARSE = matchMedia('(pointer: coarse)').matches; // touch devices
 cv.addEventListener('click', e => {
   if (G.state !== 'playing') return;
   const p = canvasPos(e);
   if (G.placing){
-    placeTower(G.placing, p.x, p.y);
+    if (IS_COARSE){
+      // two-tap on touch: first tap previews, second tap (near it) confirms
+      if (!G.pendingTap || hyp(p.x, p.y, G.pendingTap.x, G.pendingTap.y) > 36){
+        G.pendingTap = {x: p.x, y: p.y};
+        G.mouse.x = p.x; G.mouse.y = p.y; G.mouse.on = true;
+        return;
+      }
+      placeTower(G.placing, G.pendingTap.x, G.pendingTap.y);
+      G.pendingTap = null;
+    } else {
+      placeTower(G.placing, p.x, p.y);
+    }
     if (!e.shiftKey && G.cash < TOWERS[G.placing].cost) { G.placing = null; }
     updateHUD();
     return;
   }
   // select tower under cursor
   let hit = null;
-  for (const t of G.towers) if (hyp(p.x, p.y, t.x, t.y) < 20) hit = t;
+  for (const t of G.towers) if (hyp(p.x, p.y, t.x, t.y) < 22) hit = t;
   selectTower(hit);
 });
 cv.addEventListener('contextmenu', e => {
   e.preventDefault();
-  G.placing = null; selectTower(null); updateHUD();
+  G.placing = null; G.pendingTap = null; selectTower(null); updateHUD();
 });
 window.addEventListener('keydown', e => {
   if (G.state !== 'playing') return;
@@ -1335,7 +1363,7 @@ window.addEventListener('keydown', e => {
   if (e.key >= '1' && e.key <= String(keys.length)){
     G.placing = keys[+e.key - 1]; selectTower(null); updateHUD();
   }
-  if (e.key === 'Escape'){ G.placing = null; selectTower(null); updateHUD(); }
+  if (e.key === 'Escape'){ G.placing = null; G.pendingTap = null; selectTower(null); updateHUD(); }
   if (e.key === ' '){ e.preventDefault(); if (!G.waveActive) startWave(); else togglePause(); }
 });
 function togglePause(){ G.paused = !G.paused; updateHUD(); }
@@ -1355,7 +1383,11 @@ $('#tpMode').onclick = () => {
   t.mode = modes[(modes.indexOf(t.mode) + 1) % modes.length];
   renderTowerPanel();
 };
-$('#btnLab').onclick = () => { buildLab(); $('#lab').classList.remove('hidden'); };
+const openLab = () => { buildLab(); $('#lab').classList.remove('hidden'); };
+$('#btnLab').onclick = openLab;
+$('#menuDna').onclick = openLab;
+$('#vLab').onclick = openLab;
+$('#goLab').onclick = openLab;
 $('#labClose').onclick = () => { $('#lab').classList.add('hidden'); buildMenu(); };
 $('#btnSettings').onclick = () => { syncSettings(); $('#settings').classList.remove('hidden'); };
 $('#setClose').onclick = () => { $('#settings').classList.add('hidden'); };
@@ -1393,6 +1425,15 @@ buildMenu();
 syncSettings();
 requestAnimationFrame(frame);
 
+if (new URLSearchParams(location.search).has('dbg')){
+  setTimeout(() => {
+    const el = $('#errbox');
+    el.classList.remove('hidden');
+    el.textContent = ['body', '#app', '#main', '#stage', '#game', '#shop', '#shopCards', '#hud']
+      .map(s => s + '=' + Math.round(document.querySelector(s === 'body' ? 'body' : s).getBoundingClientRect().width)).join(' ');
+  }, 800);
+}
+
 /* headless smoke-test hook: ?test=1 jumps straight into gameplay,
    &sim=SECONDS fast-forwards the simulation synchronously */
 const testParams = new URLSearchParams(location.search);
@@ -1406,6 +1447,12 @@ if (testParams.has('test')){
   placeTower('gatling', 420, 260);
   placeTower('tranq', 550, 330);
   placeTower('missile', 800, 300);
+  if (testParams.has('upg')){ // preview upgraded-tower visuals
+    const lv = clamp(parseInt(testParams.get('upg'), 10) || 5, 0, 5);
+    G.towers[0].lv = {dmg: lv, rate: lv, range: lv};
+    G.towers[1].lv = {dmg: Math.ceil(lv/2), rate: Math.ceil(lv/2), range: 0};
+    G.towers[2].lv = {dmg: lv, rate: lv, range: lv};
+  }
   startWave();
   const sim = parseFloat(testParams.get('sim')) || 0;
   for (let s = 0; s < sim; s += 0.05) step(0.05);

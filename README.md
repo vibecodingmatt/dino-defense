@@ -26,6 +26,9 @@ Blue, T-Rex, Spinosaurus, Indominus Rex, Indoraptor, and finally Giganotosaurus.
 | **Space** | Start next wave, or pause mid-wave |
 | 1× / 2× / 4× | Game speed |
 
+**On phones/tablets:** the layout stacks (map on top, armory below). Tap a weapon,
+tap the map to preview placement, then tap the same spot again to build.
+
 ## Tips
 - 🔥 Flame Throwers and other ground weapons **can't hit flyers** (Pteranodons,
   Dimorphodons, Quetzalcoatlus) — keep some air coverage.

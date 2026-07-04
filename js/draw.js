@@ -379,24 +379,27 @@ function drawDino(ctx, d, x, y, dir, ph, alpha){
   ctx.restore();
 }
 
-/* ---------- TOWERS ---------- */
-function drawTowerBase(ctx, x, y, key, selected){
+/* ---------- TOWERS ----------
+   tier (0-5, from total upgrades) grows the pad and adds gold trim. */
+function drawTowerBase(ctx, x, y, key, selected, tier){
   const def = TOWERS[key];
+  tier = tier || 0;
+  const R = 17 + tier * 1.2; // pad grows with investment
   ctx.save();
   ctx.translate(x, y);
   // ground shadow
   ctx.fillStyle = 'rgba(0,0,0,0.3)';
-  ctx.beginPath(); ctx.ellipse(2, 4, 19, 14, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(2, 4, R + 2, R * 0.82, 0, 0, Math.PI*2); ctx.fill();
   // octagonal concrete pad
   ctx.beginPath();
   for (let i = 0; i < 8; i++){
     const a = i/8*Math.PI*2 + Math.PI/8;
-    const px = Math.cos(a)*17, py = Math.sin(a)*17;
+    const px = Math.cos(a)*R, py = Math.sin(a)*R;
     i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
   }
   ctx.closePath();
-  const g = ctx.createLinearGradient(-17, -17, 17, 17);
-  g.addColorStop(0, '#4c5246'); g.addColorStop(1, '#2a2e27');
+  const g = ctx.createLinearGradient(-R, -R, R, R);
+  g.addColorStop(0, tier >= 3 ? '#585f50' : '#4c5246'); g.addColorStop(1, '#2a2e27');
   ctx.fillStyle = g; ctx.fill();
   ctx.strokeStyle = selected ? '#ffd24a' : '#181c15';
   ctx.lineWidth = selected ? 2.5 : 1.5; ctx.stroke();
@@ -404,14 +407,27 @@ function drawTowerBase(ctx, x, y, key, selected){
   ctx.save();
   ctx.strokeStyle = def.color; ctx.globalAlpha = 0.85; ctx.lineWidth = 2.5;
   ctx.setLineDash([5, 4]);
-  ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI*2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0, 0, R - 4, 0, Math.PI*2); ctx.stroke();
   ctx.setLineDash([]);
   ctx.restore();
+  // veteran trim: gold band from tier 2, corner studs from tier 4
+  if (tier >= 2){
+    ctx.strokeStyle = `rgba(232,185,58,${0.35 + tier * 0.1})`;
+    ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.arc(0, 0, R - 1.5, 0, Math.PI*2); ctx.stroke();
+  }
+  if (tier >= 4){
+    ctx.fillStyle = '#e8b93a';
+    for (let i = 0; i < 8; i++){
+      const a = i/8*Math.PI*2 + Math.PI/8;
+      ctx.beginPath(); ctx.arc(Math.cos(a)*(R-4.5), Math.sin(a)*(R-4.5), 1.5, 0, Math.PI*2); ctx.fill();
+    }
+  }
   // bolts
   ctx.fillStyle = '#141811';
   for (let i = 0; i < 4; i++){
     const a = i/4*Math.PI*2 + Math.PI/4;
-    ctx.beginPath(); ctx.arc(Math.cos(a)*14.5, Math.sin(a)*14.5, 1.6, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(Math.cos(a)*(R-2.5), Math.sin(a)*(R-2.5), 1.6, 0, Math.PI*2); ctx.fill();
   }
   // per-weapon set dressing
   switch (key){
@@ -467,8 +483,17 @@ function drawTowerBase(ctx, x, y, key, selected){
 function drawTowerTurret(ctx, t, flash, time){
   time = time || 0;
   const rec = (t.recoil || 0) * 4;   // barrel kickback in px
+  const tier = Math.min(5, Math.ceil(((t.lv ? t.lv.dmg + t.lv.rate + t.lv.range : 0)) / 3));
   ctx.save();
   ctx.translate(t.x, t.y);
+  // max-tier weapons hum with a pulsing gold aura
+  if (tier >= 5){
+    const pl = (Math.sin(time * 3 + t.x) + 1) / 2;
+    ctx.strokeStyle = `rgba(255,210,74,${0.25 + 0.25 * pl})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(0, 0, 25 + pl * 2.5, 0, Math.PI*2); ctx.stroke();
+  }
+  ctx.scale(1 + tier * 0.07, 1 + tier * 0.07); // hardware grows with upgrades
   ctx.rotate((t.key === 'sonic' || t.key === 'tesla') ? 0 : t.angle);
   ctx.lineCap = 'round';
   switch (t.key){
