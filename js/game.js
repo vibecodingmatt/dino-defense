@@ -321,10 +321,13 @@ function spawnDino(key, pathI, isBoss){
   const hp = isBoss
     ? def.hp * (0.25 + w * 0.075) * G.level.hpMult
     : def.hp * hpScale(w);
+  const sz = Math.min(58, def.size * 1.35 + 3); // scaled up for visibility (small dinos get the biggest boost)
   const d = {
     key, def, boss: !!isBoss,
     name: def.name, painter: def.painter, pal: def.pal, feat: def.feat, flying: !!def.flying,
-    size: Math.min(58, def.size * 1.35 + 3), // scaled up for visibility (small dinos get the biggest boost)
+    size: sz,
+    stride: clamp(def.speed * 1.7 / sz, 2.4, 9.5), // step frequency scales with speed & bulk
+    dirT: 1, turn: 1, pitch: 0, lastStep: 0,
     armor: def.armor, dmgToBase: def.dmg,
     hp, maxHp: hp,
     speed: def.speed * speedScale(w),
@@ -569,7 +572,7 @@ function updateProjs(dt){
 function addFx(kind, x, y, r, ang){
   if (G.fx.length > 220) return;
   G.fx.push({kind, x, y, r, ang: ang || 0, t: 0,
-             dur: kind === 'sonic' ? 0.5 : kind === 'boom' ? 0.45 : kind === 'frost' ? 0.5 : kind === 'flame' ? 0.22 : kind === 'ring' ? 0.8 : kind === 'dust' ? 0.9 : 0.3});
+             dur: kind === 'sonic' ? 0.5 : kind === 'boom' ? 0.45 : kind === 'frost' ? 0.5 : kind === 'flame' ? 0.22 : kind === 'ring' ? 0.8 : kind === 'dust' ? 0.9 : kind === 'step' ? 0.45 : 0.3});
 }
 function addText(x, y, txt, color, size){
   if (G.texts.length > 40) return;
@@ -596,8 +599,24 @@ function updateDinos(dt){
     // move
     const slow = d.slowT > 0 ? d.slowF : 1;
     d.dist += d.speed * slow * dt;
-    d.phase += dt * (d.flying ? 6 : 7) * slow;
+    d.phase += dt * (d.flying ? 6 : d.stride) * slow;
     const path = G.paths[d.pathI];
+    // facing & body pitch follow the path (smoothed, so corners read as a turn)
+    const pp = samplePath(path, d.dist);
+    const cosA = Math.cos(pp.ang);
+    if (Math.abs(cosA) > 0.15) d.dirT = cosA > 0 ? 1 : -1;
+    d.turn += clamp(d.dirT - d.turn, -dt * 7, dt * 7);
+    const pitchT = Math.sin(pp.ang) * (d.flying ? 0.35 : 0.5);
+    d.pitch += clamp(pitchT - d.pitch, -dt * 4, dt * 4);
+    // heavy footfalls: dust + a rumble from the giants
+    if (!d.flying && d.size >= 26){
+      const stepNow = Math.floor(d.phase / Math.PI);
+      if (stepNow !== d.lastStep){
+        d.lastStep = stepNow;
+        addFx('step', pp.x - d.dirT * d.size * 0.15 + rand(-4, 4), pp.y + 2, d.size * 0.35);
+        if (d.size >= 40) G.shake = Math.max(G.shake, 1.3);
+      }
+    }
     if (d.dist >= path.len){
       d.leaked = true;
       if (!save.settings.invincible){
@@ -853,6 +872,8 @@ function updateHUD(){
   $('#btnWave').textContent = G.waveActive ? '⚔ Wave in progress' : (G.autoTimer > 0 ? `▶ Next in ${Math.ceil(G.autoTimer)}…` : '▶ Start Wave ' + (G.wave + 1));
   $$('#speedBtns button').forEach(b => b.classList.toggle('on', +b.dataset.s === G.speed && !G.paused));
   $('#btnPause').classList.toggle('on', G.paused);
+  $('#btnMute').textContent = save.settings.mute ? '🔇' : '🔊';
+  $('#btnMute').classList.toggle('on', save.settings.mute);
   // shop affordability
   $$('.shopCard').forEach(el => {
     el.classList.toggle('cant', G.cash < TOWERS[el.dataset.key].cost);
@@ -1058,9 +1079,8 @@ function render(dt){
 
   const drawOne = d => {
     const p = dinoPos(d);
-    const dir = Math.cos(p.ang) >= 0 ? 1 : -1;
     const alpha = d.cloaked && d.revealT <= 0 ? 0.22 : 1;
-    drawDino(ctx, d, p.x, p.y, dir, d.phase, alpha);
+    drawDino(ctx, d, p.x, p.y, d.turn, d.phase, alpha, d.pitch);
     // status tints
     if (d.burnT > 0){
       ctx.fillStyle = 'rgba(255,120,20,0.35)';
@@ -1155,6 +1175,10 @@ function render(dt){
       case 'trail':
         ctx.fillStyle = `rgba(200,200,200,${0.35*(1-k)})`;
         ctx.beginPath(); ctx.arc(f.x, f.y, 2 + k*3, 0, Math.PI*2); ctx.fill();
+        break;
+      case 'step': // small footfall puff
+        ctx.fillStyle = `rgba(150,138,102,${0.22*(1-k)})`;
+        ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r * (0.35 + k*0.75), f.r * (0.2 + k*0.4), 0, 0, Math.PI*2); ctx.fill();
         break;
       case 'dust': // impact dust rolling outward
         ctx.fillStyle = `rgba(168,150,112,${0.4*(1-k)})`;
@@ -1365,12 +1389,20 @@ window.addEventListener('keydown', e => {
   }
   if (e.key === 'Escape'){ G.placing = null; G.pendingTap = null; selectTower(null); updateHUD(); }
   if (e.key === ' '){ e.preventDefault(); if (!G.waveActive) startWave(); else togglePause(); }
+  if (e.key === 'm' || e.key === 'M') toggleMute();
 });
 function togglePause(){ G.paused = !G.paused; updateHUD(); }
 
 /* ---------------- wire up UI ---------------- */
 $('#btnWave').onclick = () => { startWave(); };
 $('#btnPause').onclick = togglePause;
+function toggleMute(){
+  save.settings.mute = !save.settings.mute;
+  persist();
+  if ($('#optMute')) $('#optMute').checked = save.settings.mute;
+  updateHUD();
+}
+$('#btnMute').onclick = toggleMute;
 $$('#speedBtns button').forEach(b => b.onclick = () => { G.speed = +b.dataset.s; G.paused = false; updateHUD(); });
 $('#btnMenu').onclick = () => { if (!G.over) saveRun(); toMenu(); };
 $('#up_dmg').onclick = () => upgrade('dmg');

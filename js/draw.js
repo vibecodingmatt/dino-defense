@@ -14,19 +14,26 @@ function shade(hex, f){ // lighten (f>0) / darken (f<0) a #rrggbb color
   return `rgb(${r|0},${g|0},${b|0})`;
 }
 
-/* ---------- leg helper: thigh+shin as tapered strokes ---------- */
+/* ---------- leg helper: two-joint walk cycle with foot lift ---------- */
 function leg(ctx, hipX, hipY, len, ph, color, w){
-  const a1 = Math.sin(ph) * 0.55;               // thigh swing
-  const kx = hipX + Math.sin(a1) * len * 0.55;
-  const ky = hipY + Math.cos(a1) * len * 0.55;
-  const a2 = a1 + 0.35 + Math.max(0, Math.sin(ph + 1.2)) * 0.5; // knee bend
-  const fx = kx + Math.sin(a2) * len * 0.5;
-  const fy = Math.min(0, ky + Math.cos(a2) * len * 0.5) ; // foot not below ground
+  const swing = Math.sin(ph);                    // fore/aft sweep
+  const lift  = Math.max(0, -Math.cos(ph));      // foot lifts during recovery half
+  const a1 = swing * 0.55;                       // thigh angle from vertical
+  const kx = hipX + Math.sin(a1) * len * 0.5;
+  const ky = hipY + Math.cos(a1) * len * 0.5 - lift * len * 0.14;
+  const a2 = a1 + 0.4 + lift * 1.05;             // shin folds as the foot lifts
+  const fx = kx + Math.sin(a2) * len * 0.52;
+  const fy = Math.min(0, ky + Math.cos(a2) * len * 0.52 - lift * len * 0.22);
   ctx.strokeStyle = color; ctx.lineCap = 'round';
-  ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(hipX, hipY); ctx.lineTo(kx, ky); ctx.stroke();
-  ctx.lineWidth = w * 0.7; ctx.beginPath(); ctx.moveTo(kx, ky); ctx.lineTo(fx, fy); ctx.stroke();
-  // foot
-  ctx.lineWidth = w * 0.55; ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx + w*0.9, fy); ctx.stroke();
+  ctx.lineWidth = w;
+  ctx.beginPath(); ctx.moveTo(hipX, hipY); ctx.lineTo(kx, ky); ctx.stroke();
+  ctx.lineWidth = w * 0.7;
+  ctx.beginPath(); ctx.moveTo(kx, ky); ctx.lineTo(fx, fy); ctx.stroke();
+  // foot with a toe that trails when lifted
+  ctx.lineWidth = w * 0.5;
+  ctx.beginPath(); ctx.moveTo(fx, fy);
+  ctx.lineTo(fx + w * 1.1, fy - lift * len * 0.08);
+  ctx.stroke();
 }
 
 /* ---------- THEROPOD (raptors, rexes, most carnivores) ---------- */
@@ -42,12 +49,12 @@ function drawTheropod(ctx, d, ph){
   ctx.save();
   ctx.translate(0, -bob);
 
-  // tail — tapered curve behind hips
+  // tail — tapered curve with a traveling sway wave
   ctx.fillStyle = p.body;
   ctx.beginPath();
   ctx.moveTo(-0.15, -0.85);
-  ctx.quadraticCurveTo(-0.85, -0.80 + Math.sin(ph*0.7)*0.05, -1.45, -0.62 + Math.sin(ph*0.5)*0.08);
-  ctx.quadraticCurveTo(-0.80, -0.62, -0.15, -0.45);
+  ctx.quadraticCurveTo(-0.85, -0.80 + Math.sin(ph*0.9 + 1.1)*0.08, -1.45, -0.62 + Math.sin(ph*0.9)*0.13);
+  ctx.quadraticCurveTo(-0.80, -0.62 + Math.sin(ph*0.9 + 0.6)*0.05, -0.15, -0.45);
   ctx.closePath(); ctx.fill();
 
   // body
@@ -94,8 +101,8 @@ function drawTheropod(ctx, d, ph){
     }
   }
 
-  // neck + head
-  const hx = 0.55, hy = -0.98 - (big-1)*0.1;
+  // neck + head (with a subtle bob counter to the stride)
+  const hx = 0.55 + Math.sin(ph + 0.5)*0.02, hy = -0.98 - (big-1)*0.1 + Math.sin(ph*2 + 0.8)*0.035;
   ctx.fillStyle = p.body;
   ctx.beginPath();               // neck
   ctx.moveTo(0.28, -0.88); ctx.quadraticCurveTo(0.42, -1.0, hx, hy);
@@ -314,7 +321,7 @@ function drawFlyer(ctx, d, ph){
   const flap = Math.sin(ph * 2.2);
 
   ctx.save();
-  ctx.translate(0, -1.4); // flies above the ground point
+  ctx.translate(0, -1.4 + Math.sin(ph * 1.1) * 0.09); // bobbing flight above the ground point
 
   // far wing
   ctx.fillStyle = shade(p.body, -0.3);
@@ -358,8 +365,10 @@ function drawFlyer(ctx, d, ph){
 
 const PAINTERS = {theropod:drawTheropod, quad:drawQuad, sauropod:drawSauropod, flyer:drawFlyer};
 
-/* Draws a full dinosaur at world position with flip/shadow/health handled by caller */
-function drawDino(ctx, d, x, y, dir, ph, alpha){
+/* Draws a full dinosaur at world position.
+   turn: -1..1 facing (mid-values render the turn itself as a squash-flip)
+   pitch: body tilt in radians for walking up/down vertical path legs */
+function drawDino(ctx, d, x, y, turn, ph, alpha, pitch){
   const s = d.size;
   // shadow (on the ground even for flyers)
   ctx.save();
@@ -373,7 +382,13 @@ function drawDino(ctx, d, x, y, dir, ph, alpha){
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.translate(x, y);
-  if (dir < 0) ctx.scale(-1, 1);
+  const tx = (turn === undefined ? 1 : turn);
+  ctx.scale(Math.sign(tx || 1) * Math.max(0.08, Math.abs(tx)), 1);
+  if (pitch){ // tilt around hip height, not the feet
+    ctx.translate(0, -s * 0.6);
+    ctx.rotate(pitch);
+    ctx.translate(0, s * 0.6);
+  }
   ctx.scale(s, s);
   PAINTERS[d.painter](ctx, d, ph);
   ctx.restore();
