@@ -5,90 +5,30 @@
    ========================================================= */
 
 const VERSION = '1.12.2';
+/* Player-facing changelog — ONE entry per DAY (a daily recap), newest first.
+   The `v` shown is the latest version released that day; `items` are the major,
+   player-facing changes only. Keep it about what changed for the player — no
+   internal numbers, formulas, or how things are calculated. When shipping on a
+   new day, add a new daily entry; when shipping again the same day, update that
+   day's entry and bump its `v`. */
 const CHANGELOG = [
   {v: '1.12.2', date: 'Jul 4, 2026', items: [
-    '🏥 Research Lab adds two new uncapped upgrades: Bunker Plating (more base health) and InGen Funding (more starting cash)',
-    '⚖️ Rebalanced the climb so weapon level ≈ difficulty level is the fair fight — weapons a few levels ABOVE the difficulty dominate it (Level 1 becomes a faceroll with Lv 10 weapons), while weapons a few levels BELOW get overwhelmed (Lv 5 weapons struggle at difficulty 7+). DNA income scales with difficulty to keep the climb fundable',
-  ]},
-  {v: '1.12.1', date: 'Jul 4, 2026', items: [
-    '🏆 Achievements expanded to 25 and each now pays a one-time DNA bonus when earned — harder trophies pay much more (from a few hundred DNA up to a cool 2,000,000 for beating Level 1000)',
-    '🎯 New goals to grind: difficulty milestones (50/250/750), weapon-level trophies (level any weapon to 10/25/50), Full Arsenal, lifetime kill counts, a flawless high-level clear, and calling your first Air Strike',
-  ]},
-  {v: '1.12.0', date: 'Jul 4, 2026', items: [
-    '🎚️ Brand-new progression: pick a MAP and a DIFFICULTY LEVEL from 1 to 1000. Level 1 is a gentle warm-up; every level above is proportionally tougher',
-    '🔓 Difficulty unlocks 10 at a time — beat the highest one available (10, then 20, 30…) to open the next block, all the way to 1000',
-    '🧬 Research Lab reworked: every weapon now has an UNCAPPED level starting at 1. Keep pouring DNA into weapon levels to hit harder and climb higher — there is no ceiling',
-    '💠 DNA now drops from every kill, scaled by difficulty: low levels pay a little and cost little to upgrade; high levels pay big so you can afford the upgrades needed to push toward 1000',
-  ]},
-  {v: '1.11.0', date: 'Jul 4, 2026', items: [
-    '💥 Air Strike reworked into a true cluster bomb — jets carpet the ENTIRE zone in a rolling wave of bright fireballs. It now one-shot-kills every dinosaur on the field and rips 25% off any boss',
-    '🏆 New ACHIEVEMENTS page (button on the main menu) — a full list of every trophy with its name, description and locked/unlocked status, so you can see what to target: secure each zone, a flawless 100-wave run, slaying the D-Rex, and more',
-    '🧪 Developer options (Settings): 💰 Unlimited Cash and ⏭ Level Skip, alongside 🛡 Invincibility. Turning any of them ON now requires a password (turning them off never does). Runs that use a cheat earn no DNA and no achievements, so nothing can be farmed',
-    '☠ Bosses are now 3× tougher — their health bars are triple the size, so a T-Rex or D-Rex is a real siege instead of a speed bump',
-    '🚀 Fixed rockets swirling in endless circles around a target before finally hitting — missiles now home in tightly and detonate cleanly',
-    '👹 The wave-100 D-Rex has been completely redrawn as the Distortus Rex: a hulking, hunched four-armed mutation with a lumpy tumour-caked back, gnarled spines, and a low, glowing-eyed maw',
-  ]},
-  {v: '1.10.0', date: 'Jul 4, 2026', items: [
-    '🎵 Original looping score — a low jungle-adventure theme plays under the action (toggle Music in Settings)',
-    '☠ Wave 100 finale: the D-REX. A towering demonic hybrid with glowing eyes, armored hide, regeneration, and a double-roar entrance. Extremely hard to kill — bring everything',
-  ]},
-  {v: '1.9.0', date: 'Jul 4, 2026', items: [
-    '✈️ Air Strike is now a full show: two top-down F-22s roar in with contrails and afterburners, drop cluster canisters, and carpet the zone in a dozen staggered explosions',
-    '🏆 Beating wave 100 now triggers a fireworks celebration before the victory screen',
-    'All menus can be closed with an ✕ in the corner — no more scrolling to Done',
-  ]},
-  {v: '1.8.0', date: 'Jul 4, 2026', items: [
-    'New ✈️ AIR STRIKE: from wave 50, call in jets to carpet-bomb anywhere you click — $5,000, second run costs $7,500, max two per run',
-    'Anti-spam pricing: each additional copy of the same weapon costs more (+15%, mortars +35%)',
-    'Mid/late-game income reined in — kill bounties and wave bonuses grow much slower',
-    'Upgrade button now becomes clickable the moment you can afford it',
-    'Tranq Turret retired; Flame Thrower is available from wave 1',
-    'New 6× speed button',
-  ]},
-  {v: '1.7.0', date: 'Jul 4, 2026', items: [
-    'Weapons now unlock as you survive deeper waves — heavy hardware like the 💣 Mortar (wave 28) can no longer be rushed in the opening minutes',
-    'Upgrade costs properly tiered: every upgrade costs more than the weapon itself, and each level costs more than the last',
-    'Early-game income trimmed and early waves toughened slightly — less autopilot, more decisions',
-  ]},
-  {v: '1.6.0', date: 'Jul 4, 2026', items: [
-    'Fixed blood splatter disappearing during heavy late-game action',
-    'Balance: economy tightened toward a middle ground — weapons keep their punch but cost more, kills pay a bit less, and late waves are tougher again',
-    'New 💡 Tips & Field Manual on the main menu',
-    'Defeat now offers a clean restart (checkpoint retries removed)',
-    'Version number + this changelog added to the menu',
-  ]},
-  {v: '1.5.0', date: 'Jul 4, 2026', items: [
-    'Save protection: browser persistent storage, an automatic backup copy, and manual save codes (Settings)',
-    'New 💣 MORTAR: long-range splash devastation with a minimum range',
-    'Upgrades reworked: one track per weapon, 2–3 levels max; Missile Battery gains +1 rocket per level',
-    'Big difficulty rebalance: gentler late-game HP, stronger weapons',
-    'Bosses walk 20–35% faster',
-    'Fixed backwards-looking leg animation; dinos rotate fully to face the path',
-    'Audio no longer cuts out during heavy gunfire at high speed',
-    'Big dinosaurs now walk in front of turrets correctly',
-  ]},
-  {v: '1.4.0', date: 'Jul 4, 2026', items: [
-    'Bosses are oversized with cinematic entrances: roar pose, letterbox title card, shockwave, scattering birds',
-    'Blood splatter on kills',
-    'HUD mute button (M key)',
-    'Dinosaur animation overhaul: direction facing, size-scaled strides, footfall dust',
-  ]},
-  {v: '1.3.0', date: 'Jul 4, 2026', items: [
-    'Research Lab made prominent (pulsing button, Lab shortcuts after runs)',
-    'Dinosaurs ~40% bigger; mobile-friendly stacked layout with two-tap building',
-    'Towers visibly grow with upgrades',
+    '🎚️ New progression: choose a map and a difficulty level from 1 to 1000. Levels unlock 10 at a time — beat the highest one available to open the next block.',
+    '🧬 Research Lab reworked: spend DNA to permanently level up every weapon — plus your base health and starting cash — with no cap. DNA now drops from every kill, and pays out more the higher you climb.',
+    '⚔️ Keep your weapon levels close to the level you\'re playing: get ahead and it\'s a breeze, fall behind and you\'ll be overrun.',
+    '🏆 25 achievements on their own menu page — each one awards a DNA bonus, with far bigger payouts for the tougher feats.',
+    '💥 Air Strike reworked into a full-zone cluster bomb: it carpets the whole map, wipes out regular dinosaurs, and takes a big bite out of any boss.',
+    '☠ Bosses are much tougher, and the wave-100 finale — the four-armed D-Rex — was completely redrawn.',
+    '🚀 Fixed rockets circling their target before finally hitting.',
+    '🧪 Developer options (invincibility, unlimited cash, level skip) are password-protected, and runs that use them earn no DNA or achievements.',
+    '🎵 Original looping soundtrack, boss roars, blood splatter, and a wave-100 fireworks celebration.',
+    '💾 Save protection: your progress is backed up automatically, with copy/paste save codes in Settings to move it between devices.',
+    '💡 Added a Tips / Field Manual to the menu.',
   ]},
   {v: '1.2.0', date: 'Jul 3, 2026', items: [
-    'Synthesized audio engine with reverb; boss roars and collapse animations',
-    'Graphics overhaul: jungle terrain, torch-lit park gates, fortified checkpoint, detailed weapons',
-    'Boss health bar, incoming-wave preview, damage numbers, night fireflies',
-  ]},
-  {v: '1.1.0', date: 'Jul 3, 2026', items: [
-    'Run resume: close the browser and continue where you left off',
-    'Published to the web via GitHub Pages',
-  ]},
-  {v: '1.0.0', date: 'Jul 3, 2026', items: [
-    'Initial release: 5 zones × 100 waves, 26 dinosaurs, 8 weapons, DNA research lab',
+    '🦖 Initial release: five maps, 26 dinosaurs, eight weapons, and a DNA research lab.',
+    '🌐 Published to the web, with run-resume so you can close the tab and pick up right where you left off.',
+    '🎨 Graphics and audio overhaul: jungle terrain, the park gates, boss health bars, damage numbers, and boss roars.',
   ]},
 ];
 
