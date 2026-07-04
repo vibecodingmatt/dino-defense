@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.14.1';
+const VERSION = '1.14.2';
 /* Player-facing changelog — ONE entry per DAY (a daily recap), newest first.
    The `v` shown is the latest version released that day; `items` are the major,
    player-facing changes only. Keep it about what changed for the player — no
@@ -12,7 +12,8 @@ const VERSION = '1.14.1';
    new day, add a new daily entry; when shipping again the same day, update that
    day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.14.1', date: 'Jul 4, 2026', items: [
+  {v: '1.14.2', date: 'Jul 4, 2026', items: [
+    '🐣 Friendlier start: you now begin with 80 DNA to spend on a first upgrade, and the early difficulty levels have been softened so Level 1 is beatable with little or no upgrading — challenging, but fair. The full difficulty returns by Level 15, so the deep climb is untouched.',
     '🧬 DNA now banks every wave you clear — not just on a full 100-wave clear — so even a run that falls short earns DNA toward upgrades. No more getting stuck with nothing to spend. Reaching further pays more, and finishing all 100 still gives a bonus.',
     '🦖 The island comes alive: dinosaurs now screech, snarl and bellow — small ones shriek, big ones groan — as they fall, with the occasional distant roar drifting across the map. Boss roars are bigger and more menacing, and gunfire and explosions hit harder.',
     '🛠️ Tap or click any placed weapon and a little menu now pops up right over it — upgrade it (with the cost shown) or sell it (with the refund shown), and close it with the ✕ in the corner. The Upgrade button glows green the moment you can afford it and greys out when you can\'t, and selling asks for a confirming second tap so a stray tap can\'t sell your weapon.',
@@ -275,8 +276,16 @@ const WAVE_DNA_RAMP  = 0.016;   // extra DNA per wave number (wave 100 pays more
 const DIFF_CLEAR_DNA = 20;      // finishing bonus for clearing all 100 waves (× difficulty factor)
 const waveDna = w => WAVE_DNA_BASE + WAVE_DNA_RAMP * w;
 
+/* Early-game easing: the low levels are softened so a fresh player can beat
+   Level 1 (and climb the first stretch) with little or no upgrading — hard,
+   but fair. The discount fades out to full strength by EASE_SPAN, after which
+   the normal curve takes over. */
+const EASE_FLOOR = 0.4;   // Level 1 enemies at 40% of the base-curve health
+const EASE_SPAN  = 15;    // eased back to full strength by this level
+const diffEase = D => Math.min(1, EASE_FLOOR + (1 - EASE_FLOOR) * (D - 1) / (EASE_SPAN - 1));
+
 /* difficulty helpers */
-const diffHpMult    = D => Math.pow(DIFF_HP_GROWTH, D - 1);
+const diffHpMult    = D => Math.pow(DIFF_HP_GROWTH, D - 1) * diffEase(D);
 const diffSpdMult   = D => Math.min(DIFF_SPD_MAX, 1 + (D - 1) * 0.0015);
 const diffDnaMult   = D => Math.pow(DNA_GROWTH, D - 1);
 /* highest selectable level given the best level ever beaten */

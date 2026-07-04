@@ -25,8 +25,9 @@ const W = 1280, H = 720;
 
 /* ---------------- persistent save ---------------- */
 const SAVE_KEY = 'islaDefense.v1';
+const START_DNA = 80;   // grant so a new player can buy their first upgrade right away
 function defaultSave(){
-  return {bestDiff:0, mapBest:{}, wlv:{}, dna:0, kills:0, run:null, ach:{},
+  return {bestDiff:0, mapBest:{}, wlv:{}, dna:START_DNA, kills:0, run:null, ach:{}, granted:true,
           settings:{invincible:false, unlimitedCash:false, levelSkip:false, mute:false, auto:true, music:true}};
 }
 function loadSave(){
@@ -36,6 +37,7 @@ function loadSave(){
     const d = defaultSave();
     return {bestDiff: s.bestDiff || 0, mapBest: s.mapBest || {}, wlv: s.wlv || {},
             dna: s.dna || 0, kills: s.kills || 0, run: s.run || null, ach: s.ach || {},
+            granted: !!s.granted,
             settings: Object.assign(d.settings, s.settings || {})};
   } catch(e){ return defaultSave(); }
 }
@@ -84,6 +86,8 @@ function persist(){
   localStorage.setItem(SAVE_KEY, j);
   try { if (idb) idb.transaction('kv', 'readwrite').objectStore('kv').put(j, 'save'); } catch(e){}
 }
+// one-time starting DNA grant (covers players whose save predates the grant)
+if (!save.granted){ save.dna = (save.dna || 0) + START_DNA; save.granted = true; persist(); }
 /* persistent weapon level (starts at 1, uncapped) */
 const wlv = key => (save.wlv && save.wlv[key]) || 1;
 /* persistent meta-upgrade level — base HP / starting cash (starts at 0, uncapped) */
