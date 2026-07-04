@@ -9,7 +9,17 @@ const $$ = s => document.querySelectorAll(s);
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const rand  = (a, b) => a + Math.random() * (b - a);
 const hyp   = (ax, ay, bx, by) => Math.hypot(bx - ax, by - ay);
-const fmt   = n => n >= 1e6 ? (n/1e6).toFixed(1)+'M' : n >= 10000 ? (n/1000).toFixed(1)+'k' : Math.floor(n).toString();
+const fmt   = n => {
+  if (!isFinite(n)) return '∞';
+  n = Math.floor(n);
+  const a = Math.abs(n);
+  if (a >= 1e15) return n.toExponential(1);
+  if (a >= 1e12) return (n/1e12).toFixed(1)+'T';
+  if (a >= 1e9)  return (n/1e9).toFixed(1)+'B';
+  if (a >= 1e6)  return (n/1e6).toFixed(1)+'M';
+  if (a >= 1e4)  return (n/1e3).toFixed(1)+'k';
+  return n.toString();
+};
 
 const W = 1280, H = 720;
 
@@ -76,6 +86,8 @@ function persist(){
 }
 /* persistent weapon level (starts at 1, uncapped) */
 const wlv = key => (save.wlv && save.wlv[key]) || 1;
+/* persistent meta-upgrade level — base HP / starting cash (starts at 0, uncapped) */
+const mlvl = key => (save.wlv && save.wlv[key]) || 0;
 
 /* ---------------- developer cheats & achievements ---------------- */
 const CHEAT_PASSWORD = 'matttest';
@@ -472,8 +484,8 @@ function towerCost(key){
   const esc = key === 'mortar' ? 0.35 : 0.15;
   return Math.round(def.cost * (1 + esc * count));
 }
-const startCash  = () => 300;
-const startLives = () => 100;
+const startCash  = () => 300 + 75 * mlvl('start_cash');
+const startLives = () => 100 + 25 * mlvl('base_hp');
 
 function towerStats(t){
   const def = TOWERS[t.key];
@@ -1110,7 +1122,7 @@ function victory(){
   const D = G.difficulty;
   const cheated = runDisqualified();
   // clean runs bank a level-clear DNA bonus (scaled by difficulty) + record progress
-  const reward = cheated ? 0 : Math.round(DIFF_CLEAR_DNA * D);
+  const reward = cheated ? 0 : Math.round(DIFF_CLEAR_DNA * diffDnaMult(D));
   save.dna += reward;
   const wasUnlocked = diffUnlocked(save.bestDiff);
   let newBlock = false;
@@ -1394,8 +1406,9 @@ function setDiff(v, writeField){
 function buildMenu(){
   $('#verChip').innerHTML = `v${VERSION} · 📜 what's new`;
   $('#menuDna').innerHTML = `🧬 <b>${fmt(save.dna)} DNA</b> banked &nbsp;·&nbsp; spend it in the Research Lab ▸`;
-  // pulse the Lab button whenever any weapon can be leveled up
-  const canBuy = Object.keys(TOWERS).some(k => save.dna >= wlvCost(TOWERS[k], wlv(k)));
+  // pulse the Lab button whenever any weapon or base upgrade is affordable
+  const canBuy = Object.keys(TOWERS).some(k => save.dna >= wlvCost(TOWERS[k], wlv(k)))
+    || META.some(m => save.dna >= metaCost(m, mlvl(m.key)));
   $('#btnLab').classList.toggle('attention', canBuy);
   $('#btnLab').innerHTML = canBuy ? '🧬 Research Lab — upgrades available!' : '🧬 Research Lab';
   if (!selDiff || selDiff < 1) selDiff = unlockedCap();
@@ -1463,32 +1476,53 @@ function checkWeaponAch(){
   if (maxL >= 50) unlockAch('wlv_50');
   if (keys.every(k => wlv(k) >= 5)) unlockAch('arsenal5');
 }
+const mulStr = m => m >= 100 ? '×' + fmt(m) : '×' + m.toFixed(2);
+function refreshLabDna(){
+  $('#menuDna').innerHTML = `🧬 <b>${fmt(save.dna)} DNA</b> banked &nbsp;·&nbsp; spend it in the Research Lab ▸`;
+}
+function labRow(el, ico, name, tier, desc, cost, onBuy){
+  const afford = save.dna >= cost;
+  const row = document.createElement('div');
+  row.className = 'labRow';
+  row.innerHTML =
+    `<div class="labIco">${ico}</div>` +
+    `<div class="labInfo"><b>${name}</b> <span class="tier">${tier}</span><br><small>${desc}</small></div>` +
+    `<button class="labBuy" ${afford ? '' : 'disabled'}>${cost}</button>`;
+  row.querySelector('button').onclick = onBuy;
+  el.appendChild(row);
+}
 function buildLab(){
   $('#labDna').textContent = fmt(save.dna) + ' DNA';
   const el = $('#labList');
   el.innerHTML = '';
+  // base upgrades (health + starting cash)
+  for (const m of META){
+    const L = mlvl(m.key), cost = metaCost(m, L);
+    const now = m.per * L, next = m.per * (L + 1), unit = m.key === 'start_cash' ? '$' : '';
+    labRow(el, m.icon, m.name, `Lv ${L}`,
+      `Now +${unit}${now} → +${unit}${next} next level`,
+      `Lv ${L + 1} · ${fmt(cost)} DNA`,
+      () => {
+        const c = metaCost(m, mlvl(m.key));
+        if (save.dna < c) return;
+        save.dna -= c; save.wlv[m.key] = mlvl(m.key) + 1;
+        persist(); SFX.upgrade(); buildLab(); refreshLabDna();
+      });
+  }
+  // weapon levels
   for (const [key, def] of Object.entries(TOWERS)){
-    const L = wlv(key);
-    const cost = wlvCost(def, L);
-    const afford = save.dna >= cost;
-    const row = document.createElement('div');
-    row.className = 'labRow';
-    row.innerHTML =
-      `<div class="labIco">${def.icon}</div>` +
-      `<div class="labInfo"><b>${def.name}</b> <span class="tier">Lv ${L}</span><br>` +
-        `<small>Damage ×${wlvDmgMult(L).toFixed(2)} now → ×${wlvDmgMult(L + 1).toFixed(2)} next level</small></div>` +
-      `<button class="labBuy" ${afford ? '' : 'disabled'}>Lv ${L + 1} · ${fmt(cost)} DNA</button>`;
-    row.querySelector('button').onclick = () => {
-      const c = wlvCost(def, wlv(key));
-      if (save.dna < c) return;
-      save.dna -= c;
-      save.wlv[key] = wlv(key) + 1;
-      persist(); SFX.upgrade();
-      checkWeaponAch();   // may award a weapon-level trophy (and its DNA bonus)
-      buildLab();
-      $('#menuDna').innerHTML = `🧬 <b>${fmt(save.dna)} DNA</b> banked &nbsp;·&nbsp; spend it in the Research Lab ▸`;
-    };
-    el.appendChild(row);
+    const L = wlv(key), cost = wlvCost(def, L);
+    labRow(el, def.icon, def.name, `Lv ${L}`,
+      `Damage ${mulStr(wlvDmgMult(L))} now → ${mulStr(wlvDmgMult(L + 1))} next level`,
+      `Lv ${L + 1} · ${fmt(cost)} DNA`,
+      () => {
+        const c = wlvCost(def, wlv(key));
+        if (save.dna < c) return;
+        save.dna -= c; save.wlv[key] = wlv(key) + 1;
+        persist(); SFX.upgrade();
+        checkWeaponAch();   // may award a weapon-level trophy (and its DNA bonus)
+        buildLab(); refreshLabDna();
+      });
   }
 }
 /* ---------------- tips / field manual ---------------- */

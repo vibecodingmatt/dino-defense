@@ -4,8 +4,12 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.12.1';
+const VERSION = '1.12.2';
 const CHANGELOG = [
+  {v: '1.12.2', date: 'Jul 4, 2026', items: [
+    '🏥 Research Lab adds two new uncapped upgrades: Bunker Plating (more base health) and InGen Funding (more starting cash)',
+    '⚖️ Rebalanced the climb so weapon level ≈ difficulty level is the fair fight — weapons a few levels ABOVE the difficulty dominate it (Level 1 becomes a faceroll with Lv 10 weapons), while weapons a few levels BELOW get overwhelmed (Lv 5 weapons struggle at difficulty 7+). DNA income scales with difficulty to keep the climb fundable',
+  ]},
   {v: '1.12.1', date: 'Jul 4, 2026', items: [
     '🏆 Achievements expanded to 25 and each now pays a one-time DNA bonus when earned — harder trophies pay much more (from a few hundred DNA up to a cool 2,000,000 for beating Level 1000)',
     '🎯 New goals to grind: difficulty milestones (50/250/750), weapon-level trophies (level any weapon to 10/25/50), Full Arsenal, lifetime kill counts, a flawless high-level clear, and calling your first Air Strike',
@@ -304,11 +308,16 @@ const WAVES_PER_LEVEL = 100;
    ---- BALANCE (first-pass — expect tuning) ---- */
 const MAX_DIFFICULTY = 1000;
 const DIFF_BLOCK     = 10;      // levels unlock 10 at a time
-const DIFF_HP_GROWTH = 1.0145;  // enemy HP ×/level (level 1000 ≈ 1.9M× level 1)
+/* KEY BALANCE RELATIONSHIP: enemy-HP growth per level == weapon-damage growth
+   per level (both 1.11). That makes "weapon level ≈ difficulty level" a fair
+   fight: weapons a few levels ABOVE the difficulty dominate it, weapons a few
+   levels BELOW get overwhelmed. DNA income grows at the same rate so the climb
+   stays fundable. */
+const DIFF_HP_GROWTH = 1.11;    // enemy HP ×/level — matches weapon damage growth
 const DIFF_SPD_MAX   = 1.6;     // enemy speed creep from difficulty caps here
-const DNA_GROWTH     = 1.0165;  // DNA income ×/level (a hair above HP so climbing stays possible)
+const DNA_GROWTH     = 1.11;    // DNA income ×/level — tracks HP so higher levels fund bigger upgrades
 const DNA_PER_BOUNTY = 0.10;    // DNA per kill = enemy cash-bounty × this × difficulty factor
-const DIFF_CLEAR_DNA = 40;      // level-clear DNA bonus = this × difficulty level
+const DIFF_CLEAR_DNA = 60;      // level-clear DNA bonus ≈ this many kills' worth (× difficulty factor)
 
 /* difficulty helpers */
 const diffHpMult    = D => Math.pow(DIFF_HP_GROWTH, D - 1);
@@ -321,13 +330,22 @@ const diffUnlocked  = best => Math.min(MAX_DIFFICULTY, (Math.floor((best || 0) /
    Every weapon starts at level 1 and can be leveled forever. Each level
    multiplies its damage and gives a little fire-rate/range, so you keep
    pouring DNA in to out-scale higher difficulties. */
-const WLV_DMG_GROWTH = 1.11;    // weapon damage ×/level
+const WLV_DMG_GROWTH = 1.11;    // weapon damage ×/level (== DIFF_HP_GROWTH by design)
 const WLV_ROF_PER    = 0.02;    // +2% fire rate /level (capped in stats)
 const WLV_RANGE_PER  = 0.015;   // +1.5% range   /level (capped in stats)
-const WLV_COST_GROWTH = 1.16;   // DNA cost ×/level
+const WLV_COST_GROWTH = 1.12;   // DNA cost ×/level — a hair above income so top levels get grindier
 
 const wlvDmgMult  = L => Math.pow(WLV_DMG_GROWTH, (L || 1) - 1);
 const wlvRofMult  = L => 1 + Math.min(1.5, ((L || 1) - 1) * WLV_ROF_PER);   // +up to 150% fire rate
 const wlvRangeMult = L => 1 + Math.min(0.6, ((L || 1) - 1) * WLV_RANGE_PER); // +up to 60% range
 /* cost to go from level L to L+1 — cheaper for cheap weapons, grows each level */
 const wlvCost = (def, L) => Math.round((8 + def.cost / 6) * Math.pow(WLV_COST_GROWTH, (L || 1) - 1));
+
+/* ---------- META UPGRADES (persistent DNA research, UNCAPPED) ----------
+   Base health and starting cash — level them forever with DNA, just like
+   weapons. These default to level 0 (no bonus) and scale linearly. */
+const META = [
+  {key:'base_hp',    icon:'🏥', name:'Bunker Plating', per:25, base:80,  desc:'+25 max base health per level.'},
+  {key:'start_cash', icon:'💰', name:'InGen Funding',  per:75, base:100, desc:'+$75 starting cash per level.'},
+];
+const metaCost = (entry, L) => Math.round(entry.base * Math.pow(1.14, L || 0));
