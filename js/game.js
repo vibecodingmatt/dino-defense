@@ -1480,14 +1480,14 @@ const mulStr = m => m >= 100 ? '×' + fmt(m) : '×' + m.toFixed(2);
 function refreshLabDna(){
   $('#menuDna').innerHTML = `🧬 <b>${fmt(save.dna)} DNA</b> banked &nbsp;·&nbsp; spend it in the Research Lab ▸`;
 }
-function labRow(el, ico, name, tier, desc, cost, onBuy){
+function labRow(el, ico, name, tier, desc, cost, nextLabel, onBuy){
   const afford = save.dna >= cost;
   const row = document.createElement('div');
   row.className = 'labRow';
   row.innerHTML =
     `<div class="labIco">${ico}</div>` +
     `<div class="labInfo"><b>${name}</b> <span class="tier">${tier}</span><br><small>${desc}</small></div>` +
-    `<button class="labBuy" ${afford ? '' : 'disabled'}>${cost}</button>`;
+    `<button class="labBuy" ${afford ? '' : 'disabled'}>${nextLabel} · ${fmt(cost)} DNA</button>`;
   row.querySelector('button').onclick = onBuy;
   el.appendChild(row);
 }
@@ -1501,7 +1501,7 @@ function buildLab(){
     const now = m.per * L, next = m.per * (L + 1), unit = m.key === 'start_cash' ? '$' : '';
     labRow(el, m.icon, m.name, `Lv ${L}`,
       `Now +${unit}${now} → +${unit}${next} next level`,
-      `Lv ${L + 1} · ${fmt(cost)} DNA`,
+      cost, `Lv ${L + 1}`,
       () => {
         const c = metaCost(m, mlvl(m.key));
         if (save.dna < c) return;
@@ -1514,7 +1514,7 @@ function buildLab(){
     const L = wlv(key), cost = wlvCost(def, L);
     labRow(el, def.icon, def.name, `Lv ${L}`,
       `Damage ${mulStr(wlvDmgMult(L))} now → ${mulStr(wlvDmgMult(L + 1))} next level`,
-      `Lv ${L + 1} · ${fmt(cost)} DNA`,
+      cost, `Lv ${L + 1}`,
       () => {
         const c = wlvCost(def, wlv(key));
         if (save.dna < c) return;
@@ -2362,7 +2362,7 @@ if (new URLSearchParams(location.search).has('dbg')){
   }, 800);
 }
 
-if (new URLSearchParams(location.search).has('lab')){ if (new URLSearchParams(location.search).get('lab') === 'rich'){ save.dna = 50000; } buildLab(); $('#lab').classList.remove('hidden'); }
+if (new URLSearchParams(location.search).has('lab')){ const lv = new URLSearchParams(location.search).get('lab'); if (lv === 'rich'){ save.dna = 50000; } else if (!isNaN(parseFloat(lv))){ save.dna = parseFloat(lv); } buildLab(); $('#lab').classList.remove('hidden'); }
 if (new URLSearchParams(location.search).has('settings')){ syncSettings(); $('#settings').classList.remove('hidden'); }
 if (new URLSearchParams(location.search).has('ach')){ if (new URLSearchParams(location.search).get('ach') === 'some'){ save.ach = {boss_first:1, wave50:1, secure_0:1, apex:1}; } buildAchievements(); $('#achievements').classList.remove('hidden'); }
 if (new URLSearchParams(location.search).has('tips')){ buildTips(); $('#tips').classList.remove('hidden'); }

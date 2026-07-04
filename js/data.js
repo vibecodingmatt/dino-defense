@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.12.2';
+const VERSION = '1.12.3';
 /* Player-facing changelog — ONE entry per DAY (a daily recap), newest first.
    The `v` shown is the latest version released that day; `items` are the major,
    player-facing changes only. Keep it about what changed for the player — no
@@ -12,7 +12,7 @@ const VERSION = '1.12.2';
    new day, add a new daily entry; when shipping again the same day, update that
    day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.12.2', date: 'Jul 4, 2026', items: [
+  {v: '1.12.3', date: 'Jul 4, 2026', items: [
     '🎚️ New progression: choose a map and a difficulty level from 1 to 1000. Levels unlock 10 at a time — beat the highest one available to open the next block.',
     '🧬 Research Lab reworked: spend DNA to permanently level up every weapon — plus your base health and starting cash — with no cap. DNA now drops from every kill, and pays out more the higher you climb.',
     '⚔️ Keep your weapon levels close to the level you\'re playing: get ahead and it\'s a breeze, fall behind and you\'ll be overrun.',
