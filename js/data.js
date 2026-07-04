@@ -4,6 +4,50 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
+const VERSION = '1.6.0';
+const CHANGELOG = [
+  {v: '1.6.0', date: 'Jul 4, 2026', items: [
+    'Fixed blood splatter disappearing during heavy late-game action',
+    'Balance: economy tightened toward a middle ground — weapons keep their punch but cost more, kills pay a bit less, and late waves are tougher again',
+    'New 💡 Tips & Field Manual on the main menu',
+    'Defeat now offers a clean restart (checkpoint retries removed)',
+    'Version number + this changelog added to the menu',
+  ]},
+  {v: '1.5.0', date: 'Jul 4, 2026', items: [
+    'Save protection: browser persistent storage, an automatic backup copy, and manual save codes (Settings)',
+    'New 💣 MORTAR: long-range splash devastation with a minimum range',
+    'Upgrades reworked: one track per weapon, 2–3 levels max; Missile Battery gains +1 rocket per level',
+    'Big difficulty rebalance: gentler late-game HP, stronger weapons',
+    'Bosses walk 20–35% faster',
+    'Fixed backwards-looking leg animation; dinos rotate fully to face the path',
+    'Audio no longer cuts out during heavy gunfire at high speed',
+    'Big dinosaurs now walk in front of turrets correctly',
+  ]},
+  {v: '1.4.0', date: 'Jul 4, 2026', items: [
+    'Bosses are oversized with cinematic entrances: roar pose, letterbox title card, shockwave, scattering birds',
+    'Blood splatter on kills',
+    'HUD mute button (M key)',
+    'Dinosaur animation overhaul: direction facing, size-scaled strides, footfall dust',
+  ]},
+  {v: '1.3.0', date: 'Jul 4, 2026', items: [
+    'Research Lab made prominent (pulsing button, Lab shortcuts after runs)',
+    'Dinosaurs ~40% bigger; mobile-friendly stacked layout with two-tap building',
+    'Towers visibly grow with upgrades',
+  ]},
+  {v: '1.2.0', date: 'Jul 3, 2026', items: [
+    'Synthesized audio engine with reverb; boss roars and collapse animations',
+    'Graphics overhaul: jungle terrain, torch-lit park gates, fortified checkpoint, detailed weapons',
+    'Boss health bar, incoming-wave preview, damage numbers, night fireflies',
+  ]},
+  {v: '1.1.0', date: 'Jul 3, 2026', items: [
+    'Run resume: close the browser and continue where you left off',
+    'Published to the web via GitHub Pages',
+  ]},
+  {v: '1.0.0', date: 'Jul 3, 2026', items: [
+    'Initial release: 5 zones × 100 waves, 26 dinosaurs, 8 weapons, DNA research lab',
+  ]},
+];
+
 /* ---------- DINOSAURS ----------
    hp/speed/armor/bounty are BASE values, scaled by wave.
    dmg   = base health you lose if it escapes.
@@ -96,29 +140,29 @@ const BOSS_WAVES = {
    maxUp = how many times the weapon can be upgraded (single track).
    Each upgrade: damage ×1.65, fire rate ×1.25, range ×1.12, splash grows. */
 const TOWERS = {
-  tranq:   {name:'Tranq Turret',   icon:'💉', cost:90,  dmg:12,  rof:1.4,  range:140, air:true,  proj:'dart', maxUp:3,
+  tranq:   {name:'Tranq Turret',   icon:'💉', cost:100, dmg:12,  rof:1.4,  range:140, air:true,  proj:'dart', maxUp:3,
             slow:{f:0.82, t:1.2},
             desc:'Cheap dart rifle. Darts mildly sedate targets, slowing them.', color:'#8fd14f'},
-  gatling: {name:'ACU Gatling',    icon:'🔫', cost:160, dmg:9,   rof:7,    range:130, air:true,  proj:'bullet', maxUp:3,
+  gatling: {name:'ACU Gatling',    icon:'🔫', cost:180, dmg:9,   rof:7,    range:130, air:true,  proj:'bullet', maxUp:3,
             desc:'Asset Containment turret. Low damage, very high fire rate.', color:'#c9c9c9'},
-  sniper:  {name:'Ranger Sniper',  icon:'🎯', cost:240, dmg:95,  rof:0.6,  range:280, air:true,  proj:'snipe', pierce:true, maxUp:2,
+  sniper:  {name:'Ranger Sniper',  icon:'🎯', cost:270, dmg:95,  rof:0.6,  range:280, air:true,  proj:'snipe', pierce:true, maxUp:2,
             desc:'Huge single-shot damage at extreme range. Ignores armor.', color:'#7fb2ff'},
-  flamer:  {name:'Flame Thrower',  icon:'🔥', cost:190, dmg:7,   rof:9,    range:100, air:false, proj:'flame', maxUp:2,
+  flamer:  {name:'Flame Thrower',  icon:'🔥', cost:210, dmg:7,   rof:9,    range:100, air:false, proj:'flame', maxUp:2,
             burn:{dps:22, t:2.2}, cone:0.62,
             desc:'Short-range cone of fire. Sets ground targets ablaze.', color:'#ff9a3d'},
-  tesla:   {name:'Tesla Node',     icon:'⚡', cost:280, dmg:45,  rof:1.0,  range:150, air:true,  proj:'tesla', maxUp:2,
+  tesla:   {name:'Tesla Node',     icon:'⚡', cost:310, dmg:45,  rof:1.0,  range:150, air:true,  proj:'tesla', maxUp:2,
             chain:4, chainRange:115,
             desc:'10,000-volt perimeter tech. Arcs between up to 4 dinosaurs.', color:'#6ee7ff'},
-  missile: {name:'Missile Battery',icon:'🚀', cost:420, dmg:90,  rof:0.55, range:220, air:true,  proj:'missile', maxUp:2,
+  missile: {name:'Missile Battery',icon:'🚀', cost:470, dmg:90,  rof:0.55, range:220, air:true,  proj:'missile', maxUp:2,
             splash:70,
             desc:'Homing rockets with splash. Upgrades add a 2nd and 3rd rocket per salvo!', color:'#ff6b6b'},
-  cryo:    {name:'Cryo Cannon',    icon:'❄️', cost:260, dmg:12,  rof:1.0,  range:160, air:true,  proj:'cryo', maxUp:2,
+  cryo:    {name:'Cryo Cannon',    icon:'❄️', cost:290, dmg:12,  rof:1.0,  range:160, air:true,  proj:'cryo', maxUp:2,
             splash:60, slow:{f:0.5, t:2.4},
             desc:'Freezing shells that heavily slow everything they splash.', color:'#bfe8ff'},
-  sonic:   {name:'Sonic Emitter',  icon:'📡', cost:330, dmg:50,  rof:0.9,  range:125, air:true,  proj:'pulse', maxUp:2,
+  sonic:   {name:'Sonic Emitter',  icon:'📡', cost:370, dmg:50,  rof:0.9,  range:125, air:true,  proj:'pulse', maxUp:2,
             reveal:true,
             desc:'Damages ALL dinosaurs in radius. Reveals camouflaged bosses.', color:'#d6a3ff'},
-  mortar:  {name:'Mortar',         icon:'💣', cost:700, dmg:200, rof:0.3,  range:310, air:false, proj:'mortar', maxUp:1,
+  mortar:  {name:'Mortar',         icon:'💣', cost:850, dmg:200, rof:0.3,  range:310, air:false, proj:'mortar', maxUp:1,
             splash:100, minRange:90,
             desc:'Lobbed shells devastate herds at long range. Cannot hit flyers or anything too close. One upgrade: massive damage and splash.', color:'#e0b64f'},
 };
@@ -126,7 +170,7 @@ const TOWERS = {
 /* Single-track upgrade tuning */
 const UPG = {
   mult: {dmg: 1.65, rof: 1.25, range: 1.12},
-  cost: (towerDef, ulv) => Math.round(towerDef.cost * (0.8 + ulv * 0.7)),
+  cost: (towerDef, ulv) => Math.round(towerDef.cost * (0.9 + ulv * 0.8)),
 };
 
 /* ---------- LEVELS ----------

@@ -271,7 +271,7 @@ const G = {
   bg: null,
   wave: 0, waveActive: false,
   cash: 0, lives: 0, maxLives: 0,
-  dinos: [], towers: [], projs: [], fx: [], bolts: [], texts: [], corpses: [],
+  dinos: [], towers: [], projs: [], fx: [], bolts: [], texts: [], corpses: [], decals: [],
   spawnQ: [], spawnT: 0,
   speed: 1, paused: false,
   placing: null, selected: null,
@@ -279,7 +279,6 @@ const G = {
   autoTimer: -1,
   shake: 0, banner: null,
   time: 0,
-  checkpoint: null,
   over: false,
 };
 
@@ -321,10 +320,10 @@ function distToAnyPath(x, y){
 }
 
 /* ---------------- scaling / economy ---------------- */
-const hpScale    = w => (0.7 + 0.26*w) * Math.pow(1.016, w) * G.level.hpMult;
+const hpScale    = w => (0.7 + 0.27*w) * Math.pow(1.0185, w) * G.level.hpMult;
 const speedScale = w => Math.min(1.4, 1 + w*0.0035);
-const bountyOf   = (def, w) => Math.max(1, Math.round(def.bounty * 1.25 * (1 + w*0.02) * (1 + 0.06*labTier('bounty'))));
-const startCash  = () => 300 + 60*labTier('start_cash');
+const bountyOf   = (def, w) => Math.max(1, Math.round(def.bounty * 1.05 * (1 + w*0.016) * (1 + 0.06*labTier('bounty'))));
+const startCash  = () => 280 + 60*labTier('start_cash');
 const startLives = () => 100 + 15*labTier('base_hp');
 
 function towerStats(t){
@@ -700,9 +699,16 @@ function updateProjs(dt){
 
 /* ---------------- fx / floating text ---------------- */
 function addFx(kind, x, y, r, ang){
+  // blood lives in its own decal list so heavy action can never crowd it out
+  if (kind === 'blood'){
+    G.decals.push({x, y, r, t: 0, dur: 1.2, seed: Math.random() * 9});
+    if (G.decals.length > 40) G.decals.shift();
+    return;
+  }
+  if (kind === 'step' && G.fx.length > 150) return; // cosmetic footsteps yield first
   if (G.fx.length > 220) return;
   G.fx.push({kind, x, y, r, ang: ang || 0, t: 0, seed: Math.random() * 9,
-             dur: kind === 'sonic' ? 0.5 : kind === 'boom' ? 0.45 : kind === 'frost' ? 0.5 : kind === 'flame' ? 0.22 : kind === 'ring' ? 0.8 : kind === 'dust' ? 0.9 : kind === 'step' ? 0.45 : kind === 'blood' ? 1.2 : kind === 'shock' ? 0.9 : kind === 'birds' ? 1.4 : 0.3});
+             dur: kind === 'sonic' ? 0.5 : kind === 'boom' ? 0.45 : kind === 'frost' ? 0.5 : kind === 'flame' ? 0.22 : kind === 'ring' ? 0.8 : kind === 'dust' ? 0.9 : kind === 'step' ? 0.45 : kind === 'shock' ? 0.9 : kind === 'birds' ? 1.4 : 0.3});
 }
 function addText(x, y, txt, color, size){
   if (G.texts.length > 40) return;
@@ -789,7 +795,7 @@ function startWave(){
 }
 function endWave(){
   G.waveActive = false;
-  const bonus = 60 + 8 * G.wave;
+  const bonus = 50 + 6 * G.wave;
   G.cash += bonus;
   const dna = Math.round((2 + Math.floor(G.wave / 4) + (BOSS_WAVES[G.wave] ? 15 * BOSS_WAVES[G.wave].length : 0)) * (1 + G.levelIdx * 0.5));
   save.dna += dna;
@@ -798,10 +804,6 @@ function endWave(){
   G.flashT = 0.45;
   SFX.fanfare();
   if (G.wave >= WAVES_PER_LEVEL){ victory(); return; }
-  // checkpoint at start of each block of 10
-  if ((G.wave) % 10 === 0){
-    G.checkpoint = snapshot();
-  }
   saveRun();
   if (save.settings.auto) G.autoTimer = 3;
   updateHUD();
@@ -820,7 +822,6 @@ function saveRun(){
   const s = snapshot();
   s.wave = G.waveActive ? G.wave - 1 : G.wave;   // completed waves
   s.levelIdx = G.levelIdx;
-  s.cp = G.checkpoint;
   save.run = s;
   persist();
 }
@@ -832,7 +833,7 @@ function restoreSnapshot(s){
 }
 
 /* ---------------- level lifecycle ---------------- */
-/* mode: 'fresh' | 'cp' (retry from checkpoint) | 'resume' (saved run) */
+/* mode: 'fresh' | 'resume' (saved run) */
 function startLevel(idx, mode){
   G.levelIdx = idx;
   G.level = LEVELS[idx];
@@ -841,19 +842,16 @@ function startLevel(idx, mode){
   G.bg = bg.cv; G.flames = bg.flames; G.exitFx = bg.exit;
   G.hurtT = 0; G.flashT = 0; G.waveTotal = 0; G.cinT = 0;
   initAmbient();
-  G.dinos = []; G.projs = []; G.fx = []; G.bolts = []; G.texts = []; G.spawnQ = []; G.corpses = [];
+  G.dinos = []; G.projs = []; G.fx = []; G.bolts = []; G.texts = []; G.spawnQ = []; G.corpses = []; G.decals = [];
   G.selected = null; G.placing = null;
   G.waveActive = false; G.autoTimer = -1; G.over = false; G.banner = null;
   G.speed = 1;
-  if (mode === 'cp' && G.checkpoint){
-    restoreSnapshot(G.checkpoint);
-  } else if (mode === 'resume' && save.run){
+  if (mode === 'resume' && save.run){
     restoreSnapshot(save.run);
     G.wave = save.run.wave; G.lives = save.run.lives;
-    G.checkpoint = save.run.cp || null;
   } else {
     G.wave = 0; G.cash = startCash(); G.towers = [];
-    G.lives = startLives(); G.checkpoint = null;
+    G.lives = startLives();
   }
   G.maxLives = startLives();
   saveRun();
@@ -921,9 +919,7 @@ function defeat(){
   clearRun();
   $('#defeatText').innerHTML =
     `The perimeter fell on <b>wave ${G.wave}</b> of ${G.level.name}.<br>` +
-    `DNA you earned this run has been banked — spend it in the Lab.`;
-  $('#retryCp').style.display = G.checkpoint ? '' : 'none';
-  if (G.checkpoint) $('#retryCp').textContent = `⟲ Retry from Wave ${G.checkpoint.wave + 1}`;
+    `DNA you earned this run has been banked — spend it in the Lab, then try again.`;
   $('#gameover').classList.remove('hidden');
 }
 function toMenu(){
@@ -1043,6 +1039,7 @@ function buildShop(){
   }
 }
 function buildMenu(){
+  $('#verChip').innerHTML = `v${VERSION} · 📜 what's new`;
   $('#menuDna').innerHTML = `🧬 <b>${fmt(save.dna)} DNA</b> banked &nbsp;·&nbsp; spend it in the Research Lab ▸`;
   // pulse the Lab button whenever an upgrade is affordable
   const canBuy = LAB.some(e => labTier(e.key) < e.max && save.dna >= labCost(e, labTier(e.key)));
@@ -1106,6 +1103,40 @@ function buildLab(){
     el.appendChild(row);
   }
 }
+/* ---------------- tips / field manual ---------------- */
+const TIPS = [
+  '<b>Hotkeys:</b> 1–9 select weapons, <b>Space</b> starts a wave or pauses, <b>M</b> mutes, <b>Esc</b> cancels. Hold <b>Shift</b> while building to place several.',
+  '<b>Upgrades:</b> click a placed weapon to upgrade it (2–3 levels max — each level is a big jump in damage, fire rate, and range, and the hardware visibly grows).',
+  '<b>Targeting:</b> the selected weapon\'s "Target" button cycles FIRST / LAST / STRONG / CLOSE. Snipers on STRONG melt tanks; slows on FIRST hold the line.',
+  '<b>Flyers</b> (Pteranodons & friends) can only be hit by air-capable weapons — Flame Throwers and Mortars can\'t touch them.',
+  '<b>Armor</b> (Ankylosaurus, Triceratops) shrugs off weak hits. 🎯 Snipers pierce armor completely.',
+  '<b>The Indominus Rex camouflages.</b> Only a 📡 Sonic Emitter reveals it — bring one to wave 50.',
+  '<b>💣 Mortars</b> have a minimum range: nothing within 90px can be hit. Place them behind your front line and cover their blind spot.',
+  '<b>🚀 Missile Batteries</b> gain a rocket per upgrade level, and extra rockets pick their own targets.',
+  '<b>Selling</b> refunds 70% of everything invested — repositioning late is fine.',
+  '<b>DNA is never lost.</b> Every cleared wave banks DNA even if the run fails. Spend it in the 🧬 Research Lab for permanent upgrades, then try again stronger.',
+  '<b>Your run auto-saves</b> between waves — close the tab and the map shows a "Continue run" card. Back up progress with Settings → Copy save code.',
+  '<b>Practice mode:</b> Settings → 🛡 Invincibility lets you experiment with layouts, and 2×/4× speed keeps long waves moving.',
+];
+function buildTips(){
+  const el = $('#tipsList');
+  let html = '<h3 class="tipsH">Weapons</h3>';
+  for (const def of Object.values(TOWERS)){
+    html += `<div class="labRow"><div class="labIco">${def.icon}</div><div class="labInfo">` +
+            `<b>${def.name}</b> — $${def.cost} · up to Lv ${def.maxUp + 1}` +
+            (def.air ? '' : ' · <span class="warn">ground only</span>') +
+            `<br><small>${def.desc}</small></div></div>`;
+  }
+  html += '<h3 class="tipsH">Field notes</h3>' + TIPS.map(t => `<div class="tipRow">${t}</div>`).join('');
+  el.innerHTML = html;
+}
+function buildChangelog(){
+  $('#clogList').innerHTML = CHANGELOG.map(c =>
+    `<div class="clogVer"><b>v${c.v}</b> <small>· ${c.date}</small></div>` +
+    `<ul class="clogItems">${c.items.map(i => `<li>${i}</li>`).join('')}</ul>`
+  ).join('');
+}
+
 function syncSettings(){
   $('#optInv').checked = save.settings.invincible;
   $('#optMute').checked = save.settings.mute;
@@ -1168,6 +1199,8 @@ function step(dt){
   G.corpses = G.corpses.filter(c => c.t < 2.4);
   for (const f of G.fx) f.t += dt;
   G.fx = G.fx.filter(f => f.t < f.dur);
+  for (const f of G.decals) f.t += dt;
+  G.decals = G.decals.filter(f => f.t < f.dur);
   for (const b of G.bolts) b.t -= dt;
   G.bolts = G.bolts.filter(b => b.t > 0);
   for (const tx of G.texts) tx.t += dt;
@@ -1192,8 +1225,7 @@ function render(dt){
   }
 
   // blood splatter decals (ground layer, under corpses and dinos)
-  for (const f of G.fx){
-    if (f.kind !== 'blood') continue;
+  for (const f of G.decals){
     const k = f.t / f.dur;
     const a = 1 - k;
     const grow = 0.6 + Math.min(1, k * 4) * 0.4; // splash out fast, then just fade
@@ -1329,7 +1361,6 @@ function render(dt){
   }
   // fx
   for (const f of G.fx){
-    if (f.kind === 'blood') continue; // drawn earlier as a ground decal
     const k = f.t / f.dur;
     switch (f.kind){
       case 'shock': { // boss-entrance shockwave
@@ -1643,6 +1674,10 @@ $('#tpMode').onclick = () => {
   renderTowerPanel();
 };
 const openLab = () => { buildLab(); $('#lab').classList.remove('hidden'); };
+$('#btnTips').onclick = () => { buildTips(); $('#tips').classList.remove('hidden'); };
+$('#tipsClose').onclick = () => $('#tips').classList.add('hidden');
+$('#verChip').onclick = () => { buildChangelog(); $('#changelog').classList.remove('hidden'); };
+$('#clogClose').onclick = () => $('#changelog').classList.add('hidden');
 $('#btnLab').onclick = openLab;
 $('#menuDna').onclick = openLab;
 $('#vLab').onclick = openLab;
@@ -1681,7 +1716,6 @@ $('#btnReset').onclick = () => {
 };
 $('#goMenu').onclick = toMenu;
 $('#goRetry').onclick = () => startLevel(G.levelIdx, 'fresh');
-$('#retryCp').onclick = () => startLevel(G.levelIdx, 'cp');
 $('#vMenu').onclick = toMenu;
 $('#vNext').onclick = () => {
   const next = G.levelIdx + 1;
@@ -1710,6 +1744,9 @@ if (new URLSearchParams(location.search).has('dbg')){
       .map(s => s + '=' + Math.round(document.querySelector(s === 'body' ? 'body' : s).getBoundingClientRect().width)).join(' ');
   }, 800);
 }
+
+if (new URLSearchParams(location.search).has('tips')){ buildTips(); $('#tips').classList.remove('hidden'); }
+if (new URLSearchParams(location.search).has('log')){ buildChangelog(); $('#changelog').classList.remove('hidden'); }
 
 /* headless smoke-test hook: ?test=1 jumps straight into gameplay,
    &sim=SECONDS fast-forwards the simulation synchronously */

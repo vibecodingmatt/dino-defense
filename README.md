@@ -34,8 +34,7 @@ tap the map to preview placement, then tap the same spot again to build.
   Dimorphodons, Quetzalcoatlus) — keep some air coverage.
 - The Indominus Rex **camouflages**. A 📡 Sonic Emitter reveals it.
 - Armored dinos (Ankylosaurus, Triceratops) shrug off weak hits — 🎯 Snipers pierce armor.
-- Losing isn't wasted: DNA persists. Research, then retry — there's also a
-  checkpoint retry every 10 waves.
+- Losing isn't wasted: DNA persists. Research in the Lab, then try the zone again.
 - 🚀 Missile Batteries fire **an extra rocket per upgrade** (1 → 2 → 3).
 - 💣 The Mortar devastates herds at long range but can't hit flyers or anything
   too close — cover its blind spot.
