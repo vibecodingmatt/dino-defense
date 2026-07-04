@@ -17,7 +17,7 @@ const W = 1280, H = 720;
 const SAVE_KEY = 'islaDefense.v1';
 function defaultSave(){
   return {unlocked:1, best:{}, dna:0, lab:{}, run:null,
-          settings:{invincible:false, mute:false, auto:true}};
+          settings:{invincible:false, mute:false, auto:true, music:true}};
 }
 function loadSave(){
   try {
@@ -79,7 +79,7 @@ const labTier = k => save.lab[k] || 0;
 /* ---------------- synthesized audio engine ----------------
    Everything routes through a compressor + a generated convolution
    reverb, so sounds are layered and roomy instead of raw beeps. */
-let AC = null, master = null, verb = null;
+let AC = null, master = null, verb = null, musicGain = null;
 const DIST_CURVE = (() => { // soft-clip curve for growls / gritty hits
   const c = new Float32Array(257);
   for (let i = 0; i < 257; i++) c[i] = Math.tanh((i/128 - 1) * 3);
@@ -106,13 +106,15 @@ function audio(){
       verb.buffer = buf;
       const vg = AC.createGain(); vg.gain.value = 0.4;
       verb.connect(vg); vg.connect(master);
+      musicGain = AC.createGain(); musicGain.gain.value = 0.8;
+      musicGain.connect(master);
     } catch(e){ AC = null; return null; }
   }
   if (AC.state === 'suspended') AC.resume();
   return AC;
 }
-function routeOut(node, wet){
-  node.connect(master);
+function routeOut(node, wet, bus){
+  node.connect(bus || master);
   if (wet > 0){
     const g = AC.createGain(); g.gain.value = wet;
     node.connect(g); g.connect(verb);
@@ -141,7 +143,7 @@ function sfxNoise(o){
   if (o.f1) fl.frequency.exponentialRampToValueAtTime(Math.max(30, o.f1), t0 + dur);
   if (o.Q) fl.Q.value = o.Q;
   const g = envGain(t0, o.peak, o.a || 0.003, dur);
-  src.connect(fl); fl.connect(g); routeOut(g, o.wet || 0);
+  src.connect(fl); fl.connect(g); routeOut(g, o.wet || 0, o.bus);
   src.start(t0); src.stop(t0 + dur + 0.05);
 }
 /* pitched tone with optional distortion + tremolo (growl texture) */
@@ -167,9 +169,75 @@ function sfxTone(o){
     lfo.connect(lg); lg.connect(g.gain);
     lfo.start(t0); lfo.stop(t0 + dur + 0.1);
   }
-  routeOut(g, o.wet || 0);
+  routeOut(g, o.wet || 0, o.bus);
   osc.start(t0); osc.stop(t0 + dur + 0.1);
 }
+/* ---------------- background score (synthesized loop) ----------------
+   A quiet 8-bar jungle-adventure theme: deep drone bass over Am–F–C–E,
+   tribal tom/shaker percussion, and an airy pentatonic melody that
+   surfaces on the back half of the loop. Scheduled a bar at a time so
+   toggling music off stops it almost immediately. */
+const MUS = {
+  bpm: 88,
+  barDur: 60 / 88 * 4,
+  roots:  [110, 110, 87.31, 98, 110, 87.31, 130.81, 82.41], // Am Am F G Am F C E
+  melody: [ // [bar, beat, freq, lengthInBeats]
+    [4, 0, 440, 1.2], [4, 1.5, 523.25, 0.45], [4, 2, 659.25, 1.6],
+    [5, 0, 587.33, 0.9], [5, 1, 523.25, 0.9], [5, 2, 440, 1.8],
+    [6, 0, 659.25, 1.2], [6, 1.5, 783.99, 0.45], [6, 2, 880, 1.7],
+    [7, 0, 783.99, 0.9], [7, 1, 659.25, 0.9], [7, 2, 587.33, 1.8],
+  ],
+};
+let musicTimer = null, musicNextBar = 0, musicBarIdx = 0;
+function scheduleBar(bar, t0){
+  const beat = MUS.barDur / 4;
+  const at = t => Math.max(0, t0 + t * beat - AC.currentTime);
+  const root = MUS.roots[bar];
+  // drone bass + soft pad (root, fifth, octave)
+  sfxTone({type: 'triangle', f0: root,        dur: MUS.barDur * 0.98, peak: 0.05,  a: 0.5, wet: 0.3, bus: musicGain, delay: at(0)});
+  sfxTone({type: 'sine',     f0: root * 1.5,  dur: MUS.barDur * 0.98, peak: 0.026, a: 0.9, wet: 0.45, bus: musicGain, delay: at(0)});
+  sfxTone({type: 'sine',     f0: root * 2,    dur: MUS.barDur * 0.98, peak: 0.02,  a: 1.1, wet: 0.45, bus: musicGain, delay: at(0)});
+  // tribal drums
+  for (const [b, f, p] of [[0, 70, 0.13], [0.75, 70, 0.055], [1.5, 104, 0.085], [2.5, 70, 0.115], [3.25, 104, 0.055]])
+    sfxTone({type: 'sine', f0: f, f1: f * 0.55, dur: 0.24, peak: p, wet: 0.3, bus: musicGain, delay: at(b)});
+  // shaker eighths
+  for (let i = 0; i < 8; i++)
+    sfxNoise({dur: 0.05, peak: i % 2 ? 0.011 : 0.018, type: 'highpass', f0: 6200, wet: 0.35, bus: musicGain, delay: at(i * 0.5 + 0.5)});
+  // melody (with a faint octave shimmer)
+  for (const [mb, b, f, len] of MUS.melody){
+    if (mb !== bar) continue;
+    sfxTone({type: 'triangle', f0: f,         dur: len * beat, peak: 0.042, a: 0.04, wet: 0.55, bus: musicGain, delay: at(b)});
+    sfxTone({type: 'sine',     f0: f * 2.003, dur: len * beat, peak: 0.011, a: 0.06, wet: 0.55, bus: musicGain, delay: at(b)});
+  }
+}
+function ensureMusic(){
+  if (!save.settings.music || save.settings.mute){ stopMusic(); return; }
+  const ac = audio();
+  if (!ac || ac.state !== 'running') return; // waits for the first user gesture
+  if (musicTimer) return;
+  musicGain.gain.cancelScheduledValues(ac.currentTime);
+  musicGain.gain.setValueAtTime(0.8, ac.currentTime);
+  musicNextBar = ac.currentTime + 0.15;
+  musicBarIdx = 0;
+  musicTimer = setInterval(() => {
+    if (!AC || AC.state !== 'running') return;
+    while (musicNextBar < AC.currentTime + 0.6){
+      scheduleBar(musicBarIdx % MUS.roots.length, musicNextBar);
+      musicBarIdx++;
+      musicNextBar += MUS.barDur;
+    }
+  }, 200);
+}
+function stopMusic(){
+  if (musicTimer){ clearInterval(musicTimer); musicTimer = null; }
+  if (musicGain && AC){ // fade out whatever is already scheduled
+    musicGain.gain.cancelScheduledValues(AC.currentTime);
+    musicGain.gain.setValueAtTime(musicGain.gain.value, AC.currentTime);
+    musicGain.gain.linearRampToValueAtTime(0.0001, AC.currentTime + 0.5);
+  }
+}
+setInterval(ensureMusic, 600);
+
 /* Rate limiter: rapid gunfire (especially at 4x with many towers) must not
    flood the audio thread — beyond a budget, extra combat sounds are dropped.
    Priority sounds (roars, fanfares, alarms) always play. */
@@ -420,8 +488,9 @@ function spawnDino(key, pathI, isBoss){
     ? def.hp * (0.25 + w * 0.075) * G.level.hpMult
     : def.hp * hpScale(w);
   // bosses run oversized — larger than life, above the normal cap
+  // (the D-Rex gets to be truly colossal)
   const sz = isBoss
-    ? Math.min(80, (def.size * 1.35 + 3) * 1.45)
+    ? Math.min(key === 'drex' ? 94 : 80, (def.size * 1.35 + 3) * 1.45)
     : Math.min(58, def.size * 1.35 + 3); // scaled up for visibility (small dinos get the biggest boost)
   const d = {
     key, def, boss: !!isBoss,
@@ -443,11 +512,12 @@ function spawnDino(key, pathI, isBoss){
   G.dinos.push(d);
   if (isBoss){
     // cinematic entrance: stalk in past the gate, stop, and roar
+    // (the D-Rex takes its time — longer letterbox, second roar mid-entrance)
     d.dist = 100 + rand(0, 50);
-    d.entranceT = 2.2;
+    d.entranceT = key === 'drex' ? 3.4 : 2.2;
     d.seedE = rand(0, 1);
-    G.cinT = 2.8;
-    G.banner = {text: def.name.toUpperCase(), sub: def.epithet || '⚠ CONTAINMENT FAILURE ⚠', t: 3.4};
+    G.cinT = key === 'drex' ? 4.4 : 2.8;
+    G.banner = {text: def.name.toUpperCase(), sub: def.epithet || '⚠ CONTAINMENT FAILURE ⚠', t: key === 'drex' ? 4.4 : 3.4};
     SFX.roar();
     G.shake = Math.max(G.shake, 12);
     const p = dinoPos(d);
@@ -769,6 +839,15 @@ function updateDinos(dt){
     if (d.entranceT > 0){
       d.entranceT -= dt;
       d.phase += dt * 1.2;
+      if (d.key === 'drex' && !d.roar2 && d.entranceT <= 1.7){ // second, angrier roar
+        d.roar2 = true;
+        SFX.roar();
+        G.shake = Math.max(G.shake, 14);
+        const dp = dinoPos(d);
+        addFx('shock', dp.x, dp.y, d.size * 3);
+        addFx('dust', dp.x - d.size * 0.7, dp.y + 6, d.size * 0.9);
+        addFx('dust', dp.x + d.size * 0.7, dp.y + 6, d.size * 0.9);
+      }
       continue;
     }
     // move
@@ -1267,6 +1346,7 @@ function syncSettings(){
   $('#optInv').checked = save.settings.invincible;
   $('#optMute').checked = save.settings.mute;
   $('#optAuto').checked = save.settings.auto;
+  $('#optMusic').checked = save.settings.music;
 }
 
 /* ---------------- main loop ---------------- */
@@ -1419,8 +1499,9 @@ function render(dt){
       ctx.strokeStyle = 'rgba(255,80,60,' + (0.4 + 0.3*Math.sin(d.phase)) + ')';
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(p.x, p.y, d.size * 1.1, 0, Math.PI*2); ctx.stroke();
-      // embers drifting off the apex predator
-      for (let i = 0; i < 4; i++){
+      // embers drifting off the apex predator (the D-Rex smolders harder)
+      const emberN = d.key === 'drex' ? 9 : 4;
+      for (let i = 0; i < emberN; i++){
         const cyc = (G.time * 0.45 + i * 0.29 + (d.seedE || 0)) % 1;
         const ex = p.x + Math.sin(i * 2.1 + G.time * 0.8) * d.size * 0.55;
         const ey = p.y - d.size * 0.4 - cyc * d.size * 1.15;
@@ -1946,7 +2027,8 @@ $$('.modalX').forEach(b => b.onclick = () => {
 $('#btnSettings').onclick = () => { syncSettings(); $('#settings').classList.remove('hidden'); };
 $('#setClose').onclick = () => { $('#settings').classList.add('hidden'); };
 $('#optInv').onchange = e => { save.settings.invincible = e.target.checked; persist(); updateHUD(); };
-$('#optMute').onchange = e => { save.settings.mute = e.target.checked; persist(); };
+$('#optMute').onchange = e => { save.settings.mute = e.target.checked; persist(); ensureMusic(); };
+$('#optMusic').onchange = e => { save.settings.music = e.target.checked; persist(); ensureMusic(); };
 $('#optAuto').onchange = e => { save.settings.auto = e.target.checked; persist(); };
 $('#btnExport').onclick = () => {
   const code = btoa(unescape(encodeURIComponent(JSON.stringify(save))));
@@ -2042,9 +2124,10 @@ if (testParams.has('test')){
     victory();
   }
   if (testParams.has('boss')){ // stage a live boss entrance
-    spawnDino('trex', 0, true);
+    spawnDino(DINOS[testParams.get('bosskey')] ? testParams.get('bosskey') : 'trex', 0, true);
     const bt = parseFloat(testParams.get('boss')) || 1;
     for (let s = 0; s < bt; s += 0.05) step(0.05);
+    G.paused = true;
   }
   if (testParams.has('kill')){ // stage a boss death mid-map to check the collapse
     spawnDino('trex', 0, true);

@@ -134,10 +134,25 @@ function drawTheropod(ctx, d, ph){
   ctx.fillStyle = '#f4f2e4';
   ctx.fillRect(0.08, 0.02, snout*big*0.72, 0.025);
   // eye
-  ctx.fillStyle = '#1a1a12';
-  ctx.beginPath(); ctx.arc(0.04, -0.08*big, 0.035, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle = f.stripes && d.boss ? '#ffd24a' : '#e8e4c8';
-  ctx.beginPath(); ctx.arc(0.045, -0.085*big, 0.015, 0, Math.PI*2); ctx.fill();
+  if (f.glowEyes){ // hellish glow for the D-Rex
+    const pulse = 0.7 + 0.3 * Math.sin(ph * 2.3);
+    const eg = ctx.createRadialGradient(0.04, -0.08*big, 0.005, 0.04, -0.08*big, 0.11);
+    eg.addColorStop(0, `rgba(255,60,40,${0.85 * pulse})`);
+    eg.addColorStop(1, 'rgba(255,60,40,0)');
+    ctx.fillStyle = eg;
+    ctx.beginPath(); ctx.arc(0.04, -0.08*big, 0.11, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#0d0a0a';
+    ctx.beginPath(); ctx.arc(0.04, -0.08*big, 0.038, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = `rgba(255,80,50,${pulse})`;
+    ctx.beginPath(); ctx.arc(0.045, -0.085*big, 0.02, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#1a0505'; // slit pupil
+    ctx.fillRect(0.042, -0.085*big - 0.018, 0.007, 0.036);
+  } else {
+    ctx.fillStyle = '#1a1a12';
+    ctx.beginPath(); ctx.arc(0.04, -0.08*big, 0.035, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = f.stripes && d.boss ? '#ffd24a' : '#e8e4c8';
+    ctx.beginPath(); ctx.arc(0.045, -0.085*big, 0.015, 0, Math.PI*2); ctx.fill();
+  }
   // horns above eyes (Carnotaurus / Allosaurus)
   if (f.horns){
     ctx.fillStyle = shade(p.accent, -0.1);

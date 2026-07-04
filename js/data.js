@@ -4,8 +4,12 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.9.0';
+const VERSION = '1.10.0';
 const CHANGELOG = [
+  {v: '1.10.0', date: 'Jul 4, 2026', items: [
+    '🎵 Original looping score — a low jungle-adventure theme plays under the action (toggle Music in Settings)',
+    '☠ Wave 100 finale: the D-REX. A towering demonic hybrid with glowing eyes, armored hide, regeneration, and a double-roar entrance. Extremely hard to kill — bring everything',
+  ]},
   {v: '1.9.0', date: 'Jul 4, 2026', items: [
     '✈️ Air Strike is now a full show: two top-down F-22s roar in with contrails and afterburners, drop cluster canisters, and carpet the zone in a dozen staggered explosions',
     '🏆 Beating wave 100 now triggers a fireworks celebration before the victory screen',
@@ -138,6 +142,9 @@ const DINOS = {
                      pal:{body:'#26262b', belly:'#4c4c55', accent:'#d9a531'}, feat:{stripes:true, slim:true}},
   giganotosaurus:   {name:'Giganotosaurus',      epithet:'THE APEX OF APEX PREDATORS', painter:'theropod', hp:9000, speed:54, armor:5, bounty:800, dmg:45, size:36, boss:true, weight:0, roar:true,
                      pal:{body:'#4f4a52', belly:'#b7b0ba', accent:'#8a2f2f'}, feat:{bigHead:true, ridge:true}},
+  drex:             {name:'D-Rex — Diabolus Rex', epithet:'THE DEVIL YOU CREATED', painter:'theropod', hp:16000, speed:58, armor:8, bounty:2000, dmg:60, size:42, boss:true, weight:0, roar:true, regen:0.004,
+                     pal:{body:'#211e26', belly:'#463f4d', accent:'#d02525'},
+                     feat:{bigHead:true, spikes:true, ridge:true, stripes:true, horns:true, claws:true, glowEyes:true}},
 };
 
 /* Boss schedule — every 10th wave. Values are arrays (escorts allowed). */
@@ -151,7 +158,7 @@ const BOSS_WAVES = {
   70:  ['indoraptor'],
   80:  ['indominus', 'spinosaurus'],
   90:  ['indoraptor', 'indominus'],
-  100: ['giganotosaurus', 'trex', 'trex'],
+  100: ['drex'],
 };
 
 /* ---------- TOWERS / WEAPONS ----------
