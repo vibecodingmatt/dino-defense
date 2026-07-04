@@ -21,7 +21,7 @@
     <span class="spacer"></span>
     <button id="btnWave">▶ Start Wave 1</button>
     <span id="speedBtns">
-      <button data-s="1" class="on">1×</button><button data-s="2">2×</button><button data-s="4">4×</button>
+      <button data-s="1" class="on">1×</button><button data-s="2">2×</button><button data-s="4">4×</button><button data-s="6">6×</button>
     </span>
     <button id="btnPause">⏸</button>
     <button id="btnMute" title="Mute (M)">🔊</button>
@@ -40,6 +40,12 @@
       <h3>Armory</h3>
       <div id="shopCards"></div>
 
+      <h3>Support</h3>
+      <div id="airCard" title="Jets carpet-bomb wherever you click. Hits flyers too. Two calls per run.">
+        <div class="ico">✈️</div>
+        <div class="airInfo"><div class="nm">Air Strike</div><div class="cost"></div></div>
+      </div>
+
       <div id="towerPanel" class="hidden">
         <div id="tpName"></div>
         <div id="tpStats"></div>
@@ -49,7 +55,7 @@
       </div>
 
       <div class="hint">
-        Click a weapon (or keys 1–9), then click the map to build.
+        Click a weapon (or keys 1–8), then click the map to build.
         Hold <b>Shift</b> to place several. Right-click / Esc cancels.
         <b>Space</b> starts a wave or pauses.
         Flyers need air-capable weapons!

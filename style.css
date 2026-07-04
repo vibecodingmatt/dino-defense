@@ -109,6 +109,21 @@ canvas#game {
 .chip.fly { border-color: #7fb2ff66; color: #aecdf5; }
 .chip.boss { border-color: var(--red); color: #ff9a8a; font-weight: bold; animation: blink 1.2s infinite; }
 
+#airCard {
+  display: flex; align-items: center; gap: 10px;
+  background: linear-gradient(135deg, #2a3040, #1c2128);
+  border: 1px solid #3d4a62; border-radius: 8px;
+  padding: 8px 12px; cursor: pointer;
+  transition: border-color 0.06s, transform 0.06s;
+}
+#airCard:hover:not(.locked) { border-color: #7fb2ff; transform: translateY(-1px); }
+#airCard.sel { border-color: #ff9a7a; box-shadow: 0 0 10px #ff6b4a55; }
+#airCard.cant { opacity: 0.45; }
+#airCard.locked { opacity: 0.35; filter: grayscale(0.8); cursor: default; }
+#airCard .ico { font-size: 22px; }
+#airCard .nm { font-size: 12px; font-weight: bold; }
+#airCard .cost { font-size: 11px; color: #7fb2ff; font-weight: bold; }
+
 #towerPanel {
   background: var(--panel2); border: 1px solid var(--amber); border-radius: 8px;
   padding: 10px; display: flex; flex-direction: column; gap: 7px;

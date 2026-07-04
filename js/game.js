@@ -29,13 +29,16 @@ function loadSave(){
             settings: Object.assign(d.settings, s.settings || {})};
   } catch(e){ return defaultSave(); }
 }
-/* old saves stored per-stat tower levels; convert to the single track */
+/* old saves stored per-stat tower levels; convert to the single track,
+   and drop towers whose type no longer exists (e.g. the retired tranq) */
 function migrateTowers(list){
   if (!list) return;
-  for (const t of list){
+  for (let i = list.length - 1; i >= 0; i--){
+    const t = list[i];
+    if (!TOWERS[t.key]){ list.splice(i, 1); continue; }
     if (t.ulv === undefined){
       const old = t.lv ? (t.lv.dmg || 0) + (t.lv.rate || 0) + (t.lv.range || 0) : 0;
-      t.ulv = clamp(Math.round(old / 5), 0, (TOWERS[t.key] && TOWERS[t.key].maxUp) || 2);
+      t.ulv = clamp(Math.round(old / 5), 0, TOWERS[t.key].maxUp);
       delete t.lv;
     }
   }
@@ -179,6 +182,10 @@ function sfxGate(){
   return true;
 }
 const SFX = {
+  jet(){ // fighter flyby: rising-then-falling roar (always plays)
+    sfxNoise({dur: 1.3, peak: 0.2, type: 'bandpass', f0: 300, f1: 1600, Q: 0.7, wet: 0.5, a: 0.25});
+    sfxTone({type: 'sawtooth', f0: 90, f1: 240, dur: 1.2, peak: 0.08, dist: true, wet: 0.4, a: 0.3});
+  },
   shot(){ // gatling: noise crack + tiny thump, randomized so bursts don't buzz
     if (!sfxGate()) return;
     sfxNoise({dur: 0.06, peak: 0.09, type: 'bandpass', f0: 1600 + Math.random()*500, f1: 650, Q: 0.8, wet: 0.08});
@@ -275,6 +282,7 @@ const G = {
   spawnQ: [], spawnT: 0,
   speed: 1, paused: false,
   placing: null, selected: null,
+  targeting: null, strikes: [], airUsed: 0,
   mouse: {x: 0, y: 0, on: false},
   autoTimer: -1,
   shake: 0, banner: null,
@@ -320,10 +328,17 @@ function distToAnyPath(x, y){
 }
 
 /* ---------------- scaling / economy ---------------- */
-const hpScale    = w => (0.7 + 0.3*w) * Math.pow(1.0185, w) * G.level.hpMult;
+const hpScale    = w => (0.7 + 0.3*w) * Math.pow(1.020, w) * G.level.hpMult;
 const speedScale = w => Math.min(1.4, 1 + w*0.0035);
-const bountyOf   = (def, w) => Math.max(1, Math.round(def.bounty * (1 + w*0.016) * (1 + 0.06*labTier('bounty'))));
+const bountyOf   = (def, w) => Math.max(1, Math.round(def.bounty * (1 + w*0.008) * (1 + 0.06*labTier('bounty'))));
 const towerUnlocked = key => (G.wave + 1) >= (TOWERS[key].unlock || 1);
+/* each additional copy of the same weapon costs more — spam gets expensive */
+function towerCost(key){
+  const def = TOWERS[key];
+  const count = G.towers.filter(t => t.key === key).length;
+  const esc = key === 'mortar' ? 0.35 : 0.15;
+  return Math.round(def.cost * (1 + esc * count));
+}
 const startCash  = () => 280 + 60*labTier('start_cash');
 const startLives = () => 100 + 15*labTier('base_hp');
 
@@ -796,7 +811,7 @@ function startWave(){
 }
 function endWave(){
   G.waveActive = false;
-  const bonus = 40 + 5 * G.wave;
+  const bonus = 40 + 3 * G.wave;
   G.cash += bonus;
   const dna = Math.round((2 + Math.floor(G.wave / 4) + (BOSS_WAVES[G.wave] ? 15 * BOSS_WAVES[G.wave].length : 0)) * (1 + G.levelIdx * 0.5));
   save.dna += dna;
@@ -811,7 +826,7 @@ function endWave(){
 }
 function snapshot(){
   return {
-    wave: G.wave, cash: G.cash, lives: G.lives,
+    wave: G.wave, cash: G.cash, lives: G.lives, airUsed: G.airUsed,
     towers: G.towers.map(t => ({key: t.key, x: t.x, y: t.y, ulv: t.ulv, invested: t.invested, mode: t.mode})),
   };
 }
@@ -844,15 +859,16 @@ function startLevel(idx, mode){
   G.hurtT = 0; G.flashT = 0; G.waveTotal = 0; G.cinT = 0;
   initAmbient();
   G.dinos = []; G.projs = []; G.fx = []; G.bolts = []; G.texts = []; G.spawnQ = []; G.corpses = []; G.decals = [];
-  G.selected = null; G.placing = null;
+  G.selected = null; G.placing = null; G.targeting = null; G.strikes = [];
   G.waveActive = false; G.autoTimer = -1; G.over = false; G.banner = null;
   G.speed = 1;
   if (mode === 'resume' && save.run){
     restoreSnapshot(save.run);
     G.wave = save.run.wave; G.lives = save.run.lives;
+    G.airUsed = save.run.airUsed || 0;
   } else {
     G.wave = 0; G.cash = startCash(); G.towers = [];
-    G.lives = startLives();
+    G.lives = startLives(); G.airUsed = 0;
   }
   G.maxLives = startLives();
   saveRun();
@@ -941,11 +957,11 @@ function canPlace(x, y){
   return true;
 }
 function placeTower(key, x, y, force){
-  const def = TOWERS[key];
   if (!force && !towerUnlocked(key)){ SFX.error(); return; }
-  if (G.cash < def.cost || !canPlace(x, y)) { SFX.error(); return; }
-  G.cash -= def.cost;
-  G.towers.push({key, x, y, ulv: 0, cd: 0, angle: rand(0, 6.28), flash: 0, invested: def.cost, mode: 'first'});
+  const cost = force ? TOWERS[key].cost : towerCost(key);
+  if (G.cash < cost || !canPlace(x, y)) { SFX.error(); return; }
+  G.cash -= cost;
+  G.towers.push({key, x, y, ulv: 0, cd: 0, angle: rand(0, 6.28), flash: 0, invested: cost, mode: 'first'});
   SFX.build();
   addFx('ring', x, y, 10);
   saveRun();
@@ -1001,6 +1017,57 @@ function sellSelected(){
   SFX.coin(); saveRun(); updateHUD();
 }
 
+/* ---------------- air strike ---------------- */
+const airUnlocked = () => (G.wave + 1) >= AIRSTRIKE.unlock;
+const airCost = () => AIRSTRIKE.costs[Math.min(G.airUsed, AIRSTRIKE.costs.length - 1)];
+function updateAirCard(){
+  const el = $('#airCard');
+  if (!el) return;
+  const spent = G.airUsed >= AIRSTRIKE.maxUses;
+  const locked = !airUnlocked();
+  el.classList.toggle('locked', locked || spent);
+  el.classList.toggle('cant', !locked && !spent && G.cash < airCost());
+  el.classList.toggle('sel', G.targeting === 'strike');
+  el.querySelector('.cost').textContent =
+    locked ? `🔒 Wave ${AIRSTRIKE.unlock}` :
+    spent ? 'DEPLETED' :
+    `$${fmt(airCost())} · ${AIRSTRIKE.maxUses - G.airUsed} left`;
+}
+function launchStrike(x, y){
+  const cost = airCost();
+  if (!airUnlocked() || G.airUsed >= AIRSTRIKE.maxUses || G.cash < cost){ SFX.error(); return; }
+  G.cash -= cost;
+  G.airUsed++;
+  G.targeting = null;
+  G.strikes.push({x, y, t: 0, bombs: AIRSTRIKE.bombs.map(dx => ({dx, done: false}))});
+  SFX.jet();
+  saveRun();
+  updateHUD();
+}
+function updateStrikes(dt){
+  for (const s of G.strikes){
+    s.t += dt;
+    const jetX = -160 + s.t * 1150;
+    for (const b of s.bombs){
+      if (!b.done && jetX >= s.x + b.dx){
+        b.done = true;
+        const bx = s.x + b.dx, by = s.y + rand(-14, 14);
+        SFX.boom();
+        G.shake = Math.max(G.shake, 8);
+        addFx('boom', bx, by, AIRSTRIKE.splash);
+        addFx('shock', bx, by, AIRSTRIKE.splash * 1.4);
+        addFx('dust', bx, by + 4, AIRSTRIKE.splash * 0.6);
+        for (const d of G.dinos){ // hits everything, even flyers — it's an airburst
+          if (d.dead || d.leaked) continue;
+          const p = dinoPos(d);
+          if (hyp(bx, by, p.x, p.y) <= AIRSTRIKE.splash + d.size * 0.4) damage(d, AIRSTRIKE.dmg, true);
+        }
+      }
+    }
+  }
+  G.strikes = G.strikes.filter(s => s.t < 1.7);
+}
+
 /* ---------------- HUD / UI ---------------- */
 function updateHUD(){
   $('#hCash').textContent = '$' + fmt(G.cash);
@@ -1015,17 +1082,21 @@ function updateHUD(){
   $('#btnPause').classList.toggle('on', G.paused);
   $('#btnMute').textContent = save.settings.mute ? '🔇' : '🔊';
   $('#btnMute').classList.toggle('on', save.settings.mute);
-  // shop affordability + wave-gated unlocks
+  // shop affordability + wave-gated unlocks + escalating same-type prices
   $$('.shopCard').forEach(el => {
     const def = TOWERS[el.dataset.key];
     const locked = !towerUnlocked(el.dataset.key);
+    const cost = towerCost(el.dataset.key);
     el.classList.toggle('locked', locked);
-    el.classList.toggle('cant', !locked && G.cash < def.cost);
+    el.classList.toggle('cant', !locked && G.cash < cost);
     el.classList.toggle('sel', G.placing === el.dataset.key);
     const costEl = el.querySelector('.cost');
-    const label = locked ? `🔒 Wave ${def.unlock}` : '$' + def.cost;
+    const label = locked ? `🔒 Wave ${def.unlock}` : '$' + cost;
     if (costEl.textContent !== label) costEl.textContent = label;
   });
+  updateAirCard();
+  // keep the upgrade button in sync with cash while a tower is selected
+  if (G.selected) renderTowerPanel();
 }
 function buildShop(){
   const el = $('#shopCards');
@@ -1040,7 +1111,7 @@ function buildShop(){
     card.onclick = () => {
       if (!towerUnlocked(key)){ SFX.error(); return; }
       G.placing = (G.placing === key) ? null : key;
-      G.pendingTap = null;
+      G.pendingTap = null; G.targeting = null;
       selectTower(null);
       updateHUD();
     };
@@ -1117,6 +1188,8 @@ const TIPS = [
   '<b>Hotkeys:</b> 1–9 select weapons, <b>Space</b> starts a wave or pauses, <b>M</b> mutes, <b>Esc</b> cancels. Hold <b>Shift</b> while building to place several.',
   '<b>Upgrades:</b> click a placed weapon to upgrade it (2–3 levels max — each level is a big jump in damage, fire rate, and range, and the hardware visibly grows). Upgrades cost more than the weapon itself, and each level costs more than the last.',
   '<b>The armory grows with you:</b> heavier weapons unlock as you survive deeper waves — the shop card shows the unlock wave on locked gear.',
+  '<b>Duplicates cost extra:</b> every additional copy of the same weapon is pricier than the last (mortars especially). Diversify your arsenal.',
+  '<b>✈️ Air Strike</b> (from wave 50): jets carpet-bomb wherever you click — huge armor-piercing damage that even hits flyers. Max two calls per run, and the second costs more. Save them for boss waves.',
   '<b>Targeting:</b> the selected weapon\'s "Target" button cycles FIRST / LAST / STRONG / CLOSE. Snipers on STRONG melt tanks; slows on FIRST hold the line.',
   '<b>Flyers</b> (Pteranodons & friends) can only be hit by air-capable weapons — Flame Throwers and Mortars can\'t touch them.',
   '<b>Armor</b> (Ankylosaurus, Triceratops) shrugs off weak hits. 🎯 Snipers pierce armor completely.',
@@ -1196,6 +1269,7 @@ function step(dt){
   for (const t of G.towers) fireTower(t, dt);
   updateDinos(dt);
   updateProjs(dt);
+  updateStrikes(dt);
   // boss corpses: fall, hit the ground, fade out
   for (const c of G.corpses){
     c.t += dt;
@@ -1459,10 +1533,32 @@ function render(dt){
   // flyers on top
   air.forEach(drawOne);
 
+  // air-strike jets + contrails
+  for (const s of G.strikes){
+    const jetX = -160 + s.t * 1150;
+    for (const [ox, oy] of [[0, -20], [-58, 16]]){
+      const jx = jetX + ox, jy = s.y + oy - 24;
+      const ct = ctx.createLinearGradient(jx - 170, 0, jx - 16, 0);
+      ct.addColorStop(0, 'rgba(255,255,255,0)'); ct.addColorStop(1, 'rgba(255,255,255,0.35)');
+      ctx.strokeStyle = ct; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(jx - 170, jy); ctx.lineTo(jx - 16, jy); ctx.stroke();
+      ctx.fillStyle = '#39404a';
+      ctx.beginPath();
+      ctx.moveTo(jx + 17, jy); ctx.lineTo(jx - 13, jy - 9); ctx.lineTo(jx - 6, jy);
+      ctx.lineTo(jx - 13, jy + 9); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#9fb0bc';
+      ctx.beginPath();
+      ctx.moveTo(jx + 11, jy); ctx.lineTo(jx - 4, jy - 3.4); ctx.lineTo(jx - 4, jy + 3.4);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(255,180,70,0.85)'; // afterburner
+      ctx.beginPath(); ctx.arc(jx - 14, jy, 2.6, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
   // placing ghost
   if (G.placing && G.mouse.on){
     const def = TOWERS[G.placing];
-    const ok = canPlace(G.mouse.x, G.mouse.y) && G.cash >= def.cost;
+    const ok = canPlace(G.mouse.x, G.mouse.y) && G.cash >= towerCost(G.placing);
     ctx.globalAlpha = 0.85;
     ctx.strokeStyle = ok ? 'rgba(140,240,140,0.6)' : 'rgba(255,90,90,0.7)';
     ctx.fillStyle = ok ? 'rgba(140,240,140,0.12)' : 'rgba(255,90,90,0.12)';
@@ -1477,6 +1573,24 @@ function render(dt){
       ctx.fillText(ok ? 'TAP AGAIN TO BUILD' : 'BLOCKED — TAP ELSEWHERE', G.mouse.x, G.mouse.y - 34);
     }
     ctx.globalAlpha = 1;
+  }
+
+  // air-strike targeting reticle
+  if (G.targeting === 'strike' && G.mouse.on){
+    const canCall = G.cash >= airCost();
+    ctx.strokeStyle = canCall ? 'rgba(255,80,50,0.75)' : 'rgba(150,150,150,0.6)';
+    ctx.lineWidth = 2; ctx.setLineDash([8, 6]); ctx.lineDashOffset = -G.time * 30;
+    for (const dx of AIRSTRIKE.bombs){
+      ctx.beginPath(); ctx.arc(G.mouse.x + dx, G.mouse.y, AIRSTRIKE.splash, 0, Math.PI*2); ctx.stroke();
+    }
+    ctx.setLineDash([]); ctx.lineDashOffset = 0;
+    ctx.beginPath(); ctx.moveTo(G.mouse.x - 16, G.mouse.y); ctx.lineTo(G.mouse.x + 16, G.mouse.y);
+    ctx.moveTo(G.mouse.x, G.mouse.y - 16); ctx.lineTo(G.mouse.x, G.mouse.y + 16); ctx.stroke();
+    ctx.font = 'bold 13px Verdana, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillText(canCall ? '✈ CLICK TO CALL THE STRIKE' : 'NOT ENOUGH CASH', G.mouse.x + 1, G.mouse.y - 139);
+    ctx.fillStyle = canCall ? '#ff9a7a' : '#c9c9c9';
+    ctx.fillText(canCall ? '✈ CLICK TO CALL THE STRIKE' : 'NOT ENOUGH CASH', G.mouse.x, G.mouse.y - 140);
   }
 
   // floating texts
@@ -1626,6 +1740,10 @@ const IS_COARSE = matchMedia('(pointer: coarse)').matches; // touch devices
 cv.addEventListener('click', e => {
   if (G.state !== 'playing') return;
   const p = canvasPos(e);
+  if (G.targeting === 'strike'){
+    launchStrike(p.x, p.y);
+    return;
+  }
   if (G.placing){
     if (IS_COARSE){
       // two-tap on touch: first tap previews, second tap (near it) confirms
@@ -1639,7 +1757,7 @@ cv.addEventListener('click', e => {
     } else {
       placeTower(G.placing, p.x, p.y);
     }
-    if (!e.shiftKey && G.cash < TOWERS[G.placing].cost) { G.placing = null; }
+    if (!e.shiftKey && G.cash < towerCost(G.placing)) { G.placing = null; }
     updateHUD();
     return;
   }
@@ -1650,7 +1768,7 @@ cv.addEventListener('click', e => {
 });
 cv.addEventListener('contextmenu', e => {
   e.preventDefault();
-  G.placing = null; G.pendingTap = null; selectTower(null); updateHUD();
+  G.placing = null; G.pendingTap = null; G.targeting = null; selectTower(null); updateHUD();
 });
 window.addEventListener('keydown', e => {
   if (G.state !== 'playing') return;
@@ -1660,7 +1778,7 @@ window.addEventListener('keydown', e => {
     if (towerUnlocked(k)){ G.placing = k; selectTower(null); updateHUD(); }
     else SFX.error();
   }
-  if (e.key === 'Escape'){ G.placing = null; G.pendingTap = null; selectTower(null); updateHUD(); }
+  if (e.key === 'Escape'){ G.placing = null; G.pendingTap = null; G.targeting = null; selectTower(null); updateHUD(); }
   if (e.key === ' '){ e.preventDefault(); if (!G.waveActive) startWave(); else togglePause(); }
   if (e.key === 'm' || e.key === 'M') toggleMute();
 });
@@ -1679,6 +1797,13 @@ $('#btnMute').onclick = toggleMute;
 $$('#speedBtns button').forEach(b => b.onclick = () => { G.speed = +b.dataset.s; G.paused = false; updateHUD(); });
 $('#btnMenu').onclick = () => { if (!G.over) saveRun(); toMenu(); };
 $('#up_main').onclick = () => upgrade();
+$('#airCard').onclick = () => {
+  if (!airUnlocked() || G.airUsed >= AIRSTRIKE.maxUses){ SFX.error(); return; }
+  G.targeting = (G.targeting === 'strike') ? null : 'strike';
+  G.placing = null; G.pendingTap = null;
+  selectTower(null);
+  updateHUD();
+};
 $('#tpSell').onclick = sellSelected;
 $('#tpMode').onclick = () => {
   const modes = ['first', 'last', 'strong', 'close'];
@@ -1772,9 +1897,16 @@ if (testParams.has('test')){
   startLevel(clamp(parseInt(testParams.get('level'), 10) || 0, 0, LEVELS.length - 1), 'fresh');
   G.cash = 5000;
   placeTower('gatling', 420, 260, true);
-  placeTower('tranq', 550, 330, true);
+  placeTower('flamer', 550, 330, true);
   placeTower('missile', 800, 300, true);
   placeTower('mortar', 900, 490, true);
+  if (testParams.has('strike')){ // stage an air strike for visual checks
+    G.cash = 99999; G.wave = 60;
+    launchStrike(640, 430);
+    G.wave = 0;
+    for (let s = 0; s < (parseFloat(testParams.get('strike')) || 0.6); s += 0.05) step(0.05);
+    G.paused = true; // freeze mid-flight so the frame can be inspected
+  }
   if (testParams.has('upg')){ // preview upgraded-tower visuals
     const lv = clamp(parseInt(testParams.get('upg'), 10) || 3, 0, 3);
     G.towers.forEach(t => { t.ulv = Math.min(TOWERS[t.key].maxUp, lv); });

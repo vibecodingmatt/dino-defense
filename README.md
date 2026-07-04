@@ -19,7 +19,7 @@ Blue, T-Rex, Spinosaurus, Indominus Rex, Indoraptor, and finally Giganotosaurus.
 ## Controls
 | Input | Action |
 |---|---|
-| Click weapon card (or keys **1–9**) then click map | Build a weapon |
+| Click weapon card (or keys **1–8**) then click map | Build a weapon |
 | **Shift**+click | Place several in a row |
 | Right-click / **Esc** | Cancel placement or deselect |
 | Click a placed weapon | Upgrade (2–3 levels max) / change targeting / sell (70% refund) |

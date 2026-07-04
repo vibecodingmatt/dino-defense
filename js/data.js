@@ -4,8 +4,16 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.7.0';
+const VERSION = '1.8.0';
 const CHANGELOG = [
+  {v: '1.8.0', date: 'Jul 4, 2026', items: [
+    'New ✈️ AIR STRIKE: from wave 50, call in jets to carpet-bomb anywhere you click — $5,000, second run costs $7,500, max two per run',
+    'Anti-spam pricing: each additional copy of the same weapon costs more (+15%, mortars +35%)',
+    'Mid/late-game income reined in — kill bounties and wave bonuses grow much slower',
+    'Upgrade button now becomes clickable the moment you can afford it',
+    'Tranq Turret retired; Flame Thrower is available from wave 1',
+    'New 6× speed button',
+  ]},
   {v: '1.7.0', date: 'Jul 4, 2026', items: [
     'Weapons now unlock as you survive deeper waves — heavy hardware like the 💣 Mortar (wave 28) can no longer be rushed in the opening minutes',
     'Upgrade costs properly tiered: every upgrade costs more than the weapon itself, and each level costs more than the last',
@@ -146,12 +154,9 @@ const BOSS_WAVES = {
    Each upgrade: damage ×1.65, fire rate ×1.25, range ×1.12, splash grows.
    unlock = first wave the weapon becomes purchasable. */
 const TOWERS = {
-  tranq:   {name:'Tranq Turret',   icon:'💉', cost:100, dmg:12,  rof:1.4,  range:140, air:true,  proj:'dart', maxUp:3, unlock:1,
-            slow:{f:0.82, t:1.2},
-            desc:'Cheap dart rifle. Darts mildly sedate targets, slowing them.', color:'#8fd14f'},
   gatling: {name:'ACU Gatling',    icon:'🔫', cost:180, dmg:9,   rof:7,    range:130, air:true,  proj:'bullet', maxUp:3, unlock:1,
             desc:'Asset Containment turret. Low damage, very high fire rate.', color:'#c9c9c9'},
-  flamer:  {name:'Flame Thrower',  icon:'🔥', cost:210, dmg:7,   rof:9,    range:100, air:false, proj:'flame', maxUp:2, unlock:3,
+  flamer:  {name:'Flame Thrower',  icon:'🔥', cost:210, dmg:7,   rof:9,    range:100, air:false, proj:'flame', maxUp:2, unlock:1,
             burn:{dps:22, t:2.2}, cone:0.62,
             desc:'Short-range cone of fire. Sets ground targets ablaze.', color:'#ff9a3d'},
   sniper:  {name:'Ranger Sniper',  icon:'🎯', cost:270, dmg:95,  rof:0.6,  range:280, air:true,  proj:'snipe', pierce:true, maxUp:2, unlock:6,
@@ -168,7 +173,7 @@ const TOWERS = {
   missile: {name:'Missile Battery',icon:'🚀', cost:470, dmg:90,  rof:0.55, range:220, air:true,  proj:'missile', maxUp:2, unlock:18,
             splash:70,
             desc:'Homing rockets with splash. Upgrades add a 2nd and 3rd rocket per salvo!', color:'#ff6b6b'},
-  mortar:  {name:'Mortar',         icon:'💣', cost:850, dmg:200, rof:0.3,  range:310, air:false, proj:'mortar', maxUp:1, unlock:28,
+  mortar:  {name:'Mortar',         icon:'💣', cost:1000, dmg:200, rof:0.3, range:310, air:false, proj:'mortar', maxUp:1, unlock:28,
             splash:100, minRange:90,
             desc:'Lobbed shells devastate herds at long range. Cannot hit flyers or anything too close. One upgrade: massive damage and splash.', color:'#e0b64f'},
 };
@@ -178,6 +183,16 @@ const TOWERS = {
 const UPG = {
   mult: {dmg: 1.65, rof: 1.25, range: 1.12},
   cost: (towerDef, ulv) => Math.round(towerDef.cost * (1.2 + ulv * 0.8)),
+};
+
+/* ---------- AIR STRIKE (consumable, not a tower) ---------- */
+const AIRSTRIKE = {
+  unlock: 50,          // first wave it can be called in
+  costs: [5000, 7500], // first use, second use
+  maxUses: 2,          // per run
+  dmg: 800,            // per bomb, ignores armor, hits flyers too
+  splash: 120,
+  bombs: [-75, 0, 75], // impact offsets along the strike line
 };
 
 /* ---------- LEVELS ----------
@@ -218,7 +233,6 @@ const LAB = [
   {key:'base_hp',    icon:'🏥', name:'Bunker Plating',     max:10, baseCost:30, desc:'+15 base health per tier.'},
   {key:'bounty',     icon:'💎', name:'Amber Recovery',     max:8,  baseCost:50, desc:'+6% cash from kills per tier.'},
   /* ammo research — one per weapon: +8% dmg, +4% fire rate per tier */
-  {key:'ammo_tranq',   icon:'💉', name:'Potent Toxins',     max:5, baseCost:35, ammo:'tranq',   desc:'Tranq ammo: +8% dmg, +4% fire rate / tier.'},
   {key:'ammo_gatling', icon:'🔫', name:'AP Rounds',         max:5, baseCost:35, ammo:'gatling', desc:'Gatling ammo: +8% dmg, +4% fire rate / tier.'},
   {key:'ammo_sniper',  icon:'🎯', name:'Depleted Uranium',  max:5, baseCost:45, ammo:'sniper',  desc:'Sniper ammo: +8% dmg, +4% fire rate / tier.'},
   {key:'ammo_flamer',  icon:'🔥', name:'Napalm Mix',        max:5, baseCost:40, ammo:'flamer',  desc:'Flamer fuel: +8% dmg, +4% fire rate / tier.'},
