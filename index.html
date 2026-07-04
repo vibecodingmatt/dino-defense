@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Isla Defense — Containment Breach</title>
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦖</text></svg>">
+</head>
+<body>
+<div id="app">
+
+  <!-- top HUD -->
+  <div id="hud" class="hidden">
+    <span id="levelTitle">Level</span>
+    <span class="stat" id="hWave">Wave 0/100</span>
+    <span class="stat" id="hCash">$0</span>
+    <span class="stat" id="hDna">0 DNA</span>
+    <span class="stat" id="hLives">❤ 100</span>
+    <span id="invBadge" class="hidden">🛡 INVINCIBLE</span>
+    <span class="spacer"></span>
+    <button id="btnWave">▶ Start Wave 1</button>
+    <span id="speedBtns">
+      <button data-s="1" class="on">1×</button><button data-s="2">2×</button><button data-s="4">4×</button>
+    </span>
+    <button id="btnPause">⏸</button>
+    <button id="btnMenu">🗺 Map</button>
+  </div>
+
+  <!-- game area -->
+  <div id="main">
+    <div id="stage">
+      <canvas id="game" width="1280" height="720"></canvas>
+    </div>
+
+    <!-- tower shop -->
+    <div id="shop" class="hidden">
+      <h3>Armory</h3>
+      <div id="shopCards"></div>
+
+      <div id="towerPanel" class="hidden">
+        <div id="tpName"></div>
+        <div id="tpStats"></div>
+        <button id="up_dmg"></button>
+        <button id="up_rate"></button>
+        <button id="up_range"></button>
+        <button id="tpMode">Target: FIRST</button>
+        <button id="tpSell">Sell</button>
+      </div>
+
+      <div class="hint">
+        Click a weapon (or keys 1–8), then click the map to build.
+        Hold <b>Shift</b> to place several. Right-click / Esc cancels.
+        <b>Space</b> starts a wave or pauses.
+        Flyers need air-capable weapons!
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- main menu -->
+<div id="menu">
+  <h1>🦖 ISLA DEFENSE</h1>
+  <div class="tag">— CONTAINMENT BREACH · a dinosaur tower defense —</div>
+  <div id="menuDna">0 DNA</div>
+  <div id="levelCards"></div>
+  <div id="menuBtns">
+    <button id="btnLab" class="primary">🧬 Research Lab</button>
+    <button id="btnSettings">⚙ Settings</button>
+  </div>
+  <div class="foot">
+    Survive 100 waves to secure each zone and unlock the next.<br>
+    Every kill pays cash for weapons; every wave banks DNA for permanent lab research.<br>
+    An affectionate homage to a certain dinosaur park that definitely spared no expense.
+  </div>
+</div>
+
+<!-- research lab -->
+<div id="lab" class="modal hidden">
+  <div class="modalBox">
+    <h2>🧬 Research Lab</h2>
+    <div class="sub">Permanent upgrades, paid in <span id="labDna">0 DNA</span>. DNA is earned every wave you clear — even on failed runs.</div>
+    <div id="labList"></div>
+    <div class="modalBtns"><button id="labClose" class="primary">Done</button></div>
+  </div>
+</div>
+
+<!-- settings -->
+<div id="settings" class="modal hidden">
+  <div class="modalBox">
+    <h2>⚙ Settings</h2>
+    <div class="sub">Saved automatically.</div>
+    <label class="optRow">
+      <input type="checkbox" id="optInv">
+      <span>🛡 Invincibility <small>For testing — escaped dinosaurs deal no damage to your base.</small></span>
+    </label>
+    <label class="optRow">
+      <input type="checkbox" id="optAuto" checked>
+      <span>▶ Auto-start waves <small>Next wave begins 3 seconds after the last one is cleared.</small></span>
+    </label>
+    <label class="optRow">
+      <input type="checkbox" id="optMute">
+      <span>🔇 Mute sound</span>
+    </label>
+    <div class="modalBtns">
+      <button id="setClose" class="primary">Done</button>
+      <button id="btnReset">⚠ Reset all progress</button>
+    </div>
+  </div>
+</div>
+
+<!-- defeat -->
+<div id="gameover" class="modal hidden">
+  <div class="modalBox">
+    <h2>☠ CONTAINMENT FAILED</h2>
+    <p id="defeatText"></p>
+    <div class="modalBtns">
+      <button id="retryCp" class="primary"></button>
+      <button id="goRetry">↻ Restart Zone</button>
+      <button id="goMenu">🗺 Island Map</button>
+    </div>
+  </div>
+</div>
+
+<!-- victory -->
+<div id="victory" class="modal hidden">
+  <div class="modalBox">
+    <h2>🏆 ZONE SECURED</h2>
+    <p id="victoryText"></p>
+    <div class="modalBtns">
+      <button id="vNext" class="primary">➜ Next Zone</button>
+      <button id="vMenu">🗺 Island Map</button>
+    </div>
+  </div>
+</div>
+
+<div id="errbox" class="hidden"></div>
+
+<script src="js/data.js"></script>
+<script src="js/draw.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>

@@ -1,0 +1,179 @@
+/* ISLA DEFENSE — UI styling */
+* { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+
+:root {
+  --bg: #10140d;
+  --panel: #1b2117;
+  --panel2: #242c1e;
+  --line: #3a4530;
+  --amber: #e8b93a;
+  --amber2: #ffd24a;
+  --text: #d8dcc8;
+  --dim: #8b937c;
+  --red: #e05a4a;
+  --green: #8fd14f;
+  --dna: #7ec8ff;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Verdana, Geneva, sans-serif;
+  overflow: hidden;
+}
+
+#app { display: flex; flex-direction: column; height: 100vh; }
+
+.hidden { display: none !important; }
+
+/* ---------- HUD (top bar) ---------- */
+#hud {
+  display: flex; align-items: center; gap: 14px;
+  padding: 8px 14px;
+  background: linear-gradient(#232b1b, #1a2014);
+  border-bottom: 2px solid var(--amber);
+  font-size: 14px;
+  flex-wrap: wrap;
+}
+#levelTitle { font-weight: bold; color: var(--amber2); letter-spacing: 0.5px; }
+.stat { background: #00000040; border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; white-space: nowrap; }
+#hCash { color: var(--amber2); font-weight: bold; }
+#hDna  { color: var(--dna); }
+#hLives { color: var(--green); font-weight: bold; }
+#hLives.low { color: var(--red); animation: blink 0.8s infinite; }
+@keyframes blink { 50% { opacity: 0.45; } }
+#invBadge {
+  color: #ffdf70; border: 1px solid #ffdf70; border-radius: 6px;
+  padding: 3px 8px; font-size: 12px; font-weight: bold;
+}
+#hud .spacer { flex: 1; }
+#hud button, .modal button, #shop button {
+  background: var(--panel2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 6px;
+  padding: 6px 12px; font-family: inherit; font-size: 13px; cursor: pointer;
+}
+#hud button:hover:not(:disabled), .modal button:hover:not(:disabled), #shop button:hover:not(:disabled) { border-color: var(--amber); color: #fff; }
+#hud button:disabled, .modal button:disabled, #shop button:disabled { opacity: 0.45; cursor: default; }
+#hud button.on { background: var(--amber); color: #1a1a0a; font-weight: bold; border-color: var(--amber2); }
+#btnWave { background: #3d5226; font-weight: bold; }
+
+/* ---------- main area ---------- */
+#main { flex: 1; display: flex; min-height: 0; }
+#stage { flex: 1; display: flex; align-items: center; justify-content: center; background: #0a0d08; min-width: 0; }
+canvas#game {
+  max-width: 100%; max-height: 100%;
+  aspect-ratio: 16/9;
+  background: #1c2415;
+  cursor: crosshair;
+  box-shadow: 0 0 40px #000 inset;
+}
+
+/* ---------- shop (right panel) ---------- */
+#shop {
+  width: 210px; padding: 10px;
+  background: var(--panel);
+  border-left: 2px solid var(--line);
+  overflow-y: auto;
+  display: flex; flex-direction: column; gap: 10px;
+}
+#shop h3 { font-size: 13px; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; }
+#shopCards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.shopCard {
+  background: var(--panel2); border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px 4px; text-align: center; cursor: pointer;
+  transition: transform 0.06s, border-color 0.06s;
+}
+.shopCard:hover { border-color: var(--amber); transform: translateY(-1px); }
+.shopCard.sel { border-color: var(--amber2); background: #3a4227; box-shadow: 0 0 10px #e8b93a55; }
+.shopCard.cant { opacity: 0.45; }
+.shopCard .ico { font-size: 22px; }
+.shopCard .nm { font-size: 10.5px; margin-top: 3px; line-height: 1.2; }
+.shopCard .cost { font-size: 11px; color: var(--amber2); margin-top: 2px; font-weight: bold; }
+
+#towerPanel {
+  background: var(--panel2); border: 1px solid var(--amber); border-radius: 8px;
+  padding: 10px; display: flex; flex-direction: column; gap: 7px;
+}
+#tpName { font-weight: bold; color: var(--amber2); font-size: 14px; }
+#tpStats { font-size: 11.5px; color: var(--text); line-height: 1.5; }
+#tpStats .warn { color: var(--red); }
+#towerPanel button { font-size: 11.5px; text-align: left; }
+#tpSell { color: var(--red); }
+.hint { font-size: 10.5px; color: var(--dim); line-height: 1.5; }
+
+/* ---------- menu ---------- */
+#menu {
+  position: absolute; inset: 0; z-index: 10;
+  background:
+    radial-gradient(1200px 500px at 50% -10%, #3a4a2455, transparent),
+    linear-gradient(#141a0f, #0d110a);
+  display: flex; flex-direction: column; align-items: center;
+  padding: 5vh 20px 20px; overflow-y: auto;
+}
+#menu h1 {
+  font-size: clamp(30px, 5vw, 52px); color: var(--amber2);
+  letter-spacing: 4px; text-shadow: 0 4px 20px #00000090, 0 0 40px #e8b93a30;
+}
+#menu .tag { color: var(--dim); margin: 8px 0 26px; font-size: 14px; letter-spacing: 1px; }
+#menuDna { color: var(--dna); font-weight: bold; margin-bottom: 18px; font-size: 16px; }
+#levelCards { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; max-width: 1100px; }
+.levelCard {
+  width: 195px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 14px; cursor: pointer; transition: transform 0.08s, border-color 0.08s;
+}
+.levelCard:hover:not(.locked) { border-color: var(--amber); transform: translateY(-3px); }
+.levelCard.locked { opacity: 0.5; cursor: default; }
+.levelCard.resume { border-color: var(--amber); box-shadow: 0 0 16px #e8b93a33; background: #262e1c; }
+.levelCard.resume .lvNum { color: var(--amber2); }
+.lvNum { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; }
+.lvName { font-weight: bold; color: var(--amber2); margin: 5px 0 3px; font-size: 15px; }
+.lvSub { font-size: 11px; color: var(--text); }
+.lvBest { font-size: 11px; color: var(--green); margin-top: 9px; }
+#menuBtns { display: flex; gap: 12px; margin-top: 26px; }
+#menuBtns button { padding: 10px 22px; font-size: 15px; }
+#menu .foot { margin-top: auto; padding-top: 24px; color: #58604c; font-size: 11px; text-align: center; line-height: 1.6; }
+
+/* ---------- modals ---------- */
+.modal {
+  position: absolute; inset: 0; z-index: 20;
+  background: rgba(5, 8, 4, 0.75);
+  display: flex; align-items: center; justify-content: center;
+}
+.modalBox {
+  background: var(--panel); border: 2px solid var(--amber); border-radius: 12px;
+  padding: 22px 26px; width: min(560px, 92vw); max-height: 86vh;
+  overflow-y: auto; box-shadow: 0 20px 60px #000;
+}
+.modalBox h2 { color: var(--amber2); margin-bottom: 6px; letter-spacing: 1px; }
+.modalBox .sub { color: var(--dim); font-size: 12.5px; margin-bottom: 16px; }
+.modalBox p { line-height: 1.65; font-size: 14px; }
+.modalBtns { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+.modalBtns button { padding: 9px 18px; font-size: 14px; }
+.primary { background: #3d5226 !important; font-weight: bold; }
+.dna { color: var(--dna); }
+
+/* lab */
+#labDna { color: var(--dna); font-weight: bold; }
+.labRow {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--panel2); border: 1px solid var(--line); border-radius: 8px;
+  padding: 9px 12px; margin-top: 8px;
+}
+.labIco { font-size: 22px; }
+.labInfo { flex: 1; font-size: 12.5px; line-height: 1.45; }
+.labInfo small { color: var(--dim); }
+.labInfo .tier { color: var(--amber2); font-size: 10px; letter-spacing: 1px; }
+.labBuy { min-width: 86px; }
+
+/* settings rows */
+.optRow { display: flex; align-items: center; gap: 10px; padding: 9px 2px; font-size: 14px; }
+.optRow input { width: 17px; height: 17px; accent-color: var(--amber); cursor: pointer; }
+.optRow small { color: var(--dim); display: block; font-size: 11px; }
+
+/* error overlay */
+#errbox {
+  position: absolute; left: 10px; bottom: 10px; z-index: 99;
+  background: #4a1010; color: #ffb0a0; border: 1px solid #a04030;
+  padding: 8px 12px; border-radius: 8px; font-size: 12px; max-width: 70vw;
+}
