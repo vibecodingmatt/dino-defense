@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.12.3';
+const VERSION = '1.12.4';
 /* Player-facing changelog — ONE entry per DAY (a daily recap), newest first.
    The `v` shown is the latest version released that day; `items` are the major,
    player-facing changes only. Keep it about what changed for the player — no
@@ -16,6 +16,7 @@ const CHANGELOG = [
     '🎚️ New progression: choose a map and a difficulty level from 1 to 1000. Levels unlock 10 at a time — beat the highest one available to open the next block.',
     '🧬 Research Lab reworked: spend DNA to permanently level up every weapon — plus your base health and starting cash — with no cap. DNA now drops from every kill, and pays out more the higher you climb.',
     '⚔️ Keep your weapon levels close to the level you\'re playing: get ahead and it\'s a breeze, fall behind and you\'ll be overrun.',
+    '⚖️ DNA rewards rebalanced: beating a level now funds roughly one weapon upgrade — so you can\'t grind an easy level to over-level and trivialize the rest. Push to higher levels (and earn achievements) for the bigger DNA payouts.',
     '🏆 25 achievements on their own menu page — each one awards a DNA bonus, with far bigger payouts for the tougher feats.',
     '💥 Air Strike reworked into a full-zone cluster bomb: it carpets the whole map, wipes out regular dinosaurs, and takes a big bite out of any boss.',
     '☠ Bosses are much tougher, and the wave-100 finale — the four-armed D-Rex — was completely redrawn.',
@@ -255,9 +256,14 @@ const DIFF_BLOCK     = 10;      // levels unlock 10 at a time
    stays fundable. */
 const DIFF_HP_GROWTH = 1.11;    // enemy HP ×/level — matches weapon damage growth
 const DIFF_SPD_MAX   = 1.6;     // enemy speed creep from difficulty caps here
-const DNA_GROWTH     = 1.11;    // DNA income ×/level — tracks HP so higher levels fund bigger upgrades
-const DNA_PER_BOUNTY = 0.10;    // DNA per kill = enemy cash-bounty × this × difficulty factor
-const DIFF_CLEAR_DNA = 60;      // level-clear DNA bonus ≈ this many kills' worth (× difficulty factor)
+const DNA_GROWTH     = 1.12;    // DNA income ×/level — matches upgrade-cost growth so it stays ~1 upgrade per clear at every level
+/* DNA economy is deliberately STINGY: beating a level should fund only ~1
+   weapon upgrade, so you can't farm a weak level to over-level and trivialize
+   the next ones. The level-CLEAR bonus is the real reward; per-kill DNA is
+   just a small trickle (and partial credit if you lose). Both scale with
+   difficulty, so pushing higher pays far more than replaying low levels. */
+const DNA_PER_BOUNTY = 0.00012; // DNA per kill = enemy cash-bounty × this × difficulty factor (tiny)
+const DIFF_CLEAR_DNA = 45;      // level-clear DNA bonus (× difficulty factor) — the main reward
 
 /* difficulty helpers */
 const diffHpMult    = D => Math.pow(DIFF_HP_GROWTH, D - 1);
@@ -279,7 +285,7 @@ const wlvDmgMult  = L => Math.pow(WLV_DMG_GROWTH, (L || 1) - 1);
 const wlvRofMult  = L => 1 + Math.min(1.5, ((L || 1) - 1) * WLV_ROF_PER);   // +up to 150% fire rate
 const wlvRangeMult = L => 1 + Math.min(0.6, ((L || 1) - 1) * WLV_RANGE_PER); // +up to 60% range
 /* cost to go from level L to L+1 — cheaper for cheap weapons, grows each level */
-const wlvCost = (def, L) => Math.round((8 + def.cost / 6) * Math.pow(WLV_COST_GROWTH, (L || 1) - 1));
+const wlvCost = (def, L) => Math.round((20 + def.cost / 5) * Math.pow(WLV_COST_GROWTH, (L || 1) - 1));
 
 /* ---------- META UPGRADES (persistent DNA research, UNCAPPED) ----------
    Base health and starting cash — level them forever with DNA, just like

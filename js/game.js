@@ -2386,6 +2386,27 @@ if (testParams.has('test')){
   placeTower('flamer', 550, 330, true);
   placeTower('missile', 800, 300, true);
   placeTower('mortar', 900, 490, true);
+  if (testParams.has('econ')){ // measure DNA a PERFECT run yields vs upgrade cost
+    const rows = [];
+    for (const D of [1, 2, 5, 10, 25, 50, 100]){
+      const sd = G.difficulty; G.difficulty = D;
+      let dna = 0, kills = 0, bk = 0;
+      for (let w = 1; w <= WAVES_PER_LEVEL; w++){
+        for (const s of buildWave(w)){
+          dna += bountyOf(DINOS[s.key], w) * DNA_PER_BOUNTY * diffDnaMult(D) * (s.boss ? 12 : 1);
+          s.boss ? bk++ : kills++;
+        }
+      }
+      G.difficulty = sd;
+      const clear = DIFF_CLEAR_DNA * diffDnaMult(D);
+      const total = dna + clear, upg = wlvCost(TOWERS.gatling, D);
+      rows.push(`D${D}: ${fmt(total)} DNA/run (${kills}+${bk}b kills, clear ${fmt(clear)}) · upg@Lv${D}=${fmt(upg)} · ${(total/upg).toFixed(1)} upgrades/run`);
+    }
+    const el = $('#errbox'); el.classList.remove('hidden');
+    el.style.whiteSpace = 'pre'; el.style.fontSize = '11px'; el.style.textAlign = 'left';
+    el.textContent = 'ECON (perfect run):\n' + rows.join('\n');
+    G.paused = true;
+  }
   if (testParams.has('strike')){ // stage an air strike for visual checks
     G.cash = 99999; G.wave = 60;
     launchStrike(640, 430);
