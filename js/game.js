@@ -33,48 +33,170 @@ let save = loadSave();
 const persist = () => localStorage.setItem(SAVE_KEY, JSON.stringify(save));
 const labTier = k => save.lab[k] || 0;
 
-/* ---------------- tiny synth audio ---------------- */
-let AC = null;
+/* ---------------- synthesized audio engine ----------------
+   Everything routes through a compressor + a generated convolution
+   reverb, so sounds are layered and roomy instead of raw beeps. */
+let AC = null, master = null, verb = null;
+const DIST_CURVE = (() => { // soft-clip curve for growls / gritty hits
+  const c = new Float32Array(257);
+  for (let i = 0; i < 257; i++) c[i] = Math.tanh((i/128 - 1) * 3);
+  return c;
+})();
 function audio(){
   if (save.settings.mute) return null;
-  if (!AC){ try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){ return null; } }
+  if (!AC){
+    try {
+      AC = new (window.AudioContext || window.webkitAudioContext)();
+      const comp = AC.createDynamicsCompressor();
+      comp.threshold.value = -20; comp.knee.value = 18; comp.ratio.value = 5;
+      comp.attack.value = 0.003; comp.release.value = 0.25;
+      master = AC.createGain(); master.gain.value = 0.6;
+      master.connect(comp); comp.connect(AC.destination);
+      // impulse-response reverb: decaying noise burst (dark, cavernous)
+      verb = AC.createConvolver();
+      const dur = 1.7, n = (AC.sampleRate * dur) | 0;
+      const buf = AC.createBuffer(2, n, AC.sampleRate);
+      for (let ch = 0; ch < 2; ch++){
+        const d = buf.getChannelData(ch);
+        for (let i = 0; i < n; i++) d[i] = (Math.random()*2 - 1) * Math.pow(1 - i/n, 2.8);
+      }
+      verb.buffer = buf;
+      const vg = AC.createGain(); vg.gain.value = 0.4;
+      verb.connect(vg); vg.connect(master);
+    } catch(e){ AC = null; return null; }
+  }
   if (AC.state === 'suspended') AC.resume();
   return AC;
 }
-function tone(freq, dur, type, vol, sweep){
-  const ac = audio(); if (!ac) return;
-  const o = ac.createOscillator(), g = ac.createGain();
-  o.type = type || 'square'; o.frequency.value = freq;
-  if (sweep) o.frequency.exponentialRampToValueAtTime(Math.max(30, sweep), ac.currentTime + dur);
-  g.gain.value = vol || 0.05;
-  g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + dur);
-  o.connect(g); g.connect(ac.destination);
-  o.start(); o.stop(ac.currentTime + dur);
+function routeOut(node, wet){
+  node.connect(master);
+  if (wet > 0){
+    const g = AC.createGain(); g.gain.value = wet;
+    node.connect(g); g.connect(verb);
+  }
 }
-function noiseHit(dur, vol, low){
+function envGain(t0, peak, a, dur){
+  const g = AC.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(peak, t0 + a);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  return g;
+}
+/* filtered noise burst */
+function sfxNoise(o){
   const ac = audio(); if (!ac) return;
-  const n = ac.sampleRate * dur, buf = ac.createBuffer(1, n, ac.sampleRate);
+  const t0 = ac.currentTime + (o.delay || 0);
+  const dur = o.dur;
+  const n = Math.max(64, (ac.sampleRate * dur) | 0);
+  const buf = ac.createBuffer(1, n, ac.sampleRate);
   const d = buf.getChannelData(0);
-  for (let i = 0; i < n; i++) d[i] = (Math.random()*2 - 1) * (1 - i/n);
+  for (let i = 0; i < n; i++) d[i] = Math.random()*2 - 1;
   const src = ac.createBufferSource(); src.buffer = buf;
-  const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = low || 900;
-  const g = ac.createGain(); g.gain.value = vol || 0.15;
-  src.connect(f); f.connect(g); g.connect(ac.destination); src.start();
+  const fl = ac.createBiquadFilter();
+  fl.type = o.type || 'lowpass';
+  fl.frequency.setValueAtTime(o.f0 || 1000, t0);
+  if (o.f1) fl.frequency.exponentialRampToValueAtTime(Math.max(30, o.f1), t0 + dur);
+  if (o.Q) fl.Q.value = o.Q;
+  const g = envGain(t0, o.peak, o.a || 0.003, dur);
+  src.connect(fl); fl.connect(g); routeOut(g, o.wet || 0);
+  src.start(t0); src.stop(t0 + dur + 0.05);
+}
+/* pitched tone with optional distortion + tremolo (growl texture) */
+function sfxTone(o){
+  const ac = audio(); if (!ac) return;
+  const t0 = ac.currentTime + (o.delay || 0);
+  const dur = o.dur;
+  const osc = ac.createOscillator();
+  osc.type = o.type || 'sine';
+  osc.frequency.setValueAtTime(o.f0, t0);
+  if (o.f1) osc.frequency.exponentialRampToValueAtTime(Math.max(20, o.f1), t0 + dur);
+  const g = envGain(t0, o.peak, o.a || 0.006, dur);
+  let head = osc;
+  if (o.dist){
+    const ws = ac.createWaveShaper(); ws.curve = DIST_CURVE;
+    head.connect(ws); head = ws;
+  }
+  head.connect(g);
+  if (o.tremF){ // amplitude wobble — the "growl"
+    const lfo = ac.createOscillator(); lfo.frequency.setValueAtTime(o.tremF, t0);
+    if (o.tremF1) lfo.frequency.linearRampToValueAtTime(o.tremF1, t0 + dur);
+    const lg = ac.createGain(); lg.gain.value = o.peak * (o.tremD || 0.4);
+    lfo.connect(lg); lg.connect(g.gain);
+    lfo.start(t0); lfo.stop(t0 + dur + 0.1);
+  }
+  routeOut(g, o.wet || 0);
+  osc.start(t0); osc.stop(t0 + dur + 0.1);
 }
 const SFX = {
-  shot:   () => tone(880, 0.05, 'square', 0.025),
-  dart:   () => tone(1400, 0.06, 'triangle', 0.03, 500),
-  snipe:  () => { tone(220, 0.15, 'sawtooth', 0.05, 60); noiseHit(0.1, 0.08); },
-  boom:   () => noiseHit(0.35, 0.2, 500),
-  zap:    () => tone(1800, 0.09, 'sawtooth', 0.035, 300),
-  cryo:   () => tone(600, 0.12, 'sine', 0.04, 1400),
-  pulse:  () => tone(160, 0.25, 'sine', 0.06, 60),
-  coin:   () => tone(1200, 0.07, 'triangle', 0.03, 1800),
-  leak:   () => tone(140, 0.35, 'sawtooth', 0.08, 60),
-  roar:   () => { tone(90, 0.7, 'sawtooth', 0.10, 45); noiseHit(0.5, 0.1, 300); },
-  build:  () => tone(500, 0.08, 'square', 0.04, 900),
-  upgrade:() => { tone(700, 0.07, 'square', 0.04, 1000); setTimeout(() => tone(1000, 0.08, 'square', 0.04, 1400), 70); },
-  error:  () => tone(180, 0.12, 'square', 0.05, 120),
+  shot(){ // gatling: noise crack + tiny thump, randomized so bursts don't buzz
+    sfxNoise({dur: 0.06, peak: 0.09, type: 'bandpass', f0: 1600 + Math.random()*500, f1: 650, Q: 0.8, wet: 0.08});
+    sfxTone({type: 'triangle', f0: 210, f1: 90, dur: 0.05, peak: 0.05});
+  },
+  dart(){ // pneumatic pfft
+    sfxNoise({dur: 0.1, peak: 0.06, type: 'bandpass', f0: 2600, f1: 900, Q: 2, wet: 0.1});
+    sfxTone({type: 'sine', f0: 1400, f1: 480, dur: 0.09, peak: 0.03, wet: 0.1});
+  },
+  snipe(){ // heavy rifle crack + sub thump, big room
+    sfxNoise({dur: 0.3, peak: 0.28, type: 'lowpass', f0: 3800, f1: 240, wet: 0.55});
+    sfxTone({type: 'sine', f0: 130, f1: 42, dur: 0.28, peak: 0.18, wet: 0.3});
+  },
+  boom(){ // layered explosion
+    sfxNoise({dur: 0.65, peak: 0.3, type: 'lowpass', f0: 950, f1: 75, wet: 0.6});
+    sfxTone({type: 'sine', f0: 150, f1: 34, dur: 0.6, peak: 0.24, wet: 0.4});
+    sfxNoise({dur: 0.09, peak: 0.16, type: 'highpass', f0: 1400, wet: 0.3}); // initial crack
+  },
+  zap(){ // electric arc: hissy crackle + gritty buzz
+    sfxNoise({dur: 0.12, peak: 0.11, type: 'highpass', f0: 2200, Q: 1, wet: 0.25});
+    sfxTone({type: 'sawtooth', f0: 1300, f1: 240, dur: 0.11, peak: 0.05, dist: true, wet: 0.2});
+  },
+  cryo(){ // icy whoosh rising
+    sfxNoise({dur: 0.26, peak: 0.08, type: 'bandpass', f0: 600, f1: 2600, Q: 1.4, wet: 0.3});
+    sfxTone({type: 'sine', f0: 850, f1: 1650, dur: 0.18, peak: 0.035, wet: 0.3});
+  },
+  pulse(){ // deep sonic throb
+    sfxTone({type: 'sine', f0: 210, f1: 52, dur: 0.38, peak: 0.16, wet: 0.4, tremF: 28, tremD: 0.5});
+  },
+  coin(){ // soft two-note chime
+    sfxTone({type: 'triangle', f0: 880, dur: 0.09, peak: 0.035, wet: 0.2});
+    sfxTone({type: 'triangle', f0: 1318, dur: 0.12, peak: 0.03, wet: 0.25, delay: 0.055});
+  },
+  fanfare(){ // wave-clear: rising three-note motif
+    sfxTone({type: 'triangle', f0: 523, dur: 0.14, peak: 0.06, wet: 0.35});
+    sfxTone({type: 'triangle', f0: 659, dur: 0.14, peak: 0.06, wet: 0.35, delay: 0.09});
+    sfxTone({type: 'triangle', f0: 784, dur: 0.3,  peak: 0.07, wet: 0.45, delay: 0.18});
+    sfxNoise({dur: 0.25, peak: 0.02, type: 'highpass', f0: 6000, wet: 0.5, delay: 0.18});
+  },
+  leak(){ // breach klaxon, two falling blasts
+    sfxTone({type: 'sawtooth', f0: 330, f1: 190, dur: 0.22, peak: 0.09, dist: true, wet: 0.25});
+    sfxTone({type: 'sawtooth', f0: 260, f1: 140, dur: 0.28, peak: 0.09, dist: true, wet: 0.3, delay: 0.2});
+  },
+  roar(){ // boss entrance: layered growl chord + throat noise
+    sfxTone({type: 'sawtooth', f0: 110, f1: 42, dur: 1.15, peak: 0.3,  dist: true, wet: 0.55, tremF: 9,  tremD: 0.55, a: 0.06});
+    sfxTone({type: 'sawtooth', f0: 165, f1: 62, dur: 1.0,  peak: 0.12, dist: true, wet: 0.5,  tremF: 11, tremD: 0.5,  a: 0.05});
+    sfxNoise({dur: 1.05, peak: 0.14, type: 'bandpass', f0: 520, f1: 130, Q: 0.9, wet: 0.5, a: 0.05});
+  },
+  bossDie(){ // long dying bellow, growl slowing as it falls
+    sfxTone({type: 'sawtooth', f0: 95,  f1: 24, dur: 1.75, peak: 0.3,  dist: true, wet: 0.6, tremF: 8, tremF1: 3, tremD: 0.6, a: 0.05});
+    sfxTone({type: 'sawtooth', f0: 142, f1: 40, dur: 1.5,  peak: 0.1,  dist: true, wet: 0.5, tremF: 6, tremF1: 2.5, tremD: 0.5, a: 0.05});
+    sfxNoise({dur: 1.45, peak: 0.12, type: 'bandpass', f0: 430, f1: 85, Q: 1, wet: 0.55, a: 0.04});
+  },
+  thud(){ // multi-ton body hitting the ground
+    sfxTone({type: 'sine', f0: 88, f1: 28, dur: 0.4, peak: 0.3, wet: 0.35});
+    sfxNoise({dur: 0.22, peak: 0.18, type: 'lowpass', f0: 420, f1: 80, wet: 0.35});
+  },
+  build(){ // mechanical clunk + metallic ping
+    sfxNoise({dur: 0.12, peak: 0.14, type: 'lowpass', f0: 520, f1: 140, wet: 0.15});
+    sfxTone({type: 'triangle', f0: 1250, f1: 820, dur: 0.1, peak: 0.045, wet: 0.25, delay: 0.04});
+  },
+  upgrade(){ // ascending servo chime
+    sfxTone({type: 'triangle', f0: 520, dur: 0.08, peak: 0.05, wet: 0.2});
+    sfxTone({type: 'triangle', f0: 700, dur: 0.08, peak: 0.05, wet: 0.25, delay: 0.07});
+    sfxTone({type: 'triangle', f0: 950, dur: 0.14, peak: 0.055, wet: 0.3, delay: 0.14});
+  },
+  error(){ // gentle double-buzz
+    sfxTone({type: 'triangle', f0: 170, f1: 130, dur: 0.08, peak: 0.05});
+    sfxTone({type: 'triangle', f0: 150, f1: 110, dur: 0.1, peak: 0.05, delay: 0.1});
+  },
 };
 
 /* ---------------- game state ---------------- */
@@ -85,7 +207,7 @@ const G = {
   bg: null,
   wave: 0, waveActive: false,
   cash: 0, lives: 0, maxLives: 0,
-  dinos: [], towers: [], projs: [], fx: [], bolts: [], texts: [],
+  dinos: [], towers: [], projs: [], fx: [], bolts: [], texts: [], corpses: [],
   spawnQ: [], spawnT: 0,
   speed: 1, paused: false,
   placing: null, selected: null,
@@ -216,7 +338,7 @@ function spawnDino(key, pathI, isBoss){
   G.dinos.push(d);
   if (isBoss){
     G.banner = {text: '⚠  ' + def.name.toUpperCase() + '  ⚠', t: 2.6};
-    if (def.roar) SFX.roar();
+    SFX.roar();
     G.shake = Math.max(G.shake, 6);
   }
 }
@@ -261,9 +383,20 @@ function damage(d, amt, pierce, src){
     const p = dinoPos(d);
     G.cash += d.bounty;
     addText(p.x, p.y - d.size, '+$' + d.bounty, '#ffd24a');
-    addFx('puff', p.x, p.y, d.size);
-    if (d.boss){ G.shake = Math.max(G.shake, 10); SFX.boom(); addFx('ring', p.x, p.y, 20); }
-    if (Math.random() < 0.3) SFX.coin();
+    if (d.boss){
+      // cinematic collapse: the corpse tips over, thuds, and fades
+      G.corpses.push({pal: d.pal, feat: d.feat, painter: d.painter, size: d.size,
+                      flying: d.flying, boss: true, pathI: d.pathI,
+                      x: p.x, y: p.y, dir: Math.cos(p.ang) >= 0 ? 1 : -1,
+                      phase: d.phase, t: 0, thudded: false});
+      G.shake = Math.max(G.shake, 10);
+      SFX.bossDie();
+      addFx('ring', p.x, p.y, 24);
+      for (let i = 0; i < 5; i++) addFx('spark', p.x + rand(-d.size, d.size), p.y - rand(0, d.size), 6);
+    } else {
+      addFx('puff', p.x, p.y, d.size);
+      if (Math.random() < 0.3) SFX.coin();
+    }
   }
 }
 function applyHit(d, t, st, def){
@@ -435,7 +568,7 @@ function updateProjs(dt){
 function addFx(kind, x, y, r, ang){
   if (G.fx.length > 220) return;
   G.fx.push({kind, x, y, r, ang: ang || 0, t: 0,
-             dur: kind === 'sonic' ? 0.5 : kind === 'boom' ? 0.45 : kind === 'frost' ? 0.5 : kind === 'flame' ? 0.22 : kind === 'ring' ? 0.8 : 0.3});
+             dur: kind === 'sonic' ? 0.5 : kind === 'boom' ? 0.45 : kind === 'frost' ? 0.5 : kind === 'flame' ? 0.22 : kind === 'ring' ? 0.8 : kind === 'dust' ? 0.9 : 0.3});
 }
 function addText(x, y, txt, color, size){
   if (G.texts.length > 40) return;
@@ -503,7 +636,7 @@ function endWave(){
   persist();
   addText(W/2, 120, `Wave ${G.wave} cleared!  +$${bonus}  +${dna} DNA`, '#9fe870');
   G.flashT = 0.45;
-  SFX.coin();
+  SFX.fanfare();
   if (G.wave >= WAVES_PER_LEVEL){ victory(); return; }
   // checkpoint at start of each block of 10
   if ((G.wave) % 10 === 0){
@@ -547,7 +680,7 @@ function startLevel(idx, mode){
   G.bg = bg.cv; G.flames = bg.flames; G.exitFx = bg.exit;
   G.hurtT = 0; G.flashT = 0; G.waveTotal = 0;
   initAmbient();
-  G.dinos = []; G.projs = []; G.fx = []; G.bolts = []; G.texts = []; G.spawnQ = [];
+  G.dinos = []; G.projs = []; G.fx = []; G.bolts = []; G.texts = []; G.spawnQ = []; G.corpses = [];
   G.selected = null; G.placing = null;
   G.waveActive = false; G.autoTimer = -1; G.over = false; G.banner = null;
   G.speed = 1;
@@ -851,6 +984,18 @@ function step(dt){
   for (const t of G.towers) fireTower(t, dt);
   updateDinos(dt);
   updateProjs(dt);
+  // boss corpses: fall, hit the ground, fade out
+  for (const c of G.corpses){
+    c.t += dt;
+    if (!c.thudded && c.t >= 0.55){
+      c.thudded = true;
+      SFX.thud();
+      G.shake = Math.max(G.shake, 7);
+      addFx('dust', c.x + c.dir * c.size * 0.8, c.y, c.size);
+      addFx('dust', c.x + c.dir * c.size * 1.4, c.y + 4, c.size * 0.7);
+    }
+  }
+  G.corpses = G.corpses.filter(c => c.t < 2.4);
   for (const f of G.fx) f.t += dt;
   G.fx = G.fx.filter(f => f.t < f.dur);
   for (const b of G.bolts) b.t -= dt;
@@ -875,6 +1020,26 @@ function render(dt){
     ctx.lineDashOffset = -G.time * 26;
     ctx.beginPath(); ctx.arc(G.selected.x, G.selected.y, st.range, 0, Math.PI*2); ctx.stroke();
     ctx.setLineDash([]); ctx.lineDashOffset = 0;
+  }
+
+  // boss corpses tipping over (under the living)
+  for (const c of G.corpses){
+    const k = Math.min(1, c.t / 0.55);
+    const ease = 1 - Math.pow(1 - k, 3);            // accelerating fall, abrupt stop
+    const fade = clamp((2.4 - c.t) / 0.7, 0, 1);
+    ctx.save();
+    ctx.globalAlpha = 0.32 * fade;
+    ctx.fillStyle = '#000';                          // spreading shadow
+    ctx.beginPath(); ctx.ellipse(c.x + c.dir*ease*c.size*0.5, c.y + 2, c.size * (0.85 + ease*0.5), c.size * 0.22, 0, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.globalAlpha = fade;
+    ctx.translate(c.x, c.y);
+    if (c.dir < 0) ctx.scale(-1, 1);
+    ctx.rotate(ease * 1.35);                         // tip over nose-first
+    ctx.scale(c.size, c.size);
+    PAINTERS[c.painter](ctx, c, c.phase);
+    ctx.restore();
   }
 
   // dinos sorted by y (ground first, flyers on top)
@@ -981,6 +1146,15 @@ function render(dt){
       case 'trail':
         ctx.fillStyle = `rgba(200,200,200,${0.35*(1-k)})`;
         ctx.beginPath(); ctx.arc(f.x, f.y, 2 + k*3, 0, Math.PI*2); ctx.fill();
+        break;
+      case 'dust': // impact dust rolling outward
+        ctx.fillStyle = `rgba(168,150,112,${0.4*(1-k)})`;
+        for (let i = -1; i <= 1; i++){
+          ctx.beginPath();
+          ctx.arc(f.x + i * f.r * (0.35 + k*0.65), f.y - k*f.r*0.35 - Math.abs(i)*2,
+                  f.r * (0.28 + k*0.55) * (1 - Math.abs(i)*0.25), 0, Math.PI*2);
+          ctx.fill();
+        }
         break;
     }
   }
@@ -1236,4 +1410,12 @@ if (testParams.has('test')){
   const sim = parseFloat(testParams.get('sim')) || 0;
   for (let s = 0; s < sim; s += 0.05) step(0.05);
   if (testParams.has('wave')){ G.wave = parseInt(testParams.get('wave'), 10) - 1; G.waveActive = false; startWave(); for (let s = 0; s < (sim || 6); s += 0.05) step(0.05); }
+  if (testParams.has('kill')){ // stage a boss death mid-map to check the collapse
+    spawnDino('trex', 0, true);
+    const b = G.dinos[G.dinos.length - 1];
+    b.dist = G.paths[0].len * 0.45;
+    damage(b, 1e9, true);
+    const ft = parseFloat(testParams.get('kill')) || 0.4;
+    for (let s = 0; s < ft; s += 0.05) step(0.05);
+  }
 }
