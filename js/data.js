@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.14.0';
+const VERSION = '1.14.1';
 /* Player-facing changelog — ONE entry per DAY (a daily recap), newest first.
    The `v` shown is the latest version released that day; `items` are the major,
    player-facing changes only. Keep it about what changed for the player — no
@@ -12,7 +12,8 @@ const VERSION = '1.14.0';
    new day, add a new daily entry; when shipping again the same day, update that
    day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.14.0', date: 'Jul 4, 2026', items: [
+  {v: '1.14.1', date: 'Jul 4, 2026', items: [
+    '🧬 DNA now banks every wave you clear — not just on a full 100-wave clear — so even a run that falls short earns DNA toward upgrades. No more getting stuck with nothing to spend. Reaching further pays more, and finishing all 100 still gives a bonus.',
     '🦖 The island comes alive: dinosaurs now screech, snarl and bellow — small ones shriek, big ones groan — as they fall, with the occasional distant roar drifting across the map. Boss roars are bigger and more menacing, and gunfire and explosions hit harder.',
     '🛠️ Tap or click any placed weapon and a little menu now pops up right over it — upgrade it (with the cost shown) or sell it (with the refund shown), and close it with the ✕ in the corner. The Upgrade button glows green the moment you can afford it and greys out when you can\'t, and selling asks for a confirming second tap so a stray tap can\'t sell your weapon.',
     '🎚️ New progression: choose a map and a difficulty level from 1 to 1000. Levels unlock 10 at a time — beat the highest one available to open the next block.',
@@ -265,7 +266,14 @@ const DNA_GROWTH     = 1.12;    // DNA income ×/level — matches upgrade-cost 
    just a small trickle (and partial credit if you lose). Both scale with
    difficulty, so pushing higher pays far more than replaying low levels. */
 const DNA_PER_BOUNTY = 0.00012; // DNA per kill = enemy cash-bounty × this × difficulty factor (tiny)
-const DIFF_CLEAR_DNA = 45;      // level-clear DNA bonus (× difficulty factor) — the main reward
+/* DNA is banked EVERY wave cleared (× difficulty factor), so a run that dies
+   partway still earns DNA proportional to how far it got — no more dead-ends
+   where you can't beat a level and can never build DNA to get stronger. Later
+   waves pay a little more. A full 100-wave clear also gets a finishing bonus. */
+const WAVE_DNA_BASE  = 0.8;     // DNA for clearing a wave, before the ramp/difficulty factor
+const WAVE_DNA_RAMP  = 0.016;   // extra DNA per wave number (wave 100 pays more than wave 1)
+const DIFF_CLEAR_DNA = 20;      // finishing bonus for clearing all 100 waves (× difficulty factor)
+const waveDna = w => WAVE_DNA_BASE + WAVE_DNA_RAMP * w;
 
 /* difficulty helpers */
 const diffHpMult    = D => Math.pow(DIFF_HP_GROWTH, D - 1);

@@ -1031,8 +1031,15 @@ function endWave(){
   G.waveActive = false;
   const bonus = 40 + 3 * G.wave;
   G.cash += bonus;
-  persist(); // bank the DNA accrued from kills this wave
-  addText(W/2, 120, `Wave ${G.wave} cleared!  +$${bonus}`, '#9fe870');
+  // bank DNA for clearing this wave (clean runs only) — this is the main way
+  // a run that can't reach wave 100 still earns DNA to get stronger
+  let dnaGain = 0;
+  if (!runDisqualified()){
+    dnaGain = waveDna(G.wave) * diffDnaMult(G.difficulty);
+    save.dna += dnaGain; G.dnaRun += dnaGain;
+  }
+  persist();
+  addText(W/2, 120, `Wave ${G.wave} cleared!  +$${bonus}${dnaGain >= 1 ? '  +' + fmt(dnaGain) + ' DNA' : ''}`, '#9fe870');
   G.flashT = 0.45;
   SFX.fanfare();
   if (G.wave >= WAVES_PER_LEVEL){ victory(); return; }
@@ -1184,7 +1191,7 @@ function victory(){
     : (D >= MAX_DIFFICULTY ? `<br><br>👑 You have conquered <b>Level 1000</b> — the summit of the climb!` : '');
   const rewardLine = cheated
     ? `<span class="dim">No DNA or trophies — a developer cheat was used this run.</span>`
-    : `Earned this run: <b class="dna">+${fmt(G.dnaRun)} DNA</b> from kills, plus a <b class="dna">+${fmt(reward)} DNA</b> clear bonus.${flawlessNote}`;
+    : `Banked this run: <b class="dna">+${fmt(G.dnaRun + reward)} DNA</b> (includes a <b class="dna">+${fmt(reward)}</b> full-clear bonus).${flawlessNote}`;
   $('#victoryText').innerHTML =
     `<b>${G.level.name}</b> cleared at <b>Difficulty ${D}</b>. All 100 waves contained.<br>` +
     rewardLine + unlockNote;
@@ -1197,9 +1204,11 @@ function victory(){
 function defeat(){
   G.over = true;
   clearRun();
+  const banked = runDisqualified()
+    ? `<span class="dim">No DNA — a developer cheat was used this run.</span>`
+    : `You banked <b class="dna">+${fmt(G.dnaRun)} DNA</b> from the ${G.wave} wave${G.wave === 1 ? '' : 's'} you cleared — spend it in the Lab to level up, then try again.`;
   $('#defeatText').innerHTML =
-    `The perimeter fell on <b>wave ${G.wave}</b> of ${G.level.name}.<br>` +
-    `DNA you earned this run has been banked — spend it in the Lab, then try again.`;
+    `The perimeter fell on <b>wave ${G.wave}</b> of ${G.level.name} (Difficulty ${G.difficulty}).<br>` + banked;
   $('#gameover').classList.remove('hidden');
 }
 function toMenu(){
@@ -2482,25 +2491,25 @@ if (testParams.has('test')){
       G.paused = true;
     }, 60);
   }
-  if (testParams.has('econ')){ // measure DNA a PERFECT run yields vs upgrade cost
+  if (testParams.has('econ')){ // measure DNA earned (per-wave + kills + clear) vs upgrade cost
     const rows = [];
-    for (const D of [1, 2, 5, 10, 25, 50, 100]){
-      const sd = G.difficulty; G.difficulty = D;
-      let dna = 0, kills = 0, bk = 0;
-      for (let w = 1; w <= WAVES_PER_LEVEL; w++){
-        for (const s of buildWave(w)){
-          dna += bountyOf(DINOS[s.key], w) * DNA_PER_BOUNTY * diffDnaMult(D) * (s.boss ? 12 : 1);
-          s.boss ? bk++ : kills++;
+    for (const D of [1, 5, 25, 100]){
+      // cumulative DNA by wave W: sum of per-wave + per-kill up to W
+      const dnaBy = w => {
+        let d = 0;
+        for (let i = 1; i <= w; i++){
+          d += waveDna(i) * diffDnaMult(D);
+          for (const s of buildWave(i)) d += bountyOf(DINOS[s.key], i) * DNA_PER_BOUNTY * diffDnaMult(D) * (s.boss ? 12 : 1);
         }
-      }
-      G.difficulty = sd;
-      const clear = DIFF_CLEAR_DNA * diffDnaMult(D);
-      const total = dna + clear, upg = wlvCost(TOWERS.gatling, D);
-      rows.push(`D${D}: ${fmt(total)} DNA/run (${kills}+${bk}b kills, clear ${fmt(clear)}) · upg@Lv${D}=${fmt(upg)} · ${(total/upg).toFixed(1)} upgrades/run`);
+        return d;
+      };
+      const upg = wlvCost(TOWERS.gatling, D);
+      const w40 = dnaBy(40), w70 = dnaBy(70), full = dnaBy(100) + DIFF_CLEAR_DNA * diffDnaMult(D);
+      rows.push(`D${D} · upg@Lv${D}=${fmt(upg)}:  die@40=${fmt(w40)} (${(w40/upg).toFixed(1)}u)  die@70=${fmt(w70)} (${(w70/upg).toFixed(1)}u)  FULL=${fmt(full)} (${(full/upg).toFixed(1)}u)`);
     }
     const el = $('#errbox'); el.classList.remove('hidden');
     el.style.whiteSpace = 'pre'; el.style.fontSize = '11px'; el.style.textAlign = 'left';
-    el.textContent = 'ECON (perfect run):\n' + rows.join('\n');
+    el.textContent = 'ECON — DNA banked vs one gatling upgrade (u):\n' + rows.join('\n');
     G.paused = true;
   }
   if (testParams.has('strike')){ // stage an air strike for visual checks
