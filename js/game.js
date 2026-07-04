@@ -16,7 +16,7 @@ const W = 1280, H = 720;
 /* ---------------- persistent save ---------------- */
 const SAVE_KEY = 'islaDefense.v1';
 function defaultSave(){
-  return {bestDiff:0, mapBest:{}, wlv:{}, dna:0, run:null, ach:{},
+  return {bestDiff:0, mapBest:{}, wlv:{}, dna:0, kills:0, run:null, ach:{},
           settings:{invincible:false, unlimitedCash:false, levelSkip:false, mute:false, auto:true, music:true}};
 }
 function loadSave(){
@@ -25,7 +25,7 @@ function loadSave(){
     if (!s) return defaultSave();
     const d = defaultSave();
     return {bestDiff: s.bestDiff || 0, mapBest: s.mapBest || {}, wlv: s.wlv || {},
-            dna: s.dna || 0, run: s.run || null, ach: s.ach || {},
+            dna: s.dna || 0, kills: s.kills || 0, run: s.run || null, ach: s.ach || {},
             settings: Object.assign(d.settings, s.settings || {})};
   } catch(e){ return defaultSave(); }
 }
@@ -92,7 +92,9 @@ function unlockAch(key){
   const a = ACHIEVEMENTS.find(x => x.key === key);
   if (!a) return false;
   save.ach[key] = Date.now();
+  if (a.dna) save.dna += a.dna;   // one-time DNA reward for earning it
   persist();
+  if (G.state === 'playing') updateHUD();
   achToastQ.push(a);
   if (achToastQ.length === 1) showNextToast();
   return true;
@@ -104,7 +106,8 @@ function showNextToast(){
   el.innerHTML =
     `<div class="atIco">${a.icon}</div>` +
     `<div class="atTxt"><div class="atH">🏆 Achievement Unlocked</div>` +
-    `<div class="atN">${a.name}</div><div class="atD">${a.desc}</div></div>`;
+    `<div class="atN">${a.name}</div><div class="atD">${a.desc}</div></div>` +
+    (a.dna ? `<div class="atR">+${fmt(a.dna)}<span>DNA</span></div>` : '');
   el.classList.remove('hidden');
   // reflow so the transition always fires, then slide in
   void el.offsetWidth;
@@ -621,6 +624,9 @@ function damage(d, amt, pierce, src){
       const dna = d.bounty * DNA_PER_BOUNTY * diffDnaMult(G.difficulty) * (d.boss ? 12 : 1);
       save.dna += dna;
       G.dnaRun += dna;
+      save.kills = (save.kills || 0) + 1;
+      if (save.kills >= 1000  && !save.ach.kills_1k)  unlockAch('kills_1k');
+      if (save.kills >= 50000 && !save.ach.kills_50k) unlockAch('kills_50k');
     }
     if (d.boss){
       // cinematic collapse: the corpse tips over, thuds, and fades
@@ -1115,11 +1121,14 @@ function victory(){
   persist();
   // trophies (skipped automatically if any cheat was used this run)
   unlockAch('secure_' + G.levelIdx);
-  if (G.flawless) unlockAch('flawless');
+  if (G.flawless){ unlockAch('flawless'); if (D >= 100) unlockAch('flawless_hi'); }
   if ([0,1,2,3,4].every(i => (save.mapBest[i] || 0) > 0)) unlockAch('island');
   if (D >= 10)   unlockAch('diff_10');
+  if (D >= 50)   unlockAch('diff_50');
   if (D >= 100)  unlockAch('diff_100');
+  if (D >= 250)  unlockAch('diff_250');
   if (D >= 500)  unlockAch('diff_500');
+  if (D >= 750)  unlockAch('diff_750');
   if (D >= 1000) unlockAch('diff_1000');
   const flawlessNote = (G.flawless && !cheated) ? '<br>🛡️ <b>Flawless</b> — your base was never touched!' : '';
   const unlockNote = newBlock && diffUnlocked(save.bestDiff) <= MAX_DIFFICULTY
@@ -1147,6 +1156,7 @@ function defeat(){
 }
 function toMenu(){
   G.state = 'menu';
+  G.runCheated = false;   // no run in progress — Lab actions here are eligible for trophies
   $('#hud').classList.add('hidden');
   $('#shop').classList.add('hidden');
   $('#gameover').classList.add('hidden');
@@ -1277,6 +1287,7 @@ function launchStrike(x, y){
   G.strikes.push({x, y, t: 0, lead, jets, canisters, events, hitBosses: new Set(), end: end + 1.2});
   SFX.alert();
   SFX.jet();
+  unlockAch('airstrike');
   saveRun();
   updateHUD();
 }
@@ -1438,10 +1449,19 @@ function buildAchievements(){
     const done = !!(save.ach && save.ach[a.key]);
     return `<div class="achRow${done ? ' got' : ''}">` +
              `<div class="achIco">${a.icon}</div>` +
-             `<div class="achInfo"><b>${a.name}</b><br><small>${a.desc}</small></div>` +
+             `<div class="achInfo"><b>${a.name}</b><br><small>${a.desc}</small>` +
+               (a.dna ? ` <span class="achDna">🧬 +${fmt(a.dna)} DNA</span>` : '') + `</div>` +
              `<div class="achStat">${done ? '✓ Unlocked' : '🔒 Locked'}</div>` +
            `</div>`;
   }).join('');
+}
+function checkWeaponAch(){
+  const keys = Object.keys(TOWERS);
+  const maxL = Math.max(...keys.map(k => wlv(k)));
+  if (maxL >= 10) unlockAch('wlv_10');
+  if (maxL >= 25) unlockAch('wlv_25');
+  if (maxL >= 50) unlockAch('wlv_50');
+  if (keys.every(k => wlv(k) >= 5)) unlockAch('arsenal5');
 }
 function buildLab(){
   $('#labDna').textContent = fmt(save.dna) + ' DNA';
@@ -1463,7 +1483,9 @@ function buildLab(){
       if (save.dna < c) return;
       save.dna -= c;
       save.wlv[key] = wlv(key) + 1;
-      persist(); SFX.upgrade(); buildLab();
+      persist(); SFX.upgrade();
+      checkWeaponAch();   // may award a weapon-level trophy (and its DNA bonus)
+      buildLab();
       $('#menuDna').innerHTML = `🧬 <b>${fmt(save.dna)} DNA</b> banked &nbsp;·&nbsp; spend it in the Research Lab ▸`;
     };
     el.appendChild(row);

@@ -4,8 +4,12 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.12.0';
+const VERSION = '1.12.1';
 const CHANGELOG = [
+  {v: '1.12.1', date: 'Jul 4, 2026', items: [
+    '🏆 Achievements expanded to 25 and each now pays a one-time DNA bonus when earned — harder trophies pay much more (from a few hundred DNA up to a cool 2,000,000 for beating Level 1000)',
+    '🎯 New goals to grind: difficulty milestones (50/250/750), weapon-level trophies (level any weapon to 10/25/50), Full Arsenal, lifetime kill counts, a flawless high-level clear, and calling your first Air Strike',
+  ]},
   {v: '1.12.0', date: 'Jul 4, 2026', items: [
     '🎚️ Brand-new progression: pick a MAP and a DIFFICULTY LEVEL from 1 to 1000. Level 1 is a gentle warm-up; every level above is proportionally tougher',
     '🔓 Difficulty unlocks 10 at a time — beat the highest one available (10, then 20, 30…) to open the next block, all the way to 1000',
@@ -232,21 +236,34 @@ const AIRSTRIKE = {
 /* ---------- ACHIEVEMENTS (persistent trophy case) ----------
    Awarded for major accomplishments and shown on the main menu.
    Runs that use any developer cheat do NOT earn trophies. */
+/* Each achievement grants a one-time DNA boost on unlock — harder ones pay
+   more, to reward chasing the whole set. Ordered roughly easy → hard. */
 const ACHIEVEMENTS = [
-  {key:'boss_first', icon:'🦴',  name:'First Blood',    desc:'Defeat your very first boss dinosaur.'},
-  {key:'wave50',     icon:'⏱️',  name:'Halfway In',     desc:'Reach wave 50 in any run.'},
-  {key:'diff_10',    icon:'🥉',  name:'Getting Started',desc:'Beat difficulty level 10.'},
-  {key:'diff_100',   icon:'🥈',  name:'Triple Digits',  desc:'Beat difficulty level 100.'},
-  {key:'diff_500',   icon:'🥇',  name:'Into the Abyss', desc:'Beat difficulty level 500.'},
-  {key:'diff_1000',  icon:'👑',  name:'Ascendant',      desc:'Beat difficulty level 1000 — the summit of the climb.'},
-  {key:'secure_0',   icon:'🌿',  name:'Perimeter Held', desc:'Clear all 100 waves on The Perimeter Fence.'},
-  {key:'secure_1',   icon:'🏛️',  name:'Center Cleared', desc:'Clear all 100 waves on the Visitor Center.'},
-  {key:'secure_2',   icon:'🪺',  name:'Aviary Locked',  desc:'Clear all 100 waves on The Aviary.'},
-  {key:'secure_3',   icon:'🌊',  name:'Delta Defended', desc:'Clear all 100 waves on Site B: River Delta.'},
-  {key:'secure_4',   icon:'🌙',  name:'Estate Secured', desc:'Clear all 100 waves on Lockwood Estate.'},
-  {key:'apex',       icon:'☠️',  name:'Devil Slain',    desc:'Defeat the D-Rex, the wave-100 final boss.'},
-  {key:'flawless',   icon:'🛡️',  name:'Untouchable',    desc:'Clear all 100 waves of a run without your base taking a single hit.'},
-  {key:'island',     icon:'🏝️',  name:'Every Map',      desc:'Clear all 100 waves on all five maps.'},
+  {key:'boss_first', icon:'🦴',  name:'First Blood',        desc:'Defeat your very first boss dinosaur.',              dna:300},
+  {key:'airstrike',  icon:'✈️',  name:'Danger Close',       desc:'Call in an Air Strike.',                            dna:250},
+  {key:'wave50',     icon:'⏱️',  name:'Halfway In',         desc:'Reach wave 50 in any run.',                         dna:300},
+  {key:'diff_10',    icon:'🥉',  name:'Getting Started',    desc:'Beat difficulty level 10.',                         dna:400},
+  {key:'secure_0',   icon:'🌿',  name:'Perimeter Held',     desc:'Clear all 100 waves on The Perimeter Fence.',       dna:400},
+  {key:'secure_1',   icon:'🏛️',  name:'Center Cleared',     desc:'Clear all 100 waves on the Visitor Center.',        dna:500},
+  {key:'secure_2',   icon:'🪺',  name:'Aviary Locked',      desc:'Clear all 100 waves on The Aviary.',                dna:600},
+  {key:'secure_3',   icon:'🌊',  name:'Delta Defended',     desc:'Clear all 100 waves on Site B: River Delta.',       dna:700},
+  {key:'secure_4',   icon:'🌙',  name:'Estate Secured',     desc:'Clear all 100 waves on Lockwood Estate.',           dna:800},
+  {key:'kills_1k',   icon:'💀',  name:'Exterminator',       desc:'Defeat 1,000 dinosaurs in total.',                  dna:600},
+  {key:'wlv_10',     icon:'🔧',  name:'Gunsmith',           desc:'Level any weapon to 10 in the Research Lab.',       dna:800},
+  {key:'diff_50',    icon:'🌶️',  name:'Rising Threat',      desc:'Beat difficulty level 50.',                         dna:1500},
+  {key:'apex',       icon:'☠️',  name:'Devil Slain',        desc:'Defeat the D-Rex, the wave-100 final boss.',        dna:2500},
+  {key:'flawless',   icon:'🛡️',  name:'Untouchable',        desc:'Clear a full 100-wave run without your base taking a single hit.', dna:3000},
+  {key:'arsenal5',   icon:'🧰',  name:'Full Arsenal',       desc:'Level every weapon to at least 5.',                 dna:4000},
+  {key:'island',     icon:'🏝️',  name:'Every Map',          desc:'Clear all 100 waves on all five maps.',             dna:5000},
+  {key:'diff_100',   icon:'🥈',  name:'Triple Digits',      desc:'Beat difficulty level 100.',                        dna:6000},
+  {key:'wlv_25',     icon:'🛠️',  name:'Master Armorer',     desc:'Level any weapon to 25.',                           dna:12000},
+  {key:'flawless_hi',icon:'🕊️',  name:'Perfect Storm',      desc:'Clear difficulty level 100 or higher without your base taking a hit.', dna:25000},
+  {key:'diff_250',   icon:'🌋',  name:'Deep Descent',       desc:'Beat difficulty level 250.',                        dna:40000},
+  {key:'kills_50k',  icon:'🌑',  name:'Extinction Event',   desc:'Defeat 50,000 dinosaurs in total.',                 dna:60000},
+  {key:'diff_500',   icon:'🥇',  name:'Into the Abyss',     desc:'Beat difficulty level 500.',                        dna:150000},
+  {key:'wlv_50',     icon:'⚙️',  name:'Weapons Grandmaster',desc:'Level any weapon to 50.',                           dna:250000},
+  {key:'diff_750',   icon:'🔥',  name:'The Long Climb',     desc:'Beat difficulty level 750.',                        dna:600000},
+  {key:'diff_1000',  icon:'👑',  name:'Ascendant',          desc:'Beat difficulty level 1000 — the summit of the climb.', dna:2000000},
 ];
 
 /* ---------- LEVELS ----------
