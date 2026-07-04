@@ -320,9 +320,10 @@ function distToAnyPath(x, y){
 }
 
 /* ---------------- scaling / economy ---------------- */
-const hpScale    = w => (0.7 + 0.27*w) * Math.pow(1.0185, w) * G.level.hpMult;
+const hpScale    = w => (0.7 + 0.3*w) * Math.pow(1.0185, w) * G.level.hpMult;
 const speedScale = w => Math.min(1.4, 1 + w*0.0035);
-const bountyOf   = (def, w) => Math.max(1, Math.round(def.bounty * 1.05 * (1 + w*0.016) * (1 + 0.06*labTier('bounty'))));
+const bountyOf   = (def, w) => Math.max(1, Math.round(def.bounty * (1 + w*0.016) * (1 + 0.06*labTier('bounty'))));
+const towerUnlocked = key => (G.wave + 1) >= (TOWERS[key].unlock || 1);
 const startCash  = () => 280 + 60*labTier('start_cash');
 const startLives = () => 100 + 15*labTier('base_hp');
 
@@ -795,7 +796,7 @@ function startWave(){
 }
 function endWave(){
   G.waveActive = false;
-  const bonus = 50 + 6 * G.wave;
+  const bonus = 40 + 5 * G.wave;
   G.cash += bonus;
   const dna = Math.round((2 + Math.floor(G.wave / 4) + (BOSS_WAVES[G.wave] ? 15 * BOSS_WAVES[G.wave].length : 0)) * (1 + G.levelIdx * 0.5));
   save.dna += dna;
@@ -939,8 +940,9 @@ function canPlace(x, y){
   for (const t of G.towers) if (hyp(x, y, t.x, t.y) < 38) return false;
   return true;
 }
-function placeTower(key, x, y){
+function placeTower(key, x, y, force){
   const def = TOWERS[key];
+  if (!force && !towerUnlocked(key)){ SFX.error(); return; }
   if (G.cash < def.cost || !canPlace(x, y)) { SFX.error(); return; }
   G.cash -= def.cost;
   G.towers.push({key, x, y, ulv: 0, cd: 0, angle: rand(0, 6.28), flash: 0, invested: def.cost, mode: 'first'});
@@ -1013,10 +1015,16 @@ function updateHUD(){
   $('#btnPause').classList.toggle('on', G.paused);
   $('#btnMute').textContent = save.settings.mute ? '🔇' : '🔊';
   $('#btnMute').classList.toggle('on', save.settings.mute);
-  // shop affordability
+  // shop affordability + wave-gated unlocks
   $$('.shopCard').forEach(el => {
-    el.classList.toggle('cant', G.cash < TOWERS[el.dataset.key].cost);
+    const def = TOWERS[el.dataset.key];
+    const locked = !towerUnlocked(el.dataset.key);
+    el.classList.toggle('locked', locked);
+    el.classList.toggle('cant', !locked && G.cash < def.cost);
     el.classList.toggle('sel', G.placing === el.dataset.key);
+    const costEl = el.querySelector('.cost');
+    const label = locked ? `🔒 Wave ${def.unlock}` : '$' + def.cost;
+    if (costEl.textContent !== label) costEl.textContent = label;
   });
 }
 function buildShop(){
@@ -1030,6 +1038,7 @@ function buildShop(){
     card.innerHTML = `<div class="ico">${def.icon}</div><div class="nm">${def.name}</div><div class="cost">$${def.cost}</div>`;
     card.title = def.desc + (def.air ? '' : '  (Cannot hit flying dinosaurs.)');
     card.onclick = () => {
+      if (!towerUnlocked(key)){ SFX.error(); return; }
       G.placing = (G.placing === key) ? null : key;
       G.pendingTap = null;
       selectTower(null);
@@ -1106,7 +1115,8 @@ function buildLab(){
 /* ---------------- tips / field manual ---------------- */
 const TIPS = [
   '<b>Hotkeys:</b> 1–9 select weapons, <b>Space</b> starts a wave or pauses, <b>M</b> mutes, <b>Esc</b> cancels. Hold <b>Shift</b> while building to place several.',
-  '<b>Upgrades:</b> click a placed weapon to upgrade it (2–3 levels max — each level is a big jump in damage, fire rate, and range, and the hardware visibly grows).',
+  '<b>Upgrades:</b> click a placed weapon to upgrade it (2–3 levels max — each level is a big jump in damage, fire rate, and range, and the hardware visibly grows). Upgrades cost more than the weapon itself, and each level costs more than the last.',
+  '<b>The armory grows with you:</b> heavier weapons unlock as you survive deeper waves — the shop card shows the unlock wave on locked gear.',
   '<b>Targeting:</b> the selected weapon\'s "Target" button cycles FIRST / LAST / STRONG / CLOSE. Snipers on STRONG melt tanks; slows on FIRST hold the line.',
   '<b>Flyers</b> (Pteranodons & friends) can only be hit by air-capable weapons — Flame Throwers and Mortars can\'t touch them.',
   '<b>Armor</b> (Ankylosaurus, Triceratops) shrugs off weak hits. 🎯 Snipers pierce armor completely.',
@@ -1124,6 +1134,7 @@ function buildTips(){
   for (const def of Object.values(TOWERS)){
     html += `<div class="labRow"><div class="labIco">${def.icon}</div><div class="labInfo">` +
             `<b>${def.name}</b> — $${def.cost} · up to Lv ${def.maxUp + 1}` +
+            (def.unlock > 1 ? ` · unlocks wave ${def.unlock}` : '') +
             (def.air ? '' : ' · <span class="warn">ground only</span>') +
             `<br><small>${def.desc}</small></div></div>`;
   }
@@ -1645,7 +1656,9 @@ window.addEventListener('keydown', e => {
   if (G.state !== 'playing') return;
   const keys = Object.keys(TOWERS);
   if (e.key >= '1' && e.key <= String(keys.length)){
-    G.placing = keys[+e.key - 1]; selectTower(null); updateHUD();
+    const k = keys[+e.key - 1];
+    if (towerUnlocked(k)){ G.placing = k; selectTower(null); updateHUD(); }
+    else SFX.error();
   }
   if (e.key === 'Escape'){ G.placing = null; G.pendingTap = null; selectTower(null); updateHUD(); }
   if (e.key === ' '){ e.preventDefault(); if (!G.waveActive) startWave(); else togglePause(); }
@@ -1758,10 +1771,10 @@ if (testParams.has('test')){
   save.run = null;
   startLevel(clamp(parseInt(testParams.get('level'), 10) || 0, 0, LEVELS.length - 1), 'fresh');
   G.cash = 5000;
-  placeTower('gatling', 420, 260);
-  placeTower('tranq', 550, 330);
-  placeTower('missile', 800, 300);
-  placeTower('mortar', 900, 490);
+  placeTower('gatling', 420, 260, true);
+  placeTower('tranq', 550, 330, true);
+  placeTower('missile', 800, 300, true);
+  placeTower('mortar', 900, 490, true);
   if (testParams.has('upg')){ // preview upgraded-tower visuals
     const lv = clamp(parseInt(testParams.get('upg'), 10) || 3, 0, 3);
     G.towers.forEach(t => { t.ulv = Math.min(TOWERS[t.key].maxUp, lv); });

@@ -87,6 +87,9 @@ canvas#game {
 .shopCard:hover { border-color: var(--amber); transform: translateY(-1px); }
 .shopCard.sel { border-color: var(--amber2); background: #3a4227; box-shadow: 0 0 10px #e8b93a55; }
 .shopCard.cant { opacity: 0.45; }
+.shopCard.locked { opacity: 0.35; filter: grayscale(0.8); cursor: default; }
+.shopCard.locked:hover { border-color: var(--line); transform: none; }
+.shopCard.locked .cost { color: var(--dim); }
 .shopCard .ico { font-size: 22px; }
 .shopCard .nm { font-size: 10.5px; margin-top: 3px; line-height: 1.2; }
 .shopCard .cost { font-size: 11px; color: var(--amber2); margin-top: 2px; font-weight: bold; }

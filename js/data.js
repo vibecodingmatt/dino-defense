@@ -4,8 +4,13 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.6.0';
+const VERSION = '1.7.0';
 const CHANGELOG = [
+  {v: '1.7.0', date: 'Jul 4, 2026', items: [
+    'Weapons now unlock as you survive deeper waves — heavy hardware like the 💣 Mortar (wave 28) can no longer be rushed in the opening minutes',
+    'Upgrade costs properly tiered: every upgrade costs more than the weapon itself, and each level costs more than the last',
+    'Early-game income trimmed and early waves toughened slightly — less autopilot, more decisions',
+  ]},
   {v: '1.6.0', date: 'Jul 4, 2026', items: [
     'Fixed blood splatter disappearing during heavy late-game action',
     'Balance: economy tightened toward a middle ground — weapons keep their punch but cost more, kills pay a bit less, and late waves are tougher again',
@@ -138,39 +143,41 @@ const BOSS_WAVES = {
 
 /* ---------- TOWERS / WEAPONS ----------
    maxUp = how many times the weapon can be upgraded (single track).
-   Each upgrade: damage ×1.65, fire rate ×1.25, range ×1.12, splash grows. */
+   Each upgrade: damage ×1.65, fire rate ×1.25, range ×1.12, splash grows.
+   unlock = first wave the weapon becomes purchasable. */
 const TOWERS = {
-  tranq:   {name:'Tranq Turret',   icon:'💉', cost:100, dmg:12,  rof:1.4,  range:140, air:true,  proj:'dart', maxUp:3,
+  tranq:   {name:'Tranq Turret',   icon:'💉', cost:100, dmg:12,  rof:1.4,  range:140, air:true,  proj:'dart', maxUp:3, unlock:1,
             slow:{f:0.82, t:1.2},
             desc:'Cheap dart rifle. Darts mildly sedate targets, slowing them.', color:'#8fd14f'},
-  gatling: {name:'ACU Gatling',    icon:'🔫', cost:180, dmg:9,   rof:7,    range:130, air:true,  proj:'bullet', maxUp:3,
+  gatling: {name:'ACU Gatling',    icon:'🔫', cost:180, dmg:9,   rof:7,    range:130, air:true,  proj:'bullet', maxUp:3, unlock:1,
             desc:'Asset Containment turret. Low damage, very high fire rate.', color:'#c9c9c9'},
-  sniper:  {name:'Ranger Sniper',  icon:'🎯', cost:270, dmg:95,  rof:0.6,  range:280, air:true,  proj:'snipe', pierce:true, maxUp:2,
-            desc:'Huge single-shot damage at extreme range. Ignores armor.', color:'#7fb2ff'},
-  flamer:  {name:'Flame Thrower',  icon:'🔥', cost:210, dmg:7,   rof:9,    range:100, air:false, proj:'flame', maxUp:2,
+  flamer:  {name:'Flame Thrower',  icon:'🔥', cost:210, dmg:7,   rof:9,    range:100, air:false, proj:'flame', maxUp:2, unlock:3,
             burn:{dps:22, t:2.2}, cone:0.62,
             desc:'Short-range cone of fire. Sets ground targets ablaze.', color:'#ff9a3d'},
-  tesla:   {name:'Tesla Node',     icon:'⚡', cost:310, dmg:45,  rof:1.0,  range:150, air:true,  proj:'tesla', maxUp:2,
-            chain:4, chainRange:115,
-            desc:'10,000-volt perimeter tech. Arcs between up to 4 dinosaurs.', color:'#6ee7ff'},
-  missile: {name:'Missile Battery',icon:'🚀', cost:470, dmg:90,  rof:0.55, range:220, air:true,  proj:'missile', maxUp:2,
-            splash:70,
-            desc:'Homing rockets with splash. Upgrades add a 2nd and 3rd rocket per salvo!', color:'#ff6b6b'},
-  cryo:    {name:'Cryo Cannon',    icon:'❄️', cost:290, dmg:12,  rof:1.0,  range:160, air:true,  proj:'cryo', maxUp:2,
+  sniper:  {name:'Ranger Sniper',  icon:'🎯', cost:270, dmg:95,  rof:0.6,  range:280, air:true,  proj:'snipe', pierce:true, maxUp:2, unlock:6,
+            desc:'Huge single-shot damage at extreme range. Ignores armor.', color:'#7fb2ff'},
+  cryo:    {name:'Cryo Cannon',    icon:'❄️', cost:290, dmg:12,  rof:1.0,  range:160, air:true,  proj:'cryo', maxUp:2, unlock:9,
             splash:60, slow:{f:0.5, t:2.4},
             desc:'Freezing shells that heavily slow everything they splash.', color:'#bfe8ff'},
-  sonic:   {name:'Sonic Emitter',  icon:'📡', cost:370, dmg:50,  rof:0.9,  range:125, air:true,  proj:'pulse', maxUp:2,
+  tesla:   {name:'Tesla Node',     icon:'⚡', cost:310, dmg:45,  rof:1.0,  range:150, air:true,  proj:'tesla', maxUp:2, unlock:12,
+            chain:4, chainRange:115,
+            desc:'10,000-volt perimeter tech. Arcs between up to 4 dinosaurs.', color:'#6ee7ff'},
+  sonic:   {name:'Sonic Emitter',  icon:'📡', cost:370, dmg:50,  rof:0.9,  range:125, air:true,  proj:'pulse', maxUp:2, unlock:15,
             reveal:true,
             desc:'Damages ALL dinosaurs in radius. Reveals camouflaged bosses.', color:'#d6a3ff'},
-  mortar:  {name:'Mortar',         icon:'💣', cost:850, dmg:200, rof:0.3,  range:310, air:false, proj:'mortar', maxUp:1,
+  missile: {name:'Missile Battery',icon:'🚀', cost:470, dmg:90,  rof:0.55, range:220, air:true,  proj:'missile', maxUp:2, unlock:18,
+            splash:70,
+            desc:'Homing rockets with splash. Upgrades add a 2nd and 3rd rocket per salvo!', color:'#ff6b6b'},
+  mortar:  {name:'Mortar',         icon:'💣', cost:850, dmg:200, rof:0.3,  range:310, air:false, proj:'mortar', maxUp:1, unlock:28,
             splash:100, minRange:90,
             desc:'Lobbed shells devastate herds at long range. Cannot hit flyers or anything too close. One upgrade: massive damage and splash.', color:'#e0b64f'},
 };
 
-/* Single-track upgrade tuning */
+/* Single-track upgrade tuning: every upgrade costs more than the weapon
+   itself, and each level costs more than the last (1.2x, 2.0x, 2.8x base). */
 const UPG = {
   mult: {dmg: 1.65, rof: 1.25, range: 1.12},
-  cost: (towerDef, ulv) => Math.round(towerDef.cost * (0.9 + ulv * 0.8)),
+  cost: (towerDef, ulv) => Math.round(towerDef.cost * (1.2 + ulv * 0.8)),
 };
 
 /* ---------- LEVELS ----------
