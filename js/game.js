@@ -16,8 +16,8 @@ const W = 1280, H = 720;
 /* ---------------- persistent save ---------------- */
 const SAVE_KEY = 'islaDefense.v1';
 function defaultSave(){
-  return {unlocked:1, best:{}, dna:0, lab:{}, run:null,
-          settings:{invincible:false, mute:false, auto:true, music:true}};
+  return {unlocked:1, best:{}, dna:0, lab:{}, run:null, ach:{},
+          settings:{invincible:false, unlimitedCash:false, levelSkip:false, mute:false, auto:true, music:true}};
 }
 function loadSave(){
   try {
@@ -25,7 +25,7 @@ function loadSave(){
     if (!s) return defaultSave();
     const d = defaultSave();
     return {unlocked: s.unlocked || 1, best: s.best || {}, dna: s.dna || 0, lab: s.lab || {},
-            run: s.run || null,
+            run: s.run || null, ach: s.ach || {},
             settings: Object.assign(d.settings, s.settings || {})};
   } catch(e){ return defaultSave(); }
 }
@@ -75,6 +75,45 @@ function persist(){
   try { if (idb) idb.transaction('kv', 'readwrite').objectStore('kv').put(j, 'save'); } catch(e){}
 }
 const labTier = k => save.lab[k] || 0;
+
+/* ---------------- developer cheats & achievements ---------------- */
+const CHEAT_PASSWORD = 'matttest';
+const cheatsActive = () =>
+  save.settings.invincible || save.settings.unlimitedCash || save.settings.levelSkip;
+/* trophies are only earned on clean runs — using any cheat this run forfeits them */
+const runDisqualified = () => G.runCheated || cheatsActive();
+
+let achToastQ = [];
+function unlockAch(key){
+  if (!save.ach) save.ach = {};
+  if (save.ach[key]) return false;
+  if (runDisqualified()) return false;
+  const a = ACHIEVEMENTS.find(x => x.key === key);
+  if (!a) return false;
+  save.ach[key] = Date.now();
+  persist();
+  achToastQ.push(a);
+  if (achToastQ.length === 1) showNextToast();
+  return true;
+}
+function showNextToast(){
+  const a = achToastQ[0];
+  const el = $('#achToast');
+  if (!a || !el) return;
+  el.innerHTML =
+    `<div class="atIco">${a.icon}</div>` +
+    `<div class="atTxt"><div class="atH">🏆 Achievement Unlocked</div>` +
+    `<div class="atN">${a.name}</div><div class="atD">${a.desc}</div></div>`;
+  el.classList.remove('hidden');
+  // reflow so the transition always fires, then slide in
+  void el.offsetWidth;
+  el.classList.add('show');
+  try { SFX.fanfare(); } catch(e){}
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => { achToastQ.shift(); el.classList.add('hidden'); showNextToast(); }, 420);
+  }, 3200);
+}
 
 /* ---------------- synthesized audio engine ----------------
    Everything routes through a compressor + a generated convolution
@@ -373,6 +412,8 @@ const G = {
   shake: 0, banner: null,
   time: 0,
   over: false,
+  flawless: true,          // no base damage taken this run
+  runCheated: false,       // any developer cheat active/used this run → no trophies
 };
 
 /* ---------------- paths ---------------- */
@@ -413,6 +454,7 @@ function distToAnyPath(x, y){
 }
 
 /* ---------------- scaling / economy ---------------- */
+const BOSS_HP_MULT = 3; // bosses are far tankier than regular dinos — 3× the health bar
 const hpScale    = w => (0.7 + 0.3*w) * Math.pow(1.020, w) * G.level.hpMult;
 const speedScale = w => Math.min(1.4, 1 + w*0.0035);
 const bountyOf   = (def, w) => Math.max(1, Math.round(def.bounty * (1 + w*0.008) * (1 + 0.06*labTier('bounty'))));
@@ -485,7 +527,7 @@ function spawnDino(key, pathI, isBoss){
   const def = DINOS[key];
   const w = G.wave;
   const hp = isBoss
-    ? def.hp * (0.25 + w * 0.075) * G.level.hpMult
+    ? def.hp * (0.25 + w * 0.075) * G.level.hpMult * BOSS_HP_MULT
     : def.hp * hpScale(w);
   // bosses run oversized — larger than life, above the normal cap
   // (the D-Rex gets to be truly colossal)
@@ -581,6 +623,8 @@ function damage(d, amt, pierce, src){
       addFx('ring', p.x, p.y, 24);
       addFx('blood', p.x, p.y + 3, d.size * 0.7);
       for (let i = 0; i < 5; i++) addFx('spark', p.x + rand(-d.size, d.size), p.y - rand(0, d.size), 6);
+      unlockAch('boss_first');
+      if (d.key === 'drex') unlockAch('apex');
     } else {
       addFx('puff', p.x, p.y, d.size);
       addFx('blood', p.x, p.y + 2, d.size * 0.45);
@@ -764,7 +808,18 @@ function updateProjs(dt){
     const dx = tx - pr.x, dy = ty - pr.y;
     const dd = Math.hypot(dx, dy);
     const step = pr.speed * dt;
-    if (dd <= step + 6){
+    // decide whether the projectile detonates this frame
+    let impact = dd <= step + 6;
+    if (pr.kind === 'missile'){
+      pr.life = (pr.life || 0) + dt;
+      // proximity fuse: a rocket must never orbit its target forever. Detonate
+      // once it's captured the target, has passed its closest approach, or times out.
+      if (dd <= 18) impact = true;
+      else if (dd < 46 && dd > (pr.lastDist != null ? pr.lastDist : 1e9)) impact = true;
+      else if (pr.life > 2.5) impact = true;
+      pr.lastDist = dd;
+    }
+    if (impact){
       pr.hit = true;
       const def = TOWERS[pr.tower.key];
       const st = {dmg: pr.dmg, rof: 0, range: 0};
@@ -784,11 +839,13 @@ function updateProjs(dt){
       }
     } else {
       if (pr.kind === 'missile'){
-        // homing with inertia
+        // homing with inertia; turn harder up close so it can capture the target
+        // instead of settling into a wide circular orbit around it
         const want = Math.atan2(dy, dx);
         const cur = Math.atan2(pr.vy, pr.vx);
         let da = want - cur; while (da > Math.PI) da -= Math.PI*2; while (da < -Math.PI) da += Math.PI*2;
-        const na = cur + clamp(da, -4*dt, 4*dt);
+        const turnRate = dd < 120 ? 12 : 7;
+        const na = cur + clamp(da, -turnRate*dt, turnRate*dt);
         pr.vx = Math.cos(na) * pr.speed; pr.vy = Math.sin(na) * pr.speed;
         pr.x += pr.vx * dt; pr.y += pr.vy * dt;
         if (Math.random() < 0.5) addFx('trail', pr.x, pr.y, 3);
@@ -809,9 +866,10 @@ function addFx(kind, x, y, r, ang){
     return;
   }
   if (kind === 'step' && G.fx.length > 150) return; // cosmetic footsteps yield first
-  if (G.fx.length > 220) return;
+  // the air-strike carpet must always be visible, so its bursts bypass the soft cap
+  if (G.fx.length > 360 && kind !== 'airburst' && kind !== 'shock') return;
   G.fx.push({kind, x, y, r, ang: ang || 0, t: 0, seed: Math.random() * 9,
-             dur: kind === 'sonic' ? 0.5 : kind === 'boom' ? 0.45 : kind === 'frost' ? 0.5 : kind === 'flame' ? 0.22 : kind === 'ring' ? 0.8 : kind === 'dust' ? 0.9 : kind === 'step' ? 0.45 : kind === 'shock' ? 0.9 : kind === 'birds' ? 1.4 : 0.3});
+             dur: kind === 'sonic' ? 0.5 : kind === 'boom' ? 0.45 : kind === 'airburst' ? 0.55 : kind === 'frost' ? 0.5 : kind === 'flame' ? 0.22 : kind === 'ring' ? 0.8 : kind === 'dust' ? 0.9 : kind === 'step' ? 0.45 : kind === 'shock' ? 0.9 : kind === 'birds' ? 1.4 : 0.3});
 }
 function addText(x, y, txt, color, size){
   if (G.texts.length > 40) return;
@@ -879,6 +937,7 @@ function updateDinos(dt){
       d.leaked = true;
       if (!save.settings.invincible){
         G.lives -= d.dmgToBase * (d.boss ? 1 : 1);
+        G.flawless = false; // base took a hit — no longer a flawless run
         G.shake = Math.max(G.shake, 4);
         G.hurtT = 0.6;
       }
@@ -893,6 +952,7 @@ function updateDinos(dt){
 function startWave(){
   if (G.waveActive || G.over) return;
   G.wave++;
+  if (cheatsActive()) G.runCheated = true; // latch: cheating any wave forfeits this run's trophies
   G.waveActive = true;
   G.autoTimer = -1;
   G.spawnQ = G.pendingWave || buildWave(G.wave);
@@ -903,6 +963,7 @@ function startWave(){
   // record best
   const b = save.best[G.levelIdx] || 0;
   if (G.wave > b){ save.best[G.levelIdx] = G.wave; persist(); }
+  if (G.wave >= 50) unlockAch('wave50');
   updateHUD();
 }
 function endWave(){
@@ -918,6 +979,17 @@ function endWave(){
   if (G.wave >= WAVES_PER_LEVEL){ victory(); return; }
   saveRun();
   if (save.settings.auto) G.autoTimer = 3;
+  updateHUD();
+}
+/* level-skip cheat: instantly clear the current wave and bank it. Clears the
+   field with no base penalty so you can fast-forward toward late waves/bosses. */
+function skipWave(){
+  if (!save.settings.levelSkip || G.state !== 'playing' || G.over) return;
+  G.runCheated = true;
+  G.dinos = []; G.spawnQ = [];
+  if (!G.waveActive) startWave();
+  G.dinos = []; G.spawnQ = [];
+  if (G.waveActive) endWave();
   updateHUD();
 }
 function snapshot(){
@@ -959,6 +1031,10 @@ function startLevel(idx, mode){
   G.celebration = null; G.fw = [];
   G.waveActive = false; G.autoTimer = -1; G.over = false; G.banner = null;
   G.speed = 1;
+  // a flawless run means zero base damage; resuming can't verify past waves,
+  // so only a fresh run is eligible. Cheats used this run also disqualify it.
+  G.flawless = (mode !== 'resume');
+  G.runCheated = cheatsActive();
   if (mode === 'resume' && save.run){
     restoreSnapshot(save.run);
     G.wave = save.run.wave; G.lives = save.run.lives;
@@ -1021,9 +1097,14 @@ function victory(){
   if (G.levelIdx + 1 >= save.unlocked && save.unlocked < LEVELS.length) save.unlocked = G.levelIdx + 2 > LEVELS.length ? LEVELS.length : G.levelIdx + 2;
   save.best[G.levelIdx] = WAVES_PER_LEVEL;
   persist();
+  // trophies (skipped automatically if any cheat was used this run)
+  unlockAch('secure_' + G.levelIdx);
+  if (G.flawless) unlockAch('flawless');
+  if (LEVELS.every((_, i) => save.best[i] >= WAVES_PER_LEVEL)) unlockAch('island');
+  const flawlessNote = (G.flawless && !runDisqualified()) ? '<br>🛡️ <b>Flawless</b> — your base was never touched!' : '';
   $('#victoryText').innerHTML =
     `<b>${G.level.name}</b> is secure. All 100 waves contained.<br>` +
-    `Bonus research: <b class="dna">+${reward} DNA</b>` +
+    `Bonus research: <b class="dna">+${reward} DNA</b>` + flawlessNote +
     (G.levelIdx + 1 < LEVELS.length ? `<br><br>🔓 New zone unlocked: <b>${LEVELS[G.levelIdx+1].name}</b>` : '<br><br>🏆 You have secured the entire island!');
   // fireworks over the battlefield before the results screen appears
   G.celebration = {t: 0, dur: 5.4, next: 0.2};
@@ -1139,29 +1220,36 @@ function launchStrike(x, y){
   G.cash -= cost;
   G.airUsed++;
   G.targeting = null;
-  // choreography: radio alert → two F-22s sweep in → each releases a
-  // cluster canister over the mark → staggered carpet of bomblets
+  // choreography: radio alert → two F-22s sweep in → each releases a cluster
+  // canister → a rolling carpet of bomblets that emanates from the mark and
+  // blankets the ENTIRE field, sweeping outward to the far edges.
   const startX = -260, lead = 0.45;
   const jets = [
     {dx: 0,    oy: -30},
     {dx: -130, oy: 30},
   ];
-  const canisters = [], events = [];
-  let end = 0;
+  const canisters = [];
   for (const j of jets){
     j.sx = startX + j.dx;
     j.drop = lead + (x - j.sx) / AIRSTRIKE.jetSpeed;   // moment this jet is over the mark
-    const land = j.drop + 0.6;
     canisters.push({oy: j.oy, t0: j.drop, dur: 0.6});
-    for (let i = 0; i < AIRSTRIKE.bomblets; i++){
-      const a = Math.random() * Math.PI * 2;
-      const r = Math.sqrt(Math.random()) * AIRSTRIKE.scatter;
-      const t = land + Math.random() * 0.9;
-      events.push({t, x: x + Math.cos(a) * r, y: y + j.oy * 0.3 + Math.sin(a) * r * 0.75, done: false});
+  }
+  const firstLand = Math.min(...jets.map(j => j.drop)) + 0.6;
+  // carpet the whole battlefield: one bomblet per jittered grid cell,
+  // timed by distance from the mark so the blast rolls out from ground zero
+  const events = [];
+  const gx = AIRSTRIKE.gridX, gy = AIRSTRIKE.gridY, maxD = Math.hypot(W, H);
+  let end = 0;
+  for (let ix = 0; ix < gx; ix++){
+    for (let iy = 0; iy < gy; iy++){
+      const ex = (ix + 0.5) / gx * W + rand(-AIRSTRIKE.jitter, AIRSTRIKE.jitter);
+      const ey = (iy + 0.5) / gy * H + rand(-AIRSTRIKE.jitter, AIRSTRIKE.jitter);
+      const t = firstLand + (hyp(x, y, ex, ey) / maxD) * AIRSTRIKE.sweep + rand(0, 0.07);
+      events.push({t, x: ex, y: ey, done: false});
       end = Math.max(end, t);
     }
   }
-  G.strikes.push({x, y, t: 0, lead, jets, canisters, events, end: end + 1.2});
+  G.strikes.push({x, y, t: 0, lead, jets, canisters, events, hitBosses: new Set(), end: end + 1.2});
   SFX.alert();
   SFX.jet();
   saveRun();
@@ -1174,14 +1262,25 @@ function updateStrikes(dt){
       if (!e.done && s.t >= e.t){
         e.done = true;
         SFX.boom();
-        G.shake = Math.max(G.shake, 6);
-        addFx('boom', e.x, e.y, AIRSTRIKE.splash * rand(0.8, 1.2));
-        addFx('shock', e.x, e.y, AIRSTRIKE.splash * 1.3);
-        addFx('dust', e.x, e.y + 4, AIRSTRIKE.splash * 0.55);
+        G.shake = Math.max(G.shake, 7);
+        const r = AIRSTRIKE.splash * rand(0.95, 1.35);
+        addFx('airburst', e.x, e.y, r);
+        addFx('shock', e.x, e.y, r * 1.25);
+        addFx('dust', e.x, e.y + 4, r * 0.6);
+        for (let i = 0; i < 3; i++) addFx('spark', e.x + rand(-r*0.4, r*0.4), e.y + rand(-r*0.4, r*0.4), 6);
         for (const d of G.dinos){ // hits everything, even flyers — it's an airburst
           if (d.dead || d.leaked) continue;
           const p = dinoPos(d);
-          if (hyp(e.x, e.y, p.x, p.y) <= AIRSTRIKE.splash + d.size * 0.4) damage(d, AIRSTRIKE.dmg, true);
+          if (hyp(e.x, e.y, p.x, p.y) > AIRSTRIKE.splash + d.size * 0.4) continue;
+          if (d.boss){
+            // bosses shrug off the one-shot but lose a flat 25% per strike
+            if (!s.hitBosses.has(d)){
+              s.hitBosses.add(d);
+              damage(d, d.maxHp * AIRSTRIKE.bossFrac, true);
+            }
+          } else {
+            damage(d, d.hp, true); // guaranteed one-shot kill
+          }
         }
       }
     }
@@ -1191,12 +1290,13 @@ function updateStrikes(dt){
 
 /* ---------------- HUD / UI ---------------- */
 function updateHUD(){
-  $('#hCash').textContent = '$' + fmt(G.cash);
+  $('#hCash').textContent = save.settings.unlimitedCash ? '$∞' : '$' + fmt(G.cash);
   $('#hDna').textContent = fmt(save.dna) + ' DNA';
   $('#hWave').textContent = `Wave ${G.wave}/${WAVES_PER_LEVEL}`;
   $('#hLives').textContent = '❤ ' + Math.max(0, Math.ceil(G.lives));
   $('#hLives').classList.toggle('low', G.lives <= G.maxLives * 0.25);
   $('#invBadge').classList.toggle('hidden', !save.settings.invincible);
+  $('#btnSkip').classList.toggle('hidden', !save.settings.levelSkip);
   $('#btnWave').disabled = G.waveActive || G.over;
   $('#btnWave').textContent = G.waveActive ? '⚔ Wave in progress' : (G.autoTimer > 0 ? `▶ Next in ${Math.ceil(G.autoTimer)}…` : '▶ Start Wave ' + (G.wave + 1));
   $$('#speedBtns button').forEach(b => b.classList.toggle('on', +b.dataset.s === G.speed && !G.paused));
@@ -1261,7 +1361,7 @@ function buildMenu(){
     el.appendChild(card);
   }
   LEVELS.forEach((lv, i) => {
-    const locked = i >= save.unlocked;
+    const locked = i >= save.unlocked && !save.settings.levelSkip;
     const best = save.best[i] || 0;
     const card = document.createElement('div');
     card.className = 'levelCard' + (locked ? ' locked' : '');
@@ -1277,6 +1377,21 @@ function buildMenu(){
     };
     el.appendChild(card);
   });
+  buildAchievements();
+}
+function buildAchievements(){
+  const el = $('#achCase');
+  if (!el) return;
+  const got = ACHIEVEMENTS.filter(a => save.ach && save.ach[a.key]).length;
+  const cnt = $('#achCount');
+  if (cnt) cnt.textContent = `${got} / ${ACHIEVEMENTS.length}`;
+  el.innerHTML = ACHIEVEMENTS.map(a => {
+    const done = !!(save.ach && save.ach[a.key]);
+    return `<div class="trophy${done ? ' got' : ''}" title="${a.name} — ${a.desc}">` +
+             `<div class="trIco">${done ? a.icon : '🔒'}</div>` +
+             `<div class="trName">${done ? a.name : '???'}</div>` +
+           `</div>`;
+  }).join('');
 }
 function buildLab(){
   $('#labDna').textContent = fmt(save.dna) + ' DNA';
@@ -1310,7 +1425,7 @@ const TIPS = [
   '<b>Upgrades:</b> click a placed weapon to upgrade it (2–3 levels max — each level is a big jump in damage, fire rate, and range, and the hardware visibly grows). Upgrades cost more than the weapon itself, and each level costs more than the last.',
   '<b>The armory grows with you:</b> heavier weapons unlock as you survive deeper waves — the shop card shows the unlock wave on locked gear.',
   '<b>Duplicates cost extra:</b> every additional copy of the same weapon is pricier than the last (mortars especially). Diversify your arsenal.',
-  '<b>✈️ Air Strike</b> (from wave 50): jets carpet-bomb wherever you click — huge armor-piercing damage that even hits flyers. Max two calls per run, and the second costs more. Save them for boss waves.',
+'<b>✈️ Air Strike</b> (from wave 50): jets carpet-bomb the ENTIRE zone in a rolling cluster-bomb wave — it one-shot-kills every dinosaur on the field (even flyers) and strips 25% off any boss. Max two calls per run, and the second costs more. Save them for boss waves or a swarm that\'s about to break through.',
   '<b>Targeting:</b> the selected weapon\'s "Target" button cycles FIRST / LAST / STRONG / CLOSE. Snipers on STRONG melt tanks; slows on FIRST hold the line.',
   '<b>Flyers</b> (Pteranodons & friends) can only be hit by air-capable weapons — Flame Throwers and Mortars can\'t touch them.',
   '<b>Armor</b> (Ankylosaurus, Triceratops) shrugs off weak hits. 🎯 Snipers pierce armor completely.',
@@ -1344,6 +1459,8 @@ function buildChangelog(){
 
 function syncSettings(){
   $('#optInv').checked = save.settings.invincible;
+  $('#optCash').checked = save.settings.unlimitedCash;
+  $('#optSkip').checked = save.settings.levelSkip;
   $('#optMute').checked = save.settings.mute;
   $('#optAuto').checked = save.settings.auto;
   $('#optMusic').checked = save.settings.music;
@@ -1375,6 +1492,7 @@ function frame(now){
 }
 
 function step(dt){
+  if (save.settings.unlimitedCash) G.cash = 1e9; // top up every tick so nothing is ever unaffordable
   // spawn queue
   if (G.waveActive){
     G.spawnT += dt;
@@ -1597,6 +1715,24 @@ function render(dt){
         ctx.fillStyle = `rgba(255,${160 - k*120|0},40,${0.55*(1-k)})`;
         ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.4 + k*0.8), 0, Math.PI*2); ctx.fill();
         break;
+      case 'airburst': { // cluster-bomb fireball: white-hot core → orange ball → shock ring
+        const rr = f.r * (0.55 + k * 0.7);
+        const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, rr);
+        g.addColorStop(0,   `rgba(255,255,225,${0.92*(1-k)})`);
+        g.addColorStop(0.4, `rgba(255,170,55,${0.8*(1-k)})`);
+        g.addColorStop(1,   `rgba(150,35,15,0)`);
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(f.x, f.y, rr, 0, Math.PI*2); ctx.fill();
+        // expanding shock ring
+        ctx.strokeStyle = `rgba(255,120,50,${0.55*(1-k)})`; ctx.lineWidth = 4 * (1 - k);
+        ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.3 + k*1.15), 0, Math.PI*2); ctx.stroke();
+        // white-hot flash in the first instant
+        if (k < 0.35){
+          ctx.fillStyle = `rgba(255,255,255,${0.9*(1 - k/0.35)})`;
+          ctx.beginPath(); ctx.arc(f.x, f.y, f.r * 0.4 * (1 - k), 0, Math.PI*2); ctx.fill();
+        }
+        break;
+      }
       case 'frost':
         ctx.fillStyle = `rgba(170,225,255,${0.5*(1-k)})`;
         ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.4 + k*0.8), 0, Math.PI*2); ctx.fill();
@@ -1664,7 +1800,7 @@ function render(dt){
       ctx.strokeStyle = `rgba(255,70,45,${0.5 + 0.4 * pl})`;
       ctx.lineWidth = 2.5;
       ctx.setLineDash([10, 8]); ctx.lineDashOffset = -G.time * 60;
-      ctx.beginPath(); ctx.arc(s.x, s.y, AIRSTRIKE.scatter + 20, 0, Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(s.x, s.y, 150, 0, Math.PI*2); ctx.stroke();
       ctx.setLineDash([]); ctx.lineDashOffset = 0;
       ctx.beginPath(); ctx.moveTo(s.x - 14, s.y); ctx.lineTo(s.x + 14, s.y);
       ctx.moveTo(s.x, s.y - 14); ctx.lineTo(s.x, s.y + 14); ctx.stroke();
@@ -1721,21 +1857,27 @@ function render(dt){
     ctx.globalAlpha = 1;
   }
 
-  // air-strike targeting reticle
+  // air-strike targeting reticle — the whole zone is the blast area, so we
+  // outline the entire field and mark ground zero at the cursor
   if (G.targeting === 'strike' && G.mouse.on){
     const canCall = G.cash >= airCost();
-    ctx.strokeStyle = canCall ? 'rgba(255,80,50,0.75)' : 'rgba(150,150,150,0.6)';
-    ctx.lineWidth = 2; ctx.setLineDash([8, 6]); ctx.lineDashOffset = -G.time * 30;
-    ctx.beginPath(); ctx.arc(G.mouse.x, G.mouse.y, AIRSTRIKE.scatter + AIRSTRIKE.splash * 0.5, 0, Math.PI*2); ctx.stroke();
-    ctx.beginPath(); ctx.arc(G.mouse.x, G.mouse.y, AIRSTRIKE.scatter * 0.45, 0, Math.PI*2); ctx.stroke();
+    ctx.strokeStyle = canCall ? 'rgba(255,80,50,0.7)' : 'rgba(150,150,150,0.55)';
+    ctx.lineWidth = 3; ctx.setLineDash([16, 10]); ctx.lineDashOffset = -G.time * 40;
+    ctx.strokeRect(10, 10, W - 20, H - 20);
     ctx.setLineDash([]); ctx.lineDashOffset = 0;
-    ctx.beginPath(); ctx.moveTo(G.mouse.x - 16, G.mouse.y); ctx.lineTo(G.mouse.x + 16, G.mouse.y);
-    ctx.moveTo(G.mouse.x, G.mouse.y - 16); ctx.lineTo(G.mouse.x, G.mouse.y + 16); ctx.stroke();
+    // epicenter crosshair + pulse ring at the cursor
+    const pl = (Math.sin(G.time * 8) + 1) / 2;
+    ctx.strokeStyle = canCall ? `rgba(255,90,55,${0.6 + 0.35*pl})` : 'rgba(150,150,150,0.5)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(G.mouse.x, G.mouse.y, 26 + pl * 8, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(G.mouse.x - 18, G.mouse.y); ctx.lineTo(G.mouse.x + 18, G.mouse.y);
+    ctx.moveTo(G.mouse.x, G.mouse.y - 18); ctx.lineTo(G.mouse.x, G.mouse.y + 18); ctx.stroke();
     ctx.font = 'bold 13px Verdana, sans-serif'; ctx.textAlign = 'center';
+    const msg = canCall ? '✈ CLICK TO CARPET THE ENTIRE ZONE' : 'NOT ENOUGH CASH';
     ctx.fillStyle = 'rgba(0,0,0,0.7)';
-    ctx.fillText(canCall ? '✈ CLICK TO CALL THE STRIKE' : 'NOT ENOUGH CASH', G.mouse.x + 1, G.mouse.y - 139);
+    ctx.fillText(msg, G.mouse.x + 1, G.mouse.y - 43);
     ctx.fillStyle = canCall ? '#ff9a7a' : '#c9c9c9';
-    ctx.fillText(canCall ? '✈ CLICK TO CALL THE STRIKE' : 'NOT ENOUGH CASH', G.mouse.x, G.mouse.y - 140);
+    ctx.fillText(msg, G.mouse.x, G.mouse.y - 44);
   }
 
   // floating texts
@@ -1984,6 +2126,7 @@ function togglePause(){ G.paused = !G.paused; updateHUD(); }
 
 /* ---------------- wire up UI ---------------- */
 $('#btnWave').onclick = () => { startWave(); };
+$('#btnSkip').onclick = () => { skipWave(); };
 $('#btnPause').onclick = togglePause;
 function toggleMute(){
   save.settings.mute = !save.settings.mute;
@@ -2026,7 +2169,24 @@ $$('.modalX').forEach(b => b.onclick = () => {
 });
 $('#btnSettings').onclick = () => { syncSettings(); $('#settings').classList.remove('hidden'); };
 $('#setClose').onclick = () => { $('#settings').classList.add('hidden'); };
-$('#optInv').onchange = e => { save.settings.invincible = e.target.checked; persist(); updateHUD(); };
+/* developer cheats require a password to turn ON (never to turn off);
+   enabling one mid-run forfeits this run's achievements */
+function gateCheat(e, setter){
+  if (e.target.checked){
+    if (prompt('Enter the developer password to enable this option:') !== CHEAT_PASSWORD){
+      e.target.checked = false;
+      if (e.target.checked === false) SFX.error();
+      return;
+    }
+    if (G.state === 'playing') G.runCheated = true;
+  }
+  setter(e.target.checked);
+  persist();
+  updateHUD();
+}
+$('#optInv').onchange  = e => gateCheat(e, v => save.settings.invincible = v);
+$('#optCash').onchange = e => gateCheat(e, v => save.settings.unlimitedCash = v);
+$('#optSkip').onchange = e => gateCheat(e, v => save.settings.levelSkip = v);
 $('#optMute').onchange = e => { save.settings.mute = e.target.checked; persist(); ensureMusic(); };
 $('#optMusic').onchange = e => { save.settings.music = e.target.checked; persist(); ensureMusic(); };
 $('#optAuto').onchange = e => { save.settings.auto = e.target.checked; persist(); };
@@ -2087,6 +2247,7 @@ if (new URLSearchParams(location.search).has('dbg')){
   }, 800);
 }
 
+if (new URLSearchParams(location.search).has('settings')){ syncSettings(); $('#settings').classList.remove('hidden'); }
 if (new URLSearchParams(location.search).has('tips')){ buildTips(); $('#tips').classList.remove('hidden'); }
 if (new URLSearchParams(location.search).has('log')){ buildChangelog(); $('#changelog').classList.remove('hidden'); }
 
@@ -2098,6 +2259,9 @@ if (testParams.has('resume') && save.run){
 }
 if (testParams.has('test')){
   save.run = null;
+  if (testParams.has('cheats')){ // preview cheat HUD without the password prompt
+    save.settings.unlimitedCash = true; save.settings.levelSkip = true; save.settings.invincible = true;
+  }
   startLevel(clamp(parseInt(testParams.get('level'), 10) || 0, 0, LEVELS.length - 1), 'fresh');
   G.cash = 5000;
   placeTower('gatling', 420, 260, true);
@@ -2110,6 +2274,34 @@ if (testParams.has('test')){
     G.wave = 0;
     for (let s = 0; s < (parseFloat(testParams.get('strike')) || 0.6); s += 0.05) step(0.05);
     G.paused = true; // freeze mid-flight so the frame can be inspected
+  }
+  if (testParams.has('misl')){ // regression: rockets must not orbit forever near a target
+    G.wave = 30;
+    placeTower('missile', 760, 300, true); // battery right beside the parked herd
+    G.towers.forEach(t => { if (t.key === 'missile') t.ulv = TOWERS.missile.maxUp; });
+    // tanky, near-stationary dinos parked on the path next to the batteries (~(700,300))
+    for (let i = 0; i < 6; i++){ spawnDino('ankylosaurus', 0, false); const d = G.dinos[G.dinos.length-1]; d.hp = d.maxHp = 5e5; d.speed = 3; d.dist = 1120 + i*10; }
+    let maxProjs = 0, maxAge = 0;
+    for (let s = 0; s < 12; s += 0.05){ step(0.05); maxProjs = Math.max(maxProjs, G.projs.length); for (const p of G.projs) if (p.kind === 'missile') maxAge = Math.max(maxAge, p.life || 0); }
+    const el = $('#errbox'); el.classList.remove('hidden');
+    el.textContent = `MISL peak rockets in flight=${maxProjs} · oldest live rocket=${maxAge.toFixed(2)}s (must stay ≤2.5)`;
+    G.paused = true;
+  }
+  if (testParams.has('strikekill')){ // functional check: carpet kills mobs, chips bosses 25%
+    G.wave = 60;
+    for (let i = 0; i < 12; i++) spawnDino('velociraptor', 0, false);
+    spawnDino('trex', 0, true);
+    const boss = G.dinos.find(d => d.boss);
+    boss.entranceT = 0; G.cinT = 0; // skip the cinematic hold so it can be hit
+    const mobBefore = G.dinos.filter(d => !d.boss).length;
+    const bossBefore = boss.hp, bossMax = boss.maxHp;
+    G.cash = 99999; launchStrike(640, 430);
+    for (let s = 0; s < 6; s += 0.05) step(0.05);
+    const mobAfter = G.dinos.filter(d => !d.boss && !d.dead).length;
+    const frac = (bossBefore - boss.hp) / bossMax;
+    const el = $('#errbox'); el.classList.remove('hidden');
+    el.textContent = `STRIKEKILL mobs ${mobBefore}→${mobAfter} (want 0) · boss lost ${(frac*100).toFixed(1)}% (want 25.0) · bossDead=${boss.dead} · trex maxHp=${Math.round(bossMax)} (3× of ${Math.round(bossMax/BOSS_HP_MULT)})`;
+    G.paused = true;
   }
   if (testParams.has('upg')){ // preview upgraded-tower visuals
     const lv = clamp(parseInt(testParams.get('upg'), 10) || 3, 0, 3);

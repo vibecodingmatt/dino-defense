@@ -4,8 +4,16 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.10.0';
+const VERSION = '1.11.0';
 const CHANGELOG = [
+  {v: '1.11.0', date: 'Jul 4, 2026', items: [
+    '💥 Air Strike reworked into a true cluster bomb — jets carpet the ENTIRE zone in a rolling wave of bright fireballs. It now one-shot-kills every dinosaur on the field and rips 25% off any boss',
+    '🏆 New ACHIEVEMENTS trophy case on the main menu — earn trophies for securing each zone, a flawless 100-wave run, slaying the D-Rex, and more',
+    '🧪 Developer options (Settings): 💰 Unlimited Cash and ⏭ Level Skip, alongside 🛡 Invincibility. Turning any of them ON now requires a password (turning them off never does)',
+    '☠ Bosses are now 3× tougher — their health bars are triple the size, so a T-Rex or D-Rex is a real siege instead of a speed bump',
+    '🚀 Fixed rockets swirling in endless circles around a target before finally hitting — missiles now home in tightly and detonate cleanly',
+    '👹 The wave-100 D-Rex has been completely redrawn as the Distortus Rex: a hulking, hunched four-armed mutation with a lumpy tumour-caked back, gnarled spines, and a low, glowing-eyed maw',
+  ]},
   {v: '1.10.0', date: 'Jul 4, 2026', items: [
     '🎵 Original looping score — a low jungle-adventure theme plays under the action (toggle Music in Settings)',
     '☠ Wave 100 finale: the D-REX. A towering demonic hybrid with glowing eyes, armored hide, regeneration, and a double-roar entrance. Extremely hard to kill — bring everything',
@@ -142,9 +150,9 @@ const DINOS = {
                      pal:{body:'#26262b', belly:'#4c4c55', accent:'#d9a531'}, feat:{stripes:true, slim:true}},
   giganotosaurus:   {name:'Giganotosaurus',      epithet:'THE APEX OF APEX PREDATORS', painter:'theropod', hp:9000, speed:54, armor:5, bounty:800, dmg:45, size:36, boss:true, weight:0, roar:true,
                      pal:{body:'#4f4a52', belly:'#b7b0ba', accent:'#8a2f2f'}, feat:{bigHead:true, ridge:true}},
-  drex:             {name:'D-Rex — Diabolus Rex', epithet:'THE DEVIL YOU CREATED', painter:'theropod', hp:16000, speed:58, armor:8, bounty:2000, dmg:60, size:42, boss:true, weight:0, roar:true, regen:0.004,
-                     pal:{body:'#211e26', belly:'#463f4d', accent:'#d02525'},
-                     feat:{bigHead:true, spikes:true, ridge:true, stripes:true, horns:true, claws:true, glowEyes:true}},
+  drex:             {name:'D-Rex — Distortus Rex', epithet:'THE DEVIL YOU CREATED', painter:'mutant', hp:16000, speed:58, armor:8, bounty:2000, dmg:60, size:46, boss:true, weight:0, roar:true, regen:0.004,
+                     pal:{body:'#6f6a63', belly:'#9c968b', accent:'#b83a30'},
+                     feat:{glowEyes:true, fourArms:true}},
 };
 
 /* Boss schedule — every 10th wave. Values are arrays (escorts allowed). */
@@ -197,17 +205,39 @@ const UPG = {
   cost: (towerDef, ulv) => Math.round(towerDef.cost * (1.2 + ulv * 0.8)),
 };
 
-/* ---------- AIR STRIKE (consumable, not a tower) ---------- */
+/* ---------- AIR STRIKE (consumable, not a tower) ----------
+   A full cluster-bomb carpet: jets sweep in and blanket the ENTIRE
+   battlefield with a rolling wave of bomblets that emanates from the
+   mark. Every non-boss caught in a burst is killed outright; bosses
+   lose a flat 25% of their max health per strike. */
 const AIRSTRIKE = {
   unlock: 50,          // first wave it can be called in
   costs: [5000, 7500], // first use, second use
   maxUses: 2,          // per run
-  dmg: 300,            // per bomblet, ignores armor, hits flyers too
-  splash: 85,          // per bomblet
-  bomblets: 6,         // per canister (one canister per jet)
-  scatter: 130,        // cluster radius around the click point
+  bossFrac: 0.25,      // fraction of a boss's MAX hp removed per strike
+  splash: 95,          // kill radius of each bomblet
+  gridX: 10,           // bomblet columns across the field
+  gridY: 6,            // bomblet rows down the field  (10×6 = 60 bursts)
+  jitter: 46,          // random offset applied to each grid cell (px)
+  sweep: 1.15,         // seconds for the carpet to roll edge-to-edge
   jetSpeed: 560,       // px/s — slow enough to watch the flyby
 };
+
+/* ---------- ACHIEVEMENTS (persistent trophy case) ----------
+   Awarded for major accomplishments and shown on the main menu.
+   Runs that use any developer cheat do NOT earn trophies. */
+const ACHIEVEMENTS = [
+  {key:'boss_first', icon:'🦴',  name:'First Blood',    desc:'Defeat your very first boss dinosaur.'},
+  {key:'wave50',     icon:'⏱️',  name:'Halfway In',     desc:'Reach wave 50 in any zone.'},
+  {key:'secure_0',   icon:'🌿',  name:'Perimeter Held', desc:'Secure Zone 1 — The Perimeter Fence (100 waves).'},
+  {key:'secure_1',   icon:'🏛️',  name:'Center Cleared', desc:'Secure Zone 2 — Visitor Center (100 waves).'},
+  {key:'secure_2',   icon:'🪺',  name:'Aviary Locked',  desc:'Secure Zone 3 — The Aviary (100 waves).'},
+  {key:'secure_3',   icon:'🌊',  name:'Delta Defended', desc:'Secure Zone 4 — Site B: River Delta (100 waves).'},
+  {key:'secure_4',   icon:'🌙',  name:'Estate Secured', desc:'Secure Zone 5 — Lockwood Estate (100 waves).'},
+  {key:'apex',       icon:'☠️',  name:'Devil Slain',    desc:'Defeat the D-Rex, the wave-100 final boss.'},
+  {key:'flawless',   icon:'🛡️',  name:'Untouchable',    desc:'Clear all 100 waves of a zone without your base taking a single hit.'},
+  {key:'island',     icon:'👑',  name:'Isla Secured',   desc:'Secure all five zones of the island.'},
+];
 
 /* ---------- LEVELS ----------
    Paths are waypoint lists in a 1280x720 space; dinos walk them in order.

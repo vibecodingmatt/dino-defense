@@ -382,7 +382,144 @@ function drawFlyer(ctx, d, ph){
   ctx.restore();
 }
 
-const PAINTERS = {theropod:drawTheropod, quad:drawQuad, sauropod:drawSauropod, flyer:drawFlyer};
+/* ---------- MUTANT REX (the D-Rex finale boss) ----------
+   A hulking, hunched, deformed tyrannosaur mutation: a high humped back
+   caked in tumorous lumps, a low-slung heavy skull, and FOUR clawed arms
+   (a large upper pair and a smaller lower pair on each side). Original
+   procedural art, evoking the misshapen four-armed hybrid vibe. */
+function mutantArm(ctx, sx, sy, reach, drop, w, color, claw, ph, off){
+  const sw = Math.sin((ph || 0) + (off || 0)) * 0.05;   // subtle idle swing
+  const ex = sx + reach * 0.55, ey = sy + drop * 0.45 + sw;   // elbow
+  const hx = sx + reach + sw * 0.5, hy = sy + drop + sw;      // hand
+  ctx.strokeStyle = color; ctx.lineCap = 'round';
+  ctx.lineWidth = w;
+  ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();      // upper arm
+  ctx.lineWidth = w * 0.8;
+  ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(hx, hy); ctx.stroke();      // forearm
+  ctx.strokeStyle = claw; ctx.lineWidth = w * 0.4;                            // three long hooked claws
+  for (let i = 0; i < 3; i++){
+    const a = 0.15 + i * 0.36;
+    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + Math.cos(a) * 0.22, hy + Math.sin(a) * 0.22); ctx.stroke();
+  }
+}
+function drawMutantRex(ctx, d, ph){
+  const p = d.pal, f = d.feat || {};
+  const bob   = Math.abs(Math.sin(ph)) * 0.05;
+  const sway  = Math.sin(ph * 0.9);
+  const roar  = (d.entranceT || 0) > 0 ? Math.min(1, (3.4 - d.entranceT) * 2.0) : 0;
+  const skin   = p.body;
+  const dark   = shade(p.body, -0.32);
+  const darker = shade(p.body, -0.5);
+  const litSkin = shade(p.body, 0.14);
+
+  // far hind leg (behind everything)
+  leg(ctx, -0.08, -0.66, 0.7, ph + Math.PI, darker, 0.24);
+  // far-side arms (behind the torso, mid-tone so they still read) — reach out
+  // below the belly line so the second pair is clearly visible
+  mutantArm(ctx, 0.12, -0.86, 0.50, 0.60, 0.10,  dark, shade(p.body,-0.15), ph, 0.3);
+  mutantArm(ctx, 0.18, -0.66, 0.44, 0.52, 0.08,  dark, shade(p.body,-0.15), ph, 0.9);
+
+  ctx.save();
+  ctx.translate(0, -bob);
+
+  // heavy tail, low and dragging with a slow sway
+  ctx.fillStyle = dark;
+  ctx.beginPath();
+  ctx.moveTo(-0.12, -0.9);
+  ctx.quadraticCurveTo(-0.9, -0.86 + sway*0.06, -1.55, -0.5 + sway*0.10);
+  ctx.quadraticCurveTo(-1.64, -0.33, -1.5, -0.22 + sway*0.08);
+  ctx.quadraticCurveTo(-0.85, -0.44, -0.12, -0.44);
+  ctx.closePath(); ctx.fill();
+
+  // hulking, arched, misshapen torso
+  ctx.fillStyle = skin;
+  ctx.beginPath();
+  ctx.moveTo(-0.5, -0.6);
+  ctx.quadraticCurveTo(-0.56, -1.03, -0.1, -1.13);   // high humped back
+  ctx.quadraticCurveTo(0.36, -1.17, 0.52, -0.92);    // shoulders
+  ctx.quadraticCurveTo(0.68, -0.72, 0.5, -0.5);      // chest
+  ctx.quadraticCurveTo(0.2, -0.3, -0.15, -0.34);     // belly
+  ctx.quadraticCurveTo(-0.42, -0.38, -0.5, -0.6);    // hip
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = p.belly;
+  ctx.beginPath(); ctx.ellipse(0.04, -0.46, 0.4, 0.16, -0.06, 0, Math.PI*2); ctx.fill();
+
+  // tumorous lumps caking the back & flank (asymmetric)
+  ctx.fillStyle = shade(p.body, -0.18);
+  for (const [lx, ly, lr] of [[-0.28,-0.99,0.12],[-0.05,-1.07,0.10],[0.20,-0.99,0.13],[-0.42,-0.70,0.10],[0.34,-0.74,0.08],[-0.16,-0.62,0.09],[0.06,-0.7,0.07]]){
+    ctx.beginPath(); ctx.ellipse(lx, ly, lr, lr*0.8, 0.3, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.fillStyle = litSkin; // glistening highlights on the lumps
+  for (const [lx, ly, lr] of [[-0.3,-1.02,0.05],[0.18,-1.01,0.05],[-0.07,-1.09,0.045]]){
+    ctx.beginPath(); ctx.ellipse(lx, ly, lr, lr*0.7, 0.3, 0, Math.PI*2); ctx.fill();
+  }
+  // gnarled, uneven spines along the ridge
+  ctx.fillStyle = darker;
+  for (const [sx0, sy0, h] of [[-0.4,-0.86,0.12],[-0.22,-1.03,0.17],[-0.02,-1.11,0.18],[0.18,-1.05,0.14],[0.34,-0.9,0.1]]){
+    ctx.beginPath(); ctx.moveTo(sx0-0.05, sy0); ctx.lineTo(sx0, sy0-h); ctx.lineTo(sx0+0.06, sy0); ctx.closePath(); ctx.fill();
+  }
+
+  // thick neck sweeping forward-down to a low, heavy head
+  const hx = 0.72 - roar*0.04, hy = -0.7 - roar*0.12 + Math.sin(ph*2)*0.02;
+  ctx.fillStyle = skin;
+  ctx.beginPath();
+  ctx.moveTo(0.34, -0.98);
+  ctx.quadraticCurveTo(0.6, -0.98, hx, hy - 0.14);
+  ctx.lineTo(hx + 0.02, hy + 0.2);
+  ctx.quadraticCurveTo(0.52, -0.62, 0.36, -0.66);
+  ctx.closePath(); ctx.fill();
+
+  ctx.save();
+  ctx.translate(hx, hy);
+  if (roar) ctx.rotate(-roar * 0.22);
+  const jaw = 0.05 + Math.max(0, Math.sin(ph*0.9))*0.03 + roar*0.3;
+  // heavy skull
+  ctx.fillStyle = skin;
+  ctx.beginPath();
+  ctx.moveTo(-0.14, -0.2);
+  ctx.quadraticCurveTo(0.16, -0.28, 0.44, -0.12);
+  ctx.lineTo(0.46, 0.0); ctx.lineTo(-0.1, 0.06); ctx.closePath(); ctx.fill();
+  // brooding brow ridge
+  ctx.fillStyle = dark;
+  ctx.beginPath();
+  ctx.moveTo(-0.14, -0.2); ctx.quadraticCurveTo(0.05, -0.31, 0.22, -0.22);
+  ctx.quadraticCurveTo(0.06, -0.15, -0.12, -0.14); ctx.closePath(); ctx.fill();
+  // upper teeth
+  ctx.fillStyle = '#efe8d2';
+  for (let i = 0; i < 6; i++){ const tx = 0.02 + i*0.07; ctx.beginPath(); ctx.moveTo(tx,0.03); ctx.lineTo(tx+0.02,0.03); ctx.lineTo(tx+0.01,0.10); ctx.closePath(); ctx.fill(); }
+  // lower jaw drops with the roar
+  ctx.save(); ctx.translate(0, jaw);
+  ctx.fillStyle = dark;
+  ctx.beginPath(); ctx.moveTo(-0.1, 0.08); ctx.lineTo(0.42, 0.06); ctx.lineTo(0.4, 0.17); ctx.lineTo(-0.08, 0.18); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#efe8d2';
+  for (let i = 0; i < 6; i++){ const tx = 0.03 + i*0.065; ctx.beginPath(); ctx.moveTo(tx,0.08); ctx.lineTo(tx+0.02,0.08); ctx.lineTo(tx+0.01,0.02); ctx.closePath(); ctx.fill(); }
+  ctx.restore();
+  if (jaw > 0.12){ // dark maw when it gapes
+    ctx.fillStyle = 'rgba(40,8,10,0.85)';
+    ctx.beginPath(); ctx.moveTo(-0.02,0.06); ctx.lineTo(0.36,0.05); ctx.lineTo(0.34,0.06+jaw*0.7); ctx.lineTo(-0.02,0.09+jaw*0.7); ctx.closePath(); ctx.fill();
+  }
+  // hellish glowing eye
+  const pulse = 0.7 + 0.3*Math.sin(ph*2.3);
+  const eg = ctx.createRadialGradient(0.02, -0.16, 0.004, 0.02, -0.16, 0.14);
+  eg.addColorStop(0, `rgba(255,60,40,${0.9*pulse})`); eg.addColorStop(1, 'rgba(255,60,40,0)');
+  ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(0.02, -0.16, 0.14, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = `rgba(255,95,60,${pulse})`;
+  ctx.beginPath(); ctx.arc(0.03, -0.16, 0.032, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#1a0505'; ctx.fillRect(0.028, -0.18, 0.008, 0.04); // slit pupil
+  ctx.restore();
+
+  // near-side arms (in front of the chest): big upper reaching forward, and a
+  // smaller lower one clawing down — well separated so all four arms read
+  mutantArm(ctx, 0.22, -0.86, 0.52, 0.30, 0.13, litSkin, '#e6dfc8', ph, 0.0);
+  mutantArm(ctx, 0.28, -0.62, 0.44, 0.52, 0.10, skin,    '#e6dfc8', ph, 0.6);
+
+  ctx.restore();
+
+  // near hind leg (in front of the body)
+  leg(ctx, 0.04, -0.66, 0.72, ph, shade(p.body, -0.1), 0.26);
+}
+
+const PAINTERS = {theropod:drawTheropod, quad:drawQuad, sauropod:drawSauropod, flyer:drawFlyer, mutant:drawMutantRex};
 
 /* Draws a full dinosaur at world position.
    turn: -1..1 facing (mid-values render the turn itself as a squash-flip)

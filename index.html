@@ -24,6 +24,7 @@
       <button data-s="1" class="on">1×</button><button data-s="2">2×</button><button data-s="4">4×</button><button data-s="6">6×</button>
     </span>
     <button id="btnPause">⏸</button>
+    <button id="btnSkip" class="hidden" title="Level skip: instantly clear this wave">⏭ Skip</button>
     <button id="btnMute" title="Mute (M)">🔊</button>
     <button id="btnMenu">🗺 Map</button>
   </div>
@@ -41,7 +42,7 @@
       <div id="shopCards"></div>
 
       <h3>Support</h3>
-      <div id="airCard" title="Jets carpet-bomb wherever you click. Hits flyers too. Two calls per run.">
+      <div id="airCard" title="Jets carpet-bomb the ENTIRE zone: one-shot-kills everything (even flyers) and rips 25% off bosses. Two calls per run.">
         <div class="ico">✈️</div>
         <div class="airInfo"><div class="nm">Air Strike</div><div class="cost"></div></div>
       </div>
@@ -70,6 +71,10 @@
   <div class="tag">— CONTAINMENT BREACH · a dinosaur tower defense —</div>
   <div id="menuDna">0 DNA</div>
   <div id="levelCards"></div>
+  <div id="achWrap">
+    <div id="achHead">🏆 Achievements <span id="achCount">0 / 0</span></div>
+    <div id="achCase"></div>
+  </div>
   <div id="menuBtns">
     <button id="btnLab" class="primary">🧬 Research Lab</button>
     <button id="btnTips">💡 Tips</button>
@@ -123,10 +128,6 @@
     <h2>⚙ Settings</h2>
     <div class="sub">Saved automatically.</div>
     <label class="optRow">
-      <input type="checkbox" id="optInv">
-      <span>🛡 Invincibility <small>For testing — escaped dinosaurs deal no damage to your base.</small></span>
-    </label>
-    <label class="optRow">
       <input type="checkbox" id="optAuto" checked>
       <span>▶ Auto-start waves <small>Next wave begins 3 seconds after the last one is cleared.</small></span>
     </label>
@@ -137,6 +138,20 @@
     <label class="optRow">
       <input type="checkbox" id="optMute">
       <span>🔇 Mute all sound</span>
+    </label>
+
+    <div class="optHead">🧪 Developer options <small>Turning any of these ON asks for a password. Turning them off never does. Runs that use a cheat don't earn achievements.</small></div>
+    <label class="optRow">
+      <input type="checkbox" id="optInv">
+      <span>🛡 Invincibility <small>Escaped dinosaurs deal no damage to your base.</small></span>
+    </label>
+    <label class="optRow">
+      <input type="checkbox" id="optCash">
+      <span>💰 Unlimited cash <small>Your funds never run out — build and upgrade freely.</small></span>
+    </label>
+    <label class="optRow">
+      <input type="checkbox" id="optSkip">
+      <span>⏭ Level skip <small>Unlocks every zone on the map and adds a Skip-Wave button to the HUD.</small></span>
     </label>
     <div class="optRow">
       <button id="btnExport">📋 Copy save code</button>
@@ -175,6 +190,9 @@
     </div>
   </div>
 </div>
+
+<!-- achievement toast -->
+<div id="achToast" class="hidden"></div>
 
 <div id="errbox" class="hidden"></div>
 
