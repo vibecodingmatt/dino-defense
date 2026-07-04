@@ -33,6 +33,18 @@
   <div id="main">
     <div id="stage">
       <canvas id="game" width="1280" height="720"></canvas>
+
+      <!-- floating menu that pops up over a tapped/clicked weapon -->
+      <div id="towerPop" class="hidden">
+        <button id="tpClose" title="Close">✕</button>
+        <div id="tpName"></div>
+        <div id="tpStats"></div>
+        <button id="up_main"></button>
+        <div class="tpRow">
+          <button id="tpMode">Target: FIRST</button>
+          <button id="tpSell">Sell</button>
+        </div>
+      </div>
     </div>
 
     <!-- tower shop -->
@@ -45,14 +57,6 @@
       <div id="airCard" title="Jets carpet-bomb the ENTIRE zone: one-shot-kills everything (even flyers) and rips 25% off bosses. Two calls per run.">
         <div class="ico">✈️</div>
         <div class="airInfo"><div class="nm">Air Strike</div><div class="cost"></div></div>
-      </div>
-
-      <div id="towerPanel" class="hidden">
-        <div id="tpName"></div>
-        <div id="tpStats"></div>
-        <button id="up_main"></button>
-        <button id="tpMode">Target: FIRST</button>
-        <button id="tpSell">Sell</button>
       </div>
 
       <div class="hint">

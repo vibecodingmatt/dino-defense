@@ -1197,10 +1197,31 @@ function placeTower(key, x, y, force){
 }
 function selectTower(t){
   G.selected = t;
-  const panel = $('#towerPanel');
-  if (!t){ panel.classList.add('hidden'); return; }
-  panel.classList.remove('hidden');
-  renderTowerPanel();
+  const pop = $('#towerPop');
+  if (!t){ pop.classList.add('hidden'); return; }
+  pop.classList.remove('hidden');
+  renderTowerPanel();      // fills content
+  positionTowerPop(t);     // then place it over the tower
+}
+/* place the floating menu just above (or below) the selected weapon */
+function positionTowerPop(t){
+  const pop = $('#towerPop');
+  if (!t || pop.classList.contains('hidden')) return;
+  const stage = $('#stage'), cvEl = $('#game');
+  const sr = stage.getBoundingClientRect(), cr = cvEl.getBoundingClientRect();
+  if (!cr.width) return;
+  const scale = cr.width / W;                        // screen px per world unit
+  const cx = (cr.left - sr.left) + t.x * scale;      // tower centre, stage-relative
+  const cy = (cr.top  - sr.top)  + t.y * scale;
+  const towerR = 22 * scale;
+  const pw = pop.offsetWidth, ph = pop.offsetHeight, margin = 6;
+  let left = clamp(cx - pw / 2, margin, Math.max(margin, sr.width - pw - margin));
+  let top = cy - towerR - ph - 6;                    // prefer above the tower
+  pop.classList.toggle('below', top < margin);
+  if (top < margin) top = cy + towerR + 6;           // ...else below it
+  top = clamp(top, margin, Math.max(margin, sr.height - ph - margin));
+  pop.style.left = left + 'px';
+  pop.style.top = top + 'px';
 }
 function renderTowerPanel(){
   const t = G.selected; if (!t) return;
@@ -1224,7 +1245,8 @@ function renderTowerPanel(){
     btn.disabled = G.cash < cost;
   }
   $('#tpMode').textContent = 'Target: ' + t.mode.toUpperCase();
-  $('#tpSell').textContent = `Sell for $${Math.round(t.invested * 0.7)}`;
+  $('#tpSell').textContent = `💰 Sell — $${Math.round(t.invested * 0.7)}`;
+  positionTowerPop(t);   // keep it glued over the tower as content/layout changes
 }
 function upgrade(){
   const t = G.selected; if (!t) return;
@@ -2209,10 +2231,10 @@ cv.addEventListener('click', e => {
     updateHUD();
     return;
   }
-  // select tower under cursor
+  // select tower under cursor (tapping the selected one again closes the menu)
   let hit = null;
-  for (const t of G.towers) if (hyp(p.x, p.y, t.x, t.y) < 22) hit = t;
-  selectTower(hit);
+  for (const t of G.towers) if (hyp(p.x, p.y, t.x, t.y) < 24) hit = t;
+  selectTower(hit === G.selected ? null : hit);
 });
 cv.addEventListener('contextmenu', e => {
   e.preventDefault();
@@ -2253,6 +2275,7 @@ $('#airCard').onclick = () => {
   selectTower(null);
   updateHUD();
 };
+$('#tpClose').onclick = () => selectTower(null);
 $('#tpSell').onclick = sellSelected;
 $('#tpMode').onclick = () => {
   const modes = ['first', 'last', 'strong', 'close'];
@@ -2340,6 +2363,7 @@ $('#vNext').onclick = () => {
   else toMenu();
 };
 window.addEventListener('beforeunload', () => { if (G.state === 'playing' && !G.over) saveRun(); });
+window.addEventListener('resize', () => { if (G.selected) positionTowerPop(G.selected); });
 
 /* error overlay for easier debugging */
 window.onerror = (msg, src, line) => {
@@ -2386,6 +2410,12 @@ if (testParams.has('test')){
   placeTower('flamer', 550, 330, true);
   placeTower('missile', 800, 300, true);
   placeTower('mortar', 900, 490, true);
+  if (testParams.has('pop')){ // preview the tower popup menu over a placed weapon
+    const idx = clamp(parseInt(testParams.get('pop'), 10) || 0, 0, G.towers.length - 1);
+    const t = G.towers[idx];
+    if (testParams.has('upg')) t.ulv = Math.min(TOWERS[t.key].maxUp, parseInt(testParams.get('upg'), 10) || 1);
+    setTimeout(() => { selectTower(t); G.paused = true; }, 60); // let layout settle so positioning is correct
+  }
   if (testParams.has('econ')){ // measure DNA a PERFECT run yields vs upgrade cost
     const rows = [];
     for (const D of [1, 2, 5, 10, 25, 50, 100]){
