@@ -4,8 +4,13 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.8.0';
+const VERSION = '1.9.0';
 const CHANGELOG = [
+  {v: '1.9.0', date: 'Jul 4, 2026', items: [
+    '✈️ Air Strike is now a full show: two top-down F-22s roar in with contrails and afterburners, drop cluster canisters, and carpet the zone in a dozen staggered explosions',
+    '🏆 Beating wave 100 now triggers a fireworks celebration before the victory screen',
+    'All menus can be closed with an ✕ in the corner — no more scrolling to Done',
+  ]},
   {v: '1.8.0', date: 'Jul 4, 2026', items: [
     'New ✈️ AIR STRIKE: from wave 50, call in jets to carpet-bomb anywhere you click — $5,000, second run costs $7,500, max two per run',
     'Anti-spam pricing: each additional copy of the same weapon costs more (+15%, mortars +35%)',
@@ -190,9 +195,11 @@ const AIRSTRIKE = {
   unlock: 50,          // first wave it can be called in
   costs: [5000, 7500], // first use, second use
   maxUses: 2,          // per run
-  dmg: 800,            // per bomb, ignores armor, hits flyers too
-  splash: 120,
-  bombs: [-75, 0, 75], // impact offsets along the strike line
+  dmg: 300,            // per bomblet, ignores armor, hits flyers too
+  splash: 85,          // per bomblet
+  bomblets: 6,         // per canister (one canister per jet)
+  scatter: 130,        // cluster radius around the click point
+  jetSpeed: 560,       // px/s — slow enough to watch the flyby
 };
 
 /* ---------- LEVELS ----------

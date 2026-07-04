@@ -183,8 +183,24 @@ function sfxGate(){
 }
 const SFX = {
   jet(){ // fighter flyby: rising-then-falling roar (always plays)
-    sfxNoise({dur: 1.3, peak: 0.2, type: 'bandpass', f0: 300, f1: 1600, Q: 0.7, wet: 0.5, a: 0.25});
-    sfxTone({type: 'sawtooth', f0: 90, f1: 240, dur: 1.2, peak: 0.08, dist: true, wet: 0.4, a: 0.3});
+    sfxNoise({dur: 2.2, peak: 0.22, type: 'bandpass', f0: 260, f1: 1700, Q: 0.7, wet: 0.5, a: 0.5});
+    sfxTone({type: 'sawtooth', f0: 80, f1: 260, dur: 2.0, peak: 0.09, dist: true, wet: 0.4, a: 0.5});
+  },
+  alert(){ // strike-inbound radio blips
+    sfxTone({type: 'triangle', f0: 1050, dur: 0.08, peak: 0.07, wet: 0.2});
+    sfxTone({type: 'triangle', f0: 1050, dur: 0.08, peak: 0.07, wet: 0.2, delay: 0.16});
+    sfxTone({type: 'triangle', f0: 1400, dur: 0.12, peak: 0.08, wet: 0.25, delay: 0.32});
+  },
+  firework(){ // celebration burst: thump + crackle
+    sfxTone({type: 'sine', f0: 120, f1: 45, dur: 0.25, peak: 0.12, wet: 0.4});
+    sfxNoise({dur: 0.5, peak: 0.06, type: 'highpass', f0: 3200, wet: 0.55, a: 0.05, delay: 0.08});
+  },
+  victoryTune(){ // triumphant fanfare for clearing wave 100
+    const notes = [[523, 0], [659, 0.14], [784, 0.28], [1047, 0.45], [784, 0.75], [1047, 0.9]];
+    for (const [f, d] of notes) sfxTone({type: 'triangle', f0: f, dur: 0.35, peak: 0.09, wet: 0.5, delay: d});
+    sfxTone({type: 'triangle', f0: 262, dur: 1.6, peak: 0.07, wet: 0.5, delay: 0.9});
+    sfxTone({type: 'triangle', f0: 330, dur: 1.6, peak: 0.06, wet: 0.5, delay: 0.9});
+    sfxNoise({dur: 0.8, peak: 0.03, type: 'highpass', f0: 5000, wet: 0.6, delay: 1.0});
   },
   shot(){ // gatling: noise crack + tiny thump, randomized so bursts don't buzz
     if (!sfxGate()) return;
@@ -283,6 +299,7 @@ const G = {
   speed: 1, paused: false,
   placing: null, selected: null,
   targeting: null, strikes: [], airUsed: 0,
+  celebration: null, fw: [],
   mouse: {x: 0, y: 0, on: false},
   autoTimer: -1,
   shake: 0, banner: null,
@@ -860,6 +877,7 @@ function startLevel(idx, mode){
   initAmbient();
   G.dinos = []; G.projs = []; G.fx = []; G.bolts = []; G.texts = []; G.spawnQ = []; G.corpses = []; G.decals = [];
   G.selected = null; G.placing = null; G.targeting = null; G.strikes = [];
+  G.celebration = null; G.fw = [];
   G.waveActive = false; G.autoTimer = -1; G.over = false; G.banner = null;
   G.speed = 1;
   if (mode === 'resume' && save.run){
@@ -928,8 +946,11 @@ function victory(){
     `<b>${G.level.name}</b> is secure. All 100 waves contained.<br>` +
     `Bonus research: <b class="dna">+${reward} DNA</b>` +
     (G.levelIdx + 1 < LEVELS.length ? `<br><br>🔓 New zone unlocked: <b>${LEVELS[G.levelIdx+1].name}</b>` : '<br><br>🏆 You have secured the entire island!');
-  $('#victory').classList.remove('hidden');
-  SFX.roar();
+  // fireworks over the battlefield before the results screen appears
+  G.celebration = {t: 0, dur: 5.4, next: 0.2};
+  G.fw = [];
+  G.flashT = 0.6;
+  SFX.victoryTune();
 }
 function defeat(){
   G.over = true;
@@ -1039,7 +1060,30 @@ function launchStrike(x, y){
   G.cash -= cost;
   G.airUsed++;
   G.targeting = null;
-  G.strikes.push({x, y, t: 0, bombs: AIRSTRIKE.bombs.map(dx => ({dx, done: false}))});
+  // choreography: radio alert → two F-22s sweep in → each releases a
+  // cluster canister over the mark → staggered carpet of bomblets
+  const startX = -260, lead = 0.45;
+  const jets = [
+    {dx: 0,    oy: -30},
+    {dx: -130, oy: 30},
+  ];
+  const canisters = [], events = [];
+  let end = 0;
+  for (const j of jets){
+    j.sx = startX + j.dx;
+    j.drop = lead + (x - j.sx) / AIRSTRIKE.jetSpeed;   // moment this jet is over the mark
+    const land = j.drop + 0.6;
+    canisters.push({oy: j.oy, t0: j.drop, dur: 0.6});
+    for (let i = 0; i < AIRSTRIKE.bomblets; i++){
+      const a = Math.random() * Math.PI * 2;
+      const r = Math.sqrt(Math.random()) * AIRSTRIKE.scatter;
+      const t = land + Math.random() * 0.9;
+      events.push({t, x: x + Math.cos(a) * r, y: y + j.oy * 0.3 + Math.sin(a) * r * 0.75, done: false});
+      end = Math.max(end, t);
+    }
+  }
+  G.strikes.push({x, y, t: 0, lead, jets, canisters, events, end: end + 1.2});
+  SFX.alert();
   SFX.jet();
   saveRun();
   updateHUD();
@@ -1047,25 +1091,23 @@ function launchStrike(x, y){
 function updateStrikes(dt){
   for (const s of G.strikes){
     s.t += dt;
-    const jetX = -160 + s.t * 1150;
-    for (const b of s.bombs){
-      if (!b.done && jetX >= s.x + b.dx){
-        b.done = true;
-        const bx = s.x + b.dx, by = s.y + rand(-14, 14);
+    for (const e of s.events){
+      if (!e.done && s.t >= e.t){
+        e.done = true;
         SFX.boom();
-        G.shake = Math.max(G.shake, 8);
-        addFx('boom', bx, by, AIRSTRIKE.splash);
-        addFx('shock', bx, by, AIRSTRIKE.splash * 1.4);
-        addFx('dust', bx, by + 4, AIRSTRIKE.splash * 0.6);
+        G.shake = Math.max(G.shake, 6);
+        addFx('boom', e.x, e.y, AIRSTRIKE.splash * rand(0.8, 1.2));
+        addFx('shock', e.x, e.y, AIRSTRIKE.splash * 1.3);
+        addFx('dust', e.x, e.y + 4, AIRSTRIKE.splash * 0.55);
         for (const d of G.dinos){ // hits everything, even flyers — it's an airburst
           if (d.dead || d.leaked) continue;
           const p = dinoPos(d);
-          if (hyp(bx, by, p.x, p.y) <= AIRSTRIKE.splash + d.size * 0.4) damage(d, AIRSTRIKE.dmg, true);
+          if (hyp(e.x, e.y, p.x, p.y) <= AIRSTRIKE.splash + d.size * 0.4) damage(d, AIRSTRIKE.dmg, true);
         }
       }
     }
   }
-  G.strikes = G.strikes.filter(s => s.t < 1.7);
+  G.strikes = G.strikes.filter(s => s.t < s.end);
 }
 
 /* ---------------- HUD / UI ---------------- */
@@ -1533,25 +1575,48 @@ function render(dt){
   // flyers on top
   air.forEach(drawOne);
 
-  // air-strike jets + contrails
+  // air strike: inbound reticle → F-22 flyby → falling cluster canisters
   for (const s of G.strikes){
-    const jetX = -160 + s.t * 1150;
-    for (const [ox, oy] of [[0, -20], [-58, 16]]){
-      const jx = jetX + ox, jy = s.y + oy - 24;
-      const ct = ctx.createLinearGradient(jx - 170, 0, jx - 16, 0);
-      ct.addColorStop(0, 'rgba(255,255,255,0)'); ct.addColorStop(1, 'rgba(255,255,255,0.35)');
-      ctx.strokeStyle = ct; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(jx - 170, jy); ctx.lineTo(jx - 16, jy); ctx.stroke();
-      ctx.fillStyle = '#39404a';
-      ctx.beginPath();
-      ctx.moveTo(jx + 17, jy); ctx.lineTo(jx - 13, jy - 9); ctx.lineTo(jx - 6, jy);
-      ctx.lineTo(jx - 13, jy + 9); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = '#9fb0bc';
-      ctx.beginPath();
-      ctx.moveTo(jx + 11, jy); ctx.lineTo(jx - 4, jy - 3.4); ctx.lineTo(jx - 4, jy + 3.4);
-      ctx.closePath(); ctx.fill();
-      ctx.fillStyle = 'rgba(255,180,70,0.85)'; // afterburner
-      ctx.beginPath(); ctx.arc(jx - 14, jy, 2.6, 0, Math.PI*2); ctx.fill();
+    // pulsing mark on the target until the first canister lands
+    if (s.t < s.jets[0].drop + 0.6){
+      const pl = (Math.sin(G.time * 9) + 1) / 2;
+      ctx.strokeStyle = `rgba(255,70,45,${0.5 + 0.4 * pl})`;
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([10, 8]); ctx.lineDashOffset = -G.time * 60;
+      ctx.beginPath(); ctx.arc(s.x, s.y, AIRSTRIKE.scatter + 20, 0, Math.PI*2); ctx.stroke();
+      ctx.setLineDash([]); ctx.lineDashOffset = 0;
+      ctx.beginPath(); ctx.moveTo(s.x - 14, s.y); ctx.lineTo(s.x + 14, s.y);
+      ctx.moveTo(s.x, s.y - 14); ctx.lineTo(s.x, s.y + 14); ctx.stroke();
+    }
+    for (const j of s.jets){
+      const jx = j.sx + Math.max(0, s.t - s.lead) * AIRSTRIKE.jetSpeed;
+      if (jx < -80 || jx > W + 120) continue;
+      const jy = s.y + j.oy;
+      // wingtip vapor trails
+      for (const wy of [-20, 20]){
+        const ct = ctx.createLinearGradient(jx - 200, 0, jx - 12, 0);
+        ct.addColorStop(0, 'rgba(255,255,255,0)'); ct.addColorStop(1, 'rgba(255,255,255,0.3)');
+        ctx.strokeStyle = ct; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(jx - 200, jy + wy); ctx.lineTo(jx - 12, jy + wy); ctx.stroke();
+      }
+      drawF22(ctx, jx, jy, 1.7, G.time);
+    }
+    // cluster canisters falling away toward the ground (top-down: they shrink)
+    for (const c of s.canisters){
+      const k = (s.t - c.t0) / c.dur;
+      if (k < 0 || k > 1) continue;
+      const cx = s.x + 26 * (1 - k), cy = s.y + c.oy * (1 - k * 0.7);
+      const sc = 1.25 - k * 0.55;
+      ctx.fillStyle = `rgba(0,0,0,${0.12 + 0.22 * k})`; // shadow converging
+      ctx.beginPath(); ctx.ellipse(s.x, s.y + c.oy * 0.3, 10 * (1.4 - k * 0.5), 5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.save();
+      ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.rotate(k * 2.2);
+      ctx.fillStyle = '#3a4034';
+      ctx.beginPath(); ctx.ellipse(0, 0, 9, 3.6, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#e0b64f'; ctx.fillRect(-2, -3.6, 4, 7.2); // band
+      ctx.fillStyle = '#262b22'; // fins
+      ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(-13, -4); ctx.lineTo(-13, 4); ctx.closePath(); ctx.fill();
+      ctx.restore();
     }
   }
 
@@ -1580,9 +1645,8 @@ function render(dt){
     const canCall = G.cash >= airCost();
     ctx.strokeStyle = canCall ? 'rgba(255,80,50,0.75)' : 'rgba(150,150,150,0.6)';
     ctx.lineWidth = 2; ctx.setLineDash([8, 6]); ctx.lineDashOffset = -G.time * 30;
-    for (const dx of AIRSTRIKE.bombs){
-      ctx.beginPath(); ctx.arc(G.mouse.x + dx, G.mouse.y, AIRSTRIKE.splash, 0, Math.PI*2); ctx.stroke();
-    }
+    ctx.beginPath(); ctx.arc(G.mouse.x, G.mouse.y, AIRSTRIKE.scatter + AIRSTRIKE.splash * 0.5, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(G.mouse.x, G.mouse.y, AIRSTRIKE.scatter * 0.45, 0, Math.PI*2); ctx.stroke();
     ctx.setLineDash([]); ctx.lineDashOffset = 0;
     ctx.beginPath(); ctx.moveTo(G.mouse.x - 16, G.mouse.y); ctx.lineTo(G.mouse.x + 16, G.mouse.y);
     ctx.moveTo(G.mouse.x, G.mouse.y - 16); ctx.lineTo(G.mouse.x, G.mouse.y + 16); ctx.stroke();
@@ -1718,6 +1782,59 @@ function render(dt){
     ctx.fillText('—  ' + sub + '  —', W/2, cy + 22);
     ctx.globalAlpha = 1;
   }
+  // wave-100 fireworks celebration
+  if (G.celebration){
+    const c = G.celebration;
+    c.t += dt;
+    if (c.t >= c.next && c.t < c.dur - 1.2){
+      c.next = c.t + rand(0.22, 0.4);
+      G.fw.push({x: rand(W*0.12, W*0.88), y: rand(H*0.12, H*0.55), t: 0,
+                 hue: rand(0, 360), n: 14 + (Math.random()*8 | 0), r: rand(70, 120)});
+      SFX.firework();
+      G.shake = Math.max(G.shake, 1.5);
+    }
+    for (const f of G.fw){
+      f.t += dt;
+      const k = Math.min(1, f.t / 1.1);
+      const spread = f.r * (1 - Math.pow(1 - k, 2.2));
+      for (let i = 0; i < f.n; i++){
+        const a = i / f.n * Math.PI * 2 + f.hue;
+        const px = f.x + Math.cos(a) * spread;
+        const py = f.y + Math.sin(a) * spread * 0.85 + 55 * k * k; // gravity
+        ctx.fillStyle = `hsla(${f.hue + i * 9}, 90%, ${70 - k * 25}%, ${1 - k})`;
+        ctx.beginPath(); ctx.arc(px, py, 2.6 - k * 1.4, 0, Math.PI*2); ctx.fill();
+      }
+      if (f.t < 0.15){ // launch flash
+        ctx.fillStyle = `hsla(${f.hue}, 90%, 85%, ${0.8 - f.t * 5})`;
+        ctx.beginPath(); ctx.arc(f.x, f.y, 9, 0, Math.PI*2); ctx.fill();
+      }
+    }
+    G.fw = G.fw.filter(f => f.t < 1.1);
+    // triumphant title zooming in
+    const ta = clamp(c.t * 2, 0, 1);
+    const sc = 1 + Math.max(0, 0.6 - c.t) * 1.4;
+    ctx.save();
+    ctx.globalAlpha = ta;
+    ctx.translate(W/2, H * 0.42);
+    ctx.scale(sc, sc);
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 54px Verdana, sans-serif';
+    ctx.fillStyle = 'rgba(0,0,0,0.65)';
+    ctx.fillText('🏆 ZONE SECURED!', 3, 3);
+    const tg = ctx.createLinearGradient(0, -40, 0, 20);
+    tg.addColorStop(0, '#ffe9a0'); tg.addColorStop(1, '#e8a93a');
+    ctx.fillStyle = tg;
+    ctx.fillText('🏆 ZONE SECURED!', 0, 0);
+    ctx.font = 'bold 17px Verdana, sans-serif';
+    ctx.fillStyle = '#d8dcc8';
+    ctx.fillText('100 waves held. The dinosaurs are contained.', 0, 34);
+    ctx.restore();
+    if (c.t >= c.dur){
+      G.celebration = null;
+      $('#victory').classList.remove('hidden');
+    }
+  }
+
   if (G.paused){
     ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = '#fff'; ctx.font = 'bold 40px Verdana, sans-serif'; ctx.textAlign = 'center';
@@ -1821,6 +1938,11 @@ $('#menuDna').onclick = openLab;
 $('#vLab').onclick = openLab;
 $('#goLab').onclick = openLab;
 $('#labClose').onclick = () => { $('#lab').classList.add('hidden'); buildMenu(); };
+$$('.modalX').forEach(b => b.onclick = () => {
+  const m = b.closest('.modal');
+  m.classList.add('hidden');
+  if (m.id === 'lab') buildMenu();
+});
 $('#btnSettings').onclick = () => { syncSettings(); $('#settings').classList.remove('hidden'); };
 $('#setClose').onclick = () => { $('#settings').classList.add('hidden'); };
 $('#optInv').onchange = e => { save.settings.invincible = e.target.checked; persist(); updateHUD(); };
@@ -1915,6 +2037,10 @@ if (testParams.has('test')){
   const sim = parseFloat(testParams.get('sim')) || 0;
   for (let s = 0; s < sim; s += 0.05) step(0.05);
   if (testParams.has('wave')){ G.wave = parseInt(testParams.get('wave'), 10) - 1; G.waveActive = false; startWave(); for (let s = 0; s < (sim || 6); s += 0.05) step(0.05); }
+  if (testParams.has('win')){ // stage the wave-100 celebration
+    G.wave = WAVES_PER_LEVEL;
+    victory();
+  }
   if (testParams.has('boss')){ // stage a live boss entrance
     spawnDino('trex', 0, true);
     const bt = parseFloat(testParams.get('boss')) || 1;

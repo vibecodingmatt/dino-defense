@@ -888,6 +888,72 @@ function bakeExit(c, x, y, W, H){
   return {x: bx, y: by, beacon: {x: bx, y: by - 76}};
 }
 
+/* ---------- F-22 (top-down, facing +x) for the air strike ---------- */
+function drawF22(ctx, x, y, scale, time){
+  // ground shadow far below the airframe
+  ctx.save();
+  ctx.translate(x + 26, y + 44);
+  ctx.scale(scale * 0.9, scale * 0.9);
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.beginPath();
+  ctx.moveTo(22, 0); ctx.lineTo(2, -5); ctx.lineTo(-2, -11); ctx.lineTo(-9, -11);
+  ctx.lineTo(-16, -4); ctx.lineTo(-16, 4); ctx.lineTo(-9, 11); ctx.lineTo(-2, 11); ctx.lineTo(2, 5);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  // afterburners
+  const ab = 0.7 + 0.3 * Math.sin(time * 42 + x);
+  for (const oy of [-3.4, 3.4]){
+    ctx.fillStyle = `rgba(120,190,255,${0.5 * ab})`;
+    ctx.beginPath(); ctx.ellipse(-19 - ab * 6, oy, 6 + ab * 4, 2.1, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = `rgba(255,215,130,${0.85 * ab})`;
+    ctx.beginPath(); ctx.ellipse(-17.5 - ab * 3, oy, 3.5 + ab * 2, 1.3, 0, 0, Math.PI*2); ctx.fill();
+  }
+  // raptor planform
+  ctx.fillStyle = '#5a636e';
+  ctx.beginPath();
+  ctx.moveTo(24, 0);          // nose
+  ctx.lineTo(13, -3.2);
+  ctx.lineTo(2, -4.8);        // leading-edge root extension
+  ctx.lineTo(-2, -12);        // out to the wingtip
+  ctx.lineTo(-9, -12);        // wingtip chord
+  ctx.lineTo(-8, -5);         // trailing edge back in
+  ctx.lineTo(-14, -8.5);      // horizontal stabilizer tip
+  ctx.lineTo(-17, -3.4);      // exhaust
+  ctx.lineTo(-17, 3.4);
+  ctx.lineTo(-14, 8.5);
+  ctx.lineTo(-8, 5);
+  ctx.lineTo(-9, 12);
+  ctx.lineTo(-2, 12);
+  ctx.lineTo(2, 4.8);
+  ctx.lineTo(13, 3.2);
+  ctx.closePath(); ctx.fill();
+  // spine + panel highlight
+  ctx.fillStyle = '#6f7a87';
+  ctx.beginPath();
+  ctx.moveTo(24, 0); ctx.lineTo(13, -3.2); ctx.lineTo(-6, -2.2); ctx.lineTo(-6, 2.2); ctx.lineTo(13, 3.2);
+  ctx.closePath(); ctx.fill();
+  // canted twin tails
+  ctx.fillStyle = '#454e58';
+  for (const s of [-1, 1]){
+    ctx.beginPath();
+    ctx.moveTo(-7, s * 3.6); ctx.lineTo(-14, s * 7.2); ctx.lineTo(-16.5, s * 6.4); ctx.lineTo(-11, s * 3);
+    ctx.closePath(); ctx.fill();
+  }
+  // wing edge accents
+  ctx.strokeStyle = 'rgba(20,26,32,0.5)'; ctx.lineWidth = 0.7;
+  ctx.beginPath(); ctx.moveTo(2, -4.8); ctx.lineTo(-2, -12); ctx.moveTo(2, 4.8); ctx.lineTo(-2, 12); ctx.stroke();
+  // canopy
+  ctx.fillStyle = '#161f27';
+  ctx.beginPath(); ctx.ellipse(12.5, 0, 4.6, 2.2, 0, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = 'rgba(150,205,255,0.55)';
+  ctx.beginPath(); ctx.ellipse(13.5, -0.5, 2.4, 1, 0, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
 /* ---------- RUNTIME ANIMATED SET PIECES ---------- */
 function drawTorchFlame(ctx, x, y, t){
   const f = Math.sin(t*11) * 0.5 + Math.sin(t*23 + 1) * 0.3;

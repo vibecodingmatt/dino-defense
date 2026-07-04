@@ -204,10 +204,19 @@ canvas#game {
   display: flex; align-items: center; justify-content: center;
 }
 .modalBox {
+  position: relative;
   background: var(--panel); border: 2px solid var(--amber); border-radius: 12px;
   padding: 22px 26px; width: min(560px, 92vw); max-height: 86vh;
   overflow-y: auto; box-shadow: 0 20px 60px #000;
 }
+.modalX {
+  position: sticky; top: 0; float: right; margin: -6px -10px 0 10px;
+  width: 34px; height: 34px; line-height: 1;
+  background: var(--panel2); color: var(--dim);
+  border: 1px solid var(--line); border-radius: 50%;
+  font-size: 15px; cursor: pointer; z-index: 2;
+}
+.modalX:hover { color: #fff; border-color: var(--amber); }
 .modalBox h2 { color: var(--amber2); margin-bottom: 6px; letter-spacing: 1px; }
 .modalBox .sub { color: var(--dim); font-size: 12.5px; margin-bottom: 16px; }
 .modalBox p { line-height: 1.65; font-size: 14px; }
