@@ -432,6 +432,12 @@ const SFX = {
     sfxNoise({dur: 0.12, peak: 0.14, type: 'lowpass', f0: 520, f1: 140, wet: 0.15});
     sfxTone({type: 'triangle', f0: 1250, f1: 820, dur: 0.1, peak: 0.045, wet: 0.25, delay: 0.04});
   },
+  gas(){ // Mason's request: it toots. A wet, buzzy, deflating raspberry.
+    if (!sfxGate()) return;
+    sfxTone({type: 'sawtooth', f0: 150, f1: 72, dur: 0.44, peak: 0.13, dist: true, wet: 0.18, tremF: 27, tremF1: 13, tremD: 0.7, a: 0.02});
+    sfxTone({type: 'sawtooth', f0: 98,  f1: 58, dur: 0.4,  peak: 0.09, dist: true, wet: 0.18, tremF: 19, tremD: 0.6, a: 0.02});
+    sfxNoise({dur: 0.4, peak: 0.05, type: 'bandpass', f0: 700, f1: 300, Q: 1.2, wet: 0.2, a: 0.03}); // wet splatter
+  },
   upgrade(){ // ascending servo chime
     sfxTone({type: 'triangle', f0: 520, dur: 0.08, peak: 0.05, wet: 0.2});
     sfxTone({type: 'triangle', f0: 700, dur: 0.08, peak: 0.05, wet: 0.25, delay: 0.07});
@@ -455,7 +461,7 @@ const G = {
   spawnQ: [], spawnT: 0,
   speed: 1, paused: false,
   placing: null, selected: null,
-  targeting: null, strikes: [], airUsed: 0,
+  targeting: null, strikes: [], clouds: [], airUsed: 0,
   celebration: null, fw: [],
   mouse: {x: 0, y: 0, on: false},
   autoTimer: -1,
@@ -828,6 +834,14 @@ function fireTower(t, dt){
       SFX.cryo();
       G.projs.push({kind:'cryo', x:t.x, y:t.y, target, speed:460, dmg:st.dmg, splash:st.splash, slow:def.slow, tower:t, color:'#cfeeff'});
       break;
+    case 'gas': {
+      // toot! a puff of green gas out the nozzle, then a lingering cloud on the target
+      SFX.gas();
+      addFx('gaspuff', t.x + Math.cos(t.angle) * 20, t.y + Math.sin(t.angle) * 20, 16, t.angle);
+      if (G.clouds.length > 40) G.clouds.shift();
+      G.clouds.push({x: tp.x, y: tp.y, r: def.cloud.r, t: 0, dur: def.cloud.dur, dps: st.dmg, tower: t, seed: Math.random()*9});
+      break;
+    }
     case 'mortar': {
       SFX.thoomp();
       // lob a shell at where the target will be when it lands
@@ -938,7 +952,7 @@ function addFx(kind, x, y, r, ang){
   // the air-strike carpet must always be visible, so its bursts bypass the soft cap
   if (G.fx.length > 360 && kind !== 'airburst' && kind !== 'shock') return;
   G.fx.push({kind, x, y, r, ang: ang || 0, t: 0, seed: Math.random() * 9,
-             dur: kind === 'sonic' ? 0.5 : kind === 'boom' ? 0.45 : kind === 'airburst' ? 0.55 : kind === 'frost' ? 0.5 : kind === 'flame' ? 0.22 : kind === 'ring' ? 0.8 : kind === 'dust' ? 0.9 : kind === 'step' ? 0.45 : kind === 'shock' ? 0.9 : kind === 'birds' ? 1.4 : 0.3});
+             dur: kind === 'sonic' ? 0.5 : kind === 'boom' ? 0.45 : kind === 'airburst' ? 0.55 : kind === 'frost' ? 0.5 : kind === 'flame' ? 0.22 : kind === 'gaspuff' ? 0.55 : kind === 'ring' ? 0.8 : kind === 'dust' ? 0.9 : kind === 'step' ? 0.45 : kind === 'shock' ? 0.9 : kind === 'birds' ? 1.4 : 0.3});
 }
 function addText(x, y, txt, color, size){
   if (G.texts.length > 40) return;
@@ -1102,7 +1116,7 @@ function startLevel(idx, mode, diff){
   G.hurtT = 0; G.flashT = 0; G.waveTotal = 0; G.cinT = 0;
   initAmbient();
   G.dinos = []; G.projs = []; G.fx = []; G.bolts = []; G.texts = []; G.spawnQ = []; G.corpses = []; G.decals = [];
-  G.selected = null; G.placing = null; G.targeting = null; G.strikes = [];
+  G.selected = null; G.placing = null; G.targeting = null; G.strikes = []; G.clouds = [];
   G.celebration = null; G.fw = [];
   G.waveActive = false; G.autoTimer = -1; G.over = false; G.banner = null;
   G.speed = 1;
@@ -1285,7 +1299,9 @@ function renderTowerPanel(){
   const maxed = t.ulv >= def.maxUp;
   $('#tpName').textContent = `${def.icon} ${def.name} — Lv ${t.ulv + 1}${maxed ? ' ★MAX' : ''}`;
   $('#tpStats').innerHTML =
-    `DMG <b>${st.dmg.toFixed(0)}</b> · ROF <b>${st.rof.toFixed(2)}/s</b> · RNG <b>${Math.round(st.range)}</b>` +
+    (t.key === 'gas'
+      ? `POISON <b>${st.dmg.toFixed(0)}</b>/s · CLOUD every <b>${(1/st.rof).toFixed(1)}s</b> · RNG <b>${Math.round(st.range)}</b>`
+      : `DMG <b>${st.dmg.toFixed(0)}</b> · ROF <b>${st.rof.toFixed(2)}/s</b> · RNG <b>${Math.round(st.range)}</b>`) +
     (t.key === 'missile' ? ` · <b>${1 + t.ulv}</b> rocket${t.ulv ? 's' : ''}/salvo` : '') +
     (st.splash ? ` · SPLASH <b>${Math.round(st.splash)}</b>` : '') +
     (def.air ? '' : ' · <span class="warn">cannot hit flyers</span>');
@@ -1432,6 +1448,18 @@ function updateStrikes(dt){
     }
   }
   G.strikes = G.strikes.filter(s => s.t < s.end);
+}
+/* poison gas clouds: damage every GROUND dino inside, over time; flyers rise above */
+function updateClouds(dt){
+  for (const c of G.clouds){
+    c.t += dt;
+    for (const d of G.dinos){
+      if (d.dead || d.leaked || d.flying) continue;
+      const p = dinoPos(d);
+      if (hyp(c.x, c.y, p.x, p.y) <= c.r + d.size * 0.35) damage(d, c.dps * dt, true, c.tower);
+    }
+  }
+  G.clouds = G.clouds.filter(c => c.t < c.dur);
 }
 
 /* ---------------- HUD / UI ---------------- */
@@ -1741,6 +1769,7 @@ function step(dt){
   updateDinos(dt);
   updateProjs(dt);
   updateStrikes(dt);
+  updateClouds(dt);
   // boss corpses: fall, hit the ground, fade out
   for (const c of G.corpses){
     c.t += dt;
@@ -1794,6 +1823,25 @@ function render(dt){
       ctx.beginPath();
       ctx.arc(f.x + Math.cos(aa) * dd, f.y + Math.sin(aa) * dd * 0.55, f.r * 0.13 * (1 + (i % 3) * 0.4), 0, Math.PI*2);
       ctx.fill();
+    }
+  }
+
+  // poison gas clouds — bubbling toxic haze on the ground (dinos walk through)
+  for (const c of G.clouds){
+    const k = c.t / c.dur;
+    const a = 0.42 * clamp(Math.min(c.t / 0.5, (c.dur - c.t) / 0.8), 0, 1); // fade in then out
+    if (a <= 0) continue;
+    for (let i = 0; i < 5; i++){
+      const ang = c.seed + i * 2.2 + G.time * 0.6;
+      const off = c.r * 0.32;
+      const ox = Math.cos(ang) * off, oy = Math.sin(ang) * off * 0.7;
+      const rr = c.r * (0.5 + 0.16 * Math.sin(G.time * 1.4 + i + c.seed));
+      const g = ctx.createRadialGradient(c.x + ox, c.y + oy, 0, c.x + ox, c.y + oy, rr);
+      g.addColorStop(0,   `rgba(168,224,74,${a * 0.85})`);
+      g.addColorStop(0.55,`rgba(120,182,52,${a * 0.45})`);
+      g.addColorStop(1,   `rgba(92,150,40,0)`);
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(c.x + ox, c.y + oy, rr, 0, Math.PI*2); ctx.fill();
     }
   }
 
@@ -1982,6 +2030,16 @@ function render(dt){
         ctx.arc(0, 0, f.r, -0.55, 0.55);
         ctx.closePath(); ctx.fill();
         ctx.restore();
+        break;
+      }
+      case 'gaspuff': { // little green toot out the nozzle
+        const rr = f.r * (0.5 + k * 1.3);
+        const px = f.x + Math.cos(f.ang) * k * 14, py = f.y + Math.sin(f.ang) * k * 14;
+        const g = ctx.createRadialGradient(px, py, 0, px, py, rr);
+        g.addColorStop(0, `rgba(180,230,90,${0.5*(1-k)})`);
+        g.addColorStop(1, `rgba(120,180,50,0)`);
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(px, py, rr, 0, Math.PI*2); ctx.fill();
         break;
       }
       case 'puff':
@@ -2519,6 +2577,7 @@ if (testParams.has('test')){
   placeTower('flamer', 550, 330, true);
   placeTower('missile', 800, 300, true);
   placeTower('mortar', 900, 490, true);
+  placeTower('gas', 150, 210, true); // Mason's Gas, near the path start
   if (testParams.has('pop')){ // preview the tower popup menu over a placed weapon
     const idx = clamp(parseInt(testParams.get('pop'), 10) || 0, 0, G.towers.length - 1);
     const t = G.towers[idx];

@@ -657,6 +657,14 @@ function drawTowerBase(ctx, x, y, key, selected, lv){
         ctx.beginPath(); ctx.ellipse(sx, sy, 2.2, 3.4, 0.4, 0, Math.PI*2); ctx.fill();
       }
       break;
+    case 'gas': // toxic hazard drums with a green seep
+      for (const [bx, by] of [[-17, 11], [-11, 15]]){
+        ctx.fillStyle = '#4a5a24'; ctx.beginPath(); ctx.ellipse(bx, by, 5, 5.6, 0, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = '#a6e04a'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(bx, by, 2.6, 0, Math.PI*2); ctx.stroke();
+      }
+      ctx.fillStyle = 'rgba(150,210,70,0.18)';
+      ctx.beginPath(); ctx.ellipse(-13, 15, 14, 7, 0, 0, Math.PI*2); ctx.fill();
+      break;
   }
   ctx.restore();
 }
@@ -733,6 +741,21 @@ function drawTowerTurret(ctx, t, flash, time){
       const pf = 0.6 + 0.4*Math.sin(time*13 + t.x);
       ctx.fillStyle = `rgba(255,180,60,${0.55*pf})`;
       ctx.beginPath(); ctx.arc(18.5, 0, 2.2 + pf*1.6, 0, Math.PI*2); ctx.fill();
+      break;
+    }
+    case 'gas': { // pressurised toxin canister + flared vent nozzle
+      ctx.translate(-rec * 0.5, 0);
+      ctx.fillStyle = '#43521f'; ctx.beginPath(); ctx.ellipse(-5, 0, 7.5, 6.5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#a6e04a'; ctx.lineWidth = 1.3;
+      ctx.beginPath(); ctx.arc(-5, 0, 4.3, 0, Math.PI*2); ctx.stroke();
+      ctx.fillStyle = '#c8e88a'; ctx.beginPath(); ctx.arc(-7, -2, 1.4, 0, Math.PI*2); ctx.fill(); // gauge glint
+      ctx.strokeStyle = '#525a44'; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(-1, 0); ctx.lineTo(12, 0); ctx.stroke();
+      ctx.fillStyle = '#2e3a1c'; // flared nozzle
+      ctx.beginPath(); ctx.moveTo(11, -3.5); ctx.lineTo(18, -6); ctx.lineTo(18, 6); ctx.lineTo(11, 3.5); ctx.closePath(); ctx.fill();
+      const pv = 0.5 + 0.5*Math.sin(time*6 + t.x);        // venting vapor puff
+      ctx.fillStyle = `rgba(168,224,74,${0.35*pv})`;
+      ctx.beginPath(); ctx.arc(20 + pv*2, 0, 3 + pv*2.4, 0, Math.PI*2); ctx.fill();
       break;
     }
     case 'tesla': { // coil tower with crackling orb
