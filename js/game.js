@@ -1377,19 +1377,25 @@ function buildMenu(){
     };
     el.appendChild(card);
   });
-  buildAchievements();
+  // show progress on the menu button so players see how many are left at a glance
+  const got = ACHIEVEMENTS.filter(a => save.ach && save.ach[a.key]).length;
+  const btn = $('#btnAch');
+  if (btn) btn.textContent = `🏆 Achievements ${got}/${ACHIEVEMENTS.length}`;
 }
 function buildAchievements(){
-  const el = $('#achCase');
-  if (!el) return;
+  const list = $('#achList');
+  if (!list) return;
   const got = ACHIEVEMENTS.filter(a => save.ach && save.ach[a.key]).length;
-  const cnt = $('#achCount');
-  if (cnt) cnt.textContent = `${got} / ${ACHIEVEMENTS.length}`;
-  el.innerHTML = ACHIEVEMENTS.map(a => {
+  const prog = $('#achProg');
+  if (prog) prog.textContent = `${got} / ${ACHIEVEMENTS.length}`;
+  // every achievement is always listed — name, description and locked/unlocked
+  // status — so the player can see exactly what exists and what to target
+  list.innerHTML = ACHIEVEMENTS.map(a => {
     const done = !!(save.ach && save.ach[a.key]);
-    return `<div class="trophy${done ? ' got' : ''}" title="${a.name} — ${a.desc}">` +
-             `<div class="trIco">${done ? a.icon : '🔒'}</div>` +
-             `<div class="trName">${done ? a.name : '???'}</div>` +
+    return `<div class="achRow${done ? ' got' : ''}">` +
+             `<div class="achIco">${a.icon}</div>` +
+             `<div class="achInfo"><b>${a.name}</b><br><small>${a.desc}</small></div>` +
+             `<div class="achStat">${done ? '✓ Unlocked' : '🔒 Locked'}</div>` +
            `</div>`;
   }).join('');
 }
@@ -2155,6 +2161,8 @@ $('#tpMode').onclick = () => {
 const openLab = () => { buildLab(); $('#lab').classList.remove('hidden'); };
 $('#btnTips').onclick = () => { buildTips(); $('#tips').classList.remove('hidden'); };
 $('#tipsClose').onclick = () => $('#tips').classList.add('hidden');
+$('#btnAch').onclick = () => { buildAchievements(); $('#achievements').classList.remove('hidden'); };
+$('#achClose').onclick = () => $('#achievements').classList.add('hidden');
 $('#verChip').onclick = () => { buildChangelog(); $('#changelog').classList.remove('hidden'); };
 $('#clogClose').onclick = () => $('#changelog').classList.add('hidden');
 $('#btnLab').onclick = openLab;
@@ -2248,6 +2256,7 @@ if (new URLSearchParams(location.search).has('dbg')){
 }
 
 if (new URLSearchParams(location.search).has('settings')){ syncSettings(); $('#settings').classList.remove('hidden'); }
+if (new URLSearchParams(location.search).has('ach')){ if (new URLSearchParams(location.search).get('ach') === 'some'){ save.ach = {boss_first:1, wave50:1, secure_0:1, apex:1}; } buildAchievements(); $('#achievements').classList.remove('hidden'); }
 if (new URLSearchParams(location.search).has('tips')){ buildTips(); $('#tips').classList.remove('hidden'); }
 if (new URLSearchParams(location.search).has('log')){ buildChangelog(); $('#changelog').classList.remove('hidden'); }
 

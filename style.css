@@ -179,34 +179,34 @@ canvas#game {
 #menuBtns { display: flex; gap: 12px; margin-top: 26px; flex-wrap: wrap; justify-content: center; }
 #menuBtns button { padding: 10px 22px; font-size: 15px; }
 
-/* ---------- achievements (trophy case) ---------- */
-#achWrap { margin-top: 30px; width: 100%; max-width: 900px; }
-#achHead {
-  font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: var(--amber2);
-  border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 14px; text-align: center;
+/* ---------- achievements (own modal page) ---------- */
+#achProg { color: var(--amber2); }
+#achList { display: flex; flex-direction: column; gap: 8px; }
+.achRow {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px; border-radius: 10px;
+  background: #171c12; border: 1px solid #2a3122; opacity: 0.72;
 }
-#achHead #achCount { color: var(--dim); margin-left: 8px; font-weight: normal; }
-#achCase {
-  display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;
-}
-.trophy {
-  width: 104px; padding: 12px 6px 10px; border-radius: 10px; text-align: center;
-  background: #171c12; border: 1px solid #2a3122; opacity: 0.55;
-  transition: transform 0.1s, box-shadow 0.2s;
-}
-.trophy.got {
+.achRow.got {
   opacity: 1; border-color: var(--amber);
   background: linear-gradient(#2c2814, #201b0e);
-  box-shadow: 0 0 14px #e8b93a2e, inset 0 0 10px #e8b93a1a;
+  box-shadow: 0 0 12px #e8b93a24, inset 0 0 8px #e8b93a14;
 }
-.trophy.got:hover { transform: translateY(-3px); }
-.trIco { font-size: 30px; line-height: 1; filter: grayscale(1) brightness(0.7); }
-.trophy.got .trIco { filter: none; }
-.trName {
-  font-size: 10.5px; margin-top: 8px; color: var(--dim); line-height: 1.3;
-  min-height: 26px; display: flex; align-items: center; justify-content: center;
+.achIco {
+  font-size: 30px; line-height: 1; width: 40px; text-align: center; flex: none;
+  filter: grayscale(1) brightness(0.65);
 }
-.trophy.got .trName { color: var(--amber2); font-weight: bold; }
+.achRow.got .achIco { filter: none; }
+.achInfo { flex: 1; font-size: 14px; }
+.achInfo b { color: var(--dim); }
+.achRow.got .achInfo b { color: var(--amber2); }
+.achInfo small { color: var(--dim); font-size: 11.5px; line-height: 1.4; }
+.achStat {
+  flex: none; font-size: 11px; font-weight: bold; letter-spacing: 0.5px;
+  padding: 4px 9px; border-radius: 12px; white-space: nowrap;
+  background: #00000033; border: 1px solid var(--line); color: var(--dim);
+}
+.achRow.got .achStat { color: #1a1a0a; background: var(--amber); border-color: var(--amber2); }
 
 /* ---------- achievement toast ---------- */
 #achToast {

@@ -71,12 +71,9 @@
   <div class="tag">— CONTAINMENT BREACH · a dinosaur tower defense —</div>
   <div id="menuDna">0 DNA</div>
   <div id="levelCards"></div>
-  <div id="achWrap">
-    <div id="achHead">🏆 Achievements <span id="achCount">0 / 0</span></div>
-    <div id="achCase"></div>
-  </div>
   <div id="menuBtns">
     <button id="btnLab" class="primary">🧬 Research Lab</button>
+    <button id="btnAch">🏆 Achievements</button>
     <button id="btnTips">💡 Tips</button>
     <button id="btnSettings">⚙ Settings</button>
   </div>
@@ -96,6 +93,17 @@
     <div class="sub">This is where DNA gets spent. You have <b><span id="labDna">0 DNA</span></b> to invest in permanent upgrades — they apply to every run, forever. DNA is earned every wave you clear, even on failed runs.</div>
     <div id="labList"></div>
     <div class="modalBtns"><button id="labClose" class="primary">Done</button></div>
+  </div>
+</div>
+
+<!-- achievements -->
+<div id="achievements" class="modal hidden">
+  <div class="modalBox">
+    <button class="modalX" title="Close">✕</button>
+    <h2>🏆 Achievements</h2>
+    <div class="sub"><b><span id="achProg">0 / 0</span></b> unlocked. Complete these for permanent trophies — runs that use a developer cheat don't count.</div>
+    <div id="achList"></div>
+    <div class="modalBtns"><button id="achClose" class="primary">Done</button></div>
   </div>
 </div>
 

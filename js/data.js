@@ -8,7 +8,7 @@ const VERSION = '1.11.0';
 const CHANGELOG = [
   {v: '1.11.0', date: 'Jul 4, 2026', items: [
     '💥 Air Strike reworked into a true cluster bomb — jets carpet the ENTIRE zone in a rolling wave of bright fireballs. It now one-shot-kills every dinosaur on the field and rips 25% off any boss',
-    '🏆 New ACHIEVEMENTS trophy case on the main menu — earn trophies for securing each zone, a flawless 100-wave run, slaying the D-Rex, and more',
+    '🏆 New ACHIEVEMENTS page (button on the main menu) — a full list of every trophy with its name, description and locked/unlocked status, so you can see what to target: secure each zone, a flawless 100-wave run, slaying the D-Rex, and more',
     '🧪 Developer options (Settings): 💰 Unlimited Cash and ⏭ Level Skip, alongside 🛡 Invincibility. Turning any of them ON now requires a password (turning them off never does)',
     '☠ Bosses are now 3× tougher — their health bars are triple the size, so a T-Rex or D-Rex is a real siege instead of a speed bump',
     '🚀 Fixed rockets swirling in endless circles around a target before finally hitting — missiles now home in tightly and detonate cleanly',
