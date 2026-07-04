@@ -970,10 +970,11 @@ function endWave(){
   G.waveActive = false;
   const bonus = 40 + 3 * G.wave;
   G.cash += bonus;
-  const dna = Math.round((2 + Math.floor(G.wave / 4) + (BOSS_WAVES[G.wave] ? 15 * BOSS_WAVES[G.wave].length : 0)) * (1 + G.levelIdx * 0.5));
+  // DNA is only banked on clean runs — cheats (esp. level skip) must not farm it
+  const dna = runDisqualified() ? 0 : Math.round((2 + Math.floor(G.wave / 4) + (BOSS_WAVES[G.wave] ? 15 * BOSS_WAVES[G.wave].length : 0)) * (1 + G.levelIdx * 0.5));
   save.dna += dna;
   persist();
-  addText(W/2, 120, `Wave ${G.wave} cleared!  +$${bonus}  +${dna} DNA`, '#9fe870');
+  addText(W/2, 120, `Wave ${G.wave} cleared!  +$${bonus}  ${dna ? '+' + dna + ' DNA' : '· no DNA (cheats on)'}`, '#9fe870');
   G.flashT = 0.45;
   SFX.fanfare();
   if (G.wave >= WAVES_PER_LEVEL){ victory(); return; }
@@ -1092,7 +1093,9 @@ function updateIncoming(){
 function victory(){
   G.over = true;
   save.run = null;
-  const reward = Math.round((400 + 150 * G.levelIdx));
+  // clean runs bank the zone reward; cheated runs earn no DNA
+  const cheated = runDisqualified();
+  const reward = cheated ? 0 : Math.round((400 + 150 * G.levelIdx));
   save.dna += reward;
   if (G.levelIdx + 1 >= save.unlocked && save.unlocked < LEVELS.length) save.unlocked = G.levelIdx + 2 > LEVELS.length ? LEVELS.length : G.levelIdx + 2;
   save.best[G.levelIdx] = WAVES_PER_LEVEL;
@@ -1101,10 +1104,13 @@ function victory(){
   unlockAch('secure_' + G.levelIdx);
   if (G.flawless) unlockAch('flawless');
   if (LEVELS.every((_, i) => save.best[i] >= WAVES_PER_LEVEL)) unlockAch('island');
-  const flawlessNote = (G.flawless && !runDisqualified()) ? '<br>🛡️ <b>Flawless</b> — your base was never touched!' : '';
+  const flawlessNote = (G.flawless && !cheated) ? '<br>🛡️ <b>Flawless</b> — your base was never touched!' : '';
+  const rewardLine = cheated
+    ? `<span class="dim">No DNA or trophies — a developer cheat was used this run.</span>`
+    : `Bonus research: <b class="dna">+${reward} DNA</b>${flawlessNote}`;
   $('#victoryText').innerHTML =
     `<b>${G.level.name}</b> is secure. All 100 waves contained.<br>` +
-    `Bonus research: <b class="dna">+${reward} DNA</b>` + flawlessNote +
+    rewardLine +
     (G.levelIdx + 1 < LEVELS.length ? `<br><br>🔓 New zone unlocked: <b>${LEVELS[G.levelIdx+1].name}</b>` : '<br><br>🏆 You have secured the entire island!');
   // fireworks over the battlefield before the results screen appears
   G.celebration = {t: 0, dur: 5.4, next: 0.2};
@@ -2283,6 +2289,14 @@ if (testParams.has('test')){
     G.wave = 0;
     for (let s = 0; s < (parseFloat(testParams.get('strike')) || 0.6); s += 0.05) step(0.05);
     G.paused = true; // freeze mid-flight so the frame can be inspected
+  }
+  if (testParams.has('dnatest')){ // cheated runs must bank no DNA (e.g. level-skip farming)
+    const before = save.dna;
+    save.settings.levelSkip = true;   // a cheat is now active
+    for (let i = 0; i < 3; i++) skipWave();
+    const el = $('#errbox'); el.classList.remove('hidden');
+    el.textContent = `DNATEST dna ${before}→${save.dna} after skipping 3 waves with cheats on (want no change)`;
+    G.paused = true;
   }
   if (testParams.has('misl')){ // regression: rockets must not orbit forever near a target
     G.wave = 30;

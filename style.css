@@ -271,6 +271,7 @@ canvas#game {
 .modalBtns button { padding: 9px 18px; font-size: 14px; }
 .primary { background: #3d5226 !important; font-weight: bold; }
 .dna { color: var(--dna); }
+.dim { color: var(--dim); }
 
 /* lab */
 #labDna { color: var(--dna); font-weight: bold; }
