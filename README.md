@@ -19,10 +19,10 @@ Blue, T-Rex, Spinosaurus, Indominus Rex, Indoraptor, and finally Giganotosaurus.
 ## Controls
 | Input | Action |
 |---|---|
-| Click weapon card (or keys **1–8**) then click map | Build a weapon |
+| Click weapon card (or keys **1–9**) then click map | Build a weapon |
 | **Shift**+click | Place several in a row |
 | Right-click / **Esc** | Cancel placement or deselect |
-| Click a placed weapon | Upgrade / change targeting / sell (70% refund) |
+| Click a placed weapon | Upgrade (2–3 levels max) / change targeting / sell (70% refund) |
 | **Space** | Start next wave, or pause mid-wave |
 | 1× / 2× / 4× | Game speed |
 
@@ -36,8 +36,12 @@ tap the map to preview placement, then tap the same spot again to build.
 - Armored dinos (Ankylosaurus, Triceratops) shrug off weak hits — 🎯 Snipers pierce armor.
 - Losing isn't wasted: DNA persists. Research, then retry — there's also a
   checkpoint retry every 10 waves.
+- 🚀 Missile Batteries fire **an extra rocket per upgrade** (1 → 2 → 3).
+- 💣 The Mortar devastates herds at long range but can't hit flyers or anything
+  too close — cover its blind spot.
 - **Testing / sandbox:** Settings → 🛡 **Invincibility** (escaped dinos deal no damage).
 
-Progress saves automatically in your browser (localStorage).
+Progress saves automatically in your browser (localStorage + an IndexedDB backup).
+Use Settings → **Copy save code** to back up progress or move it between devices.
 
 *An affectionate homage to a certain dinosaur park that spared no expense.*

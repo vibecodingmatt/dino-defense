@@ -29,8 +29,48 @@ function loadSave(){
             settings: Object.assign(d.settings, s.settings || {})};
   } catch(e){ return defaultSave(); }
 }
+/* old saves stored per-stat tower levels; convert to the single track */
+function migrateTowers(list){
+  if (!list) return;
+  for (const t of list){
+    if (t.ulv === undefined){
+      const old = t.lv ? (t.lv.dmg || 0) + (t.lv.rate || 0) + (t.lv.range || 0) : 0;
+      t.ulv = clamp(Math.round(old / 5), 0, (TOWERS[t.key] && TOWERS[t.key].maxUp) || 2);
+      delete t.lv;
+    }
+  }
+}
 let save = loadSave();
-const persist = () => localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+if (save.run){ migrateTowers(save.run.towers); if (save.run.cp) migrateTowers(save.run.cp.towers); }
+
+/* Layered persistence: localStorage is primary, IndexedDB is a mirror
+   that recovers the save if site data gets partially cleared, and we ask
+   the browser to mark our storage persistent (protects from eviction). */
+let idb = null;
+try {
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
+  const req = indexedDB.open('islaDefense', 1);
+  req.onupgradeneeded = () => req.result.createObjectStore('kv');
+  req.onsuccess = () => {
+    idb = req.result;
+    if (!localStorage.getItem(SAVE_KEY)){
+      const get = idb.transaction('kv').objectStore('kv').get('save');
+      get.onsuccess = () => {
+        if (get.result){
+          localStorage.setItem(SAVE_KEY, get.result);
+          save = loadSave();
+          if (save.run){ migrateTowers(save.run.towers); if (save.run.cp) migrateTowers(save.run.cp.towers); }
+          syncSettings(); buildMenu();
+        }
+      };
+    }
+  };
+} catch(e){}
+function persist(){
+  const j = JSON.stringify(save);
+  localStorage.setItem(SAVE_KEY, j);
+  try { if (idb) idb.transaction('kv', 'readwrite').objectStore('kv').put(j, 'save'); } catch(e){}
+}
 const labTier = k => save.lab[k] || 0;
 
 /* ---------------- synthesized audio engine ----------------
@@ -127,36 +167,60 @@ function sfxTone(o){
   routeOut(g, o.wet || 0);
   osc.start(t0); osc.stop(t0 + dur + 0.1);
 }
+/* Rate limiter: rapid gunfire (especially at 4x with many towers) must not
+   flood the audio thread — beyond a budget, extra combat sounds are dropped.
+   Priority sounds (roars, fanfares, alarms) always play. */
+let sfxTimes = [];
+function sfxGate(){
+  const now = performance.now();
+  while (sfxTimes.length && now - sfxTimes[0] > 200) sfxTimes.shift();
+  if (sfxTimes.length >= 11) return false;
+  sfxTimes.push(now);
+  return true;
+}
 const SFX = {
   shot(){ // gatling: noise crack + tiny thump, randomized so bursts don't buzz
+    if (!sfxGate()) return;
     sfxNoise({dur: 0.06, peak: 0.09, type: 'bandpass', f0: 1600 + Math.random()*500, f1: 650, Q: 0.8, wet: 0.08});
     sfxTone({type: 'triangle', f0: 210, f1: 90, dur: 0.05, peak: 0.05});
   },
   dart(){ // pneumatic pfft
+    if (!sfxGate()) return;
     sfxNoise({dur: 0.1, peak: 0.06, type: 'bandpass', f0: 2600, f1: 900, Q: 2, wet: 0.1});
     sfxTone({type: 'sine', f0: 1400, f1: 480, dur: 0.09, peak: 0.03, wet: 0.1});
   },
   snipe(){ // heavy rifle crack + sub thump, big room
+    if (!sfxGate()) return;
     sfxNoise({dur: 0.3, peak: 0.28, type: 'lowpass', f0: 3800, f1: 240, wet: 0.55});
     sfxTone({type: 'sine', f0: 130, f1: 42, dur: 0.28, peak: 0.18, wet: 0.3});
   },
   boom(){ // layered explosion
+    if (!sfxGate()) return;
     sfxNoise({dur: 0.65, peak: 0.3, type: 'lowpass', f0: 950, f1: 75, wet: 0.6});
     sfxTone({type: 'sine', f0: 150, f1: 34, dur: 0.6, peak: 0.24, wet: 0.4});
     sfxNoise({dur: 0.09, peak: 0.16, type: 'highpass', f0: 1400, wet: 0.3}); // initial crack
   },
+  thoomp(){ // mortar launch
+    if (!sfxGate()) return;
+    sfxTone({type: 'sine', f0: 130, f1: 48, dur: 0.2, peak: 0.22, wet: 0.3});
+    sfxNoise({dur: 0.12, peak: 0.1, type: 'lowpass', f0: 380, f1: 120, wet: 0.2});
+  },
   zap(){ // electric arc: hissy crackle + gritty buzz
+    if (!sfxGate()) return;
     sfxNoise({dur: 0.12, peak: 0.11, type: 'highpass', f0: 2200, Q: 1, wet: 0.25});
     sfxTone({type: 'sawtooth', f0: 1300, f1: 240, dur: 0.11, peak: 0.05, dist: true, wet: 0.2});
   },
   cryo(){ // icy whoosh rising
+    if (!sfxGate()) return;
     sfxNoise({dur: 0.26, peak: 0.08, type: 'bandpass', f0: 600, f1: 2600, Q: 1.4, wet: 0.3});
     sfxTone({type: 'sine', f0: 850, f1: 1650, dur: 0.18, peak: 0.035, wet: 0.3});
   },
   pulse(){ // deep sonic throb
+    if (!sfxGate()) return;
     sfxTone({type: 'sine', f0: 210, f1: 52, dur: 0.38, peak: 0.16, wet: 0.4, tremF: 28, tremD: 0.5});
   },
   coin(){ // soft two-note chime
+    if (!sfxGate()) return;
     sfxTone({type: 'triangle', f0: 880, dur: 0.09, peak: 0.035, wet: 0.2});
     sfxTone({type: 'triangle', f0: 1318, dur: 0.12, peak: 0.03, wet: 0.25, delay: 0.055});
   },
@@ -257,19 +321,21 @@ function distToAnyPath(x, y){
 }
 
 /* ---------------- scaling / economy ---------------- */
-const hpScale    = w => (0.7 + 0.3*w) * Math.pow(1.021, w) * G.level.hpMult;
+const hpScale    = w => (0.7 + 0.26*w) * Math.pow(1.016, w) * G.level.hpMult;
 const speedScale = w => Math.min(1.4, 1 + w*0.0035);
-const bountyOf   = (def, w) => Math.max(1, Math.round(def.bounty * (1 + w*0.012) * (1 + 0.06*labTier('bounty'))));
-const startCash  = () => 260 + 60*labTier('start_cash');
+const bountyOf   = (def, w) => Math.max(1, Math.round(def.bounty * 1.25 * (1 + w*0.02) * (1 + 0.06*labTier('bounty'))));
+const startCash  = () => 300 + 60*labTier('start_cash');
 const startLives = () => 100 + 15*labTier('base_hp');
 
 function towerStats(t){
   const def = TOWERS[t.key];
   const ammo = labTier('ammo_' + t.key);
+  const u = t.ulv || 0;
   return {
-    dmg:   def.dmg   * (1 + UPG.dmg.mult   * t.lv.dmg)   * (1 + 0.06*labTier('dmg_all')) * (1 + 0.08*ammo),
-    rof:   def.rof   * (1 + UPG.rate.mult  * t.lv.rate)  * (1 + 0.04*ammo),
-    range: def.range * (1 + UPG.range.mult * t.lv.range) * (1 + 0.04*labTier('range_all')),
+    dmg:   def.dmg   * Math.pow(UPG.mult.dmg, u)   * (1 + 0.06*labTier('dmg_all')) * (1 + 0.08*ammo),
+    rof:   def.rof   * Math.pow(UPG.mult.rof, u)   * (1 + 0.04*ammo),
+    range: def.range * Math.pow(UPG.mult.range, u) * (1 + 0.04*labTier('range_all')),
+    splash: def.splash ? def.splash * (1 + (t.key === 'mortar' ? 0.35 : 0.15) * u) : 0,
   };
 }
 
@@ -373,7 +439,9 @@ function pickTarget(t, st){
   for (const d of G.dinos){
     if (!targetable(d, def)) continue;
     const p = samplePath(G.paths[d.pathI], d.dist);
-    if (hyp(t.x, t.y, p.x, p.y) > st.range + d.size * 0.4) continue;
+    const dd = hyp(t.x, t.y, p.x, p.y);
+    if (dd > st.range + d.size * 0.4) continue;
+    if (def.minRange && dd < def.minRange) continue; // mortars can't hit close targets
     let v;
     switch (t.mode){
       case 'strong': v = d.hp; break;
@@ -391,7 +459,7 @@ function damage(d, amt, pierce, src){
   if (d.dead || d.leaked) return;
   const eff = pierce ? amt : Math.max(1, amt - d.armor);
   d.hp -= eff;
-  if (eff >= 30){ // big hits pop a damage number
+  if (eff >= 70){ // only truly big hits pop a damage number
     const p = dinoPos(d);
     addText(p.x + rand(-8, 8), p.y - d.size - 4, '−' + Math.round(eff), 'rgba(255,235,200,0.95)', 12);
   }
@@ -522,20 +590,67 @@ function fireTower(t, dt){
       }
       break;
     }
-    case 'missile':
+    case 'missile': {
       SFX.shot();
-      G.projs.push({kind:'missile', x:t.x, y:t.y, target, speed:420, dmg:st.dmg, splash:def.splash, tower:t, vx:Math.cos(t.angle)*420, vy:Math.sin(t.angle)*420, color:'#ffb0a0'});
+      // each upgrade adds a rocket; extra rockets seek their own targets
+      const salvo = 1 + (t.ulv || 0);
+      const targets = [target];
+      for (const d of G.dinos){
+        if (targets.length >= salvo) break;
+        if (d === target || !targetable(d, def)) continue;
+        const p2 = dinoPos(d);
+        if (hyp(t.x, t.y, p2.x, p2.y) <= st.range + d.size * 0.4) targets.push(d);
+      }
+      while (targets.length < salvo) targets.push(target);
+      targets.forEach((tg, i) => {
+        const a = t.angle + (i - (targets.length - 1) / 2) * 0.4;
+        G.projs.push({kind:'missile', x:t.x, y:t.y, target: tg, speed:420, dmg:st.dmg, splash:st.splash, tower:t,
+                      vx:Math.cos(a)*420, vy:Math.sin(a)*420, color:'#ffb0a0'});
+      });
       break;
+    }
     case 'cryo':
       SFX.cryo();
-      G.projs.push({kind:'cryo', x:t.x, y:t.y, target, speed:460, dmg:st.dmg, splash:def.splash, slow:def.slow, tower:t, color:'#cfeeff'});
+      G.projs.push({kind:'cryo', x:t.x, y:t.y, target, speed:460, dmg:st.dmg, splash:st.splash, slow:def.slow, tower:t, color:'#cfeeff'});
       break;
+    case 'mortar': {
+      SFX.thoomp();
+      // lob a shell at where the target will be when it lands
+      const dd = hyp(t.x, t.y, tp.x, tp.y);
+      const dur = clamp(dd / 300, 0.5, 1.3);
+      const lead = samplePath(G.paths[target.pathI], target.dist + target.speed * (target.slowT > 0 ? target.slowF : 1) * dur * 0.9);
+      G.projs.push({kind:'mortar', x0:t.x, y0:t.y, x:t.x, y:t.y, tx:lead.x, ty:lead.y,
+                    t:0, dur, dmg:st.dmg, splash:st.splash, tower:t});
+      break;
+    }
   }
 }
 
 function updateProjs(dt){
   for (const pr of G.projs){
     if (pr.hit) continue;
+    if (pr.kind === 'mortar'){ // ballistic: flies to a fixed landing point
+      pr.t += dt;
+      const k = clamp(pr.t / pr.dur, 0, 1);
+      pr.x = pr.x0 + (pr.tx - pr.x0) * k;
+      pr.y = pr.y0 + (pr.ty - pr.y0) * k;
+      pr.arc = Math.sin(k * Math.PI) * (60 + hyp(pr.x0, pr.y0, pr.tx, pr.ty) * 0.22);
+      if (k >= 1){
+        pr.hit = true;
+        const def = TOWERS[pr.tower.key];
+        SFX.boom();
+        G.shake = Math.max(G.shake, 5);
+        addFx('boom', pr.tx, pr.ty, pr.splash);
+        addFx('dust', pr.tx, pr.ty + 4, pr.splash * 0.5);
+        for (const d of G.dinos){
+          if (d.dead || d.leaked || d.flying) continue;
+          const p = dinoPos(d);
+          if (hyp(pr.tx, pr.ty, p.x, p.y) <= pr.splash + d.size * 0.4)
+            applyHit(d, pr.tower, {dmg: pr.dmg}, def);
+        }
+      }
+      continue;
+    }
     let tx, ty;
     if (pr.target && !pr.target.dead && !pr.target.leaked){
       const p = dinoPos(pr.target);
@@ -627,8 +742,11 @@ function updateDinos(dt){
     const cosA = Math.cos(pp.ang);
     if (Math.abs(cosA) > 0.15) d.dirT = cosA > 0 ? 1 : -1;
     d.turn += clamp(d.dirT - d.turn, -dt * 7, dt * 7);
-    const pitchT = Math.sin(pp.ang) * (d.flying ? 0.35 : 0.5);
-    d.pitch += clamp(pitchT - d.pitch, -dt * 4, dt * 4);
+    // rotate the body fully onto the path direction (accounting for the flip)
+    let pitchT = d.dirT > 0 ? pp.ang : Math.PI - pp.ang;
+    while (pitchT > Math.PI) pitchT -= Math.PI * 2;
+    while (pitchT < -Math.PI) pitchT += Math.PI * 2;
+    d.pitch += clamp(pitchT - d.pitch, -dt * 3.5, dt * 3.5);
     // heavy footfalls: dust + a rumble from the giants
     if (!d.flying && d.size >= 26){
       const stepNow = Math.floor(d.phase / Math.PI);
@@ -671,7 +789,7 @@ function startWave(){
 }
 function endWave(){
   G.waveActive = false;
-  const bonus = 50 + 6 * G.wave;
+  const bonus = 60 + 8 * G.wave;
   G.cash += bonus;
   const dna = Math.round((2 + Math.floor(G.wave / 4) + (BOSS_WAVES[G.wave] ? 15 * BOSS_WAVES[G.wave].length : 0)) * (1 + G.levelIdx * 0.5));
   save.dna += dna;
@@ -691,7 +809,7 @@ function endWave(){
 function snapshot(){
   return {
     wave: G.wave, cash: G.cash, lives: G.lives,
-    towers: G.towers.map(t => ({key: t.key, x: t.x, y: t.y, lv: {...t.lv}, invested: t.invested, mode: t.mode})),
+    towers: G.towers.map(t => ({key: t.key, x: t.x, y: t.y, ulv: t.ulv, invested: t.invested, mode: t.mode})),
   };
 }
 
@@ -708,8 +826,9 @@ function saveRun(){
 }
 function clearRun(){ save.run = null; persist(); }
 function restoreSnapshot(s){
+  migrateTowers(s.towers);
   G.wave = s.wave; G.cash = s.cash; G.lives = Math.max(s.lives, Math.round(startLives() * 0.5));
-  G.towers = s.towers.map(t => ({key: t.key, x: t.x, y: t.y, lv: {...t.lv}, invested: t.invested, mode: t.mode, cd: 0, angle: 0, flash: 0}));
+  G.towers = s.towers.map(t => ({key: t.key, x: t.x, y: t.y, ulv: t.ulv || 0, invested: t.invested, mode: t.mode, cd: 0, angle: 0, flash: 0}));
 }
 
 /* ---------------- level lifecycle ---------------- */
@@ -828,7 +947,7 @@ function placeTower(key, x, y){
   const def = TOWERS[key];
   if (G.cash < def.cost || !canPlace(x, y)) { SFX.error(); return; }
   G.cash -= def.cost;
-  G.towers.push({key, x, y, lv: {dmg: 0, rate: 0, range: 0}, cd: 0, angle: rand(0, 6.28), flash: 0, invested: def.cost, mode: 'first'});
+  G.towers.push({key, x, y, ulv: 0, cd: 0, angle: rand(0, 6.28), flash: 0, invested: def.cost, mode: 'first'});
   SFX.build();
   addFx('ring', x, y, 10);
   saveRun();
@@ -845,31 +964,33 @@ function renderTowerPanel(){
   const t = G.selected; if (!t) return;
   const def = TOWERS[t.key];
   const st = towerStats(t);
-  $('#tpName').textContent = def.icon + ' ' + def.name;
+  const maxed = t.ulv >= def.maxUp;
+  $('#tpName').textContent = `${def.icon} ${def.name} — Lv ${t.ulv + 1}${maxed ? ' ★MAX' : ''}`;
   $('#tpStats').innerHTML =
-    `DMG <b>${st.dmg.toFixed(1)}</b> · ROF <b>${st.rof.toFixed(2)}/s</b> · RNG <b>${Math.round(st.range)}</b>` +
+    `DMG <b>${st.dmg.toFixed(0)}</b> · ROF <b>${st.rof.toFixed(2)}/s</b> · RNG <b>${Math.round(st.range)}</b>` +
+    (t.key === 'missile' ? ` · <b>${1 + t.ulv}</b> rocket${t.ulv ? 's' : ''}/salvo` : '') +
+    (st.splash ? ` · SPLASH <b>${Math.round(st.splash)}</b>` : '') +
     (def.air ? '' : ' · <span class="warn">cannot hit flyers</span>');
-  for (const stat of ['dmg', 'rate', 'range']){
-    const lv = t.lv[stat];
-    const btn = $('#up_' + stat);
-    if (lv >= UPG.maxLv){ btn.textContent = `${UPG[stat].label} MAX`; btn.disabled = true; }
-    else {
-      const cost = UPG.cost(def, lv);
-      btn.textContent = `${UPG[stat].label} ${'▮'.repeat(lv)}${'▯'.repeat(UPG.maxLv-lv)}  $${cost}`;
-      btn.disabled = G.cash < cost;
-    }
+  const btn = $('#up_main');
+  if (maxed){
+    btn.textContent = '★ Fully upgraded';
+    btn.disabled = true;
+  } else {
+    const cost = UPG.cost(def, t.ulv);
+    const extra = t.key === 'missile' ? ` (+1 rocket)` : t.key === 'mortar' ? ' (huge blast)' : '';
+    btn.textContent = `⬆ Upgrade to Lv ${t.ulv + 2}${extra} — $${cost}`;
+    btn.disabled = G.cash < cost;
   }
   $('#tpMode').textContent = 'Target: ' + t.mode.toUpperCase();
   $('#tpSell').textContent = `Sell for $${Math.round(t.invested * 0.7)}`;
 }
-function upgrade(stat){
+function upgrade(){
   const t = G.selected; if (!t) return;
   const def = TOWERS[t.key];
-  const lv = t.lv[stat];
-  if (lv >= UPG.maxLv) return;
-  const cost = UPG.cost(def, lv);
+  if (t.ulv >= def.maxUp) return;
+  const cost = UPG.cost(def, t.ulv);
   if (G.cash < cost){ SFX.error(); return; }
-  G.cash -= cost; t.lv[stat]++; t.invested += cost;
+  G.cash -= cost; t.ulv++; t.invested += cost;
   SFX.upgrade();
   saveRun();
   renderTowerPanel(); updateHUD();
@@ -1061,11 +1182,7 @@ function render(dt){
   if (G.shake > 0) ctx.translate(rand(-G.shake, G.shake), rand(-G.shake, G.shake));
   ctx.drawImage(G.bg, 0, 0);
 
-  // tower bases + range of selected/placing
-  for (const t of G.towers){
-    const tier = Math.min(5, Math.ceil((t.lv.dmg + t.lv.rate + t.lv.range) / 3));
-    drawTowerBase(ctx, t.x, t.y, t.key, t === G.selected, tier);
-  }
+  // range ring of the selected tower (under everything)
   if (G.selected){
     const st = towerStats(G.selected);
     ctx.strokeStyle = 'rgba(255,220,120,0.55)'; ctx.setLineDash([8, 7]); ctx.lineWidth = 1.6;
@@ -1112,10 +1229,10 @@ function render(dt){
     ctx.restore();
   }
 
-  // dinos sorted by y (ground first, flyers on top)
+  // ground entities are y-sorted together (towers AND dinos) so a big
+  // dino walking below a turret correctly passes in front of it
   const ground = [], air = [];
   for (const d of G.dinos) (d.flying ? air : ground).push(d);
-  ground.sort((a, b) => dinoPos(a).y - dinoPos(b).y);
 
   const drawOne = d => {
     const p = dinoPos(d);
@@ -1153,12 +1270,40 @@ function render(dt){
       }
     }
   };
-  ground.forEach(drawOne);
+  const depth = [];
+  for (const t of G.towers) depth.push({y: t.y + 12, t});
+  for (const d of ground) depth.push({y: dinoPos(d).y, d});
+  depth.sort((a, b) => a.y - b.y);
+  for (const it of depth){
+    if (it.t){
+      const t = it.t;
+      drawTowerBase(ctx, t.x, t.y, t.key, t === G.selected, t.ulv || 0);
+      drawTowerTurret(ctx, t, t.flash || 0, G.time);
+      if (t.ulv > 0){ // upgrade pips
+        ctx.fillStyle = '#ffd24a';
+        for (let i = 0; i < t.ulv; i++){
+          ctx.beginPath(); ctx.arc(t.x - (t.ulv - 1) * 3.5 + i * 7, t.y - 27, 2.2, 0, Math.PI*2); ctx.fill();
+        }
+      }
+    } else {
+      drawOne(it.d);
+    }
+  }
 
   // projectiles
   for (const pr of G.projs){
     ctx.fillStyle = pr.color;
-    if (pr.kind === 'missile'){
+    if (pr.kind === 'mortar'){
+      // ground shadow + arcing shell
+      const k = clamp(pr.t / pr.dur, 0, 1);
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.beginPath(); ctx.ellipse(pr.x, pr.y, 5 - k * 2, 2.5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#3a3630';
+      ctx.beginPath(); ctx.arc(pr.x, pr.y - (pr.arc || 0), 4.5, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#e0b64f';
+      ctx.beginPath(); ctx.arc(pr.x - 1, pr.y - (pr.arc || 0) - 1.5, 1.5, 0, Math.PI*2); ctx.fill();
+      if (Math.random() < 0.4) addFx('trail', pr.x, pr.y - (pr.arc || 0) + 4, 2);
+    } else if (pr.kind === 'missile'){
       ctx.save(); ctx.translate(pr.x, pr.y); ctx.rotate(Math.atan2(pr.vy, pr.vx));
       ctx.fillRect(-6, -2.5, 12, 5);
       ctx.fillStyle = '#ffd24a'; ctx.fillRect(-9, -1.5, 4, 3);
@@ -1262,20 +1407,6 @@ function render(dt){
           ctx.fill();
         }
         break;
-    }
-  }
-
-  // turrets above ground dinos
-  for (const t of G.towers){
-    drawTowerTurret(ctx, t, t.flash || 0, G.time);
-    // upgrade pips
-    const total = t.lv.dmg + t.lv.rate + t.lv.range;
-    if (total > 0){
-      const tier = Math.min(5, Math.ceil(total / 3));
-      ctx.fillStyle = '#ffd24a';
-      for (let i = 0; i < tier; i++){
-        ctx.beginPath(); ctx.arc(t.x - (tier-1)*3 + i*6, t.y - 25, 1.9, 0, Math.PI*2); ctx.fill();
-      }
     }
   }
 
@@ -1503,9 +1634,7 @@ function toggleMute(){
 $('#btnMute').onclick = toggleMute;
 $$('#speedBtns button').forEach(b => b.onclick = () => { G.speed = +b.dataset.s; G.paused = false; updateHUD(); });
 $('#btnMenu').onclick = () => { if (!G.over) saveRun(); toMenu(); };
-$('#up_dmg').onclick = () => upgrade('dmg');
-$('#up_rate').onclick = () => upgrade('rate');
-$('#up_range').onclick = () => upgrade('range');
+$('#up_main').onclick = () => upgrade();
 $('#tpSell').onclick = sellSelected;
 $('#tpMode').onclick = () => {
   const modes = ['first', 'last', 'strong', 'close'];
@@ -1524,6 +1653,24 @@ $('#setClose').onclick = () => { $('#settings').classList.add('hidden'); };
 $('#optInv').onchange = e => { save.settings.invincible = e.target.checked; persist(); updateHUD(); };
 $('#optMute').onchange = e => { save.settings.mute = e.target.checked; persist(); };
 $('#optAuto').onchange = e => { save.settings.auto = e.target.checked; persist(); };
+$('#btnExport').onclick = () => {
+  const code = btoa(unescape(encodeURIComponent(JSON.stringify(save))));
+  prompt('Copy this save code and keep it somewhere safe:', code);
+};
+$('#btnImport').onclick = () => {
+  const code = prompt('Paste your save code:');
+  if (!code) return;
+  try {
+    const s = JSON.parse(decodeURIComponent(escape(atob(code.trim()))));
+    if (!s || typeof s.unlocked !== 'number') throw new Error('bad save');
+    localStorage.setItem(SAVE_KEY, JSON.stringify(s));
+    save = loadSave();
+    if (save.run){ migrateTowers(save.run.towers); if (save.run.cp) migrateTowers(save.run.cp.towers); }
+    persist();
+    syncSettings(); buildMenu();
+    alert('Save imported successfully!');
+  } catch(e){ alert('That save code could not be read.'); }
+};
 $('#btnReset').onclick = () => {
   if (confirm('Wipe ALL progress (unlocks, DNA, research)? This cannot be undone.')){
     localStorage.removeItem(SAVE_KEY);
@@ -1577,11 +1724,10 @@ if (testParams.has('test')){
   placeTower('gatling', 420, 260);
   placeTower('tranq', 550, 330);
   placeTower('missile', 800, 300);
+  placeTower('mortar', 900, 490);
   if (testParams.has('upg')){ // preview upgraded-tower visuals
-    const lv = clamp(parseInt(testParams.get('upg'), 10) || 5, 0, 5);
-    G.towers[0].lv = {dmg: lv, rate: lv, range: lv};
-    G.towers[1].lv = {dmg: Math.ceil(lv/2), rate: Math.ceil(lv/2), range: 0};
-    G.towers[2].lv = {dmg: lv, rate: lv, range: lv};
+    const lv = clamp(parseInt(testParams.get('upg'), 10) || 3, 0, 3);
+    G.towers.forEach(t => { t.ulv = Math.min(TOWERS[t.key].maxUp, lv); });
   }
   startWave();
   const sim = parseFloat(testParams.get('sim')) || 0;

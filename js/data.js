@@ -63,18 +63,18 @@ const DINOS = {
                      pal:{body:'#8a8168', belly:'#ddd4b8', accent:'#57503c'}, feat:{tall:true}},
 
   /* --- BOSSES (spawned on schedule, never in random pool) --- */
-  blue:             {name:'Blue — Alpha Raptor', epithet:'THE PACK HUNTS WITH HER', painter:'theropod', hp:900,  speed:92, armor:1, bounty:120, dmg:15, size:18, boss:true, weight:0,
+  blue:             {name:'Blue — Alpha Raptor', epithet:'THE PACK HUNTS WITH HER', painter:'theropod', hp:900,  speed:96, armor:1, bounty:120, dmg:15, size:18, boss:true, weight:0,
                      pal:{body:'#5a6b78', belly:'#c3ccd4', accent:'#2c5f8a'}, feat:{stripes:true}},
-  trex:             {name:'Tyrannosaurus Rex',   epithet:'THE TYRANT QUEEN', painter:'theropod', hp:3000, speed:46, armor:3, bounty:300, dmg:25, size:32, boss:true, weight:0, roar:true,
+  trex:             {name:'Tyrannosaurus Rex',   epithet:'THE TYRANT QUEEN', painter:'theropod', hp:3000, speed:60, armor:3, bounty:300, dmg:25, size:32, boss:true, weight:0, roar:true,
                      pal:{body:'#6e5a44', belly:'#c9b493', accent:'#3d3022'}, feat:{bigHead:true}},
-  spinosaurus:      {name:'Spinosaurus',         epithet:'THE RIVER MONSTER', painter:'theropod', hp:3600, speed:42, armor:3, bounty:340, dmg:28, size:33, boss:true, weight:0, roar:true,
+  spinosaurus:      {name:'Spinosaurus',         epithet:'THE RIVER MONSTER', painter:'theropod', hp:3600, speed:56, armor:3, bounty:340, dmg:28, size:33, boss:true, weight:0, roar:true,
                      pal:{body:'#5d7268', belly:'#c2d1c0', accent:'#b0703c'}, feat:{sail:true, longSnout:true}},
-  indominus:        {name:'Indominus Rex',       epithet:'THE UNTAMABLE', painter:'theropod', hp:5200, speed:48, armor:4, bounty:420, dmg:32, size:31, boss:true, weight:0, roar:true,
+  indominus:        {name:'Indominus Rex',       epithet:'THE UNTAMABLE', painter:'theropod', hp:5200, speed:62, armor:4, bounty:420, dmg:32, size:31, boss:true, weight:0, roar:true,
                      cloak:true, regen:0.006,
                      pal:{body:'#b9c2c4', belly:'#e9eef0', accent:'#7c8a8d'}, feat:{bigHead:true, spikes:true}},
-  indoraptor:       {name:'Indoraptor',          epithet:'THE NIGHTMARE MADE FLESH', painter:'theropod', hp:4200, speed:76, armor:3, bounty:400, dmg:30, size:24, boss:true, weight:0, roar:true,
+  indoraptor:       {name:'Indoraptor',          epithet:'THE NIGHTMARE MADE FLESH', painter:'theropod', hp:4200, speed:88, armor:3, bounty:400, dmg:30, size:24, boss:true, weight:0, roar:true,
                      pal:{body:'#26262b', belly:'#4c4c55', accent:'#d9a531'}, feat:{stripes:true, slim:true}},
-  giganotosaurus:   {name:'Giganotosaurus',      epithet:'THE APEX OF APEX PREDATORS', painter:'theropod', hp:9000, speed:40, armor:5, bounty:800, dmg:45, size:36, boss:true, weight:0, roar:true,
+  giganotosaurus:   {name:'Giganotosaurus',      epithet:'THE APEX OF APEX PREDATORS', painter:'theropod', hp:9000, speed:54, armor:5, bounty:800, dmg:45, size:36, boss:true, weight:0, roar:true,
                      pal:{body:'#4f4a52', belly:'#b7b0ba', accent:'#8a2f2f'}, feat:{bigHead:true, ridge:true}},
 };
 
@@ -92,39 +92,41 @@ const BOSS_WAVES = {
   100: ['giganotosaurus', 'trex', 'trex'],
 };
 
-/* ---------- TOWERS / WEAPONS ---------- */
+/* ---------- TOWERS / WEAPONS ----------
+   maxUp = how many times the weapon can be upgraded (single track).
+   Each upgrade: damage ×1.65, fire rate ×1.25, range ×1.12, splash grows. */
 const TOWERS = {
-  tranq:   {name:'Tranq Turret',   icon:'💉', cost:100, dmg:9,  rof:1.2,  range:135, air:true,  proj:'dart',
+  tranq:   {name:'Tranq Turret',   icon:'💉', cost:90,  dmg:12,  rof:1.4,  range:140, air:true,  proj:'dart', maxUp:3,
             slow:{f:0.82, t:1.2},
             desc:'Cheap dart rifle. Darts mildly sedate targets, slowing them.', color:'#8fd14f'},
-  gatling: {name:'ACU Gatling',    icon:'🔫', cost:175, dmg:6,  rof:6.5,  range:125, air:true,  proj:'bullet',
+  gatling: {name:'ACU Gatling',    icon:'🔫', cost:160, dmg:9,   rof:7,    range:130, air:true,  proj:'bullet', maxUp:3,
             desc:'Asset Containment turret. Low damage, very high fire rate.', color:'#c9c9c9'},
-  sniper:  {name:'Ranger Sniper',  icon:'🎯', cost:250, dmg:70, rof:0.55, range:270, air:true,  proj:'snipe', pierce:true,
+  sniper:  {name:'Ranger Sniper',  icon:'🎯', cost:240, dmg:95,  rof:0.6,  range:280, air:true,  proj:'snipe', pierce:true, maxUp:2,
             desc:'Huge single-shot damage at extreme range. Ignores armor.', color:'#7fb2ff'},
-  flamer:  {name:'Flame Thrower',  icon:'🔥', cost:200, dmg:5,  rof:9,    range:95,  air:false, proj:'flame',
-            burn:{dps:14, t:2}, cone:0.62,
+  flamer:  {name:'Flame Thrower',  icon:'🔥', cost:190, dmg:7,   rof:9,    range:100, air:false, proj:'flame', maxUp:2,
+            burn:{dps:22, t:2.2}, cone:0.62,
             desc:'Short-range cone of fire. Sets ground targets ablaze.', color:'#ff9a3d'},
-  tesla:   {name:'Tesla Node',     icon:'⚡', cost:300, dmg:30, rof:0.9,  range:145, air:true,  proj:'tesla',
-            chain:3, chainRange:110,
-            desc:'10,000-volt perimeter tech. Arcs between up to 3 dinosaurs.', color:'#6ee7ff'},
-  missile: {name:'Missile Battery',icon:'🚀', cost:450, dmg:65, rof:0.5,  range:210, air:true,  proj:'missile',
-            splash:65,
-            desc:'Homing rockets with big splash damage. Great vs. herds.', color:'#ff6b6b'},
-  cryo:    {name:'Cryo Cannon',    icon:'❄️', cost:275, dmg:8,  rof:0.9,  range:155, air:true,  proj:'cryo',
-            splash:55, slow:{f:0.55, t:2.2},
+  tesla:   {name:'Tesla Node',     icon:'⚡', cost:280, dmg:45,  rof:1.0,  range:150, air:true,  proj:'tesla', maxUp:2,
+            chain:4, chainRange:115,
+            desc:'10,000-volt perimeter tech. Arcs between up to 4 dinosaurs.', color:'#6ee7ff'},
+  missile: {name:'Missile Battery',icon:'🚀', cost:420, dmg:90,  rof:0.55, range:220, air:true,  proj:'missile', maxUp:2,
+            splash:70,
+            desc:'Homing rockets with splash. Upgrades add a 2nd and 3rd rocket per salvo!', color:'#ff6b6b'},
+  cryo:    {name:'Cryo Cannon',    icon:'❄️', cost:260, dmg:12,  rof:1.0,  range:160, air:true,  proj:'cryo', maxUp:2,
+            splash:60, slow:{f:0.5, t:2.4},
             desc:'Freezing shells that heavily slow everything they splash.', color:'#bfe8ff'},
-  sonic:   {name:'Sonic Emitter',  icon:'📡', cost:350, dmg:34, rof:0.8,  range:115, air:true,  proj:'pulse',
+  sonic:   {name:'Sonic Emitter',  icon:'📡', cost:330, dmg:50,  rof:0.9,  range:125, air:true,  proj:'pulse', maxUp:2,
             reveal:true,
             desc:'Damages ALL dinosaurs in radius. Reveals camouflaged bosses.', color:'#d6a3ff'},
+  mortar:  {name:'Mortar',         icon:'💣', cost:700, dmg:200, rof:0.3,  range:310, air:false, proj:'mortar', maxUp:1,
+            splash:100, minRange:90,
+            desc:'Lobbed shells devastate herds at long range. Cannot hit flyers or anything too close. One upgrade: massive damage and splash.', color:'#e0b64f'},
 };
 
-/* Per-stat upgrade tuning (5 levels each) */
+/* Single-track upgrade tuning */
 const UPG = {
-  maxLv: 5,
-  dmg:   {label:'Damage',    mult:0.35},
-  rate:  {label:'Fire Rate', mult:0.20},
-  range: {label:'Range',     mult:0.12},
-  cost: (towerDef, lv) => Math.round(towerDef.cost * 0.6 * Math.pow(1.55, lv)),
+  mult: {dmg: 1.65, rof: 1.25, range: 1.12},
+  cost: (towerDef, ulv) => Math.round(towerDef.cost * (0.8 + ulv * 0.7)),
 };
 
 /* ---------- LEVELS ----------
@@ -173,5 +175,6 @@ const LAB = [
   {key:'ammo_missile', icon:'🚀', name:'HE Payloads',       max:5, baseCost:50, ammo:'missile', desc:'Missile ammo: +8% dmg, +4% fire rate / tier.'},
   {key:'ammo_cryo',    icon:'❄️', name:'Liquid Nitrogen',   max:5, baseCost:40, ammo:'cryo',    desc:'Cryo shells: +8% dmg, +4% fire rate / tier.'},
   {key:'ammo_sonic',   icon:'📡', name:'Resonance Tuning',  max:5, baseCost:45, ammo:'sonic',   desc:'Sonic emitter: +8% dmg, +4% fire rate / tier.'},
+  {key:'ammo_mortar',  icon:'💣', name:'Cratering Charges', max:5, baseCost:55, ammo:'mortar',  desc:'Mortar shells: +8% dmg, +4% fire rate / tier.'},
 ];
 const labCost = (entry, tier) => Math.round(entry.baseCost * Math.pow(1.55, tier));

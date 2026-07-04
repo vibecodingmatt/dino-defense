@@ -17,7 +17,7 @@ function shade(hex, f){ // lighten (f>0) / darken (f<0) a #rrggbb color
 /* ---------- leg helper: two-joint walk cycle with foot lift ---------- */
 function leg(ctx, hipX, hipY, len, ph, color, w){
   const swing = Math.sin(ph);                    // fore/aft sweep
-  const lift  = Math.max(0, -Math.cos(ph));      // foot lifts during recovery half
+  const lift  = Math.max(0, Math.cos(ph));       // lift while swinging forward, plant while sweeping back
   const a1 = swing * 0.55;                       // thigh angle from vertical
   const kx = hipX + Math.sin(a1) * len * 0.5;
   const ky = hipY + Math.cos(a1) * len * 0.5 - lift * len * 0.14;
@@ -379,7 +379,9 @@ function drawDino(ctx, d, x, y, turn, ph, alpha, pitch){
   ctx.globalAlpha = 0.28 * alpha;
   ctx.fillStyle = '#000';
   ctx.beginPath();
-  ctx.ellipse(x, y + 2, s * (d.flying ? 0.5 : 0.85), s * 0.22, 0, 0, Math.PI*2);
+  // shadow tracks the body's on-screen orientation
+  const shRot = (turn === undefined || turn >= 0) ? (pitch || 0) : -(pitch || 0);
+  ctx.ellipse(x, y + 2, s * (d.flying ? 0.5 : 0.85), s * 0.22, shRot, 0, Math.PI*2);
   ctx.fill();
   ctx.restore();
 
@@ -399,11 +401,11 @@ function drawDino(ctx, d, x, y, turn, ph, alpha, pitch){
 }
 
 /* ---------- TOWERS ----------
-   tier (0-5, from total upgrades) grows the pad and adds gold trim. */
-function drawTowerBase(ctx, x, y, key, selected, tier){
+   lv (0-3 upgrades bought) grows the pad and adds gold trim. */
+function drawTowerBase(ctx, x, y, key, selected, lv){
   const def = TOWERS[key];
-  tier = tier || 0;
-  const R = 17 + tier * 1.2; // pad grows with investment
+  lv = lv || 0;
+  const R = 17 + lv * 2.2; // pad grows with each upgrade
   ctx.save();
   ctx.translate(x, y);
   // ground shadow
@@ -418,7 +420,7 @@ function drawTowerBase(ctx, x, y, key, selected, tier){
   }
   ctx.closePath();
   const g = ctx.createLinearGradient(-R, -R, R, R);
-  g.addColorStop(0, tier >= 3 ? '#585f50' : '#4c5246'); g.addColorStop(1, '#2a2e27');
+  g.addColorStop(0, lv >= 2 ? '#5a6152' : '#4c5246'); g.addColorStop(1, '#2a2e27');
   ctx.fillStyle = g; ctx.fill();
   ctx.strokeStyle = selected ? '#ffd24a' : '#181c15';
   ctx.lineWidth = selected ? 2.5 : 1.5; ctx.stroke();
@@ -429,13 +431,13 @@ function drawTowerBase(ctx, x, y, key, selected, tier){
   ctx.beginPath(); ctx.arc(0, 0, R - 4, 0, Math.PI*2); ctx.stroke();
   ctx.setLineDash([]);
   ctx.restore();
-  // veteran trim: gold band from tier 2, corner studs from tier 4
-  if (tier >= 2){
-    ctx.strokeStyle = `rgba(232,185,58,${0.35 + tier * 0.1})`;
+  // veteran trim: gold band from Lv2, corner studs from Lv3
+  if (lv >= 1){
+    ctx.strokeStyle = `rgba(232,185,58,${0.3 + lv * 0.2})`;
     ctx.lineWidth = 1.6;
     ctx.beginPath(); ctx.arc(0, 0, R - 1.5, 0, Math.PI*2); ctx.stroke();
   }
-  if (tier >= 4){
+  if (lv >= 2){
     ctx.fillStyle = '#e8b93a';
     for (let i = 0; i < 8; i++){
       const a = i/8*Math.PI*2 + Math.PI/8;
@@ -495,6 +497,14 @@ function drawTowerBase(ctx, x, y, key, selected, tier){
       ctx.fillStyle = '#5e5044'; ctx.fillRect(-21, 6, 9, 7); ctx.fillRect(-18, -14, 8, 6);
       ctx.strokeStyle = '#38302a'; ctx.lineWidth = 1; ctx.strokeRect(-21, 6, 9, 7);
       break;
+    case 'mortar': // shell crate + spare rounds
+      ctx.fillStyle = '#5a4f3e'; ctx.fillRect(-22, -16, 11, 9);
+      ctx.strokeStyle = '#362f24'; ctx.lineWidth = 1; ctx.strokeRect(-22, -16, 11, 9);
+      ctx.fillStyle = '#3a3630';
+      for (const [sx, sy] of [[-18, 12], [-13, 15], [-8, 12]]){
+        ctx.beginPath(); ctx.ellipse(sx, sy, 2.2, 3.4, 0.4, 0, Math.PI*2); ctx.fill();
+      }
+      break;
   }
   ctx.restore();
 }
@@ -502,17 +512,18 @@ function drawTowerBase(ctx, x, y, key, selected, tier){
 function drawTowerTurret(ctx, t, flash, time){
   time = time || 0;
   const rec = (t.recoil || 0) * 4;   // barrel kickback in px
-  const tier = Math.min(5, Math.ceil(((t.lv ? t.lv.dmg + t.lv.rate + t.lv.range : 0)) / 3));
+  const lv = t.ulv || 0;
+  const maxed = lv > 0 && lv >= (TOWERS[t.key].maxUp || 2);
   ctx.save();
   ctx.translate(t.x, t.y);
-  // max-tier weapons hum with a pulsing gold aura
-  if (tier >= 5){
+  // fully-upgraded weapons hum with a pulsing gold aura
+  if (maxed){
     const pl = (Math.sin(time * 3 + t.x) + 1) / 2;
     ctx.strokeStyle = `rgba(255,210,74,${0.25 + 0.25 * pl})`;
     ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(0, 0, 25 + pl * 2.5, 0, Math.PI*2); ctx.stroke();
   }
-  ctx.scale(1 + tier * 0.07, 1 + tier * 0.07); // hardware grows with upgrades
+  ctx.scale(1 + lv * 0.14, 1 + lv * 0.14); // hardware grows with each upgrade
   ctx.rotate((t.key === 'sonic' || t.key === 'tesla') ? 0 : t.angle);
   ctx.lineCap = 'round';
   switch (t.key){
@@ -618,6 +629,27 @@ function drawTowerTurret(ctx, t, flash, time){
       const v = (time*0.7 + t.x*0.013) % 1;
       ctx.fillStyle = `rgba(200,240,255,${0.4*(1-v)})`;
       ctx.beginPath(); ctx.arc(17 + v*8, -3 - v*8, 2 + v*3, 0, Math.PI*2); ctx.fill();
+      break;
+    }
+    case 'mortar': { // stubby high-angle tube on a baseplate
+      ctx.translate(-rec * 1.4, 0);
+      ctx.fillStyle = '#4a453a';
+      ctx.beginPath(); ctx.ellipse(0, 0, 9, 7, 0, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#2c2820'; ctx.lineWidth = 1.5; ctx.stroke();
+      // bipod
+      ctx.strokeStyle = '#6a6354'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(4, -5); ctx.lineTo(10, -9); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(4, 5); ctx.lineTo(10, 9); ctx.stroke();
+      // fat tube angled up-range
+      ctx.strokeStyle = '#5e5844'; ctx.lineWidth = 9;
+      ctx.beginPath(); ctx.moveTo(-4, 0); ctx.lineTo(11, 0); ctx.stroke();
+      ctx.strokeStyle = '#7d7660'; ctx.lineWidth = 5.5;
+      ctx.beginPath(); ctx.moveTo(-2, 0); ctx.lineTo(11, 0); ctx.stroke();
+      // gaping muzzle
+      ctx.fillStyle = '#17150f';
+      ctx.beginPath(); ctx.ellipse(12, 0, 3, 4.6, 0, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#e0b64f'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.ellipse(12, 0, 3, 4.6, 0, 0, Math.PI*2); ctx.stroke();
       break;
     }
     case 'sonic': { // dish array with pulsing halo
