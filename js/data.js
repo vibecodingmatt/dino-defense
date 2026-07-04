@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.15.1';
+const VERSION = '1.15.2';
 /* Player-facing changelog — ONE entry per DAY (a daily recap), newest first.
    The `v` shown is the latest version released that day; `items` are the major,
    player-facing changes only. Keep it about what changed for the player — no
@@ -12,7 +12,8 @@ const VERSION = '1.15.1';
    new day, add a new daily entry; when shipping again the same day, update that
    day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.15.1', date: 'Jul 4, 2026', items: [
+  {v: '1.15.2', date: 'Jul 4, 2026', items: [
+    '🚀 Fixed the Missile Battery: every rocket in a salvo now locks onto the same dinosaur (they used to split off and chase different targets), landing big concentrated splash damage.',
     '☣️ New weapon — MASON\'S GAS! It rips a LOUD toot and blasts out a puff of green poison gas that lingers on the ground and hurts every dinosaur that walks through the cloud (ignoring armor). Flyers float above it. A little stronger than the Flame Thrower, and great against big packs. (Designed by Mason, age 9.)',
     '🚦 Smoother opening: a "Place a weapon to begin" prompt now guides you at the start, and the first wave kicks off automatically a few seconds after you set down your first weapon (you can still press Start Wave to go early).',
     '🐣 Friendlier start: you now begin with 80 DNA to spend on a first upgrade, and the early difficulty levels have been softened so Level 1 is beatable with little or no upgrading — challenging, but fair. The full difficulty returns by Level 15, so the deep climb is untouched.',
@@ -153,7 +154,7 @@ const TOWERS = {
             desc:'Damages ALL dinosaurs in radius. Reveals camouflaged bosses.', color:'#d6a3ff'},
   missile: {name:'Missile Battery',icon:'🚀', cost:470, dmg:90,  rof:0.55, range:220, air:true,  proj:'missile', maxUp:2, unlock:18,
             splash:70,
-            desc:'Homing rockets with splash. Upgrades add a 2nd and 3rd rocket per salvo!', color:'#ff6b6b'},
+            desc:'Homing rockets with splash. Upgrades add a 2nd and 3rd rocket per salvo — the whole volley slams the same target.', color:'#ff6b6b'},
   mortar:  {name:'Mortar',         icon:'💣', cost:1000, dmg:200, rof:0.3, range:310, air:false, proj:'mortar', maxUp:1, unlock:28,
             splash:100, minRange:90,
             desc:'Lobbed shells devastate herds at long range. Cannot hit flyers or anything too close. One upgrade: massive damage and splash.', color:'#e0b64f'},

@@ -814,21 +814,13 @@ function fireTower(t, dt){
     }
     case 'missile': {
       SFX.shot();
-      // each upgrade adds a rocket; extra rockets seek their own targets
+      // each upgrade adds a rocket — the WHOLE salvo locks onto the same target
       const salvo = 1 + (t.ulv || 0);
-      const targets = [target];
-      for (const d of G.dinos){
-        if (targets.length >= salvo) break;
-        if (d === target || !targetable(d, def)) continue;
-        const p2 = dinoPos(d);
-        if (hyp(t.x, t.y, p2.x, p2.y) <= st.range + d.size * 0.4) targets.push(d);
-      }
-      while (targets.length < salvo) targets.push(target);
-      targets.forEach((tg, i) => {
-        const a = t.angle + (i - (targets.length - 1) / 2) * 0.4;
-        G.projs.push({kind:'missile', x:t.x, y:t.y, target: tg, speed:420, dmg:st.dmg, splash:st.splash, tower:t,
+      for (let i = 0; i < salvo; i++){
+        const a = t.angle + (i - (salvo - 1) / 2) * 0.4; // fanned launch, same target
+        G.projs.push({kind:'missile', x:t.x, y:t.y, target, speed:420, dmg:st.dmg, splash:st.splash, tower:t,
                       vx:Math.cos(a)*420, vy:Math.sin(a)*420, color:'#ffb0a0'});
-      });
+      }
       break;
     }
     case 'cryo':
@@ -1684,7 +1676,7 @@ const TIPS = [
   '<b>Armor</b> (Ankylosaurus, Triceratops) shrugs off weak hits. 🎯 Snipers pierce armor completely.',
   '<b>The Indominus Rex camouflages.</b> Only a 📡 Sonic Emitter reveals it — bring one to wave 50.',
   '<b>💣 Mortars</b> have a minimum range: nothing within 90px can be hit. Place them behind your front line and cover their blind spot.',
-  '<b>🚀 Missile Batteries</b> gain a rocket per upgrade level, and extra rockets pick their own targets.',
+  '<b>🚀 Missile Batteries</b> gain a rocket per upgrade level, and the whole salvo slams the same dinosaur — big concentrated splash damage.',
   '<b>Selling</b> refunds 70% of everything invested — repositioning late is fine.',
   '<b>Difficulty 1–1000:</b> pick a map and a level. Every kill drops DNA (much more at higher levels); spend it in the 🧬 Research Lab to level your weapons — with no cap. Beat the highest unlocked level (10, 20, 30…) to open the next block.',
   '<b>Weapon levels vs. in-run upgrades:</b> Lab weapon levels are permanent and multiply damage forever; the click-to-upgrade on a placed tower is a small, run-only boost paid with cash. You need both to reach the top levels.',
