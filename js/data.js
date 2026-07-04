@@ -4,8 +4,14 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.11.0';
+const VERSION = '1.12.0';
 const CHANGELOG = [
+  {v: '1.12.0', date: 'Jul 4, 2026', items: [
+    '🎚️ Brand-new progression: pick a MAP and a DIFFICULTY LEVEL from 1 to 1000. Level 1 is a gentle warm-up; every level above is proportionally tougher',
+    '🔓 Difficulty unlocks 10 at a time — beat the highest one available (10, then 20, 30…) to open the next block, all the way to 1000',
+    '🧬 Research Lab reworked: every weapon now has an UNCAPPED level starting at 1. Keep pouring DNA into weapon levels to hit harder and climb higher — there is no ceiling',
+    '💠 DNA now drops from every kill, scaled by difficulty: low levels pay a little and cost little to upgrade; high levels pay big so you can afford the upgrades needed to push toward 1000',
+  ]},
   {v: '1.11.0', date: 'Jul 4, 2026', items: [
     '💥 Air Strike reworked into a true cluster bomb — jets carpet the ENTIRE zone in a rolling wave of bright fireballs. It now one-shot-kills every dinosaur on the field and rips 25% off any boss',
     '🏆 New ACHIEVEMENTS page (button on the main menu) — a full list of every trophy with its name, description and locked/unlocked status, so you can see what to target: secure each zone, a flawless 100-wave run, slaying the D-Rex, and more',
@@ -228,15 +234,19 @@ const AIRSTRIKE = {
    Runs that use any developer cheat do NOT earn trophies. */
 const ACHIEVEMENTS = [
   {key:'boss_first', icon:'🦴',  name:'First Blood',    desc:'Defeat your very first boss dinosaur.'},
-  {key:'wave50',     icon:'⏱️',  name:'Halfway In',     desc:'Reach wave 50 in any zone.'},
-  {key:'secure_0',   icon:'🌿',  name:'Perimeter Held', desc:'Secure Zone 1 — The Perimeter Fence (100 waves).'},
-  {key:'secure_1',   icon:'🏛️',  name:'Center Cleared', desc:'Secure Zone 2 — Visitor Center (100 waves).'},
-  {key:'secure_2',   icon:'🪺',  name:'Aviary Locked',  desc:'Secure Zone 3 — The Aviary (100 waves).'},
-  {key:'secure_3',   icon:'🌊',  name:'Delta Defended', desc:'Secure Zone 4 — Site B: River Delta (100 waves).'},
-  {key:'secure_4',   icon:'🌙',  name:'Estate Secured', desc:'Secure Zone 5 — Lockwood Estate (100 waves).'},
+  {key:'wave50',     icon:'⏱️',  name:'Halfway In',     desc:'Reach wave 50 in any run.'},
+  {key:'diff_10',    icon:'🥉',  name:'Getting Started',desc:'Beat difficulty level 10.'},
+  {key:'diff_100',   icon:'🥈',  name:'Triple Digits',  desc:'Beat difficulty level 100.'},
+  {key:'diff_500',   icon:'🥇',  name:'Into the Abyss', desc:'Beat difficulty level 500.'},
+  {key:'diff_1000',  icon:'👑',  name:'Ascendant',      desc:'Beat difficulty level 1000 — the summit of the climb.'},
+  {key:'secure_0',   icon:'🌿',  name:'Perimeter Held', desc:'Clear all 100 waves on The Perimeter Fence.'},
+  {key:'secure_1',   icon:'🏛️',  name:'Center Cleared', desc:'Clear all 100 waves on the Visitor Center.'},
+  {key:'secure_2',   icon:'🪺',  name:'Aviary Locked',  desc:'Clear all 100 waves on The Aviary.'},
+  {key:'secure_3',   icon:'🌊',  name:'Delta Defended', desc:'Clear all 100 waves on Site B: River Delta.'},
+  {key:'secure_4',   icon:'🌙',  name:'Estate Secured', desc:'Clear all 100 waves on Lockwood Estate.'},
   {key:'apex',       icon:'☠️',  name:'Devil Slain',    desc:'Defeat the D-Rex, the wave-100 final boss.'},
-  {key:'flawless',   icon:'🛡️',  name:'Untouchable',    desc:'Clear all 100 waves of a zone without your base taking a single hit.'},
-  {key:'island',     icon:'👑',  name:'Isla Secured',   desc:'Secure all five zones of the island.'},
+  {key:'flawless',   icon:'🛡️',  name:'Untouchable',    desc:'Clear all 100 waves of a run without your base taking a single hit.'},
+  {key:'island',     icon:'🏝️',  name:'Every Map',      desc:'Clear all 100 waves on all five maps.'},
 ];
 
 /* ---------- LEVELS ----------
@@ -269,21 +279,38 @@ const LEVELS = [
 
 const WAVES_PER_LEVEL = 100;
 
-/* ---------- LAB (persistent DNA research) ---------- */
-const LAB = [
-  {key:'dmg_all',    icon:'🧬', name:'Gene-Tuned Optics',  max:10, baseCost:40, desc:'+6% damage for ALL weapons per tier.'},
-  {key:'range_all',  icon:'🛰️', name:'Park Sensor Grid',   max:6,  baseCost:45, desc:'+4% range for ALL weapons per tier.'},
-  {key:'start_cash', icon:'💰', name:'InGen Funding',      max:8,  baseCost:30, desc:'+$60 starting cash per tier.'},
-  {key:'base_hp',    icon:'🏥', name:'Bunker Plating',     max:10, baseCost:30, desc:'+15 base health per tier.'},
-  {key:'bounty',     icon:'💎', name:'Amber Recovery',     max:8,  baseCost:50, desc:'+6% cash from kills per tier.'},
-  /* ammo research — one per weapon: +8% dmg, +4% fire rate per tier */
-  {key:'ammo_gatling', icon:'🔫', name:'AP Rounds',         max:5, baseCost:35, ammo:'gatling', desc:'Gatling ammo: +8% dmg, +4% fire rate / tier.'},
-  {key:'ammo_sniper',  icon:'🎯', name:'Depleted Uranium',  max:5, baseCost:45, ammo:'sniper',  desc:'Sniper ammo: +8% dmg, +4% fire rate / tier.'},
-  {key:'ammo_flamer',  icon:'🔥', name:'Napalm Mix',        max:5, baseCost:40, ammo:'flamer',  desc:'Flamer fuel: +8% dmg, +4% fire rate / tier.'},
-  {key:'ammo_tesla',   icon:'⚡', name:'Supercapacitors',   max:5, baseCost:45, ammo:'tesla',   desc:'Tesla cells: +8% dmg, +4% fire rate / tier.'},
-  {key:'ammo_missile', icon:'🚀', name:'HE Payloads',       max:5, baseCost:50, ammo:'missile', desc:'Missile ammo: +8% dmg, +4% fire rate / tier.'},
-  {key:'ammo_cryo',    icon:'❄️', name:'Liquid Nitrogen',   max:5, baseCost:40, ammo:'cryo',    desc:'Cryo shells: +8% dmg, +4% fire rate / tier.'},
-  {key:'ammo_sonic',   icon:'📡', name:'Resonance Tuning',  max:5, baseCost:45, ammo:'sonic',   desc:'Sonic emitter: +8% dmg, +4% fire rate / tier.'},
-  {key:'ammo_mortar',  icon:'💣', name:'Cratering Charges', max:5, baseCost:55, ammo:'mortar',  desc:'Mortar shells: +8% dmg, +4% fire rate / tier.'},
-];
-const labCost = (entry, tier) => Math.round(entry.baseCost * Math.pow(1.55, tier));
+/* ---------- DIFFICULTY LEVELS (1..1000) ----------
+   The player picks a MAP and a difficulty LEVEL. Enemy health (and a touch
+   of speed) scale with the level; DNA income scales too so you can keep
+   affording upgrades. Levels unlock a block of 10 at a time — clear the
+   highest one available to open the next block.
+   ---- BALANCE (first-pass — expect tuning) ---- */
+const MAX_DIFFICULTY = 1000;
+const DIFF_BLOCK     = 10;      // levels unlock 10 at a time
+const DIFF_HP_GROWTH = 1.0145;  // enemy HP ×/level (level 1000 ≈ 1.9M× level 1)
+const DIFF_SPD_MAX   = 1.6;     // enemy speed creep from difficulty caps here
+const DNA_GROWTH     = 1.0165;  // DNA income ×/level (a hair above HP so climbing stays possible)
+const DNA_PER_BOUNTY = 0.10;    // DNA per kill = enemy cash-bounty × this × difficulty factor
+const DIFF_CLEAR_DNA = 40;      // level-clear DNA bonus = this × difficulty level
+
+/* difficulty helpers */
+const diffHpMult    = D => Math.pow(DIFF_HP_GROWTH, D - 1);
+const diffSpdMult   = D => Math.min(DIFF_SPD_MAX, 1 + (D - 1) * 0.0015);
+const diffDnaMult   = D => Math.pow(DNA_GROWTH, D - 1);
+/* highest selectable level given the best level ever beaten */
+const diffUnlocked  = best => Math.min(MAX_DIFFICULTY, (Math.floor((best || 0) / DIFF_BLOCK) + 1) * DIFF_BLOCK);
+
+/* ---------- WEAPON LEVELS (persistent DNA research, UNCAPPED) ----------
+   Every weapon starts at level 1 and can be leveled forever. Each level
+   multiplies its damage and gives a little fire-rate/range, so you keep
+   pouring DNA in to out-scale higher difficulties. */
+const WLV_DMG_GROWTH = 1.11;    // weapon damage ×/level
+const WLV_ROF_PER    = 0.02;    // +2% fire rate /level (capped in stats)
+const WLV_RANGE_PER  = 0.015;   // +1.5% range   /level (capped in stats)
+const WLV_COST_GROWTH = 1.16;   // DNA cost ×/level
+
+const wlvDmgMult  = L => Math.pow(WLV_DMG_GROWTH, (L || 1) - 1);
+const wlvRofMult  = L => 1 + Math.min(1.5, ((L || 1) - 1) * WLV_ROF_PER);   // +up to 150% fire rate
+const wlvRangeMult = L => 1 + Math.min(0.6, ((L || 1) - 1) * WLV_RANGE_PER); // +up to 60% range
+/* cost to go from level L to L+1 — cheaper for cheap weapons, grows each level */
+const wlvCost = (def, L) => Math.round((8 + def.cost / 6) * Math.pow(WLV_COST_GROWTH, (L || 1) - 1));

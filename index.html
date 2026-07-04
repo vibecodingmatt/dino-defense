@@ -70,6 +70,19 @@
   <h1>🦖 ISLA DEFENSE</h1>
   <div class="tag">— CONTAINMENT BREACH · a dinosaur tower defense —</div>
   <div id="menuDna">0 DNA</div>
+  <div id="diffPick">
+    <div class="diffTop">🎚️ Difficulty Level</div>
+    <div id="diffCtl">
+      <button data-d="-10" title="−10">«</button>
+      <button data-d="-1" title="−1">‹</button>
+      <input id="diffInput" type="number" min="1" max="1000" value="1">
+      <button data-d="1" title="+1">›</button>
+      <button data-d="10" title="+10">»</button>
+      <button id="diffMax" title="Jump to the highest unlocked level">Max</button>
+    </div>
+    <div id="diffInfo"></div>
+  </div>
+  <div id="mapHint">Pick a map to play at the selected level:</div>
   <div id="levelCards"></div>
   <div id="menuBtns">
     <button id="btnLab" class="primary">🧬 Research Lab</button>
@@ -79,8 +92,8 @@
   </div>
   <div id="verChip" title="See what changed in recent updates"></div>
   <div class="foot">
-    Survive 100 waves to secure each zone and unlock the next.<br>
-    Every kill pays cash for weapons; every wave banks DNA for permanent lab research.<br>
+    Pick a map and a difficulty level (1–1000). Clear all 100 waves to beat it; beat the highest unlocked level to open the next 10.<br>
+    Every kill pays cash for weapons and banks DNA — spend DNA in the Research Lab to level your weapons and climb higher.<br>
     An affectionate homage to a certain dinosaur park that definitely spared no expense.
   </div>
 </div>
@@ -90,7 +103,7 @@
   <div class="modalBox">
     <button class="modalX" title="Close">✕</button>
     <h2>🧬 Research Lab</h2>
-    <div class="sub">This is where DNA gets spent. You have <b><span id="labDna">0 DNA</span></b> to invest in permanent upgrades — they apply to every run, forever. DNA is earned every wave you clear, even on failed runs.</div>
+    <div class="sub">This is where DNA gets spent. You have <b><span id="labDna">0 DNA</span></b> to level up your weapons — permanently, with no cap. Every kill drops DNA (more at higher difficulty). Keep leveling to out-damage the tougher levels and climb toward 1000.</div>
     <div id="labList"></div>
     <div class="modalBtns"><button id="labClose" class="primary">Done</button></div>
   </div>

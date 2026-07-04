@@ -16,7 +16,7 @@ const W = 1280, H = 720;
 /* ---------------- persistent save ---------------- */
 const SAVE_KEY = 'islaDefense.v1';
 function defaultSave(){
-  return {unlocked:1, best:{}, dna:0, lab:{}, run:null, ach:{},
+  return {bestDiff:0, mapBest:{}, wlv:{}, dna:0, run:null, ach:{},
           settings:{invincible:false, unlimitedCash:false, levelSkip:false, mute:false, auto:true, music:true}};
 }
 function loadSave(){
@@ -24,8 +24,8 @@ function loadSave(){
     const s = JSON.parse(localStorage.getItem(SAVE_KEY));
     if (!s) return defaultSave();
     const d = defaultSave();
-    return {unlocked: s.unlocked || 1, best: s.best || {}, dna: s.dna || 0, lab: s.lab || {},
-            run: s.run || null, ach: s.ach || {},
+    return {bestDiff: s.bestDiff || 0, mapBest: s.mapBest || {}, wlv: s.wlv || {},
+            dna: s.dna || 0, run: s.run || null, ach: s.ach || {},
             settings: Object.assign(d.settings, s.settings || {})};
   } catch(e){ return defaultSave(); }
 }
@@ -74,7 +74,8 @@ function persist(){
   localStorage.setItem(SAVE_KEY, j);
   try { if (idb) idb.transaction('kv', 'readwrite').objectStore('kv').put(j, 'save'); } catch(e){}
 }
-const labTier = k => save.lab[k] || 0;
+/* persistent weapon level (starts at 1, uncapped) */
+const wlv = key => (save.wlv && save.wlv[key]) || 1;
 
 /* ---------------- developer cheats & achievements ---------------- */
 const CHEAT_PASSWORD = 'matttest';
@@ -412,6 +413,8 @@ const G = {
   shake: 0, banner: null,
   time: 0,
   over: false,
+  difficulty: 1,           // selected difficulty level (1..MAX_DIFFICULTY)
+  dnaRun: 0,               // DNA earned this run (for the results screen)
   flawless: true,          // no base damage taken this run
   runCheated: false,       // any developer cheat active/used this run → no trophies
 };
@@ -457,7 +460,7 @@ function distToAnyPath(x, y){
 const BOSS_HP_MULT = 3; // bosses are far tankier than regular dinos — 3× the health bar
 const hpScale    = w => (0.7 + 0.3*w) * Math.pow(1.020, w) * G.level.hpMult;
 const speedScale = w => Math.min(1.4, 1 + w*0.0035);
-const bountyOf   = (def, w) => Math.max(1, Math.round(def.bounty * (1 + w*0.008) * (1 + 0.06*labTier('bounty'))));
+const bountyOf   = (def, w) => Math.max(1, Math.round(def.bounty * (1 + w*0.008)));
 const towerUnlocked = key => (G.wave + 1) >= (TOWERS[key].unlock || 1);
 /* each additional copy of the same weapon costs more — spam gets expensive */
 function towerCost(key){
@@ -466,17 +469,17 @@ function towerCost(key){
   const esc = key === 'mortar' ? 0.35 : 0.15;
   return Math.round(def.cost * (1 + esc * count));
 }
-const startCash  = () => 280 + 60*labTier('start_cash');
-const startLives = () => 100 + 15*labTier('base_hp');
+const startCash  = () => 300;
+const startLives = () => 100;
 
 function towerStats(t){
   const def = TOWERS[t.key];
-  const ammo = labTier('ammo_' + t.key);
-  const u = t.ulv || 0;
+  const L = wlv(t.key);            // persistent weapon level (the main power lever)
+  const u = t.ulv || 0;           // in-run cash upgrades
   return {
-    dmg:   def.dmg   * Math.pow(UPG.mult.dmg, u)   * (1 + 0.06*labTier('dmg_all')) * (1 + 0.08*ammo),
-    rof:   def.rof   * Math.pow(UPG.mult.rof, u)   * (1 + 0.04*ammo),
-    range: def.range * Math.pow(UPG.mult.range, u) * (1 + 0.04*labTier('range_all')),
+    dmg:   def.dmg   * Math.pow(UPG.mult.dmg, u)   * wlvDmgMult(L),
+    rof:   def.rof   * Math.pow(UPG.mult.rof, u)   * wlvRofMult(L),
+    range: def.range * Math.pow(UPG.mult.range, u) * wlvRangeMult(L),
     splash: def.splash ? def.splash * (1 + (t.key === 'mortar' ? 0.35 : 0.15) * u) : 0,
   };
 }
@@ -526,9 +529,10 @@ function buildWave(wave){
 function spawnDino(key, pathI, isBoss){
   const def = DINOS[key];
   const w = G.wave;
-  const hp = isBoss
+  const dh = diffHpMult(G.difficulty);   // difficulty-level health multiplier
+  const hp = (isBoss
     ? def.hp * (0.25 + w * 0.075) * G.level.hpMult * BOSS_HP_MULT
-    : def.hp * hpScale(w);
+    : def.hp * hpScale(w)) * dh;
   // bosses run oversized — larger than life, above the normal cap
   // (the D-Rex gets to be truly colossal)
   const sz = isBoss
@@ -542,7 +546,7 @@ function spawnDino(key, pathI, isBoss){
     dirT: 1, turn: 1, pitch: 0, lastStep: 0,
     armor: def.armor, dmgToBase: def.dmg,
     hp, maxHp: hp,
-    speed: def.speed * speedScale(w),
+    speed: def.speed * speedScale(w) * diffSpdMult(G.difficulty),
     pathI, dist: 0,
     slowT: 0, slowF: 1, burnT: 0, burnDps: 0, revealT: 0,
     cloaked: false, cloakCd: def.cloak ? 5 : -1,
@@ -612,6 +616,12 @@ function damage(d, amt, pierce, src){
     const p = dinoPos(d);
     G.cash += d.bounty;
     addText(p.x, p.y - d.size, '+$' + d.bounty, '#ffd24a');
+    // DNA drops from every kill, scaled by difficulty (clean runs only)
+    if (!runDisqualified()){
+      const dna = d.bounty * DNA_PER_BOUNTY * diffDnaMult(G.difficulty) * (d.boss ? 12 : 1);
+      save.dna += dna;
+      G.dnaRun += dna;
+    }
     if (d.boss){
       // cinematic collapse: the corpse tips over, thuds, and fades
       G.corpses.push({pal: d.pal, feat: d.feat, painter: d.painter, size: d.size,
@@ -641,7 +651,7 @@ function applyHit(d, t, st, def){
   }
   if (def.burn && !d.dead && !d.def.burnImmune){
     d.burnT = def.burn.t;
-    d.burnDps = def.burn.dps * (1 + 0.08 * labTier('ammo_flamer'));
+    d.burnDps = def.burn.dps * wlvDmgMult(wlv('flamer'));
   }
 }
 
@@ -960,9 +970,6 @@ function startWave(){
   G.pendingWave = G.wave < WAVES_PER_LEVEL ? buildWave(G.wave + 1) : null;
   updateIncoming();
   G.spawnT = 0;
-  // record best
-  const b = save.best[G.levelIdx] || 0;
-  if (G.wave > b){ save.best[G.levelIdx] = G.wave; persist(); }
   if (G.wave >= 50) unlockAch('wave50');
   updateHUD();
 }
@@ -970,11 +977,8 @@ function endWave(){
   G.waveActive = false;
   const bonus = 40 + 3 * G.wave;
   G.cash += bonus;
-  // DNA is only banked on clean runs — cheats (esp. level skip) must not farm it
-  const dna = runDisqualified() ? 0 : Math.round((2 + Math.floor(G.wave / 4) + (BOSS_WAVES[G.wave] ? 15 * BOSS_WAVES[G.wave].length : 0)) * (1 + G.levelIdx * 0.5));
-  save.dna += dna;
-  persist();
-  addText(W/2, 120, `Wave ${G.wave} cleared!  +$${bonus}  ${dna ? '+' + dna + ' DNA' : '· no DNA (cheats on)'}`, '#9fe870');
+  persist(); // bank the DNA accrued from kills this wave
+  addText(W/2, 120, `Wave ${G.wave} cleared!  +$${bonus}`, '#9fe870');
   G.flashT = 0.45;
   SFX.fanfare();
   if (G.wave >= WAVES_PER_LEVEL){ victory(); return; }
@@ -1007,6 +1011,8 @@ function saveRun(){
   const s = snapshot();
   s.wave = G.waveActive ? G.wave - 1 : G.wave;   // completed waves
   s.levelIdx = G.levelIdx;
+  s.difficulty = G.difficulty;
+  s.dnaRun = G.dnaRun;
   save.run = s;
   persist();
 }
@@ -1018,10 +1024,12 @@ function restoreSnapshot(s){
 }
 
 /* ---------------- level lifecycle ---------------- */
-/* mode: 'fresh' | 'resume' (saved run) */
-function startLevel(idx, mode){
+/* mode: 'fresh' | 'resume' (saved run). diff = chosen difficulty level. */
+function startLevel(idx, mode, diff){
   G.levelIdx = idx;
   G.level = LEVELS[idx];
+  G.difficulty = mode === 'resume' && save.run ? (save.run.difficulty || 1) : clamp(diff || 1, 1, unlockedCap());
+  G.dnaRun = mode === 'resume' && save.run ? (save.run.dnaRun || 0) : 0;
   G.paths = buildPaths(G.level);
   const bg = renderBackground(G.level, W, H);
   G.bg = bg.cv; G.flames = bg.flames; G.exitFx = bg.exit;
@@ -1052,7 +1060,7 @@ function startLevel(idx, mode){
   $('#victory').classList.add('hidden');
   $('#hud').classList.remove('hidden');
   $('#shop').classList.remove('hidden');
-  $('#levelTitle').textContent = G.level.name;
+  $('#levelTitle').textContent = `${G.level.name} · Lv ${G.difficulty}`;
   buildShop();
   selectTower(null);
   G.pendingWave = G.wave < WAVES_PER_LEVEL ? buildWave(G.wave + 1) : null;
@@ -1093,25 +1101,36 @@ function updateIncoming(){
 function victory(){
   G.over = true;
   save.run = null;
-  // clean runs bank the zone reward; cheated runs earn no DNA
+  const D = G.difficulty;
   const cheated = runDisqualified();
-  const reward = cheated ? 0 : Math.round((400 + 150 * G.levelIdx));
+  // clean runs bank a level-clear DNA bonus (scaled by difficulty) + record progress
+  const reward = cheated ? 0 : Math.round(DIFF_CLEAR_DNA * D);
   save.dna += reward;
-  if (G.levelIdx + 1 >= save.unlocked && save.unlocked < LEVELS.length) save.unlocked = G.levelIdx + 2 > LEVELS.length ? LEVELS.length : G.levelIdx + 2;
-  save.best[G.levelIdx] = WAVES_PER_LEVEL;
+  const wasUnlocked = diffUnlocked(save.bestDiff);
+  let newBlock = false;
+  if (!cheated){
+    if (D > save.bestDiff){ save.bestDiff = D; newBlock = diffUnlocked(save.bestDiff) > wasUnlocked; }
+    save.mapBest[G.levelIdx] = Math.max(save.mapBest[G.levelIdx] || 0, D);
+  }
   persist();
   // trophies (skipped automatically if any cheat was used this run)
   unlockAch('secure_' + G.levelIdx);
   if (G.flawless) unlockAch('flawless');
-  if (LEVELS.every((_, i) => save.best[i] >= WAVES_PER_LEVEL)) unlockAch('island');
+  if ([0,1,2,3,4].every(i => (save.mapBest[i] || 0) > 0)) unlockAch('island');
+  if (D >= 10)   unlockAch('diff_10');
+  if (D >= 100)  unlockAch('diff_100');
+  if (D >= 500)  unlockAch('diff_500');
+  if (D >= 1000) unlockAch('diff_1000');
   const flawlessNote = (G.flawless && !cheated) ? '<br>🛡️ <b>Flawless</b> — your base was never touched!' : '';
+  const unlockNote = newBlock && diffUnlocked(save.bestDiff) <= MAX_DIFFICULTY
+    ? `<br><br>🔓 New difficulty block unlocked — you can now play up to <b>Level ${diffUnlocked(save.bestDiff)}</b>!`
+    : (D >= MAX_DIFFICULTY ? `<br><br>👑 You have conquered <b>Level 1000</b> — the summit of the climb!` : '');
   const rewardLine = cheated
     ? `<span class="dim">No DNA or trophies — a developer cheat was used this run.</span>`
-    : `Bonus research: <b class="dna">+${reward} DNA</b>${flawlessNote}`;
+    : `Earned this run: <b class="dna">+${fmt(G.dnaRun)} DNA</b> from kills, plus a <b class="dna">+${fmt(reward)} DNA</b> clear bonus.${flawlessNote}`;
   $('#victoryText').innerHTML =
-    `<b>${G.level.name}</b> is secure. All 100 waves contained.<br>` +
-    rewardLine +
-    (G.levelIdx + 1 < LEVELS.length ? `<br><br>🔓 New zone unlocked: <b>${LEVELS[G.levelIdx+1].name}</b>` : '<br><br>🏆 You have secured the entire island!');
+    `<b>${G.level.name}</b> cleared at <b>Difficulty ${D}</b>. All 100 waves contained.<br>` +
+    rewardLine + unlockNote;
   // fireworks over the battlefield before the results screen appears
   G.celebration = {t: 0, dur: 5.4, next: 0.2};
   G.fw = [];
@@ -1345,13 +1364,31 @@ function buildShop(){
     el.appendChild(card);
   }
 }
+/* difficulty selection ----------------------------------------------------- */
+let selDiff = 1;                                   // currently-selected difficulty
+const unlockedCap = () => save.settings.levelSkip ? MAX_DIFFICULTY : diffUnlocked(save.bestDiff);
+function setDiff(v, writeField){
+  selDiff = clamp(Math.round(v) || 1, 1, unlockedCap());
+  const inp = $('#diffInput');
+  if (writeField && inp) inp.value = selDiff;
+  const cap = unlockedCap();
+  const info = $('#diffInfo');
+  if (info) info.innerHTML =
+    `Unlocked <b>1–${cap}</b>` +
+    (cap < MAX_DIFFICULTY ? ` · beat Level ${cap} to open the next 10` : ' · maxed out') +
+    (save.settings.levelSkip ? ' <span class="dim">(level-skip on)</span>' : '') +
+    ` &nbsp;·&nbsp; Highest beaten: <b>${save.bestDiff || '—'}</b>`;
+  $$('.selD').forEach(e => e.textContent = selDiff);
+}
 function buildMenu(){
   $('#verChip').innerHTML = `v${VERSION} · 📜 what's new`;
   $('#menuDna').innerHTML = `🧬 <b>${fmt(save.dna)} DNA</b> banked &nbsp;·&nbsp; spend it in the Research Lab ▸`;
-  // pulse the Lab button whenever an upgrade is affordable
-  const canBuy = LAB.some(e => labTier(e.key) < e.max && save.dna >= labCost(e, labTier(e.key)));
+  // pulse the Lab button whenever any weapon can be leveled up
+  const canBuy = Object.keys(TOWERS).some(k => save.dna >= wlvCost(TOWERS[k], wlv(k)));
   $('#btnLab').classList.toggle('attention', canBuy);
   $('#btnLab').innerHTML = canBuy ? '🧬 Research Lab — upgrades available!' : '🧬 Research Lab';
+  if (!selDiff || selDiff < 1) selDiff = unlockedCap();
+  setDiff(selDiff, true);
   const el = $('#levelCards');
   el.innerHTML = '';
   if (save.run){
@@ -1360,26 +1397,27 @@ function buildMenu(){
     card.className = 'levelCard resume';
     card.innerHTML =
       `<div class="lvNum">▶ Continue run</div>` +
-      `<div class="lvName">${lv.name}</div>` +
-      `<div class="lvSub">Wave ${r.wave}/100 cleared · $${fmt(r.cash)} · ${r.towers.length} weapons placed</div>` +
+      `<div class="lvName">${lv.name} · Lv ${r.difficulty || 1}</div>` +
+      `<div class="lvSub">Wave ${r.wave}/100 · $${fmt(r.cash)} · ${r.towers.length} weapons</div>` +
       `<div class="lvBest">Click to pick up where you left off</div>`;
     card.onclick = () => startLevel(r.levelIdx, 'resume');
     el.appendChild(card);
   }
   LEVELS.forEach((lv, i) => {
-    const locked = i >= save.unlocked && !save.settings.levelSkip;
-    const best = save.best[i] || 0;
+    const mb = save.mapBest[i] || 0;
     const card = document.createElement('div');
-    card.className = 'levelCard' + (locked ? ' locked' : '');
+    card.className = 'levelCard';
     card.innerHTML =
-      `<div class="lvNum">${locked ? '🔒' : '📍'} Zone ${i+1}</div>` +
+      `<div class="lvNum">📍 Map ${i+1}</div>` +
       `<div class="lvName">${lv.name}</div>` +
       `<div class="lvSub">${lv.sub}</div>` +
-      `<div class="lvBest">${locked ? 'Beat the previous zone to unlock' : best >= WAVES_PER_LEVEL ? '✅ SECURED — 100/100' : best > 0 ? 'Best: wave ' + best + '/100' : 'Not attempted'}</div>`;
-    if (!locked) card.onclick = () => {
+      `<div class="lvBest">${mb > 0 ? '★ Best cleared here: Lv ' + mb : 'Not cleared yet'}</div>` +
+      `<div class="lvPlay">▶ Play at Level <b class="selD">${selDiff}</b></div>`;
+    card.onclick = () => {
+      setDiff(selDiff, true);
       if (save.run && save.run.wave >= 1 &&
-          !confirm(`You have a saved run in ${LEVELS[save.run.levelIdx].name} at wave ${save.run.wave}. Starting a new run will discard it. Continue?`)) return;
-      startLevel(i, 'fresh');
+          !confirm(`You have a saved run (${LEVELS[save.run.levelIdx].name}, Lv ${save.run.difficulty || 1}, wave ${save.run.wave}). Starting a new run will discard it. Continue?`)) return;
+      startLevel(i, 'fresh', selDiff);
     };
     el.appendChild(card);
   });
@@ -1409,25 +1447,25 @@ function buildLab(){
   $('#labDna').textContent = fmt(save.dna) + ' DNA';
   const el = $('#labList');
   el.innerHTML = '';
-  for (const entry of LAB){
-    const tier = labTier(entry.key);
-    const maxed = tier >= entry.max;
-    const cost = labCost(entry, tier);
+  for (const [key, def] of Object.entries(TOWERS)){
+    const L = wlv(key);
+    const cost = wlvCost(def, L);
+    const afford = save.dna >= cost;
     const row = document.createElement('div');
     row.className = 'labRow';
     row.innerHTML =
-      `<div class="labIco">${entry.icon}</div>` +
-      `<div class="labInfo"><b>${entry.name}</b> <span class="tier">${'●'.repeat(tier)}${'○'.repeat(entry.max - tier)}</span><br><small>${entry.desc}</small></div>` +
-      `<button class="labBuy" ${maxed || save.dna < cost ? 'disabled' : ''}>${maxed ? 'MAX' : cost + ' DNA'}</button>`;
-    if (!maxed){
-      row.querySelector('button').onclick = () => {
-        if (save.dna < cost) return;
-        save.dna -= cost;
-        save.lab[entry.key] = tier + 1;
-        persist(); SFX.upgrade(); buildLab();
-        $('#menuDna').textContent = fmt(save.dna) + ' DNA';
-      };
-    }
+      `<div class="labIco">${def.icon}</div>` +
+      `<div class="labInfo"><b>${def.name}</b> <span class="tier">Lv ${L}</span><br>` +
+        `<small>Damage ×${wlvDmgMult(L).toFixed(2)} now → ×${wlvDmgMult(L + 1).toFixed(2)} next level</small></div>` +
+      `<button class="labBuy" ${afford ? '' : 'disabled'}>Lv ${L + 1} · ${fmt(cost)} DNA</button>`;
+    row.querySelector('button').onclick = () => {
+      const c = wlvCost(def, wlv(key));
+      if (save.dna < c) return;
+      save.dna -= c;
+      save.wlv[key] = wlv(key) + 1;
+      persist(); SFX.upgrade(); buildLab();
+      $('#menuDna').innerHTML = `🧬 <b>${fmt(save.dna)} DNA</b> banked &nbsp;·&nbsp; spend it in the Research Lab ▸`;
+    };
     el.appendChild(row);
   }
 }
@@ -1445,7 +1483,9 @@ const TIPS = [
   '<b>💣 Mortars</b> have a minimum range: nothing within 90px can be hit. Place them behind your front line and cover their blind spot.',
   '<b>🚀 Missile Batteries</b> gain a rocket per upgrade level, and extra rockets pick their own targets.',
   '<b>Selling</b> refunds 70% of everything invested — repositioning late is fine.',
-  '<b>DNA is never lost.</b> Every cleared wave banks DNA even if the run fails. Spend it in the 🧬 Research Lab for permanent upgrades, then try again stronger.',
+  '<b>Difficulty 1–1000:</b> pick a map and a level. Every kill drops DNA (much more at higher levels); spend it in the 🧬 Research Lab to level your weapons — with no cap. Beat the highest unlocked level (10, 20, 30…) to open the next block.',
+  '<b>Weapon levels vs. in-run upgrades:</b> Lab weapon levels are permanent and multiply damage forever; the click-to-upgrade on a placed tower is a small, run-only boost paid with cash. You need both to reach the top levels.',
+  '<b>DNA is never lost.</b> It banks from kills even if the run fails, so a losing run still funds the weapon levels you need to come back stronger.',
   '<b>Your run auto-saves</b> between waves — close the tab and the map shows a "Continue run" card. Back up progress with Settings → Copy save code.',
   '<b>Practice mode:</b> Settings → 🛡 Invincibility lets you experiment with layouts, and 2×/4× speed keeps long waves moving.',
 ];
@@ -1856,7 +1896,7 @@ function render(dt){
     ctx.globalAlpha = 0.85;
     ctx.strokeStyle = ok ? 'rgba(140,240,140,0.6)' : 'rgba(255,90,90,0.7)';
     ctx.fillStyle = ok ? 'rgba(140,240,140,0.12)' : 'rgba(255,90,90,0.12)';
-    const rng = def.range * (1 + 0.04*labTier('range_all'));
+    const rng = def.range * wlvRangeMult(wlv(G.placing));
     ctx.beginPath(); ctx.arc(G.mouse.x, G.mouse.y, rng, 0, Math.PI*2); ctx.fill(); ctx.stroke();
     drawTowerBase(ctx, G.mouse.x, G.mouse.y, G.placing, false, 0);
     if (G.pendingTap){
@@ -2165,6 +2205,11 @@ $('#tpMode').onclick = () => {
   renderTowerPanel();
 };
 const openLab = () => { buildLab(); $('#lab').classList.remove('hidden'); };
+// difficulty picker (main menu)
+$$('#diffCtl button[data-d]').forEach(b => b.onclick = () => setDiff(selDiff + parseInt(b.dataset.d, 10), true));
+$('#diffMax').onclick = () => setDiff(unlockedCap(), true);
+$('#diffInput').oninput = () => setDiff(parseInt($('#diffInput').value, 10) || 1, false);
+$('#diffInput').onchange = () => setDiff(parseInt($('#diffInput').value, 10) || 1, true);
 $('#btnTips').onclick = () => { buildTips(); $('#tips').classList.remove('hidden'); };
 $('#tipsClose').onclick = () => $('#tips').classList.add('hidden');
 $('#btnAch').onclick = () => { buildAchievements(); $('#achievements').classList.remove('hidden'); };
@@ -2213,7 +2258,7 @@ $('#btnImport').onclick = () => {
   if (!code) return;
   try {
     const s = JSON.parse(decodeURIComponent(escape(atob(code.trim()))));
-    if (!s || typeof s.unlocked !== 'number') throw new Error('bad save');
+    if (!s || typeof s.dna !== 'number') throw new Error('bad save');
     localStorage.setItem(SAVE_KEY, JSON.stringify(s));
     save = loadSave();
     if (save.run){ migrateTowers(save.run.towers); if (save.run.cp) migrateTowers(save.run.cp.towers); }
@@ -2231,11 +2276,11 @@ $('#btnReset').onclick = () => {
   }
 };
 $('#goMenu').onclick = toMenu;
-$('#goRetry').onclick = () => startLevel(G.levelIdx, 'fresh');
+$('#goRetry').onclick = () => startLevel(G.levelIdx, 'fresh', G.difficulty);
 $('#vMenu').onclick = toMenu;
 $('#vNext').onclick = () => {
-  const next = G.levelIdx + 1;
-  if (next < LEVELS.length && next < save.unlocked) startLevel(next, 'fresh');
+  const next = G.difficulty + 1;   // climb: next difficulty on the same map
+  if (next <= unlockedCap()){ selDiff = next; startLevel(G.levelIdx, 'fresh', next); }
   else toMenu();
 };
 window.addEventListener('beforeunload', () => { if (G.state === 'playing' && !G.over) saveRun(); });
@@ -2261,6 +2306,7 @@ if (new URLSearchParams(location.search).has('dbg')){
   }, 800);
 }
 
+if (new URLSearchParams(location.search).has('lab')){ if (new URLSearchParams(location.search).get('lab') === 'rich'){ save.dna = 50000; } buildLab(); $('#lab').classList.remove('hidden'); }
 if (new URLSearchParams(location.search).has('settings')){ syncSettings(); $('#settings').classList.remove('hidden'); }
 if (new URLSearchParams(location.search).has('ach')){ if (new URLSearchParams(location.search).get('ach') === 'some'){ save.ach = {boss_first:1, wave50:1, secure_0:1, apex:1}; } buildAchievements(); $('#achievements').classList.remove('hidden'); }
 if (new URLSearchParams(location.search).has('tips')){ buildTips(); $('#tips').classList.remove('hidden'); }
@@ -2277,7 +2323,8 @@ if (testParams.has('test')){
   if (testParams.has('cheats')){ // preview cheat HUD without the password prompt
     save.settings.unlimitedCash = true; save.settings.levelSkip = true; save.settings.invincible = true;
   }
-  startLevel(clamp(parseInt(testParams.get('level'), 10) || 0, 0, LEVELS.length - 1), 'fresh');
+  if (testParams.has('diff')) save.bestDiff = Math.max(save.bestDiff, (parseInt(testParams.get('diff'), 10) || 1) - 1);
+  startLevel(clamp(parseInt(testParams.get('level'), 10) || 0, 0, LEVELS.length - 1), 'fresh', parseInt(testParams.get('diff'), 10) || 1);
   G.cash = 5000;
   placeTower('gatling', 420, 260, true);
   placeTower('flamer', 550, 330, true);

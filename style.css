@@ -163,6 +163,32 @@ canvas#game {
   0%, 100% { box-shadow: 0 0 4px #e8b93a40; }
   50% { box-shadow: 0 0 18px #e8b93a90; }
 }
+/* difficulty picker */
+#diffPick {
+  margin: 8px 0 4px; padding: 14px 18px; border-radius: 12px;
+  background: linear-gradient(#242c1c, #1a2014); border: 1px solid var(--line);
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+}
+.diffTop { font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: var(--amber2); }
+#diffCtl { display: flex; align-items: center; gap: 6px; }
+#diffCtl button {
+  background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+  border-radius: 6px; min-width: 34px; padding: 8px 10px; font-size: 15px; cursor: pointer;
+}
+#diffCtl button:hover { border-color: var(--amber); color: #fff; }
+#diffMax { min-width: auto !important; font-size: 12px !important; font-weight: bold; }
+#diffInput {
+  width: 96px; text-align: center; font-size: 22px; font-weight: bold;
+  color: var(--amber2); background: #12160d; border: 1px solid var(--amber);
+  border-radius: 8px; padding: 6px 4px; font-family: inherit;
+}
+#diffInput::-webkit-outer-spin-button, #diffInput::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+#diffInfo { font-size: 12px; color: var(--dim); }
+#diffInfo b { color: var(--text); }
+#mapHint { font-size: 12px; color: var(--dim); margin: 14px 0 2px; }
+.lvPlay { font-size: 12px; color: var(--amber2); margin-top: 8px; padding-top: 7px; border-top: 1px solid #2a3122; }
+.lvPlay .selD { color: var(--amber2); }
+
 #levelCards { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; max-width: 1100px; }
 .levelCard {
   width: 195px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
