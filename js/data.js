@@ -63,18 +63,18 @@ const DINOS = {
                      pal:{body:'#8a8168', belly:'#ddd4b8', accent:'#57503c'}, feat:{tall:true}},
 
   /* --- BOSSES (spawned on schedule, never in random pool) --- */
-  blue:             {name:'Blue — Alpha Raptor', painter:'theropod', hp:900,  speed:92, armor:1, bounty:120, dmg:15, size:18, boss:true, weight:0,
+  blue:             {name:'Blue — Alpha Raptor', epithet:'THE PACK HUNTS WITH HER', painter:'theropod', hp:900,  speed:92, armor:1, bounty:120, dmg:15, size:18, boss:true, weight:0,
                      pal:{body:'#5a6b78', belly:'#c3ccd4', accent:'#2c5f8a'}, feat:{stripes:true}},
-  trex:             {name:'Tyrannosaurus Rex',   painter:'theropod', hp:3000, speed:46, armor:3, bounty:300, dmg:25, size:32, boss:true, weight:0, roar:true,
+  trex:             {name:'Tyrannosaurus Rex',   epithet:'THE TYRANT QUEEN', painter:'theropod', hp:3000, speed:46, armor:3, bounty:300, dmg:25, size:32, boss:true, weight:0, roar:true,
                      pal:{body:'#6e5a44', belly:'#c9b493', accent:'#3d3022'}, feat:{bigHead:true}},
-  spinosaurus:      {name:'Spinosaurus',         painter:'theropod', hp:3600, speed:42, armor:3, bounty:340, dmg:28, size:33, boss:true, weight:0, roar:true,
+  spinosaurus:      {name:'Spinosaurus',         epithet:'THE RIVER MONSTER', painter:'theropod', hp:3600, speed:42, armor:3, bounty:340, dmg:28, size:33, boss:true, weight:0, roar:true,
                      pal:{body:'#5d7268', belly:'#c2d1c0', accent:'#b0703c'}, feat:{sail:true, longSnout:true}},
-  indominus:        {name:'Indominus Rex',       painter:'theropod', hp:5200, speed:48, armor:4, bounty:420, dmg:32, size:31, boss:true, weight:0, roar:true,
+  indominus:        {name:'Indominus Rex',       epithet:'THE UNTAMABLE', painter:'theropod', hp:5200, speed:48, armor:4, bounty:420, dmg:32, size:31, boss:true, weight:0, roar:true,
                      cloak:true, regen:0.006,
                      pal:{body:'#b9c2c4', belly:'#e9eef0', accent:'#7c8a8d'}, feat:{bigHead:true, spikes:true}},
-  indoraptor:       {name:'Indoraptor',          painter:'theropod', hp:4200, speed:76, armor:3, bounty:400, dmg:30, size:24, boss:true, weight:0, roar:true,
+  indoraptor:       {name:'Indoraptor',          epithet:'THE NIGHTMARE MADE FLESH', painter:'theropod', hp:4200, speed:76, armor:3, bounty:400, dmg:30, size:24, boss:true, weight:0, roar:true,
                      pal:{body:'#26262b', belly:'#4c4c55', accent:'#d9a531'}, feat:{stripes:true, slim:true}},
-  giganotosaurus:   {name:'Giganotosaurus',      painter:'theropod', hp:9000, speed:40, armor:5, bounty:800, dmg:45, size:36, boss:true, weight:0, roar:true,
+  giganotosaurus:   {name:'Giganotosaurus',      epithet:'THE APEX OF APEX PREDATORS', painter:'theropod', hp:9000, speed:40, armor:5, bounty:800, dmg:45, size:36, boss:true, weight:0, roar:true,
                      pal:{body:'#4f4a52', belly:'#b7b0ba', accent:'#8a2f2f'}, feat:{bigHead:true, ridge:true}},
 };
 

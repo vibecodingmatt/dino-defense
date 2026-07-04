@@ -42,6 +42,8 @@ function drawTheropod(ctx, d, ph){
   const slim = f.slim ? 0.78 : 1;
   const big  = f.bigHead ? 1.25 : 1;
   const bob  = Math.abs(Math.sin(ph)) * 0.06;
+  // entrance roar: jaws thrown wide, head raised
+  const roar = (d.entranceT || 0) > 0 ? Math.min(1, (2.2 - d.entranceT) * 2.5) : 0;
 
   // hind legs (far leg darker, behind body)
   leg(ctx, -0.05, -0.62, 0.62, ph + Math.PI, shade(p.body, -0.35), 0.16*slim);
@@ -102,7 +104,8 @@ function drawTheropod(ctx, d, ph){
   }
 
   // neck + head (with a subtle bob counter to the stride)
-  const hx = 0.55 + Math.sin(ph + 0.5)*0.02, hy = -0.98 - (big-1)*0.1 + Math.sin(ph*2 + 0.8)*0.035;
+  const hx = 0.55 + Math.sin(ph + 0.5)*0.02 - roar*0.06,
+        hy = -0.98 - (big-1)*0.1 + Math.sin(ph*2 + 0.8)*0.035 - roar*0.16;
   ctx.fillStyle = p.body;
   ctx.beginPath();               // neck
   ctx.moveTo(0.28, -0.88); ctx.quadraticCurveTo(0.42, -1.0, hx, hy);
@@ -112,7 +115,8 @@ function drawTheropod(ctx, d, ph){
   const snout = f.longSnout ? 0.5 : 0.34;
   ctx.save();
   ctx.translate(hx, hy);
-  const jawOpen = 0.06 + Math.max(0, Math.sin(ph*0.9)) * 0.05;
+  if (roar) ctx.rotate(-roar * 0.38);
+  const jawOpen = 0.06 + Math.max(0, Math.sin(ph*0.9)) * 0.05 + roar * 0.22;
   // skull
   ctx.fillStyle = p.body;
   ctx.beginPath();

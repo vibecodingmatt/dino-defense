@@ -321,7 +321,10 @@ function spawnDino(key, pathI, isBoss){
   const hp = isBoss
     ? def.hp * (0.25 + w * 0.075) * G.level.hpMult
     : def.hp * hpScale(w);
-  const sz = Math.min(58, def.size * 1.35 + 3); // scaled up for visibility (small dinos get the biggest boost)
+  // bosses run oversized — larger than life, above the normal cap
+  const sz = isBoss
+    ? Math.min(80, (def.size * 1.35 + 3) * 1.45)
+    : Math.min(58, def.size * 1.35 + 3); // scaled up for visibility (small dinos get the biggest boost)
   const d = {
     key, def, boss: !!isBoss,
     name: def.name, painter: def.painter, pal: def.pal, feat: def.feat, flying: !!def.flying,
@@ -341,9 +344,19 @@ function spawnDino(key, pathI, isBoss){
   };
   G.dinos.push(d);
   if (isBoss){
-    G.banner = {text: '⚠  ' + def.name.toUpperCase() + '  ⚠', t: 2.6};
+    // cinematic entrance: stalk in past the gate, stop, and roar
+    d.dist = 100 + rand(0, 50);
+    d.entranceT = 2.2;
+    d.seedE = rand(0, 1);
+    G.cinT = 2.8;
+    G.banner = {text: def.name.toUpperCase(), sub: def.epithet || '⚠ CONTAINMENT FAILURE ⚠', t: 3.4};
     SFX.roar();
-    G.shake = Math.max(G.shake, 6);
+    G.shake = Math.max(G.shake, 12);
+    const p = dinoPos(d);
+    addFx('shock', p.x, p.y, d.size * 2.4);
+    addFx('dust', p.x - d.size * 0.6, p.y + 4, d.size * 0.8);
+    addFx('dust', p.x + d.size * 0.6, p.y + 4, d.size * 0.8);
+    addFx('birds', p.x, p.y, 60);
   }
 }
 
@@ -396,9 +409,11 @@ function damage(d, amt, pierce, src){
       G.shake = Math.max(G.shake, 10);
       SFX.bossDie();
       addFx('ring', p.x, p.y, 24);
+      addFx('blood', p.x, p.y + 3, d.size * 0.7);
       for (let i = 0; i < 5; i++) addFx('spark', p.x + rand(-d.size, d.size), p.y - rand(0, d.size), 6);
     } else {
       addFx('puff', p.x, p.y, d.size);
+      addFx('blood', p.x, p.y + 2, d.size * 0.45);
       if (Math.random() < 0.3) SFX.coin();
     }
   }
@@ -571,8 +586,8 @@ function updateProjs(dt){
 /* ---------------- fx / floating text ---------------- */
 function addFx(kind, x, y, r, ang){
   if (G.fx.length > 220) return;
-  G.fx.push({kind, x, y, r, ang: ang || 0, t: 0,
-             dur: kind === 'sonic' ? 0.5 : kind === 'boom' ? 0.45 : kind === 'frost' ? 0.5 : kind === 'flame' ? 0.22 : kind === 'ring' ? 0.8 : kind === 'dust' ? 0.9 : kind === 'step' ? 0.45 : 0.3});
+  G.fx.push({kind, x, y, r, ang: ang || 0, t: 0, seed: Math.random() * 9,
+             dur: kind === 'sonic' ? 0.5 : kind === 'boom' ? 0.45 : kind === 'frost' ? 0.5 : kind === 'flame' ? 0.22 : kind === 'ring' ? 0.8 : kind === 'dust' ? 0.9 : kind === 'step' ? 0.45 : kind === 'blood' ? 1.2 : kind === 'shock' ? 0.9 : kind === 'birds' ? 1.4 : 0.3});
 }
 function addText(x, y, txt, color, size){
   if (G.texts.length > 40) return;
@@ -596,6 +611,12 @@ function updateDinos(dt){
         d.cloakCd = d.cloaked ? 2.5 : 6.5;
       }
     }
+    // boss entrance: hold position and roar before advancing
+    if (d.entranceT > 0){
+      d.entranceT -= dt;
+      d.phase += dt * 1.2;
+      continue;
+    }
     // move
     const slow = d.slowT > 0 ? d.slowF : 1;
     d.dist += d.speed * slow * dt;
@@ -614,7 +635,8 @@ function updateDinos(dt){
       if (stepNow !== d.lastStep){
         d.lastStep = stepNow;
         addFx('step', pp.x - d.dirT * d.size * 0.15 + rand(-4, 4), pp.y + 2, d.size * 0.35);
-        if (d.size >= 40) G.shake = Math.max(G.shake, 1.3);
+        if (d.boss) G.shake = Math.max(G.shake, 2.4);
+        else if (d.size >= 40) G.shake = Math.max(G.shake, 1.3);
       }
     }
     if (d.dist >= path.len){
@@ -698,7 +720,7 @@ function startLevel(idx, mode){
   G.paths = buildPaths(G.level);
   const bg = renderBackground(G.level, W, H);
   G.bg = bg.cv; G.flames = bg.flames; G.exitFx = bg.exit;
-  G.hurtT = 0; G.flashT = 0; G.waveTotal = 0;
+  G.hurtT = 0; G.flashT = 0; G.waveTotal = 0; G.cinT = 0;
   initAmbient();
   G.dinos = []; G.projs = []; G.fx = []; G.bolts = []; G.texts = []; G.spawnQ = []; G.corpses = [];
   G.selected = null; G.placing = null;
@@ -1052,6 +1074,24 @@ function render(dt){
     ctx.setLineDash([]); ctx.lineDashOffset = 0;
   }
 
+  // blood splatter decals (ground layer, under corpses and dinos)
+  for (const f of G.fx){
+    if (f.kind !== 'blood') continue;
+    const k = f.t / f.dur;
+    const a = 1 - k;
+    const grow = 0.6 + Math.min(1, k * 4) * 0.4; // splash out fast, then just fade
+    ctx.fillStyle = `rgba(118,14,10,${0.5 * a})`;
+    ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r * grow, f.r * 0.55 * grow, f.seed, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = `rgba(140,18,12,${0.45 * a})`;
+    for (let i = 0; i < 5; i++){
+      const aa = f.seed + i * 2.4;
+      const dd = f.r * (0.7 + ((i * 2.7 + f.seed) % 1.3)) * grow;
+      ctx.beginPath();
+      ctx.arc(f.x + Math.cos(aa) * dd, f.y + Math.sin(aa) * dd * 0.55, f.r * 0.13 * (1 + (i % 3) * 0.4), 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
   // boss corpses tipping over (under the living)
   for (const c of G.corpses){
     const k = Math.min(1, c.t / 0.55);
@@ -1080,7 +1120,9 @@ function render(dt){
   const drawOne = d => {
     const p = dinoPos(d);
     const alpha = d.cloaked && d.revealT <= 0 ? 0.22 : 1;
-    drawDino(ctx, d, p.x, p.y, d.turn, d.phase, alpha, d.pitch);
+    // rearing back during the entrance roar
+    const pitch = d.pitch - (d.entranceT > 0 ? Math.min(0.22, (2.2 - d.entranceT) * 0.6) : 0);
+    drawDino(ctx, d, p.x, p.y, d.turn, d.phase, alpha, pitch);
     // status tints
     if (d.burnT > 0){
       ctx.fillStyle = 'rgba(255,120,20,0.35)';
@@ -1101,6 +1143,14 @@ function render(dt){
       ctx.strokeStyle = 'rgba(255,80,60,' + (0.4 + 0.3*Math.sin(d.phase)) + ')';
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(p.x, p.y, d.size * 1.1, 0, Math.PI*2); ctx.stroke();
+      // embers drifting off the apex predator
+      for (let i = 0; i < 4; i++){
+        const cyc = (G.time * 0.45 + i * 0.29 + (d.seedE || 0)) % 1;
+        const ex = p.x + Math.sin(i * 2.1 + G.time * 0.8) * d.size * 0.55;
+        const ey = p.y - d.size * 0.4 - cyc * d.size * 1.15;
+        ctx.fillStyle = `rgba(255,${110 + i * 26},30,${0.4 * (1 - cyc)})`;
+        ctx.beginPath(); ctx.arc(ex, ey, 1.5 + (1 - cyc) * 1.3, 0, Math.PI*2); ctx.fill();
+      }
     }
   };
   ground.forEach(drawOne);
@@ -1134,8 +1184,31 @@ function render(dt){
   }
   // fx
   for (const f of G.fx){
+    if (f.kind === 'blood') continue; // drawn earlier as a ground decal
     const k = f.t / f.dur;
     switch (f.kind){
+      case 'shock': { // boss-entrance shockwave
+        ctx.lineWidth = 3 * (1 - k);
+        ctx.strokeStyle = `rgba(255,90,50,${0.6 * (1 - k)})`;
+        ctx.beginPath(); ctx.arc(f.x, f.y, f.r * k, 0, Math.PI*2); ctx.stroke();
+        ctx.strokeStyle = `rgba(255,235,200,${0.5 * (1 - k)})`;
+        ctx.beginPath(); ctx.arc(f.x, f.y, f.r * k * 0.7, 0, Math.PI*2); ctx.stroke();
+        break;
+      }
+      case 'birds': { // startled birds scattering from the canopy
+        ctx.strokeStyle = `rgba(20,24,16,${0.8 * (1 - k)})`;
+        ctx.lineWidth = 1.8; ctx.lineCap = 'round';
+        for (let i = 0; i < 6; i++){
+          const aa = -Math.PI * (0.25 + 0.5 * ((f.seed + i * 1.7) % 1));
+          const bx = f.x + Math.cos(aa) * (30 + k * 260) * (i % 2 ? 1 : -1);
+          const by = f.y - 30 - k * 150 - (i % 3) * 12;
+          const flap = Math.sin(k * 26 + i * 2) * 4;
+          ctx.beginPath();
+          ctx.moveTo(bx - 5, by - flap); ctx.lineTo(bx, by); ctx.lineTo(bx + 5, by - flap);
+          ctx.stroke();
+        }
+        break;
+      }
       case 'boom':
         ctx.fillStyle = `rgba(255,${160 - k*120|0},40,${0.55*(1-k)})`;
         ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.4 + k*0.8), 0, Math.PI*2); ctx.fill();
@@ -1322,15 +1395,40 @@ function render(dt){
     ctx.fillRect(0, 0, W, H);
   }
 
-  // boss banner
+  // cinematic letterbox during a boss entrance
+  if (G.cinT > 0){
+    G.cinT = Math.max(0, G.cinT - dt);
+    const a = clamp(Math.min((2.8 - G.cinT) * 4, G.cinT * 1.6), 0, 1);
+    const bh = 58 * a;
+    ctx.fillStyle = 'rgba(0,0,0,0.85)';
+    ctx.fillRect(0, 0, W, bh); ctx.fillRect(0, H - bh, W, bh);
+    const rg = ctx.createRadialGradient(W/2, H/2, H*0.3, W/2, H/2, H*0.85);
+    rg.addColorStop(0, 'rgba(60,0,0,0)'); rg.addColorStop(1, `rgba(60,0,0,${0.35 * a})`);
+    ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H);
+  }
+
+  // boss banner: name + epithet title card
   if (G.banner){
-    const a = Math.min(1, G.banner.t / 0.4) * Math.min(1, (2.6 - G.banner.t) / 0.3 + 1);
-    ctx.globalAlpha = clamp(a, 0, 1);
-    ctx.fillStyle = 'rgba(80,10,10,0.75)';
-    ctx.fillRect(0, 70, W, 54);
+    const a = clamp(Math.min((3.4 - G.banner.t) * 4, G.banner.t * 1.8), 0, 1);
+    ctx.globalAlpha = a;
+    const cy = 108;
+    const grad = ctx.createLinearGradient(0, cy - 44, 0, cy + 34);
+    grad.addColorStop(0, 'rgba(60,6,6,0)'); grad.addColorStop(0.5, 'rgba(70,8,8,0.85)'); grad.addColorStop(1, 'rgba(60,6,6,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, cy - 44, W, 78);
+    ctx.strokeStyle = 'rgba(232,185,58,0.7)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(W*0.24, cy - 40); ctx.lineTo(W*0.76, cy - 40); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W*0.24, cy + 30); ctx.lineTo(W*0.76, cy + 30); ctx.stroke();
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 34px Verdana, sans-serif';
+    ctx.fillText(G.banner.text, W/2 + 2, cy + 2);
     ctx.fillStyle = '#ffd24a';
-    ctx.font = 'bold 30px Verdana, sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText(G.banner.text, W/2, 106);
+    ctx.fillText(G.banner.text, W/2, cy);
+    ctx.fillStyle = '#e8a0a0';
+    ctx.font = 'bold 13px Verdana, sans-serif';
+    const sub = G.banner.sub || '';
+    ctx.fillText('—  ' + sub + '  —', W/2, cy + 22);
     ctx.globalAlpha = 1;
   }
   if (G.paused){
@@ -1489,6 +1587,11 @@ if (testParams.has('test')){
   const sim = parseFloat(testParams.get('sim')) || 0;
   for (let s = 0; s < sim; s += 0.05) step(0.05);
   if (testParams.has('wave')){ G.wave = parseInt(testParams.get('wave'), 10) - 1; G.waveActive = false; startWave(); for (let s = 0; s < (sim || 6); s += 0.05) step(0.05); }
+  if (testParams.has('boss')){ // stage a live boss entrance
+    spawnDino('trex', 0, true);
+    const bt = parseFloat(testParams.get('boss')) || 1;
+    for (let s = 0; s < bt; s += 0.05) step(0.05);
+  }
   if (testParams.has('kill')){ // stage a boss death mid-map to check the collapse
     spawnDino('trex', 0, true);
     const b = G.dinos[G.dinos.length - 1];
