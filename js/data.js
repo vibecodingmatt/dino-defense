@@ -14,7 +14,7 @@ const VERSION = '1.15.2';
    Measurement ID (looks like G-XXXXXXXXXX) → paste it below → push.
    Nothing is sent while this is ''. Local (file://) and ?test= sessions are
    never tracked, so your own testing won't pollute the numbers. */
-const ANALYTICS_ID = ''; // e.g. 'G-ABCD123456'
+const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
 /* Player-facing changelog — ONE entry per DAY (a daily recap), newest first.
    The `v` shown is the latest version released that day; `items` are the major,
    player-facing changes only. Keep it about what changed for the player — no
