@@ -1276,6 +1276,16 @@ function victory(){
       `</div>` + unlockNote;
   }
   $('#victoryText').innerHTML = recap;
+  // "Next Difficulty" climbs to D+1 on this same map; hide it once there's
+  // nothing higher unlocked (i.e. you just beat Level 1000).
+  const nextD = D + 1;
+  const vNextBtn = $('#vNext');
+  if (nextD <= unlockedCap()){
+    vNextBtn.style.display = '';
+    vNextBtn.textContent = `➜ Play Difficulty ${nextD}`;
+  } else {
+    vNextBtn.style.display = 'none';
+  }
   // fireworks over the battlefield before the results screen appears
   G.celebration = {t: 0, dur: 5.4, next: 0.2};
   G.fw = [];
@@ -2707,6 +2717,9 @@ $('#btnLab').onclick = openLab;
 $('#menuDna').onclick = openLab;
 $('#vLab').onclick = openLab;
 $('#goLab').onclick = openLab;
+const openAch = () => { buildAchievements(); $('#achievements').classList.remove('hidden'); };
+$('#vAch').onclick = openAch;
+$('#goAch').onclick = openAch;
 $('#labClose').onclick = () => { $('#lab').classList.add('hidden'); buildMenu(); };
 $$('.modalX').forEach(b => b.onclick = () => {
   const m = b.closest('.modal');

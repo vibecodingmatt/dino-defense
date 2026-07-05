@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.17.1';
+const VERSION = '1.17.2';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -24,7 +24,9 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.17.1', date: 'Jul 5, 2026', items: [
+  {v: '1.17.2', date: 'Jul 5, 2026', items: [
+    '🏆 The win and defeat screens now have an Achievements button, so you can jump straight to your trophy case after a run — a handy nudge if you didn\'t spot it on the menu.',
+    '➜ After clearing a level, the top button now reads "Play Difficulty N" and drops you straight into the next difficulty on the same map to keep the climb going (it steps aside once you\'ve conquered level 1000).',
     '🏅 Two new difficulty milestones to chase: trophies for beating level 25 and level 75, filling the gap between the level 10, 50, and 100 badges.',
     '🦾 NEW SHOW-STOPPER — OMEGA! From wave 75 you can unleash a colossal robotic T-Rex that materialises at the exit and stomps up your busiest lane, one-shotting every dinosaur it meets in a shower of sparks. Each kill wears down its armor, so a big horde can bring it down — and bosses only lose 30% and keep coming. One deployment per run. (Dreamed up by Mason, age 9.)',
     '⏩ Replaced the 6× game-speed with a new 10× — hit fast-forward to blast through a wave once you know you\'ve got it handled.',

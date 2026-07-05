@@ -427,8 +427,8 @@ canvas#game {
 .optHead small { display: block; margin-top: 4px; color: var(--dim); font-size: 11px; letter-spacing: 0; text-transform: none; line-height: 1.5; }
 #btnSkip { background: #3a2a4a; border-color: #6b4f8a; }
 
-/* lab opens above end-of-run modals */
-#lab { z-index: 30; }
+/* lab & achievements open above end-of-run modals */
+#lab, #achievements { z-index: 30; }
 
 /* ---------- mobile / narrow screens ---------- */
 * { -webkit-tap-highlight-color: transparent; }
