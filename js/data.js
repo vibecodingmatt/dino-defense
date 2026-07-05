@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.16.0';
+const VERSION = '1.16.1';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -24,7 +24,8 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.16.0', date: 'Jul 5, 2026', items: [
+  {v: '1.16.1', date: 'Jul 5, 2026', items: [
+    '📱 Mobile landscape overhaul: the weapon shop now sits beside the map (no more scrolling below it to reach your weapons), and you can press-and-drag a weapon straight onto the map — its range/blast radius previews right where your finger (or cursor) is before you let go to drop it. You can still tap to select then tap the map.',
     '🔥 New CLEAN-PLAY STREAK: clear waves without letting anything leak and a bonus multiplier climbs (up to ×2.5), boosting all the DNA you earn — but a leak knocks it back down. Watch it in the HUD and protect it! Skilled, tidy play now pays off much better, while sloppy play earns the same as before.',
     '🏁 Beating all 100 waves now adds end-of-run bonuses: a victory bonus, a bonus scaled to your remaining base health, and an extra kicker for a flawless (no-damage) run.',
     '📊 Full victory recap: clearing a level pops a detailed results screen — dinosaurs defeated, best streak, DNA from the fight, every bonus, total DNA banked, and cash earned.',

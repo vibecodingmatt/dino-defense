@@ -1599,13 +1599,37 @@ function buildShop(){
     card.style.borderTop = `3px solid ${def.color}`;
     card.innerHTML = `<div class="ico">${def.icon}</div><div class="nm">${def.name}</div><div class="cost">$${def.cost}</div>`;
     card.title = def.desc + (def.air ? '' : '  (Cannot hit flying dinosaurs.)');
-    card.onclick = () => {
+    // press-and-drag a weapon onto the map (range preview follows) to drop it,
+    // or just tap to select it and then tap the map. Works for mouse + touch.
+    card.addEventListener('pointerdown', e => {
+      if (G.state !== 'playing') return;
       if (!towerUnlocked(key)){ SFX.error(); return; }
-      G.placing = (G.placing === key) ? null : key;
-      G.pendingTap = null; G.targeting = null;
-      selectTower(null);
+      e.preventDefault();
+      try { card.setPointerCapture(e.pointerId); } catch(_){}
+      const wasSel = G.placing === key;
+      G.placing = key; G.pendingTap = null; G.targeting = null; selectTower(null);
+      card._drag = {sx: e.clientX, sy: e.clientY, wasSel, moved: false};
+      G.mouse.on = false; // don't show the ghost until they drag onto the map
       updateHUD();
-    };
+    });
+    card.addEventListener('pointermove', e => {
+      const d = card._drag; if (!d) return;
+      if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 8) d.moved = true;
+      if (d.moved) mouseFromPointer(e);   // range preview tracks the finger/cursor
+    });
+    card.addEventListener('pointerup', e => {
+      const d = card._drag; card._drag = null; if (!d) return;
+      if (d.moved){                        // dragged onto the map → drop it there
+        mouseFromPointer(e);
+        if (G.mouse.on) placeTower(key, G.mouse.x, G.mouse.y);
+        if (!e.shiftKey || G.cash < towerCost(key)) G.placing = null;
+        G.mouse.on = false;
+      } else if (d.wasSel){                // plain tap on an already-selected card → deselect
+        G.placing = null;
+      }
+      updateHUD();
+    });
+    card.addEventListener('pointercancel', () => { card._drag = null; G.mouse.on = false; updateHUD(); });
     el.appendChild(card);
   }
 }
@@ -2436,6 +2460,14 @@ function canvasPos(e){
   const r = cv.getBoundingClientRect();
   return {x: (e.clientX - r.left) * (W / r.width), y: (e.clientY - r.top) * (H / r.height)};
 }
+/* map a pointer anywhere on screen to canvas coords; G.mouse.on = over the map */
+function mouseFromPointer(e){
+  const r = cv.getBoundingClientRect();
+  if (!r.width) return;
+  G.mouse.x = clamp((e.clientX - r.left) * (W / r.width), 0, W);
+  G.mouse.y = clamp((e.clientY - r.top) * (H / r.height), 0, H);
+  G.mouse.on = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+}
 cv.addEventListener('mousemove', e => {
   const p = canvasPos(e);
   G.mouse.x = p.x; G.mouse.y = p.y; G.mouse.on = true;
@@ -2672,6 +2704,11 @@ if (testParams.has('test')){
       if (testParams.has('armsell')) armOrSell(); // exercise the sell-confirm look
       G.paused = true;
     }, 60);
+  }
+  if (testParams.has('ghost')){ // preview the range indicator that follows a placement drag
+    G.placing = testParams.get('ghost') !== '1' ? testParams.get('ghost') : 'missile';
+    G.mouse.x = 560; G.mouse.y = 300; G.mouse.on = true;
+    G.paused = true;
   }
   if (testParams.has('econ')){ // measure DNA earned (per-wave + kills + clear) vs upgrade cost
     const rows = [];

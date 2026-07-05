@@ -414,22 +414,15 @@ canvas#game {
 
 /* ---------- mobile / narrow screens ---------- */
 * { -webkit-tap-highlight-color: transparent; }
-canvas#game, #hud button, .shopCard, .modal button { touch-action: manipulation; }
+canvas#game, #hud button, .modal button { touch-action: manipulation; }
+.shopCard { touch-action: none; } /* let a touch drag a weapon onto the map (not scroll) */
+/* shared small-screen tweaks (both orientations) */
 @media (max-width: 920px) {
   #app { height: 100dvh; }
-  #main { flex-direction: column; overflow: hidden; }
-  #stage { flex: none; background: #0a0d08; }
-  canvas#game { width: 100%; max-height: 52vh; }
-  #shop {
-    width: 100%; flex: 1; min-height: 0;
-    border-left: none; border-top: 2px solid var(--line);
-    padding: 8px;
-  }
-  #shopCards { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
   .shopCard { padding: 6px 3px; min-width: 0; }
   .shopCard .ico { font-size: 18px; }
   .shopCard .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 9.5px; }
-  #hud { font-size: 11px; gap: 5px; padding: 5px 6px; }
+  #hud { font-size: 11px; gap: 5px; padding: 5px 6px; flex-wrap: wrap; }
   #levelTitle { font-size: 13px; }
   #hud button { padding: 7px 8px; font-size: 12px; }
   #hud .stat { padding: 5px 7px; }
@@ -438,6 +431,45 @@ canvas#game, #hud button, .shopCard, .modal button { touch-action: manipulation;
   #menu h1 { letter-spacing: 2px; }
   .levelCard { width: calc(50% - 10px); }
   .hint { display: none; }
+}
+
+/* PORTRAIT phones/tablets: stack the shop UNDER the map */
+@media (max-width: 920px) and (orientation: portrait) {
+  #main { flex-direction: column; overflow: hidden; }
+  #stage { flex: none; }
+  canvas#game { width: 100%; max-height: 52vh; }
+  #shop {
+    width: 100%; flex: 1; min-height: 0;
+    border-left: none; border-top: 2px solid var(--line); padding: 8px;
+  }
+  #shopCards { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+}
+
+/* LANDSCAPE phones (short screens): keep map + shop SIDE BY SIDE so the
+   weapons are always visible without scrolling the page */
+@media (orientation: landscape) and (max-height: 560px) {
+  #main { flex-direction: row; overflow: hidden; }
+  #stage { flex: 1; min-width: 0; }
+  canvas#game { max-width: 100%; max-height: 100%; width: auto; }
+  #shop {
+    width: 150px; flex: none; height: 100%;
+    border-left: 2px solid var(--line); border-top: none;
+    padding: 6px; gap: 6px;
+  }
+  #shop h3 { font-size: 10px; margin: 0; }
+  #shopCards { grid-template-columns: 1fr 1fr; gap: 5px; }
+  .shopCard { padding: 5px 2px; }
+  .shopCard .ico { font-size: 15px; }
+  .shopCard .nm { font-size: 8.5px; }
+  .shopCard .cost { font-size: 9.5px; }
+  #incoming { padding: 5px; gap: 3px; }
+  .incTitle { font-size: 9.5px; }
+  .chip { font-size: 9px; padding: 2px 5px; }
+  #airCard { padding: 6px 8px; }
+  #hud { font-size: 10px; gap: 4px; padding: 3px 6px; }
+  #hud button { padding: 5px 7px; font-size: 10.5px; }
+  #hud .stat { padding: 3px 6px; }
+  #levelTitle { font-size: 11px; }
 }
 
 /* error overlay */
