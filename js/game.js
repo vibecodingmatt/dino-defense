@@ -1516,12 +1516,15 @@ function updateStrikes(dt){
   }
   G.strikes = G.strikes.filter(s => s.t < s.end);
 }
-/* poison gas clouds: damage every GROUND dino inside, over time; flyers rise above */
+/* poison gas clouds: damage GROUND dinos inside, over time. Flyers rise above
+   it; so do bosses and tall long-necked sauropods (Brachiosaurus/Apatosaurus) —
+   their heads are well clear of a ground-hugging cloud. */
+const gasImmune = d => d.flying || d.boss || d.painter === 'sauropod';
 function updateClouds(dt){
   for (const c of G.clouds){
     c.t += dt;
     for (const d of G.dinos){
-      if (d.dead || d.leaked || d.flying) continue;
+      if (d.dead || d.leaked || gasImmune(d)) continue;
       const p = dinoPos(d);
       if (hyp(c.x, c.y, p.x, p.y) <= c.r + d.size * 0.35) damage(d, c.dps * dt, true, c.tower);
     }

@@ -173,7 +173,7 @@ const TOWERS = {
             desc:'Lobbed shells devastate herds at long range. Cannot hit flyers or anything too close. One upgrade: massive damage and splash.', color:'#e0b64f'},
   gas:     {name:"Mason's Gas",    icon:'☣️', cost:240, dmg:42,  rof:0.6, range:150, air:false, proj:'gas', maxUp:2, unlock:3,
             cloud:{r:78, dur:3.4},
-            desc:'Lobs a lingering cloud of toxic gas that poisons EVERY ground dinosaur inside it — brutal against packed groups, and it ignores armor. Flyers rise above it.', color:'#a6e04a'},
+            desc:'Lobs a lingering cloud of toxic gas that poisons ground dinosaurs inside it — brutal against packed groups, and it ignores armor. Flyers, bosses, and tall long-necked dinos rise above the cloud.', color:'#a6e04a'},
 };
 
 /* Single-track upgrade tuning: every upgrade costs more than the weapon
