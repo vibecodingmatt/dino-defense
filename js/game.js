@@ -1599,23 +1599,24 @@ function buildShop(){
     card.style.borderTop = `3px solid ${def.color}`;
     card.innerHTML = `<div class="ico">${def.icon}</div><div class="nm">${def.name}</div><div class="cost">$${def.cost}</div>`;
     card.title = def.desc + (def.air ? '' : '  (Cannot hit flying dinosaurs.)');
-    // press-and-drag a weapon onto the map (range preview follows) to drop it,
-    // or just tap to select it and then tap the map. Works for mouse + touch.
+    // Drag a weapon onto the map (range preview follows) to drop it, or tap to
+    // select then tap the map. A mostly-VERTICAL drag on a card just scrolls the
+    // shop (touch-action: pan-y), so the panel always catches a scroll.
     card.addEventListener('pointerdown', e => {
       if (G.state !== 'playing') return;
       if (!towerUnlocked(key)){ SFX.error(); return; }
-      e.preventDefault();
-      try { card.setPointerCapture(e.pointerId); } catch(_){}
-      const wasSel = G.placing === key;
-      G.placing = key; G.pendingTap = null; G.targeting = null; selectTower(null);
-      card._drag = {sx: e.clientX, sy: e.clientY, wasSel, moved: false};
-      G.mouse.on = false; // don't show the ghost until they drag onto the map
-      updateHUD();
+      // no preventDefault: let the browser scroll the shop on a vertical drag
+      card._drag = {id: e.pointerId, sx: e.clientX, sy: e.clientY, moved: false, prev: G.placing};
     });
     card.addEventListener('pointermove', e => {
-      const d = card._drag; if (!d) return;
-      if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 8) d.moved = true;
-      if (d.moved) mouseFromPointer(e);   // range preview tracks the finger/cursor
+      const d = card._drag; if (!d || e.pointerId !== d.id) return;
+      if (!d.moved){
+        if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 10) return;
+        d.moved = true;                    // began a place-drag (browser didn't scroll)
+        try { card.setPointerCapture(e.pointerId); } catch(_){}
+        G.placing = key; G.pendingTap = null; G.targeting = null; selectTower(null);
+      }
+      mouseFromPointer(e);                 // range preview tracks the finger/cursor
     });
     card.addEventListener('pointerup', e => {
       const d = card._drag; card._drag = null; if (!d) return;
@@ -1624,12 +1625,17 @@ function buildShop(){
         if (G.mouse.on) placeTower(key, G.mouse.x, G.mouse.y);
         if (!e.shiftKey || G.cash < towerCost(key)) G.placing = null;
         G.mouse.on = false;
-      } else if (d.wasSel){                // plain tap on an already-selected card → deselect
-        G.placing = null;
+      } else {                             // plain tap → toggle selection
+        G.placing = (d.prev === key) ? null : key;
+        G.pendingTap = null; G.targeting = null; selectTower(null);
       }
       updateHUD();
     });
-    card.addEventListener('pointercancel', () => { card._drag = null; G.mouse.on = false; updateHUD(); });
+    card.addEventListener('pointercancel', () => {
+      const d = card._drag; card._drag = null;
+      if (d && d.moved) G.placing = d.prev; // a scroll interrupted a place-drag → undo it
+      G.mouse.on = false; updateHUD();
+    });
     el.appendChild(card);
   }
 }

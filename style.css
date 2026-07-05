@@ -85,7 +85,7 @@ canvas#game {
   width: 210px; padding: 10px;
   background: var(--panel);
   border-left: 2px solid var(--line);
-  overflow-y: auto;
+  overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
   display: flex; flex-direction: column; gap: 10px;
 }
 #shop h3 { font-size: 13px; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; }
@@ -415,7 +415,8 @@ canvas#game {
 /* ---------- mobile / narrow screens ---------- */
 * { -webkit-tap-highlight-color: transparent; }
 canvas#game, #hud button, .modal button { touch-action: manipulation; }
-.shopCard { touch-action: none; } /* let a touch drag a weapon onto the map (not scroll) */
+/* a vertical drag on a card scrolls the shop; a sideways drag places the weapon */
+.shopCard { touch-action: pan-y; }
 /* shared small-screen tweaks (both orientations) */
 @media (max-width: 920px) {
   #app { height: 100dvh; }
