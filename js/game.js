@@ -23,6 +23,27 @@ const fmt   = n => {
 
 const W = 1280, H = 720;
 
+/* ---------------- analytics (GA4) ----------------
+   Off unless a real Measurement ID is set in data.js. Never fires on local
+   (file://) or ?test=/debug sessions, so your own testing stays out of it. */
+const DEV_SESSION = location.protocol === 'file:' ||
+  ['test','econ','pop','firstwave','misl','strike','dbg','lab','settings','ach','tips','log','resume','dev']
+    .some(k => new URLSearchParams(location.search).has(k));
+function initAnalytics(){
+  if (DEV_SESSION || !/^G-[A-Z0-9]+$/i.test(ANALYTICS_ID || '')) return;
+  const s = document.createElement('script');
+  s.async = true; s.src = 'https://www.googletagmanager.com/gtag/js?id=' + ANALYTICS_ID;
+  document.head.appendChild(s);
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function(){ window.dataLayer.push(arguments); };
+  gtag('js', new Date());
+  gtag('config', ANALYTICS_ID);
+}
+function track(event, params){
+  if (DEV_SESSION) return;
+  try { if (window.gtag) gtag('event', event, params || {}); } catch(e){}
+}
+
 /* ---------------- persistent save ---------------- */
 const SAVE_KEY = 'islaDefense.v1';
 const START_DNA = 80;   // grant so a new player can buy their first upgrade right away
@@ -1139,6 +1160,8 @@ function startLevel(idx, mode, diff){
   G.pendingWave = G.wave < WAVES_PER_LEVEL ? buildWave(G.wave + 1) : null;
   updateIncoming();
   updateHUD();
+  G.runStartT = performance.now();
+  track(mode === 'resume' ? 'run_resume' : 'run_start', {map_name: G.level.name, difficulty: G.difficulty});
 }
 
 /* ambient particles: fireflies at night, spores in mist, drifting leaves by day */
@@ -1176,6 +1199,9 @@ function victory(){
   save.run = null;
   const D = G.difficulty;
   const cheated = runDisqualified();
+  track('run_end', {result: 'win', map_name: G.level.name, difficulty: D, wave: WAVES_PER_LEVEL,
+                    duration_sec: Math.round((performance.now() - (G.runStartT || performance.now())) / 1000)});
+  track('level_beaten', {map_name: G.level.name, difficulty: D});
   // clean runs bank a level-clear DNA bonus (scaled by difficulty) + record progress
   const reward = cheated ? 0 : Math.round(DIFF_CLEAR_DNA * diffDnaMult(D));
   save.dna += reward;
@@ -1216,6 +1242,8 @@ function victory(){
 function defeat(){
   G.over = true;
   clearRun();
+  track('run_end', {result: 'loss', map_name: G.level.name, difficulty: G.difficulty, wave: G.wave,
+                    duration_sec: Math.round((performance.now() - (G.runStartT || performance.now())) / 1000)});
   const banked = runDisqualified()
     ? `<span class="dim">No DNA — a developer cheat was used this run.</span>`
     : `You banked <b class="dna">+${fmt(G.dnaRun)} DNA</b> from the ${G.wave} wave${G.wave === 1 ? '' : 's'} you cleared — spend it in the Lab to level up, then try again.`;
@@ -1249,6 +1277,7 @@ function placeTower(key, x, y, force){
   G.towers.push({key, x, y, ulv: 0, cd: 0, angle: rand(0, 6.28), flash: 0, invested: cost, mode: 'first'});
   SFX.build();
   addFx('ring', x, y, 10);
+  if (!force) track('weapon_built', {weapon: key});
   // onboarding: the moment the very first weapon is down, count wave 1 in
   if (G.wave === 0 && !G.waveActive && !G.over && G.towers.length === 1 && !(G.autoTimer > 0)){
     G.autoTimer = FIRST_WAVE_DELAY;
@@ -1407,6 +1436,7 @@ function launchStrike(x, y){
   SFX.alert();
   SFX.jet();
   unlockAch('airstrike');
+  track('air_strike_called', {difficulty: G.difficulty});
   saveRun();
   updateHUD();
 }
@@ -2525,6 +2555,7 @@ window.onerror = (msg, src, line) => {
 };
 
 /* ---------------- boot ---------------- */
+initAnalytics();
 buildMenu();
 syncSettings();
 requestAnimationFrame(frame);
