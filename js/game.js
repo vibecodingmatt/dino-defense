@@ -49,8 +49,10 @@ const SAVE_KEY = 'islaDefense.v1';
 const START_DNA = 80;   // grant so a new player can buy their first upgrade right away
 function defaultSave(){
   return {bestDiff:0, mapBest:{}, wlv:{}, dna:START_DNA, kills:0, run:null, ach:{}, granted:true,
-          settings:{invincible:false, unlimitedCash:false, levelSkip:false, mute:false, auto:true, music:true}};
+          settings:{invincible:false, unlimitedCash:false, levelSkip:false, mute:false, auto:true, music:true, mutedWeapons:{}}};
 }
+/* per-weapon sound mute (toggled from the weapon's popup menu) */
+const weaponMuted = key => !!(save.settings.mutedWeapons && save.settings.mutedWeapons[key]);
 function loadSave(){
   try {
     const s = JSON.parse(localStorage.getItem(SAVE_KEY));
@@ -453,12 +455,10 @@ const SFX = {
     sfxNoise({dur: 0.12, peak: 0.14, type: 'lowpass', f0: 520, f1: 140, wet: 0.15});
     sfxTone({type: 'triangle', f0: 1250, f1: 820, dur: 0.1, peak: 0.045, wet: 0.25, delay: 0.04});
   },
-  gas(){ // Mason's request: a REAL ripper — loud, long, wet and sputtery
+  gas(){ // a soft little poot — quiet enough to hear over and over without grating
     if (!sfxGate()) return;
-    sfxTone({type: 'sawtooth', f0: 168, f1: 58, dur: 0.66, peak: 0.34, dist: true, wet: 0.22, tremF: 31, tremF1: 10, tremD: 0.9, a: 0.012}); // buzzy body
-    sfxTone({type: 'sawtooth', f0: 104, f1: 42, dur: 0.62, peak: 0.26, dist: true, wet: 0.22, tremF: 23, tremF1: 8,  tremD: 0.8, a: 0.012}); // lower harmonic
-    sfxTone({type: 'square',   f0: 66,  f1: 34, dur: 0.58, peak: 0.20, dist: true, wet: 0.15, tremF: 17, tremD: 0.7, a: 0.02});             // deep sub rumble
-    sfxNoise({dur: 0.58, peak: 0.12, type: 'bandpass', f0: 950, f1: 240, Q: 1.1, wet: 0.24, a: 0.015}); // wet splatter
+    sfxTone({type: 'sawtooth', f0: 118, f1: 62, dur: 0.26, peak: 0.075, dist: true, wet: 0.10, tremF: 20, tremF1: 11, tremD: 0.55, a: 0.02});
+    sfxNoise({dur: 0.2, peak: 0.028, type: 'bandpass', f0: 560, f1: 260, Q: 1.2, wet: 0.1, a: 0.02}); // faint wet splatter
   },
   upgrade(){ // ascending servo chime
     sfxTone({type: 'triangle', f0: 520, dur: 0.08, peak: 0.05, wet: 0.2});
@@ -745,6 +745,7 @@ function applyHit(d, t, st, def){
 function fireTower(t, dt){
   const def = TOWERS[t.key];
   const st = towerStats(t);
+  const say = m => { if (!weaponMuted(t.key)) SFX[m](); }; // per-weapon sound gate
   t.cd -= dt;
   t.flash = Math.max(0, (t.flash || 0) - dt * 3);
   t.recoil = Math.max(0, (t.recoil || 0) - dt * 6);
@@ -759,7 +760,7 @@ function fireTower(t, dt){
     }
     if (!any) return;
     t.cd = 1 / st.rof;
-    SFX.pulse();
+    say('pulse');
     addFx('sonic', t.x, t.y, st.range);
     for (const d of G.dinos){
       if (d.dead || d.leaked) continue;
@@ -786,15 +787,15 @@ function fireTower(t, dt){
 
   switch (def.proj){
     case 'dart':
-      SFX.dart();
+      say('dart');
       G.projs.push({kind:'dart', x:t.x, y:t.y, target, speed:520, dmg:st.dmg, tower:t, color:'#c8f08a'});
       break;
     case 'bullet':
-      SFX.shot();
+      say('shot');
       G.projs.push({kind:'bullet', x:t.x, y:t.y, target, speed:760, dmg:st.dmg, tower:t, color:'#ffe9a0'});
       break;
     case 'snipe':
-      SFX.snipe();
+      say('snipe');
       G.bolts.push({x1:t.x, y1:t.y, x2:tp.x, y2:tp.y, t:0.09, color:'rgba(160,210,255,0.9)', w:2});
       applyHit(target, t, st, def);
       break;
@@ -812,7 +813,7 @@ function fireTower(t, dt){
       break;
     }
     case 'tesla': {
-      SFX.zap();
+      say('zap');
       let cur = target, from = {x:t.x, y:t.y};
       const hitset = new Set();
       for (let i = 0; i <= def.chain; i++){
@@ -834,7 +835,7 @@ function fireTower(t, dt){
       break;
     }
     case 'missile': {
-      SFX.shot();
+      say('shot');
       // each upgrade adds a rocket — the WHOLE salvo locks onto the same target
       const salvo = 1 + (t.ulv || 0);
       for (let i = 0; i < salvo; i++){
@@ -845,19 +846,19 @@ function fireTower(t, dt){
       break;
     }
     case 'cryo':
-      SFX.cryo();
+      say('cryo');
       G.projs.push({kind:'cryo', x:t.x, y:t.y, target, speed:460, dmg:st.dmg, splash:st.splash, slow:def.slow, tower:t, color:'#cfeeff'});
       break;
     case 'gas': {
       // toot! a puff of green gas out the nozzle, then a lingering cloud on the target
-      SFX.gas();
+      say('gas');
       addFx('gaspuff', t.x + Math.cos(t.angle) * 20, t.y + Math.sin(t.angle) * 20, 16, t.angle);
       if (G.clouds.length > 40) G.clouds.shift();
       G.clouds.push({x: tp.x, y: tp.y, r: def.cloud.r, t: 0, dur: def.cloud.dur, dps: st.dmg, tower: t, seed: Math.random()*9});
       break;
     }
     case 'mortar': {
-      SFX.thoomp();
+      say('thoomp');
       // lob a shell at where the target will be when it lands
       const dd = hyp(t.x, t.y, tp.x, tp.y);
       const dur = clamp(dd / 300, 0.5, 1.3);
@@ -881,7 +882,7 @@ function updateProjs(dt){
       if (k >= 1){
         pr.hit = true;
         const def = TOWERS[pr.tower.key];
-        SFX.boom();
+        if (!weaponMuted(pr.tower.key)) SFX.boom();
         G.shake = Math.max(G.shake, 5);
         addFx('boom', pr.tx, pr.ty, pr.splash);
         addFx('dust', pr.tx, pr.ty + 4, pr.splash * 0.5);
@@ -921,7 +922,7 @@ function updateProjs(dt){
       const def = TOWERS[pr.tower.key];
       const st = {dmg: pr.dmg, rof: 0, range: 0};
       if (pr.splash){
-        SFX.boom();
+        if (!weaponMuted(pr.tower.key)) SFX.boom();
         addFx(pr.kind === 'cryo' ? 'frost' : 'boom', tx, ty, pr.splash);
         if (pr.kind !== 'cryo') G.shake = Math.max(G.shake, 3);
         for (const d of G.dinos){
@@ -1341,6 +1342,10 @@ function renderTowerPanel(){
     btn.classList.toggle('can', afford);    // bright green when you can afford it
   }
   $('#tpMode').textContent = 'Target: ' + t.mode.toUpperCase();
+  const muted = weaponMuted(t.key), muteBtn = $('#tpMute');
+  muteBtn.textContent = muted ? '🔇' : '🔊';
+  muteBtn.classList.toggle('muted', muted);
+  muteBtn.title = (muted ? 'Unmute' : 'Mute') + ' all ' + def.name + ' sounds';
   const sell = $('#tpSell'), refund = Math.round(t.invested * 0.7);
   sell.classList.toggle('confirm', sellArmed);
   sell.textContent = sellArmed ? `⚠ Tap to confirm sell` : `💰 Sell — $${refund}`;
@@ -2458,6 +2463,13 @@ $('#airCard').onclick = () => {
   updateHUD();
 };
 $('#tpClose').onclick = () => selectTower(null);
+$('#tpMute').onclick = () => {
+  const t = G.selected; if (!t) return;
+  if (!save.settings.mutedWeapons) save.settings.mutedWeapons = {};
+  save.settings.mutedWeapons[t.key] = !weaponMuted(t.key);
+  persist();
+  renderTowerPanel();
+};
 $('#tpSell').onclick = armOrSell;
 $('#tpMode').onclick = () => {
   const modes = ['first', 'last', 'strong', 'close'];

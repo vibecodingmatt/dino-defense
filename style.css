@@ -138,13 +138,17 @@ canvas#game {
   border: 7px solid transparent; border-top-color: var(--amber); border-bottom: 0;
 }
 #towerPop.below::after { bottom: auto; top: -7px; border-top: 0; border-bottom: 7px solid var(--amber); }
-#tpClose {
-  position: absolute; top: 5px; right: 5px; width: 24px; height: 24px;
-  padding: 0 !important; line-height: 1; font-size: 14px; border-radius: 6px;
+#tpClose, #tpMute {
+  position: absolute; top: 5px; width: 24px; height: 24px;
+  padding: 0 !important; line-height: 1; font-size: 13px; border-radius: 6px;
   background: #0006 !important; color: var(--dim) !important; border: 1px solid var(--line) !important;
 }
+#tpClose { right: 5px; font-size: 14px; }
 #tpClose:hover { color: #fff !important; border-color: var(--red) !important; }
-#tpName { font-weight: bold; color: var(--amber2); font-size: 13.5px; padding-right: 26px; }
+#tpMute { right: 33px; }
+#tpMute:hover { color: #fff !important; border-color: var(--amber) !important; }
+#tpMute.muted { color: var(--red) !important; border-color: var(--red) !important; opacity: 0.95; }
+#tpName { font-weight: bold; color: var(--amber2); font-size: 13.5px; padding-right: 52px; }
 #tpStats { font-size: 11px; color: var(--text); line-height: 1.5; }
 #tpStats .warn { color: var(--red); }
 #towerPop button { font-size: 12px; text-align: center; padding: 8px 10px; }
