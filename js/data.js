@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.15.2';
+const VERSION = '1.16.0';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -22,7 +22,10 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    new day, add a new daily entry; when shipping again the same day, update that
    day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.15.2', date: 'Jul 4, 2026', items: [
+  {v: '1.16.0', date: 'Jul 4, 2026', items: [
+    '🔥 New CLEAN-PLAY STREAK: clear waves without letting anything leak and a bonus multiplier climbs (up to ×2.5), boosting all the DNA you earn — but a leak knocks it back down. Watch it in the HUD and protect it! Skilled, tidy play now pays off much better, while sloppy play earns the same as before.',
+    '🏁 Beating all 100 waves now adds end-of-run bonuses: a victory bonus, a bonus scaled to your remaining base health, and an extra kicker for a flawless (no-damage) run.',
+    '📊 Full victory recap: clearing a level pops a detailed results screen — dinosaurs defeated, best streak, DNA from the fight, every bonus, total DNA banked, and cash earned.',
     '🚀 Fixed the Missile Battery: every rocket in a salvo now locks onto the same dinosaur (they used to split off and chase different targets), landing big concentrated splash damage.',
     '☣️ New weapon — MASON\'S GAS! It rips a LOUD toot and blasts out a puff of green poison gas that lingers on the ground and hurts every dinosaur that walks through the cloud (ignoring armor). Flyers float above it. A little stronger than the Flame Thrower, and great against big packs. (Designed by Mason, age 9.)',
     '🚦 Smoother opening: a "Place a weapon to begin" prompt now guides you at the start, and the first wave kicks off automatically a few seconds after you set down your first weapon (you can still press Start Wave to go early).',
@@ -289,8 +292,19 @@ const DNA_PER_BOUNTY = 0.00012; // DNA per kill = enemy cash-bounty × this × d
    waves pay a little more. A full 100-wave clear also gets a finishing bonus. */
 const WAVE_DNA_BASE  = 0.8;     // DNA for clearing a wave, before the ramp/difficulty factor
 const WAVE_DNA_RAMP  = 0.016;   // extra DNA per wave number (wave 100 pays more than wave 1)
-const DIFF_CLEAR_DNA = 20;      // finishing bonus for clearing all 100 waves (× difficulty factor)
 const waveDna = w => WAVE_DNA_BASE + WAVE_DNA_RAMP * w;
+
+/* CLEAN-PLAY STREAK (inspired by Robo Defense's reward multiplier): clearing a
+   wave with no leaks grows a bonus multiplier that scales ALL wave DNA; letting
+   a dino through knocks it back down. Sloppy play stays at ×1.0 = the base
+   economy, so this is a pure skill reward on top. */
+const STREAK_STEP      = 0.05;  // +multiplier per clean (no-leak) wave
+const STREAK_MAX       = 2.5;   // multiplier cap
+const STREAK_LEAK_MULT = 0.5;   // multiplier is halved when a dino leaks
+/* end-of-run (full 100-wave clear) bonuses, as a % of the DNA earned that run */
+const VICTORY_PCT  = 0.20;      // +20% for finishing all 100 waves
+const HEALTH_PCT   = 0.30;      // up to +30%, scaled by remaining base health
+const FLAWLESS_PCT = 0.25;      // +25% more if your base took zero damage
 
 /* Early-game easing: the low levels are softened so a fresh player can beat
    Level 1 (and climb the first stretch) with little or no upgrading — hard,

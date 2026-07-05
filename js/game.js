@@ -492,6 +492,9 @@ const G = {
   over: false,
   difficulty: 1,           // selected difficulty level (1..MAX_DIFFICULTY)
   dnaRun: 0,               // DNA earned this run (for the results screen)
+  streak: 1,               // clean-play multiplier on wave DNA
+  waveLeaked: false,       // did anything leak during the current wave?
+  stat: null,              // per-run tally for the recap
   flawless: true,          // no base damage taken this run
   runCheated: false,       // any developer cheat active/used this run → no trophies
 };
@@ -693,12 +696,14 @@ function damage(d, amt, pierce, src){
     d.dead = true;
     const p = dinoPos(d);
     G.cash += d.bounty;
+    if (G.stat){ G.stat.kills++; G.stat.cashEarned += d.bounty; }
     addText(p.x, p.y - d.size, '+$' + d.bounty, '#ffd24a');
     // DNA drops from every kill, scaled by difficulty (clean runs only)
     if (!runDisqualified()){
       const dna = d.bounty * DNA_PER_BOUNTY * diffDnaMult(G.difficulty) * (d.boss ? 12 : 1);
       save.dna += dna;
       G.dnaRun += dna;
+      if (G.stat) G.stat.dnaKills += dna;
       save.kills = (save.kills || 0) + 1;
       if (save.kills >= 1000  && !save.ach.kills_1k)  unlockAch('kills_1k');
       if (save.kills >= 50000 && !save.ach.kills_50k) unlockAch('kills_50k');
@@ -1033,6 +1038,7 @@ function updateDinos(dt){
     }
     if (d.dist >= path.len){
       d.leaked = true;
+      G.waveLeaked = true; // a dino got through — breaks the clean-wave streak
       if (!save.settings.invincible){
         G.lives -= d.dmgToBase * (d.boss ? 1 : 1);
         G.flawless = false; // base took a hit — no longer a flawless run
@@ -1051,6 +1057,7 @@ function startWave(){
   if (G.waveActive || G.over) return;
   G.wave++;
   if (cheatsActive()) G.runCheated = true; // latch: cheating any wave forfeits this run's trophies
+  G.waveLeaked = false; // fresh clean-wave chance for the streak
   G.waveActive = true;
   G.autoTimer = -1;
   G.spawnQ = G.pendingWave || buildWave(G.wave);
@@ -1065,15 +1072,23 @@ function endWave(){
   G.waveActive = false;
   const bonus = 40 + 3 * G.wave;
   G.cash += bonus;
-  // bank DNA for clearing this wave (clean runs only) — this is the main way
-  // a run that can't reach wave 100 still earns DNA to get stronger
+  if (G.stat) G.stat.cashEarned += bonus;
+  // clean-play streak: a wave cleared with no leaks grows the multiplier,
+  // a leak knocks it back down
+  if (G.waveLeaked) G.streak = Math.max(1, G.streak * STREAK_LEAK_MULT);
+  else G.streak = Math.min(STREAK_MAX, G.streak + STREAK_STEP);
+  if (G.stat) G.stat.streakMax = Math.max(G.stat.streakMax, G.streak);
+  // bank DNA for clearing this wave (clean runs only), boosted by the streak —
+  // this is the main way a run that can't reach wave 100 still earns DNA
   let dnaGain = 0;
   if (!runDisqualified()){
-    dnaGain = waveDna(G.wave) * diffDnaMult(G.difficulty);
+    dnaGain = waveDna(G.wave) * diffDnaMult(G.difficulty) * G.streak;
     save.dna += dnaGain; G.dnaRun += dnaGain;
+    if (G.stat) G.stat.dnaWaves += dnaGain;
   }
   persist();
-  addText(W/2, 120, `Wave ${G.wave} cleared!  +$${bonus}${dnaGain >= 1 ? '  +' + fmt(dnaGain) + ' DNA' : ''}`, '#9fe870');
+  const streakTag = G.streak > 1.001 ? `  🔥×${G.streak.toFixed(1)}` : '';
+  addText(W/2, 120, `Wave ${G.wave} cleared!  +$${bonus}${dnaGain >= 1 ? '  +' + fmt(dnaGain) + ' DNA' : ''}${streakTag}`, '#9fe870');
   G.flashT = 0.45;
   SFX.fanfare();
   if (G.wave >= WAVES_PER_LEVEL){ victory(); return; }
@@ -1148,6 +1163,8 @@ function startLevel(idx, mode, diff){
     G.lives = startLives(); G.airUsed = 0;
   }
   G.maxLives = startLives();
+  G.streak = 1; G.waveLeaked = false;
+  G.stat = {dnaWaves: 0, dnaKills: 0, cashEarned: 0, kills: 0, streakMax: 1};
   saveRun();
   G.state = 'playing';
   $('#menu').classList.add('hidden');
@@ -1203,9 +1220,15 @@ function victory(){
   track('run_end', {result: 'win', map_name: G.level.name, difficulty: D, wave: WAVES_PER_LEVEL,
                     duration_sec: Math.round((performance.now() - (G.runStartT || performance.now())) / 1000)});
   track('level_beaten', {map_name: G.level.name, difficulty: D});
-  // clean runs bank a level-clear DNA bonus (scaled by difficulty) + record progress
-  const reward = cheated ? 0 : Math.round(DIFF_CLEAR_DNA * diffDnaMult(D));
-  save.dna += reward;
+  // end-of-run bonuses, as a % of the DNA earned during the run (clean runs only)
+  const s = G.stat || {dnaWaves: 0, dnaKills: 0, cashEarned: 0, kills: 0, streakMax: G.streak};
+  const earned = s.dnaWaves + s.dnaKills;                     // banked wave + kill DNA
+  const healthPct = clamp(G.lives / (G.maxLives || 1), 0, 1);
+  const victoryBonus  = cheated ? 0 : Math.round(earned * VICTORY_PCT);
+  const healthBonus   = cheated ? 0 : Math.round(earned * HEALTH_PCT * healthPct);
+  const flawlessBonus = (!cheated && G.flawless) ? Math.round(earned * FLAWLESS_PCT) : 0;
+  const bonusTotal = victoryBonus + healthBonus + flawlessBonus;
+  save.dna += bonusTotal; G.dnaRun += bonusTotal;
   const wasUnlocked = diffUnlocked(save.bestDiff);
   let newBlock = false;
   if (!cheated){
@@ -1224,16 +1247,32 @@ function victory(){
   if (D >= 500)  unlockAch('diff_500');
   if (D >= 750)  unlockAch('diff_750');
   if (D >= 1000) unlockAch('diff_1000');
-  const flawlessNote = (G.flawless && !cheated) ? '<br>🛡️ <b>Flawless</b> — your base was never touched!' : '';
   const unlockNote = newBlock && diffUnlocked(save.bestDiff) <= MAX_DIFFICULTY
-    ? `<br><br>🔓 New difficulty block unlocked — you can now play up to <b>Level ${diffUnlocked(save.bestDiff)}</b>!`
-    : (D >= MAX_DIFFICULTY ? `<br><br>👑 You have conquered <b>Level 1000</b> — the summit of the climb!` : '');
-  const rewardLine = cheated
-    ? `<span class="dim">No DNA or trophies — a developer cheat was used this run.</span>`
-    : `Banked this run: <b class="dna">+${fmt(G.dnaRun + reward)} DNA</b> (includes a <b class="dna">+${fmt(reward)}</b> full-clear bonus).${flawlessNote}`;
-  $('#victoryText').innerHTML =
-    `<b>${G.level.name}</b> cleared at <b>Difficulty ${D}</b>. All 100 waves contained.<br>` +
-    rewardLine + unlockNote;
+    ? `<div class="recapUnlock">🔓 New block unlocked — you can now play up to <b>Level ${diffUnlocked(save.bestDiff)}</b>!</div>`
+    : (D >= MAX_DIFFICULTY ? `<div class="recapUnlock">👑 You conquered <b>Level 1000</b> — the summit of the climb!</div>` : '');
+  const row = (label, val, cls) => `<div class="rl">${label}</div><div class="rv ${cls || ''}">${val}</div>`;
+  const totalDna = Math.round(G.dnaRun);
+  let recap;
+  if (cheated){
+    recap = `<div class="recapSub"><b>${G.level.name}</b> cleared at Difficulty ${D} — all 100 waves.</div>` +
+            `<div class="dim" style="margin-top:10px">No DNA or trophies — a developer cheat was used this run.</div>`;
+  } else {
+    recap =
+      `<div class="recapSub"><b>${G.level.name}</b> cleared at <b>Difficulty ${D}</b> — all 100 waves contained.</div>` +
+      `<div class="recapGrid">` +
+        row('☠ Dinosaurs defeated', fmt(s.kills)) +
+        row('🔥 Best clean streak', '×' + s.streakMax.toFixed(1), 'streak') +
+        `<div class="rsep"></div>` +
+        row('🧬 DNA earned in the fight', '+' + fmt(earned), 'dna') +
+        row('🏁 Victory bonus (+20%)', '+' + fmt(victoryBonus), 'dna') +
+        row(`❤ Health bonus (${Math.round(healthPct*100)}% left)`, '+' + fmt(healthBonus), 'dna') +
+        (flawlessBonus ? row('🛡️ Flawless bonus (+25%)', '+' + fmt(flawlessBonus), 'dna') : '') +
+        `<div class="rl total">🧬 Total DNA banked</div><div class="rv dna total">+${fmt(totalDna)}</div>` +
+        `<div class="rsep"></div>` +
+        row('💰 Cash earned', '$' + fmt(s.cashEarned), 'cash') +
+      `</div>` + unlockNote;
+  }
+  $('#victoryText').innerHTML = recap;
   // fireworks over the battlefield before the results screen appears
   G.celebration = {t: 0, dur: 5.4, next: 0.2};
   G.fw = [];
@@ -1499,6 +1538,12 @@ function updateHUD(){
   $('#hLives').classList.toggle('low', G.lives <= G.maxLives * 0.25);
   $('#invBadge').classList.toggle('hidden', !save.settings.invincible);
   $('#btnSkip').classList.toggle('hidden', !save.settings.levelSkip);
+  const sb = $('#streakBadge'), showStreak = G.state === 'playing' && G.streak > 1.001;
+  sb.classList.toggle('hidden', !showStreak);
+  if (showStreak){
+    sb.textContent = `🔥 ×${G.streak.toFixed(1)}`;
+    sb.classList.toggle('hot', G.streak >= STREAK_MAX - 0.001);
+  }
   $('#btnWave').disabled = G.waveActive || G.over;
   $('#btnWave').textContent = G.waveActive ? '⚔ Wave in progress'
     : (G.autoTimer > 0 ? (G.wave === 0 ? `▶ First wave in ${Math.ceil(G.autoTimer)}…` : `▶ Next in ${Math.ceil(G.autoTimer)}…`)
@@ -2628,18 +2673,20 @@ if (testParams.has('test')){
   if (testParams.has('econ')){ // measure DNA earned (per-wave + kills + clear) vs upgrade cost
     const rows = [];
     for (const D of [1, 5, 25, 100]){
-      // cumulative DNA by wave W: sum of per-wave + per-kill up to W
-      const dnaBy = w => {
+      // cumulative DNA by wave W (streakRamp = clean no-leak run)
+      const dnaBy = (w, ramp) => {
         let d = 0;
         for (let i = 1; i <= w; i++){
-          d += waveDna(i) * diffDnaMult(D);
+          const st = ramp ? Math.min(STREAK_MAX, 1 + STREAK_STEP * i) : 1;
+          d += waveDna(i) * diffDnaMult(D) * st;
           for (const s of buildWave(i)) d += bountyOf(DINOS[s.key], i) * DNA_PER_BOUNTY * diffDnaMult(D) * (s.boss ? 12 : 1);
         }
         return d;
       };
       const upg = wlvCost(TOWERS.gatling, D);
-      const w40 = dnaBy(40), w70 = dnaBy(70), full = dnaBy(100) + DIFF_CLEAR_DNA * diffDnaMult(D);
-      rows.push(`D${D} · upg@Lv${D}=${fmt(upg)}:  die@40=${fmt(w40)} (${(w40/upg).toFixed(1)}u)  die@70=${fmt(w70)} (${(w70/upg).toFixed(1)}u)  FULL=${fmt(full)} (${(full/upg).toFixed(1)}u)`);
+      const w40 = dnaBy(40, false), w70 = dnaBy(70, false), sloppy = dnaBy(100, false);
+      const clean = dnaBy(100, true) * (1 + VICTORY_PCT + HEALTH_PCT + FLAWLESS_PCT); // flawless full-health
+      rows.push(`D${D} upg=${fmt(upg)}:  die40=${(w40/upg).toFixed(1)}u  die70=${(w70/upg).toFixed(1)}u  | FULL sloppy=${(sloppy/upg).toFixed(1)}u  clean+flawless=${(clean/upg).toFixed(1)}u`);
     }
     const el = $('#errbox'); el.classList.remove('hidden');
     el.style.whiteSpace = 'pre'; el.style.fontSize = '11px'; el.style.textAlign = 'left';
@@ -2697,9 +2744,16 @@ if (testParams.has('test')){
   const sim = parseFloat(testParams.get('sim')) || 0;
   for (let s = 0; s < sim; s += 0.05) step(0.05);
   if (testParams.has('wave')){ G.wave = parseInt(testParams.get('wave'), 10) - 1; G.waveActive = false; startWave(); for (let s = 0; s < (sim || 6); s += 0.05) step(0.05); }
-  if (testParams.has('win')){ // stage the wave-100 celebration
+  if (testParams.has('win')){ // stage the wave-100 celebration + recap
     G.wave = WAVES_PER_LEVEL;
+    // seed a realistic run tally so the recap has real numbers to show
+    G.stat = {dnaWaves: 1840, dnaKills: 260, cashEarned: 41230, kills: 3287, streakMax: 2.5};
+    G.dnaRun = G.stat.dnaWaves + G.stat.dnaKills;
+    G.streak = 2.5; G.lives = testParams.has('flaw') ? G.maxLives : Math.round(G.maxLives * 0.72);
+    G.flawless = testParams.has('flaw');
+    G.celebration = null; // jump straight to the results modal for the screenshot
     victory();
+    $('#victory').classList.remove('hidden');
   }
   if (testParams.has('boss')){ // stage a live boss entrance
     spawnDino(DINOS[testParams.get('bosskey')] ? testParams.get('bosskey') : 'trex', 0, true);

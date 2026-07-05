@@ -47,6 +47,17 @@ html, body {
   color: #ffdf70; border: 1px solid #ffdf70; border-radius: 6px;
   padding: 3px 8px; font-size: 12px; font-weight: bold;
 }
+#streakBadge {
+  color: #ffb84a; border: 1px solid #ffb84a55; border-radius: 6px;
+  padding: 3px 8px; font-size: 12px; font-weight: bold; white-space: nowrap;
+  background: #ff8a2020;
+}
+#streakBadge.hot {
+  color: #fff2c0; border-color: #ff7a2a; background: #ff6a1533;
+  box-shadow: 0 0 10px #ff7a2a66; animation: streakPulse 0.9s ease-in-out infinite;
+}
+@keyframes streakPulse { 50% { box-shadow: 0 0 16px #ff7a2aaa; } }
+@media (prefers-reduced-motion: reduce){ #streakBadge.hot { animation: none; } }
 #hud .spacer { flex: 1; }
 #hud button, .modal button, #shop button {
   background: var(--panel2); color: var(--text);
@@ -356,6 +367,23 @@ canvas#game {
 .primary { background: #3d5226 !important; font-weight: bold; }
 .dna { color: var(--dna); }
 .dim { color: var(--dim); }
+
+/* victory recap breakdown */
+.recapSub { color: var(--text); font-size: 13.5px; line-height: 1.5; margin-bottom: 14px; }
+.recapGrid {
+  display: grid; grid-template-columns: 1fr auto; gap: 7px 16px; align-items: baseline;
+  background: #00000033; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px;
+  max-width: 420px; margin: 0 auto;
+}
+.recapGrid .rl { text-align: left; font-size: 13px; color: var(--text); }
+.recapGrid .rv { text-align: right; font-weight: bold; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.recapGrid .rv.dna { color: var(--dna); }
+.recapGrid .rv.cash { color: var(--amber2); }
+.recapGrid .rv.streak { color: #ffb84a; }
+.recapGrid .rl.total, .recapGrid .rv.total { font-size: 15px; color: var(--amber2); padding-top: 3px; }
+.recapGrid .rv.total { color: var(--dna); }
+.recapGrid .rsep { grid-column: 1 / -1; height: 1px; background: var(--line); margin: 3px 0; }
+.recapUnlock { margin-top: 14px; color: var(--green); font-size: 13.5px; }
 
 /* lab */
 #labDna { color: var(--dna); font-weight: bold; }
