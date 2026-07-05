@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.16.3';
+const VERSION = '1.17.0';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -24,7 +24,10 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.16.3', date: 'Jul 5, 2026', items: [
+  {v: '1.17.0', date: 'Jul 5, 2026', items: [
+    '🦾 NEW SHOW-STOPPER — OMEGA! From wave 75 you can unleash a colossal robotic T-Rex that materialises at the exit and stomps up your busiest lane, one-shotting every dinosaur it meets in a shower of sparks. Each kill wears down its armor, so a big horde can bring it down — and bosses only lose 30% and keep coming. One deployment per run. (Dreamed up by Mason, age 9.)',
+    '⏩ Replaced the 6× game-speed with a new 10× — hit fast-forward to blast through a wave once you know you\'ve got it handled.',
+    '📱 Tidied the top bar on mobile: money, DNA, health and the pause/mute buttons now stay locked on a single line instead of jumping onto a second row and stealing space from the game.',
     '📱 Fixed the weapon-upgrade menu getting cut off the bottom of the screen on mobile landscape — it now stays fully on-screen (and is more compact on short screens) so Upgrade and Sell are always visible.',
     '📱 Mobile landscape overhaul: the weapon shop now sits beside the map (no more scrolling below it to reach your weapons). Drag a weapon sideways onto the map to drop it — its range/blast radius previews right under your finger before you release — or just tap to select, then tap the map. Scrolling the weapon list is smooth again: a normal up/down swipe on the cards scrolls the shop.',
     '🔥 New CLEAN-PLAY STREAK: clear waves without letting anything leak and a bonus multiplier climbs (up to ×2.5), boosting all the DNA you earn — but a leak knocks it back down. Watch it in the HUD and protect it! Skilled, tidy play now pays off much better, while sloppy play earns the same as before.',
@@ -203,6 +206,24 @@ const AIRSTRIKE = {
   jitter: 46,          // random offset applied to each grid cell (px)
   sweep: 1.15,         // seconds for the carpet to roll edge-to-edge
   jetSpeed: 560,       // px/s — slow enough to watch the flyby
+};
+
+/* ---------- OMEGA (consumable show-stopper, Mason's idea) ----------
+   A colossal robotic T-Rex materialises at the EXIT and stomps BACKWARD up the
+   busiest lane, one-shotting every dinosaur it meets. Each kill wears down its
+   durability, so a big enough horde can bring it down. Bosses only lose a slice
+   of health (they survive) and cost it a big chunk of durability. Once per run,
+   from wave 75. */
+const OMEGA = {
+  unlock: 75,          // first wave it can be deployed
+  cost: 9000,          // premium — it's a run-defining panic button
+  maxUses: 1,          // per run
+  durability: 55,      // regular kills it can absorb before it's destroyed
+  bigCost: 2,          // durability lost per large (size>=34) dino
+  bossFrac: 0.30,      // fraction of a boss's MAX hp it deals
+  bossCost: 18,        // durability lost per boss it strikes
+  speed: 125,          // px/s stomping up the path
+  size: 62,            // render size (boss-scale)
 };
 
 /* ---------- ACHIEVEMENTS (persistent trophy case) ----------

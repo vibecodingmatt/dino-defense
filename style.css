@@ -68,6 +68,7 @@ html, body {
 #hud button:disabled, .modal button:disabled, #shop button:disabled { opacity: 0.45; cursor: default; }
 #hud button.on { background: var(--amber); color: #1a1a0a; font-weight: bold; border-color: var(--amber2); }
 #btnWave { background: #3d5226; font-weight: bold; }
+#speedCycle { display: none; min-width: 34px; } /* mobile-only single speed toggle */
 
 /* ---------- main area ---------- */
 #main { flex: 1; display: flex; min-height: 0; }
@@ -134,6 +135,22 @@ canvas#game {
 #airCard .ico { font-size: 22px; }
 #airCard .nm { font-size: 12px; font-weight: bold; }
 #airCard .cost { font-size: 11px; color: #7fb2ff; font-weight: bold; }
+
+/* Omega — the robotic T-Rex show-stopper */
+#omegaCard {
+  display: flex; align-items: center; gap: 10px; margin-top: 8px;
+  background: linear-gradient(135deg, #22303a, #171f26);
+  border: 1px solid #3aa0c8; border-radius: 8px;
+  padding: 8px 12px; cursor: pointer;
+  transition: border-color 0.06s, transform 0.06s, box-shadow 0.2s;
+}
+#omegaCard:not(.locked) { box-shadow: 0 0 12px #3fb0ff33; }
+#omegaCard:hover:not(.locked) { border-color: #8fe0ff; transform: translateY(-1px); box-shadow: 0 0 16px #3fb0ff66; }
+#omegaCard.cant { opacity: 0.45; box-shadow: none; }
+#omegaCard.locked { opacity: 0.35; filter: grayscale(0.8); cursor: default; box-shadow: none; }
+#omegaCard .ico { font-size: 22px; }
+#omegaCard .nm { font-size: 12px; font-weight: bold; color: #bfe6ff; }
+#omegaCard .cost { font-size: 11px; color: #8fe0ff; font-weight: bold; }
 
 /* floating weapon menu that pops up over a tapped/clicked tower */
 #towerPop {
@@ -424,16 +441,27 @@ canvas#game, #hud button, .modal button { touch-action: manipulation; }
   .shopCard { padding: 6px 3px; min-width: 0; }
   .shopCard .ico { font-size: 18px; }
   .shopCard .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 9.5px; }
-  #hud { font-size: 11px; gap: 5px; padding: 5px 6px; flex-wrap: wrap; }
-  #levelTitle { font-size: 13px; }
-  #hud button { padding: 7px 8px; font-size: 12px; }
+  #hud { font-size: 11px; gap: 5px; padding: 5px 6px; }
+  #levelTitle { font-size: 12px; min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #hud button { padding: 6px 8px; font-size: 12px; }
   #hud .stat { padding: 5px 7px; }
+  #speedBtns { display: none; }         /* four speed buttons → one cycle button on mobile */
+  #speedCycle { display: inline-block; }
   #towerPop { width: 190px; }
   #towerPop button { padding: 9px 10px; }
   #menu h1 { letter-spacing: 2px; }
   .levelCard { width: calc(50% - 10px); }
   .hint { display: none; }
 }
+
+/* PORTRAIT phones: keep the HUD to a STABLE two rows (stats up top, controls
+   below) so it never bounces between one and two lines as numbers change */
+@media (max-width: 920px) and (orientation: portrait) {
+  #hud { flex-wrap: wrap; }
+  #hud .spacer { flex-basis: 100%; height: 0; margin: 0; }
+}
+/* very narrow: the map name would crowd the stats — drop it */
+@media (max-width: 470px) { #levelTitle { display: none; } }
 
 /* PORTRAIT phones/tablets: stack the shop UNDER the map */
 @media (max-width: 920px) and (orientation: portrait) {
@@ -468,9 +496,9 @@ canvas#game, #hud button, .modal button { touch-action: manipulation; }
   .incTitle { font-size: 9.5px; }
   .chip { font-size: 9px; padding: 2px 5px; }
   #airCard { padding: 6px 8px; }
-  #hud { font-size: 10px; gap: 4px; padding: 3px 6px; }
+  #hud { font-size: 10px; gap: 4px; padding: 3px 6px; flex-wrap: nowrap; }
   #hud button { padding: 5px 7px; font-size: 10.5px; }
-  #hud .stat { padding: 3px 6px; }
+  #hud .stat { padding: 3px 6px; white-space: nowrap; }
   #levelTitle { font-size: 11px; }
   /* compact weapon-upgrade popup so it fits on short screens without clipping */
   #towerPop { width: 178px; padding: 7px 8px; gap: 5px; }

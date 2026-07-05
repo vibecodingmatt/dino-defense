@@ -484,6 +484,7 @@ const G = {
   speed: 1, paused: false,
   placing: null, selected: null,
   targeting: null, strikes: [], clouds: [], airUsed: 0,
+  omega: null, omegaUsed: 0,
   celebration: null, fw: [],
   mouse: {x: 0, y: 0, on: false},
   autoTimer: -1,
@@ -1109,7 +1110,7 @@ function skipWave(){
 }
 function snapshot(){
   return {
-    wave: G.wave, cash: G.cash, lives: G.lives, airUsed: G.airUsed,
+    wave: G.wave, cash: G.cash, lives: G.lives, airUsed: G.airUsed, omegaUsed: G.omegaUsed,
     towers: G.towers.map(t => ({key: t.key, x: t.x, y: t.y, ulv: t.ulv, invested: t.invested, mode: t.mode})),
   };
 }
@@ -1146,7 +1147,7 @@ function startLevel(idx, mode, diff){
   G.hurtT = 0; G.flashT = 0; G.waveTotal = 0; G.cinT = 0;
   initAmbient();
   G.dinos = []; G.projs = []; G.fx = []; G.bolts = []; G.texts = []; G.spawnQ = []; G.corpses = []; G.decals = [];
-  G.selected = null; G.placing = null; G.targeting = null; G.strikes = []; G.clouds = [];
+  G.selected = null; G.placing = null; G.targeting = null; G.strikes = []; G.clouds = []; G.omega = null;
   G.celebration = null; G.fw = [];
   G.waveActive = false; G.autoTimer = -1; G.over = false; G.banner = null;
   G.speed = 1;
@@ -1157,10 +1158,10 @@ function startLevel(idx, mode, diff){
   if (mode === 'resume' && save.run){
     restoreSnapshot(save.run);
     G.wave = save.run.wave; G.lives = save.run.lives;
-    G.airUsed = save.run.airUsed || 0;
+    G.airUsed = save.run.airUsed || 0; G.omegaUsed = save.run.omegaUsed || 0;
   } else {
     G.wave = 0; G.cash = startCash(); G.towers = [];
-    G.lives = startLives(); G.airUsed = 0;
+    G.lives = startLives(); G.airUsed = 0; G.omegaUsed = 0;
   }
   G.maxLives = startLives();
   G.streak = 1; G.waveLeaked = false;
@@ -1532,6 +1533,122 @@ function updateClouds(dt){
   G.clouds = G.clouds.filter(c => c.t < c.dur);
 }
 
+/* ---------------- Omega — robotic T-Rex show-stopper ---------------- */
+const omegaUnlocked = () => (G.wave + 1) >= OMEGA.unlock;
+function updateOmegaCard(){
+  const el = $('#omegaCard');
+  if (!el) return;
+  const spent = G.omegaUsed >= OMEGA.maxUses, active = !!G.omega, locked = !omegaUnlocked();
+  el.classList.toggle('locked', locked || spent || active);
+  el.classList.toggle('cant', !locked && !spent && !active && G.cash < OMEGA.cost);
+  el.querySelector('.cost').textContent =
+    locked ? `🔒 Wave ${OMEGA.unlock}` :
+    active ? '⚡ RAMPAGING' :
+    spent ? 'DEPLETED' :
+    `$${fmt(OMEGA.cost)} · ${OMEGA.maxUses - G.omegaUsed} left`;
+}
+function deployOmega(){
+  if (!omegaUnlocked() || G.omegaUsed >= OMEGA.maxUses || G.omega || G.cash < OMEGA.cost){ SFX.error(); return; }
+  G.cash -= OMEGA.cost;
+  G.omegaUsed++;
+  // deploy on the lane with the most live grounded dinos (max carnage)
+  let pathI = 0, best = -1;
+  for (let i = 0; i < G.paths.length; i++){
+    let n = 0;
+    for (const d of G.dinos) if (!d.dead && !d.leaked && d.pathI === i) n++;
+    if (n > best){ best = n; pathI = i; }
+  }
+  const len = G.paths[pathI].len;
+  G.omega = {
+    pathI, dist: len, speed: OMEGA.speed, hp: OMEGA.durability, maxHp: OMEGA.durability,
+    phase: 0, turn: -1, dirT: -1, pitch: 0, t: 0, entrance: 0.8, lastStep: -1, hitBosses: new Set(),
+    painter: 'theropod', size: OMEGA.size, flying: false,
+    pal: {body: '#8f98a6', belly: '#c7cedb', accent: '#3fb0ff'},
+    feat: {bigHead: true, glowEyes: true},
+  };
+  const p = samplePath(G.paths[pathI], len);          // materialise at the exit
+  G.shake = Math.max(G.shake, 16); G.flashT = 0.6;
+  addFx('shock', p.x, p.y, 130); addFx('boom', p.x, p.y, 90);
+  for (let i = 0; i < 8; i++) addFx('spark', p.x + rand(-40, 40), p.y + rand(-40, 40), 8);
+  SFX.roar(); SFX.boom();
+  G.banner = {text: 'Ω OMEGA', sub: 'THE MACHINE AWAKENS', t: 2.6};
+  saveRun();
+  updateHUD();
+}
+function updateOmega(dt){
+  const o = G.omega; if (!o) return;
+  o.t += dt;
+  if (o.entrance > 0){ o.entrance -= dt; return; }    // brief rear-up before it stomps off
+  const path = G.paths[o.pathI];
+  o.dist -= o.speed * dt;
+  o.phase += dt * 5;
+  const pp = samplePath(path, Math.max(0, o.dist));
+  const moveAng = pp.ang + Math.PI;                   // it walks BACKWARD, toward the entrance
+  const cosA = Math.cos(moveAng);
+  if (Math.abs(cosA) > 0.15) o.dirT = cosA > 0 ? 1 : -1;
+  o.turn += clamp(o.dirT - o.turn, -dt * 7, dt * 7);
+  let pitchT = o.dirT > 0 ? moveAng : Math.PI - moveAng;
+  while (pitchT > Math.PI) pitchT -= Math.PI * 2;
+  while (pitchT < -Math.PI) pitchT += Math.PI * 2;
+  o.pitch += clamp(pitchT - o.pitch, -dt * 3.5, dt * 3.5);
+  const step = Math.floor(o.phase / Math.PI);
+  if (step !== o.lastStep){ o.lastStep = step; G.shake = Math.max(G.shake, 2.6); addFx('step', pp.x, pp.y + 4, o.size * 0.4); }
+  // combat: obliterate grounded dinos in its lane within reach
+  const reach = o.size * 0.75;
+  for (const d of G.dinos){
+    if (d.dead || d.leaked || d.pathI !== o.pathI) continue;
+    const p = dinoPos(d);
+    if (hyp(pp.x, pp.y, p.x, p.y) > reach + d.size * 0.5) continue;
+    if (d.boss){
+      if (!o.hitBosses.has(d)){
+        o.hitBosses.add(d);
+        damage(d, d.maxHp * OMEGA.bossFrac, true);    // bosses only lose a slice, and survive
+        o.hp -= OMEGA.bossCost;
+        G.shake = Math.max(G.shake, 8);
+        addFx('boom', p.x, p.y, 40); addFx('spark', p.x, p.y, 10); SFX.zap();
+      }
+    } else {
+      damage(d, d.hp + 1, true);                       // one-shot
+      o.hp -= (d.size >= 34 ? OMEGA.bigCost : 1);
+      addFx('spark', p.x, p.y - d.size * 0.4, 6);
+    }
+  }
+  if (o.hp <= 0){                                       // worn down by the horde → destroyed
+    G.shake = Math.max(G.shake, 14); G.flashT = 0.4;
+    addFx('boom', pp.x, pp.y, 110); addFx('shock', pp.x, pp.y, 130);
+    for (let i = 0; i < 10; i++) addFx('spark', pp.x + rand(-50, 50), pp.y + rand(-50, 50), 8);
+    SFX.boom(); SFX.bossDie();
+    addText(pp.x, pp.y - o.size, 'Ω OMEGA DOWN', '#ff6b6b', 16);
+    G.omega = null; updateHUD();
+  } else if (o.dist <= 0){                              // reached the entrance → stomps off
+    G.omega = null; updateHUD();
+  }
+}
+function drawOmega(ctx){
+  const o = G.omega; if (!o) return;
+  const p = samplePath(G.paths[o.pathI], Math.max(0, o.dist));
+  const rear = o.entrance > 0 ? -Math.min(0.25, (0.8 - o.entrance) * 0.7) : 0;
+  const pulse = 0.6 + 0.4 * Math.sin(G.time * 6);
+  // energy aura
+  ctx.fillStyle = `rgba(80,175,255,${0.13 * pulse})`;
+  ctx.beginPath(); ctx.arc(p.x, p.y - o.size * 0.5, o.size * 1.15, 0, Math.PI * 2); ctx.fill();
+  drawDino(ctx, o, p.x, p.y, o.turn, o.phase, 1, o.pitch + rear);
+  // glowing chest core (robotic accent)
+  ctx.fillStyle = `rgba(120,210,255,${0.75 * pulse})`;
+  ctx.beginPath(); ctx.arc(p.x, p.y - o.size * 0.62, o.size * 0.17, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(225,248,255,0.95)';
+  ctx.beginPath(); ctx.arc(p.x, p.y - o.size * 0.62, o.size * 0.07, 0, Math.PI * 2); ctx.fill();
+  // durability bar + label
+  const w = o.size * 1.9, y0 = p.y - o.size * 1.75;
+  ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(p.x - w/2, y0, w, 6);
+  const g = ctx.createLinearGradient(p.x - w/2, 0, p.x + w/2, 0);
+  g.addColorStop(0, '#3fb0ff'); g.addColorStop(1, '#a6ecff');
+  ctx.fillStyle = g; ctx.fillRect(p.x - w/2, y0, w * clamp(o.hp / o.maxHp, 0, 1), 6);
+  ctx.strokeStyle = 'rgba(180,230,255,0.6)'; ctx.lineWidth = 1; ctx.strokeRect(p.x - w/2, y0, w, 6);
+  ctx.font = 'bold 10px Verdana, sans-serif'; ctx.textAlign = 'center';
+  ctx.fillStyle = '#bfe6ff'; ctx.fillText('Ω OMEGA', p.x, y0 - 3);
+}
+
 /* ---------------- HUD / UI ---------------- */
 function updateHUD(){
   $('#hCash').textContent = save.settings.unlimitedCash ? '$∞' : '$' + fmt(G.cash);
@@ -1553,6 +1670,8 @@ function updateHUD(){
     : '▶ Start Wave ' + (G.wave + 1));
   updateStartPrompt();
   $$('#speedBtns button').forEach(b => b.classList.toggle('on', +b.dataset.s === G.speed && !G.paused));
+  $('#speedCycle').textContent = G.speed + '×';
+  $('#speedCycle').classList.toggle('on', G.speed > 1 && !G.paused);
   $('#btnPause').classList.toggle('on', G.paused);
   $('#btnMute').textContent = save.settings.mute ? '🔇' : '🔊';
   $('#btnMute').classList.toggle('on', save.settings.mute);
@@ -1569,6 +1688,7 @@ function updateHUD(){
     if (costEl.textContent !== label) costEl.textContent = label;
   });
   updateAirCard();
+  updateOmegaCard();
   // keep the upgrade button in sync with cash while a tower is selected
   if (G.selected) renderTowerPanel();
 }
@@ -1876,6 +1996,7 @@ function step(dt){
   updateProjs(dt);
   updateStrikes(dt);
   updateClouds(dt);
+  updateOmega(dt);
   // boss corpses: fall, hit the ground, fade out
   for (const c of G.corpses){
     c.t += dt;
@@ -2186,6 +2307,9 @@ function render(dt){
 
   // flyers on top
   air.forEach(drawOne);
+
+  // Omega stomps over everything — it's the star of the show
+  drawOmega(ctx);
 
   // air strike: inbound reticle → F-22 flyby → falling cluster canisters
   for (const s of G.strikes){
@@ -2539,6 +2663,7 @@ function toggleMute(){
 }
 $('#btnMute').onclick = toggleMute;
 $$('#speedBtns button').forEach(b => b.onclick = () => { G.speed = +b.dataset.s; G.paused = false; updateHUD(); });
+$('#speedCycle').onclick = () => { const seq = [1, 2, 4, 10]; G.speed = seq[(seq.indexOf(G.speed) + 1) % seq.length] || 1; G.paused = false; updateHUD(); };
 $('#btnMenu').onclick = () => { if (!G.over) saveRun(); toMenu(); };
 $('#up_main').onclick = () => upgrade();
 $('#airCard').onclick = () => {
@@ -2548,6 +2673,7 @@ $('#airCard').onclick = () => {
   selectTower(null);
   updateHUD();
 };
+$('#omegaCard').onclick = () => { G.placing = null; G.pendingTap = null; G.targeting = null; selectTower(null); deployOmega(); };
 $('#tpClose').onclick = () => selectTower(null);
 $('#tpMute').onclick = () => {
   const t = G.selected; if (!t) return;
@@ -2737,6 +2863,16 @@ if (testParams.has('test')){
     const el = $('#errbox'); el.classList.remove('hidden');
     el.style.whiteSpace = 'pre'; el.style.fontSize = '11px'; el.style.textAlign = 'left';
     el.textContent = 'ECON — DNA banked vs one gatling upgrade (u):\n' + rows.join('\n');
+    G.paused = true;
+  }
+  if (testParams.has('omega')){ // stage Omega mid-rampage for a visual check
+    G.wave = 80; G.cash = 20000;
+    const kinds = ['velociraptor', 'gallimimus', 'carnotaurus', 'triceratops', 'compy'];
+    for (let i = 0; i < 26; i++){ spawnDino(kinds[i % kinds.length], 0, false); const d = G.dinos[G.dinos.length - 1]; d.dist = 250 + i * 34; }
+    spawnDino('trex', 0, true); const b = G.dinos[G.dinos.length - 1]; b.entranceT = 0; b.dist = 760; G.cinT = 0; G.banner = null;
+    deployOmega();
+    const t = parseFloat(testParams.get('omega')) || 2.5;
+    for (let s = 0; s < t; s += 0.05) step(0.05);
     G.paused = true;
   }
   if (testParams.has('strike')){ // stage an air strike for visual checks
