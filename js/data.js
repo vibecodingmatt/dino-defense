@@ -18,29 +18,31 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
 /* Player-facing changelog — ONE entry per DAY (a daily recap), newest first.
    The `v` shown is the latest version released that day; `items` are the major,
    player-facing changes only. Keep it about what changed for the player — no
-   internal numbers, formulas, or how things are calculated. When shipping on a
-   new day, add a new daily entry; when shipping again the same day, update that
-   day's entry and bump its `v`. */
+   internal numbers, formulas, or how things are calculated.
+   IMPORTANT: date each entry with the ACTUAL current calendar date (check the
+   real date — don't reuse the previous entry's date). When shipping on a new
+   day, add a NEW dated entry at the top; when shipping again the same day,
+   update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.16.0', date: 'Jul 4, 2026', items: [
+  {v: '1.16.0', date: 'Jul 5, 2026', items: [
     '🔥 New CLEAN-PLAY STREAK: clear waves without letting anything leak and a bonus multiplier climbs (up to ×2.5), boosting all the DNA you earn — but a leak knocks it back down. Watch it in the HUD and protect it! Skilled, tidy play now pays off much better, while sloppy play earns the same as before.',
     '🏁 Beating all 100 waves now adds end-of-run bonuses: a victory bonus, a bonus scaled to your remaining base health, and an extra kicker for a flawless (no-damage) run.',
     '📊 Full victory recap: clearing a level pops a detailed results screen — dinosaurs defeated, best streak, DNA from the fight, every bonus, total DNA banked, and cash earned.',
-    '🚀 Fixed the Missile Battery: every rocket in a salvo now locks onto the same dinosaur (they used to split off and chase different targets), landing big concentrated splash damage.',
-    '☣️ New weapon — MASON\'S GAS! It rips a LOUD toot and blasts out a puff of green poison gas that lingers on the ground and hurts every dinosaur that walks through the cloud (ignoring armor). Flyers float above it. A little stronger than the Flame Thrower, and great against big packs. (Designed by Mason, age 9.)',
-    '🚦 Smoother opening: a "Place a weapon to begin" prompt now guides you at the start, and the first wave kicks off automatically a few seconds after you set down your first weapon (you can still press Start Wave to go early).',
-    '🐣 Friendlier start: you now begin with 80 DNA to spend on a first upgrade, and the early difficulty levels have been softened so Level 1 is beatable with little or no upgrading — challenging, but fair. The full difficulty returns by Level 15, so the deep climb is untouched.',
-    '🧬 DNA now banks every wave you clear — not just on a full 100-wave clear — so even a run that falls short earns DNA toward upgrades. No more getting stuck with nothing to spend. Reaching further pays more, and finishing all 100 still gives a bonus.',
-    '🦖 The island comes alive: dinosaurs now screech, snarl and bellow — small ones shriek, big ones groan — as they fall, with the occasional distant roar drifting across the map. Boss roars are bigger and more menacing, and gunfire and explosions hit harder.',
-    '🛠️ Tap or click any placed weapon and a little menu now pops up right over it — upgrade it (with the cost shown) or sell it (with the refund shown), and close it with the ✕ in the corner. The Upgrade button glows green the moment you can afford it and greys out when you can\'t, and selling asks for a confirming second tap so a stray tap can\'t sell your weapon.',
+    '🔇 Every weapon now has a mute button in its popup menu — tap a weapon to silence just that weapon\'s sounds. Mason\'s Gas is also a much softer, quieter toot now.',
+    '☣️ Mason\'s Gas balance: flyers, bosses, and tall long-necked dinos (like Brachiosaurus) now rise above the cloud and take no poison — it\'s for clearing packs of regular ground dinos.',
+  ]},
+  {v: '1.15.2', date: 'Jul 4, 2026', items: [
+    '☣️ New weapon — MASON\'S GAS! It toots out a puff of green poison gas that lingers on the ground and poisons the dinosaurs that walk through the cloud (ignoring armor). Flyers float above it. A little stronger than the Flame Thrower, and great against big packs. (Designed by Mason, age 9.)',
     '🎚️ New progression: choose a map and a difficulty level from 1 to 1000. Levels unlock 10 at a time — beat the highest one available to open the next block.',
-    '🧬 Research Lab reworked: spend DNA to permanently level up every weapon — plus your base health and starting cash — with no cap. DNA now drops from every kill, and pays out more the higher you climb.',
-    '⚔️ Keep your weapon levels close to the level you\'re playing: get ahead and it\'s a breeze, fall behind and you\'ll be overrun.',
-    '⚖️ DNA rewards rebalanced: beating a level now funds roughly one weapon upgrade — so you can\'t grind an easy level to over-level and trivialize the rest. Push to higher levels (and earn achievements) for the bigger DNA payouts.',
-    '🏆 25 achievements on their own menu page — each one awards a DNA bonus, with far bigger payouts for the tougher feats.',
+    '🧬 Research Lab reworked: spend DNA to permanently level up every weapon — plus your base health and starting cash — with no cap. DNA now drops from every kill and every wave you clear (so even a run that falls short earns something), and pays out more the higher you climb.',
+    '⚔️ Keep your weapon levels close to the level you\'re playing: get ahead and it\'s a breeze, fall behind and you\'ll be overrun. Beating a level funds roughly one weapon upgrade, so you can\'t grind an easy level to over-level and trivialize the rest.',
+    '🐣 Friendlier start: begin with 80 DNA for a first upgrade, and the early levels are softened so Level 1 is beatable with little or no upgrading (full difficulty returns by Level 15). A "Place a weapon to begin" prompt guides the opening, and the first wave auto-starts a few seconds after you place your first weapon.',
+    '🛠️ Tap any placed weapon for a menu right over it — upgrade (cost shown, glows green when affordable) or sell (refund shown, with a confirm tap so a stray tap can\'t sell it).',
+    '🏆 25 achievements on their own menu page — each awards a DNA bonus, with far bigger payouts for the tougher feats.',
     '💥 Air Strike reworked into a full-zone cluster bomb: it carpets the whole map, wipes out regular dinosaurs, and takes a big bite out of any boss.',
     '☠ Bosses are much tougher, and the wave-100 finale — the four-armed D-Rex — was completely redrawn.',
-    '🚀 Fixed rockets circling their target before finally hitting.',
+    '🦖 The island comes alive: dinosaurs screech, snarl and bellow as they fall, with the occasional distant roar. Boss roars are bigger, and gunfire and explosions hit harder.',
+    '🚀 Missile Battery: a salvo\'s rockets now all lock onto the same target for concentrated splash — and rockets no longer circle their target before hitting.',
     '🧪 Developer options (invincibility, unlimited cash, level skip) are password-protected, and runs that use them earn no DNA or achievements.',
     '🎵 Original looping soundtrack, boss roars, blood splatter, and a wave-100 fireworks celebration.',
     '💾 Save protection: your progress is backed up automatically, with copy/paste save codes in Settings to move it between devices.',
