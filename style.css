@@ -138,6 +138,7 @@ canvas#game {
 /* floating weapon menu that pops up over a tapped/clicked tower */
 #towerPop {
   position: absolute; z-index: 15; width: 210px;
+  max-height: calc(100% - 12px); overflow-y: auto; overscroll-behavior: contain;
   background: linear-gradient(#2a3220, #20281a);
   border: 1px solid var(--amber); border-radius: 10px;
   box-shadow: 0 8px 24px #000b, 0 0 0 3px #0006;
@@ -471,6 +472,14 @@ canvas#game, #hud button, .modal button { touch-action: manipulation; }
   #hud button { padding: 5px 7px; font-size: 10.5px; }
   #hud .stat { padding: 3px 6px; }
   #levelTitle { font-size: 11px; }
+  /* compact weapon-upgrade popup so it fits on short screens without clipping */
+  #towerPop { width: 178px; padding: 7px 8px; gap: 5px; }
+  #towerPop #tpName { font-size: 12px; padding-right: 44px; }
+  #towerPop #tpStats { font-size: 10px; line-height: 1.35; }
+  #towerPop button { padding: 6px 8px !important; font-size: 11px; }
+  #tpClose, #tpMute { width: 20px; height: 20px; font-size: 12px; top: 4px; }
+  #tpClose { right: 4px; }
+  #tpMute { right: 28px; }
 }
 
 /* error overlay */
