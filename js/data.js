@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.17.0';
+const VERSION = '1.17.1';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -24,7 +24,8 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.17.0', date: 'Jul 5, 2026', items: [
+  {v: '1.17.1', date: 'Jul 5, 2026', items: [
+    '🏅 Two new difficulty milestones to chase: trophies for beating level 25 and level 75, filling the gap between the level 10, 50, and 100 badges.',
     '🦾 NEW SHOW-STOPPER — OMEGA! From wave 75 you can unleash a colossal robotic T-Rex that materialises at the exit and stomps up your busiest lane, one-shotting every dinosaur it meets in a shower of sparks. Each kill wears down its armor, so a big horde can bring it down — and bosses only lose 30% and keep coming. One deployment per run. (Dreamed up by Mason, age 9.)',
     '⏩ Replaced the 6× game-speed with a new 10× — hit fast-forward to blast through a wave once you know you\'ve got it handled.',
     '📱 Tidied the top bar on mobile: money, DNA, health and the pause/mute buttons now stay locked on a single line instead of jumping onto a second row and stealing space from the game.',
@@ -243,11 +244,13 @@ const ACHIEVEMENTS = [
   {key:'secure_4',   icon:'🌙',  name:'Estate Secured',     desc:'Clear all 100 waves on Lockwood Estate.',           dna:800},
   {key:'kills_1k',   icon:'💀',  name:'Exterminator',       desc:'Defeat 1,000 dinosaurs in total.',                  dna:600},
   {key:'wlv_10',     icon:'🔧',  name:'Gunsmith',           desc:'Level any weapon to 10 in the Research Lab.',       dna:800},
+  {key:'diff_25',    icon:'🎖️',  name:'Holding the Line',   desc:'Beat difficulty level 25.',                         dna:800},
   {key:'diff_50',    icon:'🌶️',  name:'Rising Threat',      desc:'Beat difficulty level 50.',                         dna:1500},
   {key:'apex',       icon:'☠️',  name:'Devil Slain',        desc:'Defeat the D-Rex, the wave-100 final boss.',        dna:2500},
   {key:'flawless',   icon:'🛡️',  name:'Untouchable',        desc:'Clear a full 100-wave run without your base taking a single hit.', dna:3000},
   {key:'arsenal5',   icon:'🧰',  name:'Full Arsenal',       desc:'Level every weapon to at least 5.',                 dna:4000},
   {key:'island',     icon:'🏝️',  name:'Every Map',          desc:'Clear all 100 waves on all five maps.',             dna:5000},
+  {key:'diff_75',    icon:'⚔️',  name:'Veteran Ranger',     desc:'Beat difficulty level 75.',                         dna:3000},
   {key:'diff_100',   icon:'🥈',  name:'Triple Digits',      desc:'Beat difficulty level 100.',                        dna:6000},
   {key:'wlv_25',     icon:'🛠️',  name:'Master Armorer',     desc:'Level any weapon to 25.',                           dna:12000},
   {key:'flawless_hi',icon:'🕊️',  name:'Perfect Storm',      desc:'Clear difficulty level 100 or higher without your base taking a hit.', dna:25000},

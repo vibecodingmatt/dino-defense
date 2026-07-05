@@ -1242,7 +1242,9 @@ function victory(){
   if (G.flawless){ unlockAch('flawless'); if (D >= 100) unlockAch('flawless_hi'); }
   if ([0,1,2,3,4].every(i => (save.mapBest[i] || 0) > 0)) unlockAch('island');
   if (D >= 10)   unlockAch('diff_10');
+  if (D >= 25)   unlockAch('diff_25');
   if (D >= 50)   unlockAch('diff_50');
+  if (D >= 75)   unlockAch('diff_75');
   if (D >= 100)  unlockAch('diff_100');
   if (D >= 250)  unlockAch('diff_250');
   if (D >= 500)  unlockAch('diff_500');
