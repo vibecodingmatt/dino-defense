@@ -291,14 +291,14 @@ canvas#game {
   100% { transform: translateY(-64vh) translateX(var(--drift, 20px)) scale(1); opacity: 0; }
 }
 .mb-vignette { background: radial-gradient(130% 100% at 50% 42%, transparent 55%, #000 128%); }
-.mb-scan { background: repeating-linear-gradient(to bottom, #ffffff05 0 1px, transparent 1px 3px); opacity: 0.35; mix-blend-mode: overlay; }
+.mb-scan { background: repeating-linear-gradient(to bottom, #ffffff09 0 1px, transparent 1px 3px); opacity: 0.5; }
 
 /* day/night toggle */
 #sceneToggle {
   position: fixed; top: 16px; right: 18px; z-index: 3;
   width: 42px; height: 42px; border-radius: 50%; font-size: 18px; cursor: pointer;
-  background: #0e150cb0; border: 1px solid var(--line); color: var(--accent);
-  backdrop-filter: blur(6px); transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+  background: #0e150cdd; border: 1px solid var(--line); color: var(--accent);
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 #sceneToggle:hover { transform: rotate(-12deg) scale(1.08); border-color: var(--accent); box-shadow: 0 0 18px #e8b93a44; }
 
@@ -367,8 +367,8 @@ canvas#game {
 .statBar { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin: 20px 0 6px; }
 .stat {
   font-family: inherit; font-size: 13px; color: var(--text); cursor: default;
-  background: #0f160cbb; border: 1px solid var(--line); border-radius: 999px;
-  padding: 8px 16px; backdrop-filter: blur(6px);
+  background: #0f160cdd; border: 1px solid var(--line); border-radius: 999px;
+  padding: 8px 16px;
   transition: transform 0.12s, border-color 0.12s, box-shadow 0.12s;
 }
 .stat b { color: var(--accent); }
@@ -380,10 +380,9 @@ button.stat { cursor: pointer; }
 /* ---- COMMAND DECK ---- */
 .deck {
   width: 100%; margin-top: 26px;
-  background: linear-gradient(#171f13cc, #10160dcc);
+  background: linear-gradient(#171f13f2, #10160df2);
   border: 1px solid var(--line); border-radius: 18px;
   box-shadow: 0 24px 60px #0009, inset 0 1px 0 #ffffff08;
-  backdrop-filter: blur(8px);
   padding: clamp(16px, 3vw, 26px);
   display: flex; flex-direction: column; align-items: center; gap: 18px;
 }

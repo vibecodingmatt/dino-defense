@@ -1891,11 +1891,14 @@ function menuScene(dt){
   const cv = menuCv || (menuCv = document.getElementById('menuDinos'));
   if (!cv) return;
   const ctx = menuCtx || (menuCtx = cv.getContext('2d'));
+  if (!ctx) return;
   const w = cv.clientWidth, h = cv.clientHeight;
-  if (!w || !h) return;
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
-  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)){ cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (!w || !h || !isFinite(w) || !isFinite(h)) return;
+  // cap the backing buffer so it can never approach a browser's canvas-size limit
+  const scale = Math.min(1.5, window.devicePixelRatio || 1, 1600 / w, 1600 / h);
+  const bw = Math.max(1, Math.round(w * scale)), bh = Math.max(1, Math.round(h * scale));
+  if (cv.width !== bw || cv.height !== bh){ cv.width = bw; cv.height = bh; }
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
   ctx.clearRect(0, 0, w, h);
   menuSpawnT -= dt;
   if (menuDinos.length < 2 && menuSpawnT <= 0){ spawnMenuDino(w, h); menuSpawnT = rand(7, 15); }
@@ -1911,9 +1914,7 @@ function menuScene(dt){
     rg.addColorStop(1, 'transparent');
     ctx.fillStyle = rg;
     ctx.fillRect(d.x - d.size * 2.4, cyy - d.size * 2.4, d.size * 4.8, d.size * 4.8);
-    ctx.filter = 'blur(0.6px)';
     drawDino(ctx, d, d.x, yy, d.dir, d.phase, d.alpha, 0);
-    ctx.filter = 'none';
   }
   menuDinos = menuDinos.filter(d => d.x > -d.size * 3.2 && d.x < w + d.size * 3.2);
 }
