@@ -454,9 +454,9 @@ button.stat { cursor: pointer; }
 #menuBtns { display: flex; gap: 12px; margin-top: 26px; flex-wrap: wrap; justify-content: center; }
 #menuBtns button {
   padding: 12px 22px; font-size: 14.5px; border-radius: 10px;
-  background: #1a2113; border: 1px solid var(--line); transition: all 0.12s;
+  background: #1a2113; color: var(--text); border: 1px solid var(--line); transition: all 0.12s;
 }
-#menuBtns button:hover { transform: translateY(-2px); }
+#menuBtns button:hover { transform: translateY(-2px); border-color: var(--accent-soft); color: #fff; }
 #menuBtns .primary {
   background: linear-gradient(180deg, #2a3418, #1d2611);
   border-color: var(--accent-soft); color: var(--accent);

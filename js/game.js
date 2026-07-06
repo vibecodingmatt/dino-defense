@@ -1865,6 +1865,58 @@ function buildMenuFx(){
   }
   host.innerHTML = html;
 }
+/* giant boss dinosaurs that slowly roam the menu's terrain, far behind the UI */
+let menuDinos = [], menuSpawnT = 1.2, menuCv = null, menuCtx = null;
+const MENU_BOSSES = ['trex', 'spinosaurus', 'indominus', 'indoraptor', 'giganotosaurus', 'drex'];
+function spawnMenuDino(w, h){
+  const def = DINOS[MENU_BOSSES[(Math.random() * MENU_BOSSES.length) | 0]];
+  const scale = clamp(w / 1280, 0.55, 1.5);
+  const size = rand(88, 138) * scale;         // bosses are BIG
+  const dir = Math.random() < 0.5 ? 1 : -1;
+  const speed = rand(15, 32) * scale;         // slow, majestic
+  menuDinos.push({
+    painter: def.painter, feat: def.feat, flying: false, size,
+    // uniform misty palette (lighter than the near-black jungle) so each distinct
+    // boss silhouette reads as a glowing fog-giant wherever the UI doesn't cover it
+    pal: {body: '#4c6c5a', belly: '#638672', accent: '#3b5647'},
+    x: dir > 0 ? -size * 2.4 : w + size * 2.4,
+    y: h * rand(0.40, 0.49),                    // roam a horizon in the open hero backdrop
+    vx: speed * dir, dir, phase: rand(0, 6.28), stride: rand(2.0, 3.0),
+    alpha: rand(0.74, 0.86),
+  });
+}
+function menuScene(dt){
+  const m = $('#menu');
+  if (!m || m.classList.contains('hidden')) return;
+  const cv = menuCv || (menuCv = document.getElementById('menuDinos'));
+  if (!cv) return;
+  const ctx = menuCtx || (menuCtx = cv.getContext('2d'));
+  const w = cv.clientWidth, h = cv.clientHeight;
+  if (!w || !h) return;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)){ cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  menuSpawnT -= dt;
+  if (menuDinos.length < 2 && menuSpawnT <= 0){ spawnMenuDino(w, h); menuSpawnT = rand(7, 15); }
+  for (const d of menuDinos){
+    d.x += d.vx * dt;
+    d.phase += dt * d.stride;
+    const yy = d.y + Math.sin(d.phase) * d.size * 0.015;
+    // soft bioluminescent backlight so the giant reads as a lit silhouette on the dark jungle
+    const cyy = yy - d.size * 0.55;
+    const rg = ctx.createRadialGradient(d.x, cyy, 0, d.x, cyy, d.size * 2.3);
+    rg.addColorStop(0, 'rgba(70,230,196,0.17)');
+    rg.addColorStop(0.45, 'rgba(232,185,58,0.08)');
+    rg.addColorStop(1, 'transparent');
+    ctx.fillStyle = rg;
+    ctx.fillRect(d.x - d.size * 2.4, cyy - d.size * 2.4, d.size * 4.8, d.size * 4.8);
+    ctx.filter = 'blur(0.6px)';
+    drawDino(ctx, d, d.x, yy, d.dir, d.phase, d.alpha, 0);
+    ctx.filter = 'none';
+  }
+  menuDinos = menuDinos.filter(d => d.x > -d.size * 3.2 && d.x < w + d.size * 3.2);
+}
 function buildMenu(){
   const got = ACHIEVEMENTS.filter(a => save.ach && save.ach[a.key]).length;
   $('#verChip').innerHTML = `v${VERSION} · 📜 what's new`;
@@ -2100,7 +2152,7 @@ function frame(now){
   requestAnimationFrame(frame);
   let dt = Math.min(0.05, Math.max(0, (now - lastT) / 1000)); // never negative — a backwards clock must not rewind fx/motion
   lastT = now;
-  if (G.state !== 'playing') return;
+  if (G.state !== 'playing'){ if (G.state === 'menu') try { menuScene(dt); } catch (e) {} return; }
   try {
     if (!G.paused && !G.over){
       for (let i = 0; i < G.speed; i++) step(dt);
@@ -2962,6 +3014,9 @@ if (new URLSearchParams(location.search).has('dbg')){
   }, 800);
 }
 
+if (new URLSearchParams(location.search).has('menudino')){ // seed roaming menu bosses on-screen for a visual check
+  for (let i = 0; i < 3; i++){ spawnMenuDino(innerWidth || 1280, innerHeight || 860); menuDinos[i].x = (innerWidth || 1280) * (0.22 + i * 0.29); }
+}
 if (new URLSearchParams(location.search).has('lab')){ const lv = new URLSearchParams(location.search).get('lab'); if (lv === 'rich'){ save.dna = 50000; } else if (!isNaN(parseFloat(lv))){ save.dna = parseFloat(lv); } buildLab(); $('#lab').classList.remove('hidden'); }
 if (new URLSearchParams(location.search).has('firstwave')){ // preview the onboarding banner
   save.run = null; startLevel(0, 'fresh', 1);
