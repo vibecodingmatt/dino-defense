@@ -631,7 +631,9 @@ function spawnDino(key, pathI, isBoss){
     speed: def.speed * speedScale(w) * diffSpdMult(G.difficulty),
     pathI, dist: 0,
     slowT: 0, slowF: 1, burnT: 0, burnDps: 0, revealT: 0,
-    cloaked: false, cloakCd: def.cloak ? 5 : -1,
+    // Indominus camouflage: cloakCd counts down its brief on-field visibility;
+    // when it hits 0 the dino vanishes and stays cloaked for good (-1 = never cloaks)
+    cloaked: false, cloakCd: def.cloak ? 2 : -1,
     regen: def.regen || 0,
     phase: rand(0, Math.PI * 2),
     bounty: bountyOf(def, w) * (isBoss ? 1 : 1),
@@ -687,6 +689,8 @@ function dinoPos(d){ return samplePath(G.paths[d.pathI], d.dist); }
 
 function damage(d, amt, pierce, src){
   if (d.dead || d.leaked) return;
+  // camouflaged Indominus is invulnerable unless a Sonic Emitter has revealed it
+  if (d.cloaked && d.revealT <= 0) return;
   const eff = pierce ? amt : Math.max(1, amt - d.armor);
   d.hp -= eff;
   if (eff >= 70){ // only truly big hits pop a damage number
@@ -989,12 +993,19 @@ function updateDinos(dt){
     if (d.burnT > 0){ d.burnT -= dt; damage(d, d.burnDps * dt, true); if (d.dead) continue; }
     if (d.revealT > 0) d.revealT -= dt;
     if (d.regen > 0 && d.hp < d.maxHp) d.hp = Math.min(d.maxHp, d.hp + d.regen * d.maxHp * dt);
-    // cloak cycle (Indominus)
-    if (d.cloakCd >= 0){
+    // Indominus camouflage: after a brief window of visibility once it's on
+    // the field (past its entrance), it vanishes for good and can only be
+    // seen or hurt while a nearby Sonic Emitter's pulse is revealing it.
+    if (d.cloakCd >= 0 && !d.cloaked && d.entranceT <= 0){
       d.cloakCd -= dt;
       if (d.cloakCd <= 0){
-        d.cloaked = !d.cloaked;
-        d.cloakCd = d.cloaked ? 2.5 : 6.5;
+        d.cloaked = true;
+        // tell the player what just happened — and hint at the counter
+        const cp = dinoPos(d);
+        addFx('shock', cp.x, cp.y, d.size * 2.2);
+        addText(cp.x, cp.y - d.size, '👻 vanished!', '#cbb6ff', 14);
+        G.banner = {text: '👻 IT VANISHED!', sub: 'The Indominus turned invisible — only a 📡 Sonic Emitter can expose it', t: 3.2};
+        SFX.pulse();
       }
     }
     // boss entrance: hold position and roar before advancing
@@ -1926,18 +1937,23 @@ const TIPS = [
   '<b>The armory grows with you:</b> heavier weapons unlock as you survive deeper waves — the shop card shows the unlock wave on locked gear.',
   '<b>Duplicates cost extra:</b> every additional copy of the same weapon is pricier than the last (mortars especially). Diversify your arsenal.',
 '<b>✈️ Air Strike</b> (from wave 50): jets carpet-bomb the ENTIRE zone in a rolling cluster-bomb wave — it one-shot-kills every dinosaur on the field (even flyers) and strips 25% off any boss. Max two calls per run, and the second costs more. Save them for boss waves or a swarm that\'s about to break through.',
+  '<b>🦾 Omega</b> (from wave 75, once per run): unleashes a colossal robotic T-Rex that materialises at the exit and stomps up your busiest lane, one-shotting every dinosaur it touches. Each kill wears its armor down, so a big horde can destroy it — and bosses only lose 30% and keep coming. A pricey show-stopper; save it for a wave that\'s about to overwhelm you.',
   '<b>Targeting:</b> the selected weapon\'s "Target" button cycles FIRST / LAST / STRONG / CLOSE. Snipers on STRONG melt tanks; slows on FIRST hold the line.',
   '<b>Flyers</b> (Pteranodons & friends) can only be hit by air-capable weapons — Flame Throwers and Mortars can\'t touch them.',
   '<b>Armor</b> (Ankylosaurus, Triceratops) shrugs off weak hits. 🎯 Snipers pierce armor completely.',
-  '<b>The Indominus Rex camouflages.</b> Only a 📡 Sonic Emitter reveals it — bring one to wave 50.',
+  '<b>☣️ Mason\'s Gas</b> lays down a lingering poison cloud that ignores armor and shreds packs of ground dinos — but flyers, bosses, and tall long-necks (like Brachiosaurus) rise above it and take no poison.',
+  '<b>The Indominus Rex turns invisible.</b> A couple of seconds after it storms in, it vanishes completely — and while unseen it takes NO damage at all. Only a 📡 Sonic Emitter\'s pulse reveals AND exposes it, so plant one right on its path before wave 50 (it also returns on waves 80 and 90). No emitter, no kill.',
   '<b>💣 Mortars</b> have a minimum range: nothing within 90px can be hit. Place them behind your front line and cover their blind spot.',
   '<b>🚀 Missile Batteries</b> gain a rocket per upgrade level, and the whole salvo slams the same dinosaur — big concentrated splash damage.',
   '<b>Selling</b> refunds 70% of everything invested — repositioning late is fine.',
   '<b>Difficulty 1–1000:</b> pick a map and a level. Every kill drops DNA (much more at higher levels); spend it in the 🧬 Research Lab to level your weapons — with no cap. Beat the highest unlocked level (10, 20, 30…) to open the next block.',
+  '<b>🔥 Clean-play streak:</b> clear waves without letting a single dinosaur leak and your DNA bonus multiplier climbs (up to ×2.5), boosting everything you earn. One leak knocks it back down — tidy, no-leak play pays off big over a run.',
+  '<b>Finish strong:</b> clearing all 100 waves adds bonus DNA on top — a victory bonus, more for the base health you have left, and an extra flawless bonus if your base never took a single hit.',
+  '<b>🏆 Achievements</b> each pay a one-time DNA bonus — chase the difficulty milestones (25, 50, 75, 100…), map clears, and weapon levels. Runs that use a developer cheat don\'t count.',
   '<b>Weapon levels vs. in-run upgrades:</b> Lab weapon levels are permanent and multiply damage forever; the click-to-upgrade on a placed tower is a small, run-only boost paid with cash. You need both to reach the top levels.',
   '<b>DNA is never lost.</b> It banks from kills even if the run fails, so a losing run still funds the weapon levels you need to come back stronger.',
   '<b>Your run auto-saves</b> between waves — close the tab and the map shows a "Continue run" card. Back up progress with Settings → Copy save code.',
-  '<b>Practice mode:</b> Settings → 🛡 Invincibility lets you experiment with layouts, and 2×/4× speed keeps long waves moving.',
+  '<b>Practice mode:</b> Settings → 🛡 Invincibility lets you experiment with layouts, and 2× / 4× / 10× speed keeps long waves moving (10× is great once a wave is clearly won).',
 ];
 function buildTips(){
   const el = $('#tipsList');
@@ -1976,7 +1992,7 @@ let hudTick = 0;
 
 function frame(now){
   requestAnimationFrame(frame);
-  let dt = Math.min(0.05, (now - lastT) / 1000);
+  let dt = Math.min(0.05, Math.max(0, (now - lastT) / 1000)); // never negative — a backwards clock must not rewind fx/motion
   lastT = now;
   if (G.state !== 'playing') return;
   try {
@@ -2121,10 +2137,14 @@ function render(dt){
 
   const drawOne = d => {
     const p = dinoPos(d);
-    const alpha = d.cloaked && d.revealT <= 0 ? 0.22 : 1;
+    const hidden = d.cloaked && d.revealT <= 0;  // camouflaged & not currently revealed
+    const alpha = hidden ? 0.08 : 1;
     // rearing back during the entrance roar
     const pitch = d.pitch - (d.entranceT > 0 ? Math.min(0.22, (2.2 - d.entranceT) * 0.6) : 0);
     drawDino(ctx, d, p.x, p.y, d.turn, d.phase, alpha, pitch);
+    // while cloaked, draw nothing else — no health bar, boss aura, or status
+    // tints that would betray its position (a Sonic Emitter must reveal it)
+    if (hidden) return;
     // status tints
     if (d.burnT > 0){
       ctx.fillStyle = 'rgba(255,120,20,0.35)';
@@ -2555,7 +2575,7 @@ function render(dt){
       G.fw.push({x: rand(W*0.12, W*0.88), y: rand(H*0.12, H*0.55), t: 0,
                  hue: rand(0, 360), n: 14 + (Math.random()*8 | 0), r: rand(70, 120)});
       SFX.firework();
-      G.shake = Math.max(G.shake, 1.5);
+      if (c.t < 3) G.shake = Math.max(G.shake, 1.5); // settle the screen shake after ~3s
     }
     for (const f of G.fw){
       f.t += dt;
@@ -2941,6 +2961,25 @@ if (testParams.has('test')){
     const frac = (bossBefore - boss.hp) / bossMax;
     const el = $('#errbox'); el.classList.remove('hidden');
     el.textContent = `STRIKEKILL mobs ${mobBefore}→${mobAfter} (want 0) · boss lost ${(frac*100).toFixed(1)}% (want 25.0) · bossDead=${boss.dead} · trex maxHp=${Math.round(bossMax)} (3× of ${Math.round(bossMax/BOSS_HP_MULT)})`;
+    G.paused = true;
+  }
+  if (testParams.has('indo')){ // Indominus: cloaks after a moment, then invincible unless a Sonic Emitter reveals it
+    G.wave = 50;
+    spawnDino('indominus', 0, true);
+    const boss = G.dinos.find(d => d.boss);
+    boss.entranceT = 0; G.cinT = 0;                 // skip the cinematic hold
+    for (let s = 0; s < 3; s += 0.05) step(0.05);   // let the 2s visibility window lapse
+    const cloakedNow = boss.cloaked;
+    const before = boss.hp;
+    damage(boss, 5000, true);                        // hit while hidden with no emitter → no effect
+    const invincible = boss.hp === before;
+    const bp = dinoPos(boss);
+    // push an emitter beside the path (canPlace would reject on-path spots) so its pulse covers the boss
+    G.towers.push({key: 'sonic', x: bp.x, y: bp.y, ulv: 0, cd: 0, angle: 0, flash: 0, invested: 0, mode: 'first'});
+    for (let s = 0; s < 1.5; s += 0.05) step(0.05);
+    const hurtByEmitter = boss.hp < before;
+    const el = $('#errbox'); el.classList.remove('hidden');
+    el.textContent = `INDO cloaked=${cloakedNow}(want true) · invincible-while-hidden=${invincible}(want true) · emitter revealed+hurt=${hurtByEmitter}(want true) · hp ${Math.round(before)}→${Math.round(boss.hp)}`;
     G.paused = true;
   }
   if (testParams.has('upg')){ // preview upgraded-tower visuals
