@@ -1358,7 +1358,13 @@ function positionTowerPop(t){
   const cx = (cr.left - sr.left) + t.x * scale;      // tower centre, stage-relative
   const cy = (cr.top  - sr.top)  + t.y * scale;
   const towerR = 22 * scale;
-  const pw = pop.offsetWidth, ph = pop.offsetHeight, margin = 6;
+  const margin = 6;
+  // Only let the panel scroll internally when it genuinely can't fit the stage
+  // (short mobile-landscape screens); otherwise keep it overflow-free so no
+  // vestigial scrollbar shows on desktop and the height can't flicker.
+  const avail = sr.height - margin * 2;
+  pop.classList.toggle('scroll', pop.scrollHeight > avail + 1);
+  const pw = pop.offsetWidth, ph = pop.offsetHeight;
   let left = clamp(cx - pw / 2, margin, Math.max(margin, sr.width - pw - margin));
   let top = cy - towerR - ph - 6;                    // prefer above the tower
   pop.classList.toggle('below', top < margin);
@@ -1401,7 +1407,11 @@ function renderTowerPanel(){
   const sell = $('#tpSell'), refund = Math.round(t.invested * 0.7);
   sell.classList.toggle('confirm', sellArmed);
   sell.textContent = sellArmed ? `⚠ Tap to confirm sell` : `💰 Sell — $${refund}`;
-  positionTowerPop(t);   // keep it glued over the tower as content/layout changes
+  // NB: positioning is intentionally NOT done here. renderTowerPanel() runs
+  // every frame (to keep the upgrade cost/affordability live), and
+  // repositioning per-frame caused the panel to oscillate up/down near map
+  // edges. The tower never moves, so we reposition only on discrete layout
+  // changes (select/upgrade/sell-arm/mode/mute) and on resize.
 }
 function upgrade(){
   const t = G.selected; if (!t) return;
@@ -1412,7 +1422,7 @@ function upgrade(){
   G.cash -= cost; t.ulv++; t.invested += cost;
   SFX.upgrade();
   saveRun();
-  renderTowerPanel(); updateHUD();
+  renderTowerPanel(); positionTowerPop(t); updateHUD();
 }
 /* selling asks for a confirming second tap so an accidental tap can't sell */
 let sellArmed = false, sellTimer = null;
@@ -1421,8 +1431,8 @@ function armOrSell(){
   const t = G.selected; if (!t) return;
   if (!sellArmed){
     sellArmed = true;
-    renderTowerPanel();
-    sellTimer = setTimeout(() => { sellArmed = false; if (G.selected) renderTowerPanel(); }, 3000);
+    renderTowerPanel(); positionTowerPop(t);
+    sellTimer = setTimeout(() => { sellArmed = false; if (G.selected){ renderTowerPanel(); positionTowerPop(G.selected); } }, 3000);
     return;
   }
   disarmSell();
@@ -2692,14 +2702,14 @@ $('#tpMute').onclick = () => {
   if (!save.settings.mutedWeapons) save.settings.mutedWeapons = {};
   save.settings.mutedWeapons[t.key] = !weaponMuted(t.key);
   persist();
-  renderTowerPanel();
+  renderTowerPanel(); positionTowerPop(t);
 };
 $('#tpSell').onclick = armOrSell;
 $('#tpMode').onclick = () => {
   const modes = ['first', 'last', 'strong', 'close'];
   const t = G.selected; if (!t) return;
   t.mode = modes[(modes.indexOf(t.mode) + 1) % modes.length];
-  renderTowerPanel();
+  renderTowerPanel(); positionTowerPop(t);
 };
 const openLab = () => { buildLab(); $('#lab').classList.remove('hidden'); };
 // difficulty picker (main menu)

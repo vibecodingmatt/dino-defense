@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.17.2';
+const VERSION = '1.17.3';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -24,7 +24,9 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.17.2', date: 'Jul 5, 2026', items: [
+  {v: '1.17.3', date: 'Jul 5, 2026', items: [
+    '🛠️ Fixed the weapon-upgrade panel jittering up and down (and becoming impossible to close) after upgrading near the edge of the map — it now stays put over the weapon.',
+    '✨ Cleaned up a stray, purposeless scrollbar that sometimes appeared on the weapon-upgrade panel on desktop.',
     '🏆 The win and defeat screens now have an Achievements button, so you can jump straight to your trophy case after a run — a handy nudge if you didn\'t spot it on the menu.',
     '➜ After clearing a level, the top button now reads "Play Difficulty N" and drops you straight into the next difficulty on the same map to keep the climb going (it steps aside once you\'ve conquered level 1000).',
     '🏅 Two new difficulty milestones to chase: trophies for beating level 25 and level 75, filling the gap between the level 10, 50, and 100 badges.',

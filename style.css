@@ -155,12 +155,14 @@ canvas#game {
 /* floating weapon menu that pops up over a tapped/clicked tower */
 #towerPop {
   position: absolute; z-index: 15; width: 210px;
-  max-height: calc(100% - 12px); overflow-y: auto; overscroll-behavior: contain;
   background: linear-gradient(#2a3220, #20281a);
   border: 1px solid var(--amber); border-radius: 10px;
   box-shadow: 0 8px 24px #000b, 0 0 0 3px #0006;
   padding: 10px 10px 9px; display: flex; flex-direction: column; gap: 7px;
 }
+/* only scroll internally when the panel can't fit the stage (short screens) —
+   JS adds .scroll in that case, so no vestigial scrollbar shows otherwise */
+#towerPop.scroll { max-height: calc(100% - 12px); overflow-y: auto; overscroll-behavior: contain; }
 /* little pointer notch aimed at the tower (flips when shown below) */
 #towerPop::after {
   content: ''; position: absolute; left: 50%; bottom: -7px; transform: translateX(-50%);
