@@ -561,7 +561,9 @@ function towerStats(t){
   return {
     dmg:   def.dmg   * Math.pow(UPG.mult.dmg, u)   * wlvDmgMult(L),
     rof:   def.rof   * Math.pow(UPG.mult.rof, u)   * wlvRofMult(L),
-    range: def.range * Math.pow(UPG.mult.range, u) * wlvRangeMult(L),
+    // range is FIXED — never grows with lab weapon levels, and only the Mortar
+    // expands range on its single in-run upgrade. Everything else is set.
+    range: def.range * (t.key === 'mortar' ? Math.pow(UPG.mult.range, u) : 1),
     splash: def.splash ? def.splash * (1 + (t.key === 'mortar' ? 0.35 : 0.15) * u) : 0,
   };
 }
@@ -633,7 +635,7 @@ function spawnDino(key, pathI, isBoss){
     slowT: 0, slowF: 1, burnT: 0, burnDps: 0, revealT: 0,
     // Indominus camouflage: cloakCd counts down its brief on-field visibility;
     // when it hits 0 the dino vanishes and stays cloaked for good (-1 = never cloaks)
-    cloaked: false, cloakCd: def.cloak ? 2 : -1,
+    cloaked: false, cloakCd: def.cloak ? 2 : -1, vanishAnnounced: false,
     regen: def.regen || 0,
     phase: rand(0, Math.PI * 2),
     bounty: bountyOf(def, w) * (isBoss ? 1 : 1),
@@ -994,19 +996,23 @@ function updateDinos(dt){
     if (d.revealT > 0) d.revealT -= dt;
     if (d.regen > 0 && d.hp < d.maxHp) d.hp = Math.min(d.maxHp, d.hp + d.regen * d.maxHp * dt);
     // Indominus camouflage: after a brief window of visibility once it's on
-    // the field (past its entrance), it vanishes for good and can only be
-    // seen or hurt while a nearby Sonic Emitter's pulse is revealing it.
+    // the field (past its entrance), it gains permanent cloak — from then on
+    // it can only be seen or hurt while a Sonic Emitter's pulse is revealing it.
     if (d.cloakCd >= 0 && !d.cloaked && d.entranceT <= 0){
       d.cloakCd -= dt;
-      if (d.cloakCd <= 0){
-        d.cloaked = true;
-        // tell the player what just happened — and hint at the counter
-        const cp = dinoPos(d);
-        addFx('shock', cp.x, cp.y, d.size * 2.2);
-        addText(cp.x, cp.y - d.size, '👻 vanished!', '#cbb6ff', 14);
-        G.banner = {text: '👻 IT VANISHED!', sub: 'The Indominus turned invisible — only a 📡 Sonic Emitter can expose it', t: 3.2};
-        SFX.pulse();
-      }
+      if (d.cloakCd <= 0) d.cloaked = true;
+    }
+    // Announce the vanish the FIRST time it's actually unseen — cloaked AND not
+    // currently lit up by an emitter. If an emitter is covering it when it
+    // cloaks it never visibly disappears (no banner); the cue only fires if/when
+    // it slips out of emitter cover somewhere along the path.
+    if (d.cloaked && d.revealT <= 0 && !d.vanishAnnounced){
+      d.vanishAnnounced = true;
+      const cp = dinoPos(d);
+      addFx('shock', cp.x, cp.y, d.size * 2.2);
+      addText(cp.x, cp.y - d.size, '👻 vanished!', '#cbb6ff', 14);
+      G.banner = {text: 'IT VANISHED!', sub: 'The Indominus turned invisible — only a 📡 Sonic Emitter can expose it', t: 4.2, t0: 4.2};
+      SFX.pulse();
     }
     // boss entrance: hold position and roar before advancing
     if (d.entranceT > 0){
@@ -1933,7 +1939,7 @@ function buildLab(){
 /* ---------------- tips / field manual ---------------- */
 const TIPS = [
   '<b>Hotkeys:</b> 1–9 select weapons, <b>Space</b> starts a wave or pauses, <b>M</b> mutes, <b>Esc</b> cancels. Hold <b>Shift</b> while building to place several.',
-  '<b>Upgrades:</b> click a placed weapon to upgrade it (2–3 levels max — each level is a big jump in damage, fire rate, and range, and the hardware visibly grows). Upgrades cost more than the weapon itself, and each level costs more than the last.',
+  '<b>Upgrades:</b> click a placed weapon to upgrade it (2–3 levels max — each level is a big jump in damage and fire rate, and the hardware visibly grows). A weapon\'s range is fixed — only the 💣 Mortar gains reach when upgraded. Upgrades cost more than the weapon itself, and each level costs more than the last.',
   '<b>The armory grows with you:</b> heavier weapons unlock as you survive deeper waves — the shop card shows the unlock wave on locked gear.',
   '<b>Duplicates cost extra:</b> every additional copy of the same weapon is pricier than the last (mortars especially). Diversify your arsenal.',
 '<b>✈️ Air Strike</b> (from wave 50): jets carpet-bomb the ENTIRE zone in a rolling cluster-bomb wave — it one-shot-kills every dinosaur on the field (even flyers) and strips 25% off any boss. Max two calls per run, and the second costs more. Save them for boss waves or a swarm that\'s about to break through.',
@@ -2405,7 +2411,7 @@ function render(dt){
     ctx.globalAlpha = 0.85;
     ctx.strokeStyle = ok ? 'rgba(140,240,140,0.6)' : 'rgba(255,90,90,0.7)';
     ctx.fillStyle = ok ? 'rgba(140,240,140,0.12)' : 'rgba(255,90,90,0.12)';
-    const rng = def.range * wlvRangeMult(wlv(G.placing));
+    const rng = def.range;   // placement range is fixed (lab levels don't change range)
     ctx.beginPath(); ctx.arc(G.mouse.x, G.mouse.y, rng, 0, Math.PI*2); ctx.fill(); ctx.stroke();
     drawTowerBase(ctx, G.mouse.x, G.mouse.y, G.placing, false, 0);
     if (G.pendingTap){
@@ -2544,7 +2550,7 @@ function render(dt){
 
   // boss banner: name + epithet title card
   if (G.banner){
-    const a = clamp(Math.min((3.4 - G.banner.t) * 4, G.banner.t * 1.8), 0, 1);
+    const a = clamp(Math.min(((G.banner.t0 || 3.4) - G.banner.t) * 4, G.banner.t * 1.8), 0, 1);
     ctx.globalAlpha = a;
     const cy = 108;
     const grad = ctx.createLinearGradient(0, cy - 44, 0, cy + 34);
@@ -2970,6 +2976,13 @@ if (testParams.has('test')){
     boss.entranceT = 0; G.cinT = 0;                 // skip the cinematic hold
     for (let s = 0; s < 3; s += 0.05) step(0.05);   // let the 2s visibility window lapse
     const cloakedNow = boss.cloaked;
+    // banner suppression: while an emitter is lighting it up it must NOT announce a vanish
+    boss.vanishAnnounced = false; boss.revealT = 2; G.banner = null;
+    for (let s = 0; s < 1; s += 0.05) step(0.05);
+    const coveredNoBanner = boss.vanishAnnounced === false && !G.banner;
+    // ...but the moment that cover lapses it vanishes, exactly once (banner fires)
+    boss.revealT = 0; step(0.05);
+    const lapseVanished = boss.vanishAnnounced === true && !!G.banner;
     const before = boss.hp;
     damage(boss, 5000, true);                        // hit while hidden with no emitter → no effect
     const invincible = boss.hp === before;
@@ -2979,7 +2992,7 @@ if (testParams.has('test')){
     for (let s = 0; s < 1.5; s += 0.05) step(0.05);
     const hurtByEmitter = boss.hp < before;
     const el = $('#errbox'); el.classList.remove('hidden');
-    el.textContent = `INDO cloaked=${cloakedNow}(want true) · invincible-while-hidden=${invincible}(want true) · emitter revealed+hurt=${hurtByEmitter}(want true) · hp ${Math.round(before)}→${Math.round(boss.hp)}`;
+    el.textContent = `INDO cloaked=${cloakedNow} · covered→no-banner=${coveredNoBanner} · lapse→vanished-once=${lapseVanished} · invincible=${invincible} · emitter-hurt=${hurtByEmitter} (all want true)`;
     G.paused = true;
   }
   if (testParams.has('upg')){ // preview upgraded-tower visuals
