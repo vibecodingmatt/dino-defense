@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.20.0';
+const VERSION = '1.21.0';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -24,7 +24,8 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.20.0', date: 'Jul 6, 2026', items: [
+  {v: '1.21.0', date: 'Jul 6, 2026', items: [
+    '✨ A brand-new home screen! The main menu has been completely rebuilt into an animated, bioluminescent-jungle showcase — a glowing containment emblem, a bold new ISLA DEFENSE wordmark, drifting fireflies, a parallax treeline, sleek stat pills, and a live mini-map preview of every deployment zone (each drawn in its own biome colours). There\'s even a ☀️/🌙 day-night ambience toggle in the corner.',
     '🎯 New Research Lab unlocks — every weapon now has a one-time <b>+10% range</b> boost you can buy with DNA. It starts at 10,000 DNA, and each range you unlock raises the price of every remaining one by 5,000 DNA.',
     '💰 New Lab unlock — <b>Double Sell Value</b>. Selling a weapon now refunds only 25% of what you paid (down from 70%), but this permanent 25,000-DNA upgrade doubles that back to 50%.',
     '📏 Bumped every weapon\'s base range up 5% across the board.',

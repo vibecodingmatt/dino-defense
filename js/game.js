@@ -1821,14 +1821,61 @@ function setDiff(v, writeField){
     ` &nbsp;·&nbsp; Highest beaten: <b>${save.bestDiff || '—'}</b>`;
   $$('.selD').forEach(e => e.textContent = selDiff);
 }
+/* draw a small live preview of a zone (its biome colours + the actual path) */
+function drawMiniMap(cv, lv){
+  if (!cv) return;
+  const c = cv.getContext('2d'); if (!c) return;
+  const W = cv.width, H = cv.height, sx = W / 1280, sy = H / 720, t = lv.theme;
+  const g = c.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, t.grass2 || '#3c5726'); g.addColorStop(1, t.grass || '#31491f');
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+  // deterministic canopy specks (stable across rebuilds)
+  let seed = lv.name.length * 41 + 7;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  c.fillStyle = t.tree || '#243d18';
+  for (let k = 0; k < 30; k++){ const rx = rnd() * W, ry = rnd() * H, r = 1.6 + rnd() * 3; c.globalAlpha = 0.45 + rnd() * 0.4; c.beginPath(); c.arc(rx, ry, r, 0, 7); c.fill(); }
+  c.globalAlpha = 1;
+  c.lineJoin = c.lineCap = 'round';
+  for (const path of lv.paths){
+    c.strokeStyle = t.pathEdge || '#5e4a2d'; c.lineWidth = 14 * sx;
+    c.beginPath(); path.forEach((p, i) => i ? c.lineTo(p.x * sx, p.y * sy) : c.moveTo(p.x * sx, p.y * sy)); c.stroke();
+    c.strokeStyle = t.path || '#8a6f47'; c.lineWidth = 8.5 * sx;
+    c.beginPath(); path.forEach((p, i) => i ? c.lineTo(p.x * sx, p.y * sy) : c.moveTo(p.x * sx, p.y * sy)); c.stroke();
+  }
+  if (lv.night){ c.fillStyle = 'rgba(10,16,34,0.42)'; c.fillRect(0, 0, W, H); }
+  const gl = c.createLinearGradient(0, 0, 0, H * 0.55);
+  gl.addColorStop(0, 'rgba(255,255,255,0.10)'); gl.addColorStop(1, 'rgba(255,255,255,0)');
+  c.fillStyle = gl; c.fillRect(0, 0, W, H * 0.55);
+  const gv = c.createLinearGradient(0, H * 0.45, 0, H);
+  gv.addColorStop(0, 'rgba(0,0,0,0)'); gv.addColorStop(1, 'rgba(0,0,0,0.42)');
+  c.fillStyle = gv; c.fillRect(0, H * 0.45, W, H * 0.55);
+}
+/* seed the drifting fireflies/spores in the menu background (once) */
+function buildMenuFx(){
+  const host = $('#menuSpores');
+  if (!host || host.childElementCount) return;
+  let html = '';
+  for (let i = 0; i < 26; i++){
+    const dur = 10 + Math.random() * 16;
+    html += `<span class="spore${Math.random() < 0.4 ? ' teal' : ''}" style="` +
+      `left:${(Math.random() * 100).toFixed(1)}%;bottom:${(-8 + Math.random() * 42).toFixed(0)}%;` +
+      `width:${(2 + Math.random() * 4).toFixed(1)}px;height:${(2 + Math.random() * 4).toFixed(1)}px;` +
+      `animation-duration:${dur.toFixed(1)}s;animation-delay:${(-Math.random() * dur).toFixed(1)}s;` +
+      `--drift:${(Math.random() * 80 - 40).toFixed(0)}px"></span>`;
+  }
+  host.innerHTML = html;
+}
 function buildMenu(){
+  const got = ACHIEVEMENTS.filter(a => save.ach && save.ach[a.key]).length;
   $('#verChip').innerHTML = `v${VERSION} · 📜 what's new`;
-  $('#menuDna').innerHTML = `🧬 <b>${fmt(save.dna)} DNA</b> banked &nbsp;·&nbsp; spend it in the Research Lab ▸`;
+  $('#menuDna').innerHTML = `🧬 <b>${fmt(save.dna)}</b> DNA`;
+  const sb = $('#statBest'); if (sb) sb.innerHTML = save.bestDiff ? `⛰️ Reached <b>Lv ${save.bestDiff}</b>` : `🌱 New ranger`;
+  const sa = $('#statAch'); if (sa) sa.innerHTML = `🏆 <b>${got}/${ACHIEVEMENTS.length}</b> trophies`;
   // pulse the Lab button whenever any weapon or base upgrade is affordable
   const canBuy = Object.keys(TOWERS).some(k => save.dna >= wlvCost(TOWERS[k], wlv(k)))
     || META.some(m => save.dna >= metaCost(m, mlvl(m.key)));
   $('#btnLab').classList.toggle('attention', canBuy);
-  $('#btnLab').innerHTML = canBuy ? '🧬 Research Lab — upgrades available!' : '🧬 Research Lab';
+  $('#btnLab').innerHTML = canBuy ? '🧬 Research Lab — upgrades ready!' : '🧬 Research Lab';
   if (!selDiff || selDiff < 1) selDiff = unlockedCap();
   setDiff(selDiff, true);
   const el = $('#levelCards');
@@ -1838,10 +1885,13 @@ function buildMenu(){
     const card = document.createElement('div');
     card.className = 'levelCard resume';
     card.innerHTML =
+      `<canvas class="lvThumb" width="416" height="192"></canvas>` +
+      `<div class="lvBody">` +
       `<div class="lvNum">▶ Continue run</div>` +
       `<div class="lvName">${lv.name} · Lv ${r.difficulty || 1}</div>` +
       `<div class="lvSub">Wave ${r.wave}/100 · $${fmt(r.cash)} · ${r.towers.length} weapons</div>` +
-      `<div class="lvBest">Click to pick up where you left off</div>`;
+      `<div class="lvBest">Click to pick up where you left off</div></div>`;
+    drawMiniMap(card.querySelector('.lvThumb'), lv);
     card.onclick = () => startLevel(r.levelIdx, 'resume');
     el.appendChild(card);
   }
@@ -1850,11 +1900,14 @@ function buildMenu(){
     const card = document.createElement('div');
     card.className = 'levelCard';
     card.innerHTML =
-      `<div class="lvNum">📍 Map ${i+1}</div>` +
+      `<canvas class="lvThumb" width="416" height="192"></canvas>` +
+      `<div class="lvBody">` +
+      `<div class="lvNum">📍 Zone ${i+1}</div>` +
       `<div class="lvName">${lv.name}</div>` +
       `<div class="lvSub">${lv.sub}</div>` +
       `<div class="lvBest">${mb > 0 ? '★ Best cleared here: Lv ' + mb : 'Not cleared yet'}</div>` +
-      `<div class="lvPlay">▶ Play at Level <b class="selD">${selDiff}</b></div>`;
+      `<div class="lvPlay">▶ Deploy at Level <b class="selD">${selDiff}</b></div></div>`;
+    drawMiniMap(card.querySelector('.lvThumb'), lv);
     card.onclick = () => {
       setDiff(selDiff, true);
       if (save.run && save.run.wave >= 1 &&
@@ -1863,8 +1916,6 @@ function buildMenu(){
     };
     el.appendChild(card);
   });
-  // show progress on the menu button so players see how many are left at a glance
-  const got = ACHIEVEMENTS.filter(a => save.ach && save.ach[a.key]).length;
   const btn = $('#btnAch');
   if (btn) btn.textContent = `🏆 Achievements ${got}/${ACHIEVEMENTS.length}`;
 }
@@ -1896,7 +1947,7 @@ function checkWeaponAch(){
 }
 const mulStr = m => m >= 100 ? '×' + fmt(m) : '×' + m.toFixed(2);
 function refreshLabDna(){
-  $('#menuDna').innerHTML = `🧬 <b>${fmt(save.dna)} DNA</b> banked &nbsp;·&nbsp; spend it in the Research Lab ▸`;
+  $('#menuDna').innerHTML = `🧬 <b>${fmt(save.dna)}</b> DNA`;
 }
 function labRow(el, ico, name, tier, desc, cost, nextLabel, onBuy){
   const afford = save.dna >= cost;
@@ -2816,6 +2867,11 @@ $$('.modalX').forEach(b => b.onclick = () => {
 });
 $('#btnSettings').onclick = () => { syncSettings(); $('#settings').classList.remove('hidden'); };
 $('#setClose').onclick = () => { $('#settings').classList.add('hidden'); };
+$('#sceneToggle').onclick = () => {
+  const m = $('#menu'), wasDay = m.getAttribute('data-scene') === 'day';
+  m.setAttribute('data-scene', wasDay ? 'night' : 'day');
+  $('#sceneToggle').textContent = wasDay ? '🌙' : '☀️';
+};
 /* Developer cheats live behind a single password gate: ticking "Developer
    options" asks for the password ONCE and, on success, reveals the individual
    cheats — which then toggle freely (no more per-option prompts). Unticking it
@@ -2892,6 +2948,7 @@ window.onerror = (msg, src, line) => {
 
 /* ---------------- boot ---------------- */
 initAnalytics();
+buildMenuFx();
 buildMenu();
 syncSettings();
 requestAnimationFrame(frame);

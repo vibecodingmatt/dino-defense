@@ -83,35 +83,80 @@
 </div>
 
 <!-- main menu -->
-<div id="menu">
-  <h1>🦖 ISLA DEFENSE</h1>
-  <div class="tag">— CONTAINMENT BREACH · a dinosaur tower defense —</div>
-  <div id="menuDna">0 DNA</div>
-  <div id="diffPick">
-    <div class="diffTop">🎚️ Difficulty Level</div>
-    <div id="diffCtl">
-      <button data-d="-10" title="−10">«</button>
-      <button data-d="-1" title="−1">‹</button>
-      <input id="diffInput" type="number" min="1" max="1000" value="1">
-      <button data-d="1" title="+1">›</button>
-      <button data-d="10" title="+10">»</button>
-      <button id="diffMax" title="Jump to the highest unlocked level">Max</button>
-    </div>
-    <div id="diffInfo"></div>
+<div id="menu" data-scene="night">
+  <!-- ambient, layered background (purely decorative) -->
+  <div id="menuBg" aria-hidden="true">
+    <div class="mb mb-sky"></div>
+    <div class="mb mb-rays"></div>
+    <div class="mb mb-glow"></div>
+    <div class="mb mb-fog mb-fog1"></div>
+    <div class="mb mb-fog mb-fog2"></div>
+    <svg class="mb mb-trees" viewBox="0 0 1440 320" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <path class="tree tree-far"  d="M0,320 L0,210 Q60,170 120,205 Q180,235 260,195 Q340,160 420,200 Q500,235 590,190 Q680,150 770,200 Q860,240 950,195 Q1040,155 1140,205 Q1240,245 1330,195 Q1390,170 1440,205 L1440,320 Z"/>
+      <path class="tree tree-mid"  d="M0,320 L0,250 Q80,215 170,250 Q260,280 360,240 Q460,205 560,250 Q660,290 770,245 Q880,205 990,255 Q1100,295 1210,248 Q1320,210 1440,255 L1440,320 Z"/>
+      <path class="tree tree-near" d="M0,320 L0,286 Q120,260 250,288 Q380,312 520,282 Q660,258 800,288 Q940,314 1090,284 Q1240,258 1440,288 L1440,320 Z"/>
+    </svg>
+    <div class="mb mb-spores" id="menuSpores"></div>
+    <div class="mb mb-vignette"></div>
+    <div class="mb mb-scan"></div>
   </div>
-  <div id="mapHint">Pick a map to play at the selected level:</div>
-  <div id="levelCards"></div>
-  <div id="menuBtns">
-    <button id="btnLab" class="primary">🧬 Research Lab</button>
-    <button id="btnAch">🏆 Achievements</button>
-    <button id="btnTips">💡 Tips</button>
-    <button id="btnSettings">⚙ Settings</button>
-  </div>
-  <div id="verChip" title="See what changed in recent updates"></div>
-  <div class="foot">
-    Pick a map and a difficulty level (1–1000). Clear all 100 waves to beat it; beat the highest unlocked level to open the next 10.<br>
-    Every kill pays cash for weapons and banks DNA — spend DNA in the Research Lab to level your weapons and climb higher.<br>
-    An affectionate homage to a certain dinosaur park that definitely spared no expense.
+
+  <button id="sceneToggle" title="Toggle day / night ambience">🌙</button>
+
+  <div class="menuWrap">
+    <!-- HERO -->
+    <header class="hero">
+      <div class="crest">
+        <span class="crest-ring"></span>
+        <span class="crest-ring2"></span>
+        <span class="crest-core">🦖</span>
+      </div>
+      <h1 class="wordmark" data-text="ISLA DEFENSE">ISLA DEFENSE</h1>
+      <div class="tagline"><i></i><span>CONTAINMENT&nbsp;BREACH</span><i></i></div>
+      <p class="hero-sub">A dinosaur tower defense — hold the perimeter through 100 relentless waves.</p>
+      <div class="statBar">
+        <button id="menuDna" class="stat" title="Spend DNA in the Research Lab">0 DNA</button>
+        <div class="stat" id="statBest">—</div>
+        <div class="stat" id="statAch">—</div>
+      </div>
+    </header>
+
+    <!-- COMMAND DECK -->
+    <section class="deck">
+      <div id="diffPick">
+        <div class="diffTop">🎚️ Threat Level</div>
+        <div id="diffCtl">
+          <button data-d="-10" title="−10">«</button>
+          <button data-d="-1" title="−1">‹</button>
+          <input id="diffInput" type="number" min="1" max="1000" value="1">
+          <button data-d="1" title="+1">›</button>
+          <button data-d="10" title="+10">»</button>
+          <button id="diffMax" title="Jump to the highest unlocked level">MAX</button>
+        </div>
+        <div id="diffInfo"></div>
+      </div>
+
+      <div class="deckMaps">
+        <div id="mapHint">Select a deployment zone</div>
+        <div id="levelCards"></div>
+      </div>
+    </section>
+
+    <!-- NAV -->
+    <nav id="menuBtns">
+      <button id="btnLab" class="primary">🧬 Research Lab</button>
+      <button id="btnAch">🏆 Achievements</button>
+      <button id="btnTips">💡 Field Manual</button>
+      <button id="btnSettings">⚙ Settings</button>
+    </nav>
+
+    <footer class="menuFoot">
+      <div id="verChip" title="See what changed in recent updates"></div>
+      <div class="foot">
+        Pick a zone and a threat level (1–1000), then clear all 100 waves. Every kill pays cash for weapons and banks DNA — spend it in the Research Lab to climb higher.<br>
+        An affectionate homage to a certain dinosaur park that definitely spared no expense.
+      </div>
+    </footer>
   </div>
 </div>
 
