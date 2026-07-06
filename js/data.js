@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.19.0';
+const VERSION = '1.20.0';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -24,7 +24,10 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.19.0', date: 'Jul 6, 2026', items: [
+  {v: '1.20.0', date: 'Jul 6, 2026', items: [
+    '🎯 New Research Lab unlocks — every weapon now has a one-time <b>+10% range</b> boost you can buy with DNA. It starts at 10,000 DNA, and each range you unlock raises the price of every remaining one by 5,000 DNA.',
+    '💰 New Lab unlock — <b>Double Sell Value</b>. Selling a weapon now refunds only 25% of what you paid (down from 70%), but this permanent 25,000-DNA upgrade doubles that back to 50%.',
+    '📏 Bumped every weapon\'s base range up 5% across the board.',
     '🎯 Big range rebalance — weapon ranges were WAY too large, so they\'ve been cut down hard and given real variety. Cheap guns (ACU Gatling, Flame Thrower) are now short-reach and reward careful placement, while the Ranger Sniper and the heavy ordnance (Missile Battery, Mortar) reach much farther. Where you build now matters a lot more.',
     '🎉 Fixed the "Zone Secured" victory screen shaking forever — the celebration rumble now settles within a few seconds and the screen holds still.',
     '⚙️ Settings tidy-up: the developer cheats are now hidden behind a single "Reveal developer options" toggle. Enter the password once to unlock it and the individual cheats flip on and off freely after that.',
@@ -174,29 +177,29 @@ const BOSS_WAVES = {
    Sniper (its whole identity) and the big/expensive ordnance (Missiles,
    Mortar) reach much farther. unlock = first wave the weapon is purchasable. */
 const TOWERS = {
-  gatling: {name:'ACU Gatling',    icon:'🔫', cost:180, dmg:9,   rof:7,    range:44,  air:true,  proj:'bullet', maxUp:3, unlock:1,
+  gatling: {name:'ACU Gatling',    icon:'🔫', cost:180, dmg:9,   rof:7,    range:46,  air:true,  proj:'bullet', maxUp:3, unlock:1,
             desc:'Asset Containment turret. Low damage, very high fire rate, short reach.', color:'#c9c9c9'},
-  flamer:  {name:'Flame Thrower',  icon:'🔥', cost:210, dmg:7,   rof:9,    range:34,  air:false, proj:'flame', maxUp:2, unlock:1,
+  flamer:  {name:'Flame Thrower',  icon:'🔥', cost:210, dmg:7,   rof:9,    range:36,  air:false, proj:'flame', maxUp:2, unlock:1,
             burn:{dps:22, t:2.2}, cone:0.62,
             desc:'Point-blank cone of fire. Sets ground targets ablaze.', color:'#ff9a3d'},
-  sniper:  {name:'Ranger Sniper',  icon:'🎯', cost:270, dmg:95,  rof:0.6,  range:108, air:true,  proj:'snipe', pierce:true, maxUp:2, unlock:6,
+  sniper:  {name:'Ranger Sniper',  icon:'🎯', cost:270, dmg:95,  rof:0.6,  range:113, air:true,  proj:'snipe', pierce:true, maxUp:2, unlock:6,
             desc:'Huge single-shot damage at extreme range. Ignores armor.', color:'#7fb2ff'},
-  cryo:    {name:'Cryo Cannon',    icon:'❄️', cost:290, dmg:12,  rof:1.0,  range:54,  air:true,  proj:'cryo', maxUp:2, unlock:9,
+  cryo:    {name:'Cryo Cannon',    icon:'❄️', cost:290, dmg:12,  rof:1.0,  range:57,  air:true,  proj:'cryo', maxUp:2, unlock:9,
             splash:60, slow:{f:0.5, t:2.4},
             desc:'Freezing shells that heavily slow everything they splash.', color:'#bfe8ff'},
-  tesla:   {name:'Tesla Node',     icon:'⚡', cost:310, dmg:45,  rof:1.0,  range:52,  air:true,  proj:'tesla', maxUp:2, unlock:12,
+  tesla:   {name:'Tesla Node',     icon:'⚡', cost:310, dmg:45,  rof:1.0,  range:55,  air:true,  proj:'tesla', maxUp:2, unlock:12,
             chain:4, chainRange:75,
             desc:'10,000-volt perimeter tech. Arcs between up to 4 dinosaurs.', color:'#6ee7ff'},
-  sonic:   {name:'Sonic Emitter',  icon:'📡', cost:370, dmg:50,  rof:0.9,  range:60,  air:true,  proj:'pulse', maxUp:2, unlock:15,
+  sonic:   {name:'Sonic Emitter',  icon:'📡', cost:370, dmg:50,  rof:0.9,  range:63,  air:true,  proj:'pulse', maxUp:2, unlock:15,
             reveal:true,
             desc:'Damages ALL dinosaurs in radius. Reveals camouflaged bosses.', color:'#d6a3ff'},
-  missile: {name:'Missile Battery',icon:'🚀', cost:470, dmg:90,  rof:0.55, range:84,  air:true,  proj:'missile', maxUp:2, unlock:18,
+  missile: {name:'Missile Battery',icon:'🚀', cost:470, dmg:90,  rof:0.55, range:88,  air:true,  proj:'missile', maxUp:2, unlock:18,
             splash:70,
             desc:'Homing rockets with splash and long reach. Upgrades add a 2nd and 3rd rocket per salvo — the whole volley slams the same target.', color:'#ff6b6b'},
-  mortar:  {name:'Mortar',         icon:'💣', cost:1000, dmg:200, rof:0.3, range:120, air:false, proj:'mortar', maxUp:1, unlock:28,
+  mortar:  {name:'Mortar',         icon:'💣', cost:1000, dmg:200, rof:0.3, range:126, air:false, proj:'mortar', maxUp:1, unlock:28,
             splash:100, minRange:30,
             desc:'Lobbed shells devastate herds at the longest range in the armory. Cannot hit flyers or anything too close. One upgrade: massive damage, splash, and extra range.', color:'#e0b64f'},
-  gas:     {name:"Mason's Gas",    icon:'☣️', cost:240, dmg:42,  rof:0.6, range:50,  air:false, proj:'gas', maxUp:2, unlock:3,
+  gas:     {name:"Mason's Gas",    icon:'☣️', cost:240, dmg:42,  rof:0.6, range:53,  air:false, proj:'gas', maxUp:2, unlock:3,
             cloud:{r:78, dur:3.4},
             desc:'Lobs a lingering cloud of toxic gas that poisons ground dinosaurs inside it — brutal against packed groups, and it ignores armor. Flyers, bosses, and tall long-necked dinos rise above the cloud.', color:'#a6e04a'},
 };
@@ -207,6 +210,18 @@ const UPG = {
   mult: {dmg: 1.65, rof: 1.25, range: 1.12},
   cost: (towerDef, ulv) => Math.round(towerDef.cost * (1.2 + ulv * 0.8)),
 };
+
+/* ---------- LAB: range unlocks & sell value ----------
+   Each weapon has ONE permanent +10% range unlock. Buying any one raises the
+   price of every remaining range unlock by RANGE_UP_STEP (global escalation).
+   Selling refunds SELL_BASE of what was invested; a one-time lab unlock
+   (SELL_DOUBLE_COST) doubles that. */
+const RANGE_UP_MULT   = 1.10;    // per-weapon range unlock multiplier
+const RANGE_UP_BASE   = 10000;   // DNA for the first range unlock
+const RANGE_UP_STEP   = 5000;    // +DNA to every remaining range unlock per one bought
+const SELL_BASE       = 0.25;    // sell refund = 25% of invested...
+const SELL_DOUBLE_MULT = 2;      // ...doubled to 50% once the lab unlock is bought
+const SELL_DOUBLE_COST = 25000;  // DNA for the double-sell unlock
 
 /* ---------- AIR STRIKE (consumable, not a tower) ----------
    A full cluster-bomb carpet: jets sweep in and blanket the ENTIRE

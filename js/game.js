@@ -115,6 +115,13 @@ if (!save.granted){ save.dna = (save.dna || 0) + START_DNA; save.granted = true;
 const wlv = key => (save.wlv && save.wlv[key]) || 1;
 /* persistent meta-upgrade level — base HP / starting cash (starts at 0, uncapped) */
 const mlvl = key => (save.wlv && save.wlv[key]) || 0;
+/* lab: per-weapon one-time +10% range unlocks (escalating global cost) + double-sell */
+const rangeUnlocked   = key => mlvl('range_' + key) > 0;
+const rangeUnlockCount = () => Object.keys(TOWERS).filter(rangeUnlocked).length;
+const rangeUnlockCost  = () => RANGE_UP_BASE + RANGE_UP_STEP * rangeUnlockCount();
+const rangeUpMult      = key => rangeUnlocked(key) ? RANGE_UP_MULT : 1;
+const sellDoubled      = () => mlvl('sell_double') > 0;
+const sellRefund       = t => Math.round(t.invested * SELL_BASE * (sellDoubled() ? SELL_DOUBLE_MULT : 1));
 
 /* ---------------- developer cheats & achievements ---------------- */
 const CHEAT_PASSWORD = 'matttest';
@@ -561,9 +568,9 @@ function towerStats(t){
   return {
     dmg:   def.dmg   * Math.pow(UPG.mult.dmg, u)   * wlvDmgMult(L),
     rof:   def.rof   * Math.pow(UPG.mult.rof, u)   * wlvRofMult(L),
-    // range is FIXED — never grows with lab weapon levels, and only the Mortar
-    // expands range on its single in-run upgrade. Everything else is set.
-    range: def.range * (t.key === 'mortar' ? Math.pow(UPG.mult.range, u) : 1),
+    // range doesn't grow with weapon LEVEL; only the Mortar's in-run upgrade
+    // expands it, plus each weapon's optional one-time +10% lab range unlock.
+    range: def.range * (t.key === 'mortar' ? Math.pow(UPG.mult.range, u) : 1) * rangeUpMult(t.key),
     splash: def.splash ? def.splash * (1 + (t.key === 'mortar' ? 0.35 : 0.15) * u) : 0,
   };
 }
@@ -1421,7 +1428,7 @@ function renderTowerPanel(){
   muteBtn.textContent = muted ? '🔇' : '🔊';
   muteBtn.classList.toggle('muted', muted);
   muteBtn.title = (muted ? 'Unmute' : 'Mute') + ' all ' + def.name + ' sounds';
-  const sell = $('#tpSell'), refund = Math.round(t.invested * 0.7);
+  const sell = $('#tpSell'), refund = sellRefund(t);
   sell.classList.toggle('confirm', sellArmed);
   sell.textContent = sellArmed ? `⚠ Tap to confirm sell` : `💰 Sell — $${refund}`;
   // NB: positioning is intentionally NOT done here. renderTowerPanel() runs
@@ -1457,7 +1464,7 @@ function armOrSell(){
 }
 function sellSelected(){
   const t = G.selected; if (!t) return;
-  G.cash += Math.round(t.invested * 0.7);
+  G.cash += sellRefund(t);
   G.towers = G.towers.filter(x => x !== t);
   // sold the last weapon before wave 1 started → cancel the auto-start countdown
   if (G.wave === 0 && !G.waveActive && !G.over && G.towers.length === 0) G.autoTimer = -1;
@@ -1902,6 +1909,19 @@ function labRow(el, ico, name, tier, desc, cost, nextLabel, onBuy){
   row.querySelector('button').onclick = onBuy;
   el.appendChild(row);
 }
+/* a one-time unlock row: shows a buy button, or a locked-in "✓ Unlocked" once owned */
+function labUnlockRow(el, ico, name, tier, desc, cost, unlocked, onBuy){
+  const row = document.createElement('div');
+  row.className = 'labRow' + (unlocked ? ' owned' : '');
+  row.innerHTML =
+    `<div class="labIco">${ico}</div>` +
+    `<div class="labInfo"><b>${name}</b> <span class="tier">${tier}</span><br><small>${desc}</small></div>` +
+    (unlocked
+      ? `<button class="labBuy owned" disabled>✓ Unlocked</button>`
+      : `<button class="labBuy" ${save.dna >= cost ? '' : 'disabled'}>Unlock · ${fmt(cost)} DNA</button>`);
+  if (!unlocked) row.querySelector('button').onclick = onBuy;
+  el.appendChild(row);
+}
 function buildLab(){
   $('#labDna').textContent = fmt(save.dna) + ' DNA';
   const el = $('#labList');
@@ -1920,7 +1940,18 @@ function buildLab(){
         persist(); SFX.upgrade(); buildLab(); refreshLabDna();
       });
   }
-  // weapon levels
+  // double sell value (one-time): 25% refund → 50%
+  labUnlockRow(el, '💰', 'Double Sell Value', sellDoubled() ? '×2' : 'Locked',
+    sellDoubled()
+      ? 'Selling a weapon refunds 50% of what you paid (up from 25%).'
+      : 'Doubles the refund on every weapon you sell — from 25% back up to 50%. Reposition freely.',
+    SELL_DOUBLE_COST, sellDoubled(),
+    () => {
+      if (sellDoubled() || save.dna < SELL_DOUBLE_COST) return;
+      save.dna -= SELL_DOUBLE_COST; save.wlv['sell_double'] = 1;
+      persist(); SFX.upgrade(); buildLab(); refreshLabDna();
+    });
+  // weapon levels — each weapon gets a damage-level row + a one-time +10% range unlock
   for (const [key, def] of Object.entries(TOWERS)){
     const L = wlv(key), cost = wlvCost(def, L);
     labRow(el, def.icon, def.name, `Lv ${L}`,
@@ -1934,12 +1965,23 @@ function buildLab(){
         checkWeaponAch();   // may award a weapon-level trophy (and its DNA bonus)
         buildLab(); refreshLabDna();
       });
+    const rUp = rangeUnlocked(key), rCost = rangeUnlockCost();
+    labUnlockRow(el, '🎯', def.name + ' — Range', rUp ? '+10%' : 'Range',
+      rUp
+        ? `Range extended +10% (${Math.round(def.range)} → ${Math.round(def.range * RANGE_UP_MULT)}).`
+        : `Permanently extend ${def.name}'s range by 10% (${Math.round(def.range)} → ${Math.round(def.range * RANGE_UP_MULT)}). Each range unlock raises the price of the rest by ${fmt(RANGE_UP_STEP)} DNA.`,
+      rCost, rUp,
+      () => {
+        if (rangeUnlocked(key) || save.dna < rangeUnlockCost()) return;
+        save.dna -= rangeUnlockCost(); save.wlv['range_' + key] = 1;
+        persist(); SFX.upgrade(); buildLab(); refreshLabDna();
+      });
   }
 }
 /* ---------------- tips / field manual ---------------- */
 const TIPS = [
   '<b>Hotkeys:</b> 1–9 select weapons, <b>Space</b> starts a wave or pauses, <b>M</b> mutes, <b>Esc</b> cancels. Hold <b>Shift</b> while building to place several.',
-  '<b>Upgrades:</b> click a placed weapon to upgrade it (2–3 levels max — each level is a big jump in damage and fire rate, and the hardware visibly grows). A weapon\'s range is fixed — only the 💣 Mortar gains reach when upgraded. Upgrades cost more than the weapon itself, and each level costs more than the last.',
+  '<b>Upgrades:</b> click a placed weapon to upgrade it (2–3 levels max — each level is a big jump in damage and fire rate, and the hardware visibly grows). A weapon\'s range doesn\'t grow with upgrades (only the 💣 Mortar does), but every weapon has a one-time <b>+10% range</b> unlock in the Research Lab. Upgrades cost more than the weapon itself, and each level costs more than the last.',
   '<b>The armory grows with you:</b> heavier weapons unlock as you survive deeper waves — the shop card shows the unlock wave on locked gear.',
   '<b>Duplicates cost extra:</b> every additional copy of the same weapon is pricier than the last (mortars especially). Diversify your arsenal.',
 '<b>✈️ Air Strike</b> (from wave 50): jets carpet-bomb the ENTIRE zone in a rolling cluster-bomb wave — it one-shot-kills every dinosaur on the field (even flyers) and strips 25% off any boss. Max two calls per run, and the second costs more. Save them for boss waves or a swarm that\'s about to break through.',
@@ -1951,7 +1993,7 @@ const TIPS = [
   '<b>The Indominus Rex turns invisible.</b> A couple of seconds after it storms in, it vanishes completely — and while unseen it takes NO damage at all. Only a 📡 Sonic Emitter\'s pulse reveals AND exposes it, so plant one right on its path before wave 50 (it also returns on waves 80 and 90). No emitter, no kill.',
   '<b>💣 Mortars</b> have a minimum range: nothing too close can be hit. Place them behind your front line and cover their blind spot.',
   '<b>🚀 Missile Batteries</b> gain a rocket per upgrade level, and the whole salvo slams the same dinosaur — big concentrated splash damage.',
-  '<b>Selling</b> refunds 70% of everything invested — repositioning late is fine.',
+  '<b>Selling</b> refunds 25% of what you invested — or 50% with the <b>Double Sell Value</b> unlock in the Research Lab. Enough to reposition, not to farm.',
   '<b>Difficulty 1–1000:</b> pick a map and a level. Every kill drops DNA (much more at higher levels); spend it in the 🧬 Research Lab to level your weapons — with no cap. Beat the highest unlocked level (10, 20, 30…) to open the next block.',
   '<b>🔥 Clean-play streak:</b> clear waves without letting a single dinosaur leak and your DNA bonus multiplier climbs (up to ×2.5), boosting everything you earn. One leak knocks it back down — tidy, no-leak play pays off big over a run.',
   '<b>Finish strong:</b> clearing all 100 waves adds bonus DNA on top — a victory bonus, more for the base health you have left, and an extra flawless bonus if your base never took a single hit.',
@@ -2421,7 +2463,7 @@ function render(dt){
     ctx.globalAlpha = 0.85;
     ctx.strokeStyle = ok ? 'rgba(140,240,140,0.6)' : 'rgba(255,90,90,0.7)';
     ctx.fillStyle = ok ? 'rgba(140,240,140,0.12)' : 'rgba(255,90,90,0.12)';
-    const rng = def.range;   // placement range is fixed (lab levels don't change range)
+    const rng = def.range * rangeUpMult(G.placing);   // base range + any lab range unlock
     ctx.beginPath(); ctx.arc(G.mouse.x, G.mouse.y, rng, 0, Math.PI*2); ctx.fill(); ctx.stroke();
     drawTowerBase(ctx, G.mouse.x, G.mouse.y, G.placing, false, 0);
     if (G.pendingTap){
