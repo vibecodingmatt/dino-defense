@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.18.1';
+const VERSION = '1.19.0';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -24,6 +24,11 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
+  {v: '1.19.0', date: 'Jul 6, 2026', items: [
+    '🎯 Big range rebalance — weapon ranges were WAY too large, so they\'ve been cut down hard and given real variety. Cheap guns (ACU Gatling, Flame Thrower) are now short-reach and reward careful placement, while the Ranger Sniper and the heavy ordnance (Missile Battery, Mortar) reach much farther. Where you build now matters a lot more.',
+    '🎉 Fixed the "Zone Secured" victory screen shaking forever — the celebration rumble now settles within a few seconds and the screen holds still.',
+    '⚙️ Settings tidy-up: the developer cheats are now hidden behind a single "Reveal developer options" toggle. Enter the password once to unlock it and the individual cheats flip on and off freely after that.',
+  ]},
   {v: '1.18.1', date: 'Jul 5, 2026', items: [
     '🎯 Weapon range is now FIXED — leveling a weapon in the Lab or upgrading a placed one no longer stretches its range. A weapon\'s reach is part of its identity, so where you place it matters more. The one exception: the 💣 Mortar still gains range on its single upgrade.',
     '🦖 The Indominus Rex is finally the apex threat it should be: a couple of seconds after it charges in — you\'ll get an "IT VANISHED!" warning — it turns completely invisible AND invulnerable. Only a 📡 Sonic Emitter\'s pulse can reveal and damage it, so you MUST guard its lane with one. (If an emitter is already covering it, it never disappears — no warning needed.) It stalks in on waves 50, 80 and 90.',
@@ -162,32 +167,36 @@ const BOSS_WAVES = {
 
 /* ---------- TOWERS / WEAPONS ----------
    maxUp = how many times the weapon can be upgraded (single track).
-   Each upgrade: damage ×1.65, fire rate ×1.25, range ×1.12, splash grows.
-   unlock = first wave the weapon becomes purchasable. */
+   Each upgrade: damage ×1.65, fire rate ×1.25, splash grows. Range is FIXED
+   and never grows with upgrades or lab levels — the ONLY exception is the
+   Mortar, which gains reach (×1.12) on its single upgrade.
+   Range design: cheap guns are short-reach and reward tight placement; the
+   Sniper (its whole identity) and the big/expensive ordnance (Missiles,
+   Mortar) reach much farther. unlock = first wave the weapon is purchasable. */
 const TOWERS = {
-  gatling: {name:'ACU Gatling',    icon:'🔫', cost:180, dmg:9,   rof:7,    range:130, air:true,  proj:'bullet', maxUp:3, unlock:1,
-            desc:'Asset Containment turret. Low damage, very high fire rate.', color:'#c9c9c9'},
-  flamer:  {name:'Flame Thrower',  icon:'🔥', cost:210, dmg:7,   rof:9,    range:100, air:false, proj:'flame', maxUp:2, unlock:1,
+  gatling: {name:'ACU Gatling',    icon:'🔫', cost:180, dmg:9,   rof:7,    range:44,  air:true,  proj:'bullet', maxUp:3, unlock:1,
+            desc:'Asset Containment turret. Low damage, very high fire rate, short reach.', color:'#c9c9c9'},
+  flamer:  {name:'Flame Thrower',  icon:'🔥', cost:210, dmg:7,   rof:9,    range:34,  air:false, proj:'flame', maxUp:2, unlock:1,
             burn:{dps:22, t:2.2}, cone:0.62,
-            desc:'Short-range cone of fire. Sets ground targets ablaze.', color:'#ff9a3d'},
-  sniper:  {name:'Ranger Sniper',  icon:'🎯', cost:270, dmg:95,  rof:0.6,  range:280, air:true,  proj:'snipe', pierce:true, maxUp:2, unlock:6,
+            desc:'Point-blank cone of fire. Sets ground targets ablaze.', color:'#ff9a3d'},
+  sniper:  {name:'Ranger Sniper',  icon:'🎯', cost:270, dmg:95,  rof:0.6,  range:108, air:true,  proj:'snipe', pierce:true, maxUp:2, unlock:6,
             desc:'Huge single-shot damage at extreme range. Ignores armor.', color:'#7fb2ff'},
-  cryo:    {name:'Cryo Cannon',    icon:'❄️', cost:290, dmg:12,  rof:1.0,  range:160, air:true,  proj:'cryo', maxUp:2, unlock:9,
+  cryo:    {name:'Cryo Cannon',    icon:'❄️', cost:290, dmg:12,  rof:1.0,  range:54,  air:true,  proj:'cryo', maxUp:2, unlock:9,
             splash:60, slow:{f:0.5, t:2.4},
             desc:'Freezing shells that heavily slow everything they splash.', color:'#bfe8ff'},
-  tesla:   {name:'Tesla Node',     icon:'⚡', cost:310, dmg:45,  rof:1.0,  range:150, air:true,  proj:'tesla', maxUp:2, unlock:12,
-            chain:4, chainRange:115,
+  tesla:   {name:'Tesla Node',     icon:'⚡', cost:310, dmg:45,  rof:1.0,  range:52,  air:true,  proj:'tesla', maxUp:2, unlock:12,
+            chain:4, chainRange:75,
             desc:'10,000-volt perimeter tech. Arcs between up to 4 dinosaurs.', color:'#6ee7ff'},
-  sonic:   {name:'Sonic Emitter',  icon:'📡', cost:370, dmg:50,  rof:0.9,  range:125, air:true,  proj:'pulse', maxUp:2, unlock:15,
+  sonic:   {name:'Sonic Emitter',  icon:'📡', cost:370, dmg:50,  rof:0.9,  range:60,  air:true,  proj:'pulse', maxUp:2, unlock:15,
             reveal:true,
             desc:'Damages ALL dinosaurs in radius. Reveals camouflaged bosses.', color:'#d6a3ff'},
-  missile: {name:'Missile Battery',icon:'🚀', cost:470, dmg:90,  rof:0.55, range:220, air:true,  proj:'missile', maxUp:2, unlock:18,
+  missile: {name:'Missile Battery',icon:'🚀', cost:470, dmg:90,  rof:0.55, range:84,  air:true,  proj:'missile', maxUp:2, unlock:18,
             splash:70,
-            desc:'Homing rockets with splash. Upgrades add a 2nd and 3rd rocket per salvo — the whole volley slams the same target.', color:'#ff6b6b'},
-  mortar:  {name:'Mortar',         icon:'💣', cost:1000, dmg:200, rof:0.3, range:310, air:false, proj:'mortar', maxUp:1, unlock:28,
-            splash:100, minRange:90,
-            desc:'Lobbed shells devastate herds at long range. Cannot hit flyers or anything too close. One upgrade: massive damage and splash.', color:'#e0b64f'},
-  gas:     {name:"Mason's Gas",    icon:'☣️', cost:240, dmg:42,  rof:0.6, range:150, air:false, proj:'gas', maxUp:2, unlock:3,
+            desc:'Homing rockets with splash and long reach. Upgrades add a 2nd and 3rd rocket per salvo — the whole volley slams the same target.', color:'#ff6b6b'},
+  mortar:  {name:'Mortar',         icon:'💣', cost:1000, dmg:200, rof:0.3, range:120, air:false, proj:'mortar', maxUp:1, unlock:28,
+            splash:100, minRange:30,
+            desc:'Lobbed shells devastate herds at the longest range in the armory. Cannot hit flyers or anything too close. One upgrade: massive damage, splash, and extra range.', color:'#e0b64f'},
+  gas:     {name:"Mason's Gas",    icon:'☣️', cost:240, dmg:42,  rof:0.6, range:50,  air:false, proj:'gas', maxUp:2, unlock:3,
             cloud:{r:78, dur:3.4},
             desc:'Lobs a lingering cloud of toxic gas that poisons ground dinosaurs inside it — brutal against packed groups, and it ignores armor. Flyers, bosses, and tall long-necked dinos rise above the cloud.', color:'#a6e04a'},
 };

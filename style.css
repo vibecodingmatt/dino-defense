@@ -427,6 +427,8 @@ canvas#game {
   font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--red);
 }
 .optHead small { display: block; margin-top: 4px; color: var(--dim); font-size: 11px; letter-spacing: 0; text-transform: none; line-height: 1.5; }
+/* revealed dev cheats, grouped/indented under the password-gated toggle */
+#devOptions { margin: 2px 0 2px 8px; padding-left: 12px; border-left: 2px solid var(--line); }
 #btnSkip { background: #3a2a4a; border-color: #6b4f8a; }
 
 /* lab & achievements open above end-of-run modals */

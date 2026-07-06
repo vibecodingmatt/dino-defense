@@ -178,19 +178,25 @@
       <span>🔇 Mute all sound</span>
     </label>
 
-    <div class="optHead">🧪 Developer options <small>Turning any of these ON asks for a password. Turning them off never does. Runs that use a cheat earn no DNA and no achievements.</small></div>
+    <div class="optHead">🧪 Developer options <small>Tick the box below and enter the developer password once to reveal the cheats. Runs that use a cheat earn no DNA and no achievements.</small></div>
     <label class="optRow">
-      <input type="checkbox" id="optInv">
-      <span>🛡 Invincibility <small>Escaped dinosaurs deal no damage to your base.</small></span>
+      <input type="checkbox" id="optDev">
+      <span>🔓 Reveal developer options <small>Asks for the developer password. Once unlocked, the cheats below toggle freely.</small></span>
     </label>
-    <label class="optRow">
-      <input type="checkbox" id="optCash">
-      <span>💰 Unlimited cash <small>Your funds never run out — build and upgrade freely.</small></span>
-    </label>
-    <label class="optRow">
-      <input type="checkbox" id="optSkip">
-      <span>⏭ Level skip <small>Unlocks every zone on the map and adds a Skip-Wave button to the HUD.</small></span>
-    </label>
+    <div id="devOptions" class="hidden">
+      <label class="optRow">
+        <input type="checkbox" id="optInv">
+        <span>🛡 Invincibility <small>Escaped dinosaurs deal no damage to your base.</small></span>
+      </label>
+      <label class="optRow">
+        <input type="checkbox" id="optCash">
+        <span>💰 Unlimited cash <small>Your funds never run out — build and upgrade freely.</small></span>
+      </label>
+      <label class="optRow">
+        <input type="checkbox" id="optSkip">
+        <span>⏭ Level skip <small>Unlocks every zone on the map and adds a Skip-Wave button to the HUD.</small></span>
+      </label>
+    </div>
     <div class="optRow">
       <button id="btnExport">📋 Copy save code</button>
       <button id="btnImport">📥 Import save code</button>

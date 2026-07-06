@@ -1949,7 +1949,7 @@ const TIPS = [
   '<b>Armor</b> (Ankylosaurus, Triceratops) shrugs off weak hits. 🎯 Snipers pierce armor completely.',
   '<b>☣️ Mason\'s Gas</b> lays down a lingering poison cloud that ignores armor and shreds packs of ground dinos — but flyers, bosses, and tall long-necks (like Brachiosaurus) rise above it and take no poison.',
   '<b>The Indominus Rex turns invisible.</b> A couple of seconds after it storms in, it vanishes completely — and while unseen it takes NO damage at all. Only a 📡 Sonic Emitter\'s pulse reveals AND exposes it, so plant one right on its path before wave 50 (it also returns on waves 80 and 90). No emitter, no kill.',
-  '<b>💣 Mortars</b> have a minimum range: nothing within 90px can be hit. Place them behind your front line and cover their blind spot.',
+  '<b>💣 Mortars</b> have a minimum range: nothing too close can be hit. Place them behind your front line and cover their blind spot.',
   '<b>🚀 Missile Batteries</b> gain a rocket per upgrade level, and the whole salvo slams the same dinosaur — big concentrated splash damage.',
   '<b>Selling</b> refunds 70% of everything invested — repositioning late is fine.',
   '<b>Difficulty 1–1000:</b> pick a map and a level. Every kill drops DNA (much more at higher levels); spend it in the 🧬 Research Lab to level your weapons — with no cap. Beat the highest unlocked level (10, 20, 30…) to open the next block.',
@@ -1981,7 +1981,14 @@ function buildChangelog(){
   ).join('');
 }
 
+let devUnlocked = false;   // has the dev-options password been entered this session?
 function syncSettings(){
+  // if a cheat is already active (e.g. resumed save), the dev panel is already
+  // "unlocked" — show it rather than hiding an active cheat behind the password
+  const anyCheat = save.settings.invincible || save.settings.unlimitedCash || save.settings.levelSkip;
+  if (anyCheat) devUnlocked = true;
+  $('#optDev').checked = devUnlocked;
+  $('#devOptions').classList.toggle('hidden', !devUnlocked);
   $('#optInv').checked = save.settings.invincible;
   $('#optCash').checked = save.settings.unlimitedCash;
   $('#optSkip').checked = save.settings.levelSkip;
@@ -2062,13 +2069,16 @@ function step(dt){
   for (const tx of G.texts) tx.t += dt;
   G.texts = G.texts.filter(tx => tx.t < 1.4);
   if (G.banner){ G.banner.t -= dt; if (G.banner.t <= 0) G.banner = null; }
-  G.shake = Math.max(0, G.shake - dt * 18);
 }
 
 function render(dt){
   G.time += dt;
   ctx.save();
   if (G.shake > 0) ctx.translate(rand(-G.shake, G.shake), rand(-G.shake, G.shake));
+  // decay shake here (in render, which always runs) rather than in step —
+  // step is skipped once the run is over, so a leftover shake used to freeze
+  // on and rattle the victory/defeat screen forever
+  G.shake = Math.max(0, G.shake - dt * 18);
   ctx.drawImage(G.bg, 0, 0);
 
   // range ring of the selected tower (under everything)
@@ -2764,24 +2774,33 @@ $$('.modalX').forEach(b => b.onclick = () => {
 });
 $('#btnSettings').onclick = () => { syncSettings(); $('#settings').classList.remove('hidden'); };
 $('#setClose').onclick = () => { $('#settings').classList.add('hidden'); };
-/* developer cheats require a password to turn ON (never to turn off);
-   enabling one mid-run forfeits this run's achievements */
-function gateCheat(e, setter){
-  if (e.target.checked){
-    if (prompt('Enter the developer password to enable this option:') !== CHEAT_PASSWORD){
-      e.target.checked = false;
-      if (e.target.checked === false) SFX.error();
-      return;
-    }
-    if (G.state === 'playing') G.runCheated = true;
-  }
-  setter(e.target.checked);
+/* Developer cheats live behind a single password gate: ticking "Developer
+   options" asks for the password ONCE and, on success, reveals the individual
+   cheats — which then toggle freely (no more per-option prompts). Unticking it
+   hides them again and turns every cheat back off so nothing stays secretly on.
+   Enabling any cheat mid-run still forfeits this run's achievements. */
+function setCheat(key, on){
+  save.settings[key] = on;
+  if (on && G.state === 'playing') G.runCheated = true;
   persist();
   updateHUD();
 }
-$('#optInv').onchange  = e => gateCheat(e, v => save.settings.invincible = v);
-$('#optCash').onchange = e => gateCheat(e, v => save.settings.unlimitedCash = v);
-$('#optSkip').onchange = e => gateCheat(e, v => save.settings.levelSkip = v);
+$('#optDev').onchange = e => {
+  if (e.target.checked){
+    if (prompt('Enter the developer password to reveal developer options:') !== CHEAT_PASSWORD){
+      e.target.checked = false; SFX.error(); return;
+    }
+    devUnlocked = true;
+    $('#devOptions').classList.remove('hidden');
+  } else {
+    devUnlocked = false;
+    save.settings.invincible = save.settings.unlimitedCash = save.settings.levelSkip = false;
+    persist(); syncSettings(); updateHUD();
+  }
+};
+$('#optInv').onchange  = e => setCheat('invincible', e.target.checked);
+$('#optCash').onchange = e => setCheat('unlimitedCash', e.target.checked);
+$('#optSkip').onchange = e => setCheat('levelSkip', e.target.checked);
 $('#optMute').onchange = e => { save.settings.mute = e.target.checked; persist(); ensureMusic(); };
 $('#optMusic').onchange = e => { save.settings.music = e.target.checked; persist(); ensureMusic(); };
 $('#optAuto').onchange = e => { save.settings.auto = e.target.checked; persist(); };
@@ -2993,6 +3012,23 @@ if (testParams.has('test')){
     const hurtByEmitter = boss.hp < before;
     const el = $('#errbox'); el.classList.remove('hidden');
     el.textContent = `INDO cloaked=${cloakedNow} · covered→no-banner=${coveredNoBanner} · lapse→vanished-once=${lapseVanished} · invincible=${invincible} · emitter-hurt=${hurtByEmitter} (all want true)`;
+    G.paused = true;
+  }
+  if (testParams.has('celeb')){ // verify the victory shake settles after ~3s (celebration runs in render())
+    G.wave = WAVES_PER_LEVEL;
+    G.stat = {dnaWaves: 100, dnaKills: 20, cashEarned: 1000, kills: 100, streakMax: 2.5};
+    G.dnaRun = 120; G.lives = G.maxLives;
+    victory();                              // sets G.celebration
+    let maxAfter3 = 0;
+    for (let s = 0; s < 5.6; s += 0.05){ render(0.05); if (s > 3.2) maxAfter3 = Math.max(maxAfter3, G.shake); }
+    const el = $('#errbox'); el.classList.remove('hidden');
+    el.textContent = `CELEB max shake after 3s=${maxAfter3.toFixed(3)} (want 0.000) · final shake=${G.shake.toFixed(3)}`;
+    G.paused = true;   // startWave() below no-ops because victory() set G.over
+  }
+  if (testParams.has('devpanel')){ // preview the UNLOCKED developer-options panel
+    devUnlocked = true;              // simulate a correct password entry
+    syncSettings();
+    $('#settings').classList.remove('hidden');
     G.paused = true;
   }
   if (testParams.has('upg')){ // preview upgraded-tower visuals
