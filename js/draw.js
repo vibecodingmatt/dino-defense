@@ -186,16 +186,32 @@ function drawTheropod(ctx, d, ph){
   }
   ctx.restore();
 
-  // tiny arms (or huge claws for Therizinosaurus)
-  ctx.strokeStyle = shade(p.body, -0.2); ctx.lineWidth = 0.07; ctx.lineCap = 'round';
+  // tiny arms (or huge claws for Therizinosaurus) — tucked, swinging gently
+  // counter to the stride so they read as alive at any size
+  ctx.lineCap = 'round';
+  const armSw = Math.sin(ph + Math.PI) * 0.075;      // fore/aft sway
+  const armDrop = Math.abs(Math.sin(ph)) * 0.02;     // tiny settle on each step
   if (f.claws){
-    ctx.beginPath(); ctx.moveTo(0.3, -0.72); ctx.lineTo(0.52, -0.5); ctx.stroke();
+    ctx.strokeStyle = shade(p.body, -0.2); ctx.lineWidth = 0.07;
+    ctx.beginPath(); ctx.moveTo(0.3, -0.72); ctx.lineTo(0.52 + armSw, -0.5 + armDrop); ctx.stroke();
     ctx.strokeStyle = '#ddd8c0'; ctx.lineWidth = 0.035;
     for (let i = 0; i < 3; i++){
-      ctx.beginPath(); ctx.moveTo(0.52, -0.5); ctx.lineTo(0.62 + i*0.03, -0.32 - i*0.04); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0.52 + armSw, -0.5 + armDrop);
+      ctx.lineTo(0.62 + armSw + i*0.03, -0.32 + armDrop - i*0.04); ctx.stroke();
     }
   } else {
-    ctx.beginPath(); ctx.moveTo(0.3, -0.72); ctx.lineTo(0.4, -0.6); ctx.stroke();
+    const drawArm = (sw, color, wd) => { // shoulder → elbow → tucked hand/claw
+      const ex = 0.345 + sw * 0.5, ey = -0.645 + armDrop;        // elbow
+      const hx2 = 0.41 + sw * 1.3, hy2 = -0.585 + armDrop + Math.abs(sw) * 0.25; // hand
+      ctx.strokeStyle = color; ctx.lineWidth = wd;
+      ctx.beginPath(); ctx.moveTo(0.29, -0.73); ctx.lineTo(ex, ey); ctx.stroke();
+      ctx.lineWidth = wd * 0.75;
+      ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(hx2, hy2); ctx.stroke();
+      ctx.lineWidth = wd * 0.45;                                 // little two-finger claw
+      ctx.beginPath(); ctx.moveTo(hx2, hy2); ctx.lineTo(hx2 + 0.045, hy2 + 0.035); ctx.stroke();
+    };
+    drawArm(-armSw, shade(p.body, -0.45), 0.06);   // far arm, darker, opposite phase
+    drawArm(armSw, shade(p.body, -0.2), 0.07);     // near arm
   }
   ctx.restore();
 

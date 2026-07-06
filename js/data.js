@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.22.1';
+const VERSION = '1.22.2';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -24,7 +24,9 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.22.1', date: 'Jul 6, 2026', items: [
+  {v: '1.22.2', date: 'Jul 6, 2026', items: [
+    '🦖 The roaming home-screen bosses got a polish pass: they now walk the FULL width of the screen on desktop (they were getting clipped ~25% from the right edge), their little arms are properly animated (two-jointed, swinging with the stride), and their leg cycle is matched to their walking speed so their feet plant instead of sliding.',
+    '📖 Readability: the tagline under the title and the fine print at the bottom of the home screen are brighter with better contrast.',
     '🐛 Fixed a serious display bug where the new home screen could flash bright white (and crash the tab) shortly after loading. The animated background is now rock-solid.',
     '🦕 Giant boss dinosaurs now roam the home screen — misty silhouettes of the T-Rex, Spinosaurus, Indominus and friends slowly stalk across the background, far behind the menu.',
     '♿ Accessibility fix: the Achievements, Field Manual and Settings buttons had dark text on a dark background and were nearly unreadable — the menu buttons now have proper contrast.',

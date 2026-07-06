@@ -1873,7 +1873,7 @@ function spawnMenuDino(w, h){
   const scale = clamp(w / 1280, 0.55, 1.5);
   const size = rand(88, 138) * scale;         // bosses are BIG
   const dir = Math.random() < 0.5 ? 1 : -1;
-  const speed = rand(15, 32) * scale;         // slow, majestic
+  const speed = rand(26, 46) * scale;         // slow, majestic
   menuDinos.push({
     painter: def.painter, feat: def.feat, flying: false, size,
     // uniform misty palette (lighter than the near-black jungle) so each distinct
@@ -1881,7 +1881,9 @@ function spawnMenuDino(w, h){
     pal: {body: '#4c6c5a', belly: '#638672', accent: '#3b5647'},
     x: dir > 0 ? -size * 2.4 : w + size * 2.4,
     y: h * rand(0.40, 0.49),                    // roam a horizon in the open hero backdrop
-    vx: speed * dir, dir, phase: rand(0, 6.28), stride: rand(2.0, 3.0),
+    // leg-cycle rate matched to actual ground speed (game's speed/size gait
+    // relation, unclamped) so the giant's feet plant instead of treadmilling
+    vx: speed * dir, dir, phase: rand(0, 6.28), stride: Math.max(0.55, (speed / size) * 2.6),
     alpha: rand(0.74, 0.86),
   });
 }
