@@ -2331,37 +2331,50 @@ function render(dt){
       d.pal = {body: '#e8efff', belly: '#ffffff', accent: '#cfe0ff'};
       drawDino(ctx, d, p.x, p.y, d.turn, d.phase, 0.92, pitch);
       d.pal = orig;
-      // bones over the white flash: skull socket, spine, ribs, leg bone
-      const s = d.size, dir2 = d.turn >= 0 ? 1 : -1;
-      const cy = p.y - s * (d.flying ? 1.55 : 0.62);
+      // bones over the white flash: skull socket, spine, ribs, leg bone —
+      // drawn in BODY space so they ride the dino's flip/pitch through corners
+      const s = d.size;
+      ctx.translate(p.x, p.y);
+      const tx3 = (d.turn === undefined ? 1 : d.turn);
+      ctx.scale(Math.sign(tx3 || 1) * Math.max(0.08, Math.abs(tx3)), 1);
+      if (pitch){ ctx.translate(0, -s * 0.6); ctx.rotate(pitch); ctx.translate(0, s * 0.6); }
+      const cy = -s * (d.flying ? 1.55 : 0.62);
       ctx.strokeStyle = 'rgba(50,60,76,0.9)'; ctx.lineCap = 'round';
       ctx.lineWidth = Math.max(1.2, s * 0.055);
-      ctx.beginPath(); ctx.moveTo(p.x - dir2 * s * 0.6, cy + s * 0.04);   // spine
-      ctx.quadraticCurveTo(p.x, cy - s * 0.14, p.x + dir2 * s * 0.42, cy - s * 0.06);
+      ctx.beginPath(); ctx.moveTo(-s * 0.6, cy + s * 0.04);               // spine
+      ctx.quadraticCurveTo(0, cy - s * 0.14, s * 0.42, cy - s * 0.06);
       ctx.stroke();
       ctx.lineWidth = Math.max(1, s * 0.04);
       for (let i = 0; i < 3; i++){                                        // ribs
-        const rx = p.x - dir2 * s * (0.32 - i * 0.22);
+        const rx = -s * (0.32 - i * 0.22);
         ctx.beginPath(); ctx.arc(rx, cy - s * 0.02, s * 0.17, 0.25, Math.PI - 0.25); ctx.stroke();
       }
       if (!d.flying){                                                     // a leg bone
-        ctx.beginPath(); ctx.moveTo(p.x, cy + s * 0.12); ctx.lineTo(p.x + dir2 * s * 0.08, p.y - s * 0.1); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, cy + s * 0.12); ctx.lineTo(s * 0.08, -s * 0.1); ctx.stroke();
       }
       ctx.fillStyle = 'rgba(50,60,76,0.9)';                               // eye socket
-      ctx.beginPath(); ctx.arc(p.x + dir2 * s * 0.52, cy - s * 0.2, Math.max(1.4, s * 0.07), 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(s * 0.52, cy - s * 0.2, Math.max(1.4, s * 0.07), 0, Math.PI*2); ctx.fill();
       ctx.restore();
     }
     // ON FIRE: flickering flame tongues dance on the dino's back while it burns,
-    // with embers rising off it and a heat glow on the body
+    // with embers rising off it and a heat glow on the body. Drawn in BODY
+    // space (same translate/flip/pitch transform as the dino itself) so the
+    // fire stays glued to its back as it rotates through corners.
     if (d.burnT > 0){
-      ctx.fillStyle = 'rgba(255,120,20,0.22)';   // heat glow
-      ctx.beginPath(); ctx.arc(p.x, p.y - d.size*0.7, d.size*0.55, 0, Math.PI*2); ctx.fill();
-      const bx = p.x, by = p.y - d.size * (d.flying ? 1.55 : 1.0);
+      const s = d.size;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      const tx2 = (d.turn === undefined ? 1 : d.turn);
+      ctx.scale(Math.sign(tx2 || 1) * Math.max(0.08, Math.abs(tx2)), 1);
+      if (pitch){ ctx.translate(0, -s * 0.6); ctx.rotate(pitch); ctx.translate(0, s * 0.6); }
+      ctx.fillStyle = 'rgba(255,120,20,0.22)';   // heat glow on the body
+      ctx.beginPath(); ctx.arc(0, -s * 0.7, s * 0.55, 0, Math.PI*2); ctx.fill();
+      const by = -s * (d.flying ? 1.55 : 1.0);   // the back, in body space
       const fl = G.time * 14 + d.phase * 3;
       for (let i = -1; i <= 1; i++){             // three tongues, center one tallest
-        const fx2 = bx + i * d.size * 0.26 + Math.sin(fl + i * 2) * 1.5;
-        const h  = d.size * (0.4 + 0.15 * Math.sin(fl * 1.3 + i * 2.4)) * (i === 0 ? 1.3 : 0.85);
-        const w2 = d.size * 0.15 * (i === 0 ? 1.25 : 0.9);
+        const fx2 = i * s * 0.26 + Math.sin(fl + i * 2) * 1.5;
+        const h  = s * (0.4 + 0.15 * Math.sin(fl * 1.3 + i * 2.4)) * (i === 0 ? 1.3 : 0.85);
+        const w2 = s * 0.15 * (i === 0 ? 1.25 : 0.9);
         const tip = Math.sin(fl * 1.7 + i) * w2 * 0.6;
         ctx.fillStyle = 'rgba(255,110,20,0.85)';
         ctx.beginPath();
@@ -2380,10 +2393,11 @@ function render(dt){
         const cyc = (G.time * 1.5 + i * 0.37 + (d.phase * 0.16 % 1)) % 1;
         ctx.fillStyle = `rgba(255,${140 + i * 35},40,${0.75 * (1 - cyc)})`;
         ctx.beginPath();
-        ctx.arc(bx + Math.sin(G.time * 3 + i * 2.5) * d.size * 0.3, by - d.size * 0.35 - cyc * d.size * 0.9,
+        ctx.arc(Math.sin(G.time * 3 + i * 2.5) * s * 0.3, by - s * 0.35 - cyc * s * 0.9,
                 1 + (1 - cyc) * 0.8, 0, Math.PI*2);
         ctx.fill();
       }
+      ctx.restore();
     }
     if (d.slowT > 0){
       ctx.fillStyle = 'rgba(140,220,255,0.3)';
@@ -3292,7 +3306,9 @@ if (testParams.has('test')){
     placeTower('flamer', 420, 474, true);              // 44px off the path — closest canPlace allows
     const placedOk = G.towers.some(tw => tw.key === 'flamer' && tw.y === 474);
     if (testParams.get('flame') === 'vis'){            // visual mode: catch tanky dinos mid-burn
-      for (let i = 0; i < 3; i++){ spawnDino('ankylosaurus', 0, false); G.dinos[G.dinos.length-1].dist = 640 + i * 44; }
+      // second flamer on the VERTICAL stretch — proves flames ride a pitched body
+      placeTower('flamer', 344, 300, true);
+      for (let i = 0; i < 3; i++){ spawnDino('ankylosaurus', 0, false); G.dinos[G.dinos.length-1].dist = 400 + i * 44; }
       for (let s = 0; s < 5 && !G.dinos.some(d => d.burnT > 0); s += 0.05) step(0.05);
       for (let s = 0; s < 0.4; s += 0.05) step(0.05);  // let the flames establish
       G.paused = true;
