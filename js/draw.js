@@ -130,9 +130,30 @@ function drawTheropod(ctx, d, ph){
   ctx.lineTo(snout*big*0.9, 0.05 + jawOpen);
   ctx.lineTo(snout*big*0.9, 0.10 + jawOpen);
   ctx.lineTo(-0.05, 0.14); ctx.closePath(); ctx.fill();
-  // teeth glint
+  // savage pointy teeth — fangs hang from the upper jawline (following its
+  // slope), smaller counter-teeth jut up from the lower jaw. Carnivores!
   ctx.fillStyle = '#f4f2e4';
-  ctx.fillRect(0.08, 0.02, snout*big*0.72, 0.025);
+  const sb = snout * big;
+  const upperY = tx => 0.02 + 0.08 * (sb - tx) / (sb + 0.08);   // upper jaw bottom edge
+  for (let i = 0; i < 5; i++){
+    const t = i / 4, tx = 0.09 + (sb * 0.9 - 0.09) * t;
+    const ty = upperY(tx);
+    const tl = 0.045 + t * 0.035;                               // longest fangs at the snout
+    ctx.beginPath();
+    ctx.moveTo(tx - 0.024, ty);
+    ctx.lineTo(tx + 0.024, ty);
+    ctx.lineTo(tx + 0.004, ty + tl);
+    ctx.closePath(); ctx.fill();
+  }
+  for (let i = 0; i < 4; i++){                                  // lower jaw teeth, pointing up
+    const t = i / 3, tx = 0.16 + (sb * 0.82 - 0.16) * t;
+    const ty = 0.062 + (jawOpen - 0.012) * (tx + 0.05) / (sb * 0.9 + 0.05);
+    ctx.beginPath();
+    ctx.moveTo(tx - 0.018, ty);
+    ctx.lineTo(tx + 0.018, ty);
+    ctx.lineTo(tx - 0.002, ty - 0.035);
+    ctx.closePath(); ctx.fill();
+  }
   // eye
   if (f.glowEyes){ // hellish glow for the D-Rex
     const pulse = 0.7 + 0.3 * Math.sin(ph * 2.3);

@@ -1877,16 +1877,17 @@ function buildMenuFx(){
   }
   host.innerHTML = html;
 }
-/* giant boss dinosaurs that slowly roam the menu's terrain, far behind the UI */
-let menuDinos = [], menuSpawnT = 1.2, menuCv = null, menuCtx = null;
+/* giant boss dinosaurs that roam the menu's terrain, far behind the UI —
+   sometimes chasing hapless tourists (and sometimes catching them) */
+let menuDinos = [], menuTourists = [], menuPuffs = [], menuSpawnT = 1.2, menuCv = null, menuCtx = null;
 const MENU_BOSSES = ['trex', 'spinosaurus', 'indominus', 'indoraptor', 'giganotosaurus', 'drex'];
 function spawnMenuDino(w, h){
   const def = DINOS[MENU_BOSSES[(Math.random() * MENU_BOSSES.length) | 0]];
   const scale = clamp(w / 1280, 0.55, 1.5);
   const size = rand(88, 138) * scale;         // bosses are BIG
   const dir = Math.random() < 0.5 ? 1 : -1;
-  const speed = rand(26, 46) * scale;         // slow, majestic
-  menuDinos.push({
+  const speed = rand(48, 78) * scale;         // a hungry, purposeful stride
+  const d = {
     painter: def.painter, feat: def.feat, flying: false, size,
     // uniform misty palette (lighter than the near-black jungle) so each distinct
     // boss silhouette reads as a glowing fog-giant wherever the UI doesn't cover it
@@ -1897,7 +1898,49 @@ function spawnMenuDino(w, h){
     // relation, unclamped) so the giant's feet plant instead of treadmilling
     vx: speed * dir, dir, phase: rand(0, 6.28), stride: Math.max(0.55, (speed / size) * 2.6),
     alpha: rand(0.74, 0.86),
-  });
+  };
+  menuDinos.push(d);
+  // most giants are chasing dinner: tourists sprint ahead, arms flailing —
+  // some outrun the beast, some very much do not
+  if (Math.random() < 0.75){
+    const n = 1 + (Math.random() * 2 | 0);
+    for (let i = 0; i < n; i++){
+      menuTourists.push({
+        x: d.x + dir * d.size * (2.2 + i * 1.1 + Math.random() * 0.7),
+        y: d.y + rand(-8, 6),
+        vx: speed * rand(0.86, 1.2) * dir,     // slower than the dino = doomed
+        dir, size: d.size * 0.42, phase: rand(0, 6.28),
+        shirt: ['#c94f3e', '#3e7ac9', '#c9a03e', '#7ac93e', '#b04ac9'][(Math.random() * 5) | 0],
+        alpha: 0.85, prey: d,
+      });
+    }
+  }
+}
+function drawMenuTourist(ctx, tr){
+  const s = tr.size;
+  ctx.save();
+  ctx.translate(tr.x, tr.y - Math.abs(Math.sin(tr.phase)) * s * 0.07);  // running bounce
+  ctx.scale(tr.dir, 1);
+  ctx.globalAlpha = tr.alpha;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#262a32'; ctx.lineWidth = s * 0.11;   // scissoring legs
+  for (const off of [0, Math.PI]){
+    const sw = Math.sin(tr.phase + off), lift = Math.max(0, Math.cos(tr.phase + off));
+    ctx.beginPath(); ctx.moveTo(0, -s * 0.45);
+    ctx.lineTo(sw * s * 0.22, -lift * s * 0.13); ctx.stroke();
+  }
+  ctx.strokeStyle = tr.shirt; ctx.lineWidth = s * 0.2;     // torso leaning into the sprint
+  ctx.beginPath(); ctx.moveTo(-s * 0.02, -s * 0.45); ctx.lineTo(s * 0.08, -s * 0.78); ctx.stroke();
+  ctx.lineWidth = s * 0.08;                                // panicked arms flailing overhead
+  for (const ph0 of [0, 2.2]){
+    const a = -1.35 + Math.sin(tr.phase * 2 + ph0) * 0.55;
+    ctx.beginPath(); ctx.moveTo(s * 0.06, -s * 0.72);
+    ctx.lineTo(s * 0.06 + Math.cos(a) * s * 0.3, -s * 0.72 + Math.sin(a) * s * 0.3);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#e8c49a';                               // head
+  ctx.beginPath(); ctx.arc(s * 0.1, -s * 0.9, s * 0.12, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
 }
 function menuScene(dt){
   const m = $('#menu');
@@ -1919,6 +1962,27 @@ function menuScene(dt){
   for (const d of menuDinos){
     d.x += d.vx * dt;
     d.phase += dt * d.stride;
+  }
+  // tourists sprint for their lives — drawn under the dinos so a catch overlaps
+  for (const tr of menuTourists){
+    tr.x += tr.vx * dt;
+    tr.phase += dt * 11;                                 // frantic little legs
+    const d = tr.prey;
+    if (d && menuDinos.includes(d)){
+      const mouthX = d.x + d.dir * d.size * 0.8;         // the business end
+      if ((mouthX - tr.x) * d.dir > 0){                  // ...caught. CHOMP.
+        tr.dead = true;
+        for (let i = 0; i < 8; i++){
+          menuPuffs.push({x: tr.x + rand(-4, 4), y: tr.y - tr.size * 0.5 + rand(-8, 4),
+                          vx: rand(-30, 30) + d.vx * 0.4, vy: rand(-55, 0),
+                          t: 0, dur: rand(0.4, 0.75), r: rand(2, 4.5)});
+        }
+      }
+    }
+    if (!tr.dead) drawMenuTourist(ctx, tr);
+  }
+  menuTourists = menuTourists.filter(tr => !tr.dead && tr.x > -80 && tr.x < w + 80);
+  for (const d of menuDinos){
     const yy = d.y + Math.sin(d.phase) * d.size * 0.015;
     // soft bioluminescent backlight so the giant reads as a lit silhouette on the dark jungle
     const cyy = yy - d.size * 0.55;
@@ -1929,6 +1993,14 @@ function menuScene(dt){
     ctx.fillStyle = rg;
     ctx.fillRect(d.x - d.size * 2.4, cyy - d.size * 2.4, d.size * 4.8, d.size * 4.8);
     drawDino(ctx, d, d.x, yy, d.dir, d.phase, d.alpha, 0);
+  }
+  // a short-lived red spray marks where a tourist used to be
+  menuPuffs = menuPuffs.filter(pf => (pf.t += dt) < pf.dur);
+  for (const pf of menuPuffs){
+    pf.x += pf.vx * dt; pf.y += pf.vy * dt; pf.vy += 80 * dt;
+    const k = pf.t / pf.dur;
+    ctx.fillStyle = `rgba(150,25,18,${0.8 * (1 - k)})`;
+    ctx.beginPath(); ctx.arc(pf.x, pf.y, pf.r * (1 - k * 0.4), 0, Math.PI * 2); ctx.fill();
   }
   menuDinos = menuDinos.filter(d => d.x > -d.size * 3.2 && d.x < w + d.size * 3.2);
 }
@@ -3140,6 +3212,11 @@ if (new URLSearchParams(location.search).has('dbg')){
 
 if (new URLSearchParams(location.search).has('menudino')){ // seed roaming menu bosses on-screen for a visual check
   for (let i = 0; i < 3; i++){ spawnMenuDino(innerWidth || 1280, innerHeight || 860); menuDinos[i].x = (innerWidth || 1280) * (0.22 + i * 0.29); }
+  // pull each dino's fleeing tourists on-screen just ahead of its jaws
+  for (const tr of menuTourists){
+    const d = tr.prey;
+    if (d) tr.x = d.x + d.dir * d.size * (1.0 + Math.random() * 1.3);
+  }
 }
 if (new URLSearchParams(location.search).has('lab')){ const lv = new URLSearchParams(location.search).get('lab'); if (lv === 'rich'){ save.dna = 50000; } else if (!isNaN(parseFloat(lv))){ save.dna = parseFloat(lv); } buildLab(); $('#lab').classList.remove('hidden'); }
 if (new URLSearchParams(location.search).has('firstwave')){ // preview the onboarding banner
