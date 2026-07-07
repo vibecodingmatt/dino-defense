@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.27.0';
+const VERSION = '1.27.1';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -25,7 +25,7 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.27.0', date: 'Jul 7, 2026', items: [
+  {v: '1.27.1', date: 'Jul 7, 2026', items: [
     '🦷 Carnivores finally have carnivore teeth — jagged fangs instead of flat white strips, in-game and on the home screen.',
     '🏃 The home-screen giants now stride with real purpose — often chasing fleeing tourists, who don\'t always make it.',
     '🔥 Dinosaurs hit by the Flame Thrower now visibly catch fire, with flames dancing on their backs while they burn.',
