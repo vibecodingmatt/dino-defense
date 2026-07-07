@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.25.1';
+const VERSION = '1.26.0';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -17,82 +17,58 @@ const VERSION = '1.25.1';
 const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
 /* Player-facing changelog — ONE entry per DAY (a daily recap), newest first.
    The `v` shown is the latest version released that day; `items` are the major,
-   player-facing changes only. Keep it about what changed for the player — no
-   internal numbers, formulas, or how things are calculated.
+   player-facing changes only. BE BRIEF: one short sentence per item, the WHAT
+   not the HOW — no internal numbers, formulas, colour codes, or implementation
+   detail. Minor same-day fixes can fold into an existing item or be dropped.
    IMPORTANT: date each entry with the ACTUAL current calendar date (check the
    real date — don't reuse the previous entry's date). When shipping on a new
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.25.1', date: 'Jul 7, 2026', items: [
-    '🔥 Fixed a nasty range bug: the Flame Thrower\'s reach was shorter than the closest distance a weapon can even be built from the road — it literally could not hit anything. Its range is DOUBLED, and the other short-reach weapons (Gatling, Cryo, Tesla, Mason\'s Gas) got healthy bumps so every weapon has a proper kill window from day one.',
-    '🏞️ The maps grew up: dino remains are now full skeletons — arched spines with neural ridges, ribcages, loose femurs and big hollow-eyed, toothy skulls (no more "keys"). The abandoned tour jeep was rebuilt as a proper Staff Jeep 29 with its red swoosh, roll bar, spare tire, cracked windshield and muddy ruts — and every map now hides a wrecked GYROSPHERE with shattered glass and blood around the breach, fallen mossy logs, spent signal flares by the road, and one very famous shaving-cream can half-buried in the mud. Happy hunting.',
-    '💀 Cartoon electrocution! Dinosaurs caught in a Tesla arc now strobe white-hot with their skeleton flashing through — ribs, spine and eye socket — jittering like a Saturday-morning zap gag.',
-    '🦖 Ground bosses got fast: every non-flying boss now charges at DOUBLE its old speed. The T-Rex actually chases now.',
-    '🔥 Maxed-weapon tips tuned: the fully-upgraded Flame Thrower now pulses a roaring ORANGE at the nozzle, and Mason\'s Gas vents a toxic GREEN plume.',
-    '🔫 Full weapon glow-up! Every weapon now visibly transforms with each upgrade — longer barrels, ammo drums, gun shields, extra tanks, taller coils, stacked dishes, more launch tubes — and a FULLY MAXED weapon changes colour entirely: the Gatling goes murdered-out black-and-red, the Flame Thrower burns superheated blue, the Sniper becomes a glowing railgun, Mason\'s Gas turns virulent purple with a skull stencil, the Cryo becomes an ice-sheathed deep-freezer, the Mortar a massive gold-banded siege piece, and each sits on dark armour plate with its own pulsing power ring.',
-    '⚡ The Tesla Node\'s lightning got a serious upgrade: thick, forked, white-hot arcs that snap and writhe between dinosaurs with an electric burst at every link in the chain — and a maxed Tesla arcs VIOLET from a twin-coil array.',
-    '🦅 NEW BOSS — THE WHITE PTERANODON! A giant bone-white terror with burning red eyes sweeps in on waves 40 and 80, and ONLY air-capable weapons can hurt it. No air coverage, no chance.',
-    '🤖 Omega was rebuilt as a true robot T-Rex: angular armour plates with rivets and glowing seams, hydraulic piston legs, a servo skull with interlocking metal teeth and a burning optic — and a pointy comms antenna on its head with a blinking red beacon.',
-    '⏱️ Fast-forward safety net: if you\'re playing on 2×/4×/10× speed and a dinosaur breaches the gate, the game now automatically drops back to 1× the instant it happens — so a costly leak doesn\'t snowball into losing your base while everything is sped up. You can always speed back up once you\'ve reacted.',
-    '🎯 Range buffs: Missile Battery +10%, Mortar +15%, and Sonic Emitter +25% — three of the longer-reach weapons now hit even farther.',
+  {v: '1.26.0', date: 'Jul 7, 2026', items: [
+    '🔥 Dinosaurs hit by the Flame Thrower now visibly catch fire, with flames dancing on their backs while they burn.',
+    '💀 Dinosaurs zapped by the Tesla now flash their skeleton, cartoon-style.',
+    '🐛 Fixed the Flame Thrower being too short-ranged to hit anything — its range was doubled, and other short-range weapons got small bumps.',
+    '🏞️ Map makeover: real dino skeletons, a rebuilt tour jeep, a wrecked bloodied gyrosphere, fallen logs, spent flares — and a hidden movie easter egg on every map.',
+    '🦅 New boss: THE WHITE PTERANODON (waves 40 & 80) — only air-capable weapons can hurt it.',
+    '🔫 Weapons now look bigger and meaner with every upgrade, and change colour entirely when fully maxed.',
+    '⚡ Tesla lightning is thicker, forked, and far more dramatic — violet when maxed.',
+    '🤖 Omega redesigned as a true robot T-Rex, blinking antenna and all.',
+    '🦖 All ground bosses now move twice as fast.',
+    '⏱️ Game speed auto-resets to 1× whenever a dinosaur reaches your base.',
+    '🎯 Range buffs for the Missile Battery, Mortar, and Sonic Emitter.',
   ]},
   {v: '1.22.2', date: 'Jul 6, 2026', items: [
-    '🦖 The roaming home-screen bosses got a polish pass: they now walk the FULL width of the screen on desktop (they were getting clipped ~25% from the right edge), their little arms are properly animated (two-jointed, swinging with the stride), and their leg cycle is matched to their walking speed so their feet plant instead of sliding.',
-    '📖 Readability: the tagline under the title and the fine print at the bottom of the home screen are brighter with better contrast.',
-    '🐛 Fixed a serious display bug where the new home screen could flash bright white (and crash the tab) shortly after loading. The animated background is now rock-solid.',
-    '🦕 Giant boss dinosaurs now roam the home screen — misty silhouettes of the T-Rex, Spinosaurus, Indominus and friends slowly stalk across the background, far behind the menu.',
-    '♿ Accessibility fix: the Achievements, Field Manual and Settings buttons had dark text on a dark background and were nearly unreadable — the menu buttons now have proper contrast.',
-    '✨ A brand-new home screen! The main menu has been completely rebuilt into an animated, bioluminescent-jungle showcase — a glowing containment emblem, a bold new ISLA DEFENSE wordmark, drifting fireflies, a parallax treeline, sleek stat pills, and a live mini-map preview of every deployment zone (each drawn in its own biome colours). There\'s even a ☀️/🌙 day-night ambience toggle in the corner.',
-    '🎯 New Research Lab unlocks — every weapon now has a one-time <b>+10% range</b> boost you can buy with DNA. It starts at 10,000 DNA, and each range you unlock raises the price of every remaining one by 5,000 DNA.',
-    '💰 New Lab unlock — <b>Double Sell Value</b>. Selling a weapon now refunds only 25% of what you paid (down from 70%), but this permanent 25,000-DNA upgrade doubles that back to 50%.',
-    '📏 Bumped every weapon\'s base range up 5% across the board.',
-    '🎯 Big range rebalance — weapon ranges were WAY too large, so they\'ve been cut down hard and given real variety. Cheap guns (ACU Gatling, Flame Thrower) are now short-reach and reward careful placement, while the Ranger Sniper and the heavy ordnance (Missile Battery, Mortar) reach much farther. Where you build now matters a lot more.',
-    '🎉 Fixed the "Zone Secured" victory screen shaking forever — the celebration rumble now settles within a few seconds and the screen holds still.',
-    '⚙️ Settings tidy-up: the developer cheats are now hidden behind a single "Reveal developer options" toggle. Enter the password once to unlock it and the individual cheats flip on and off freely after that.',
+    '✨ All-new animated home screen with live map previews, a day/night toggle — and giant boss dinosaurs roaming the background.',
+    '🎯 Research Lab: new one-time +10% range unlock for every weapon.',
+    '💰 Selling now refunds 25% — a new Double Sell Value lab unlock doubles that to 50%.',
+    '📏 Major range rebalance: cheap guns are short-reach, heavy ordnance reaches far. Placement matters.',
+    '⚙️ Developer options now sit behind a single password gate.',
+    '🐛 Fixes: a home-screen crash, hard-to-read menu buttons, and the victory screen shaking forever.',
   ]},
   {v: '1.18.1', date: 'Jul 5, 2026', items: [
-    '🎯 Weapon range is now FIXED — leveling a weapon in the Lab or upgrading a placed one no longer stretches its range. A weapon\'s reach is part of its identity, so where you place it matters more. The one exception: the 💣 Mortar still gains range on its single upgrade.',
-    '🦖 The Indominus Rex is finally the apex threat it should be: a couple of seconds after it charges in — you\'ll get an "IT VANISHED!" warning — it turns completely invisible AND invulnerable. Only a 📡 Sonic Emitter\'s pulse can reveal and damage it, so you MUST guard its lane with one. (If an emitter is already covering it, it never disappears — no warning needed.) It stalks in on waves 50, 80 and 90.',
-    '🎉 The victory celebration settles down now — the screen-shake eases off after about 3 seconds instead of rattling the whole time.',
-    '📖 Refreshed the in-game Field Manual with entries for Omega, the clean-play streak, end-of-run bonuses, Mason\'s Gas, achievements, and the new 10× speed.',
-    '🛠️ Fixed the weapon-upgrade panel jittering up and down (and becoming impossible to close) after upgrading near the edge of the map — it now stays put over the weapon.',
-    '✨ Cleaned up a stray, purposeless scrollbar that sometimes appeared on the weapon-upgrade panel on desktop.',
-    '🏆 The win and defeat screens now have an Achievements button, so you can jump straight to your trophy case after a run — a handy nudge if you didn\'t spot it on the menu.',
-    '➜ After clearing a level, the top button now reads "Play Difficulty N" and drops you straight into the next difficulty on the same map to keep the climb going (it steps aside once you\'ve conquered level 1000).',
-    '🏅 Two new difficulty milestones to chase: trophies for beating level 25 and level 75, filling the gap between the level 10, 50, and 100 badges.',
-    '🦾 NEW SHOW-STOPPER — OMEGA! From wave 75 you can unleash a colossal robotic T-Rex that materialises at the exit and stomps up your busiest lane, one-shotting every dinosaur it meets in a shower of sparks. Each kill wears down its armor, so a big horde can bring it down — and bosses only lose 30% and keep coming. One deployment per run. (Dreamed up by Mason, age 9.)',
-    '⏩ Replaced the 6× game-speed with a new 10× — hit fast-forward to blast through a wave once you know you\'ve got it handled.',
-    '📱 Tidied the top bar on mobile: money, DNA, health and the pause/mute buttons now stay locked on a single line instead of jumping onto a second row and stealing space from the game.',
-    '📱 Fixed the weapon-upgrade menu getting cut off the bottom of the screen on mobile landscape — it now stays fully on-screen (and is more compact on short screens) so Upgrade and Sell are always visible.',
-    '📱 Mobile landscape overhaul: the weapon shop now sits beside the map (no more scrolling below it to reach your weapons). Drag a weapon sideways onto the map to drop it — its range/blast radius previews right under your finger before you release — or just tap to select, then tap the map. Scrolling the weapon list is smooth again: a normal up/down swipe on the cards scrolls the shop.',
-    '🔥 New CLEAN-PLAY STREAK: clear waves without letting anything leak and a bonus multiplier climbs (up to ×2.5), boosting all the DNA you earn — but a leak knocks it back down. Watch it in the HUD and protect it! Skilled, tidy play now pays off much better, while sloppy play earns the same as before.',
-    '🏁 Beating all 100 waves now adds end-of-run bonuses: a victory bonus, a bonus scaled to your remaining base health, and an extra kicker for a flawless (no-damage) run.',
-    '📊 Full victory recap: clearing a level pops a detailed results screen — dinosaurs defeated, best streak, DNA from the fight, every bonus, total DNA banked, and cash earned.',
-    '🔇 Every weapon now has a mute button in its popup menu — tap a weapon to silence just that weapon\'s sounds. Mason\'s Gas is also a much softer, quieter toot now.',
-    '☣️ Mason\'s Gas balance: flyers, bosses, and tall long-necked dinos (like Brachiosaurus) now rise above the cloud and take no poison — it\'s for clearing packs of regular ground dinos.',
+    '🦾 NEW: OMEGA — unleash a colossal robot T-Rex once per run, from wave 75. (Mason\'s idea!)',
+    '🦖 The Indominus Rex now turns fully invisible — only a Sonic Emitter can reveal and hurt it.',
+    '🔥 New clean-play streak: clear waves without leaks to grow a DNA multiplier up to ×2.5.',
+    '🏁 Victory bonuses and a full end-of-run recap screen.',
+    '⏩ New 10× game speed.',
+    '📱 Big mobile improvements: stable top bar, better landscape layout, smoother shop scrolling.',
+    '🎯 Weapon ranges are now fixed — only the Mortar gains range when upgraded.',
+    '🏆 New level-25 and level-75 trophies, an Achievements button on the win/loss screens, and a one-tap "Play Difficulty N" button after every win.',
+    '🔇 Per-weapon mute buttons; Mason\'s Gas no longer affects flyers, bosses, or tall dinos.',
   ]},
   {v: '1.15.2', date: 'Jul 4, 2026', items: [
-    '☣️ New weapon — MASON\'S GAS! It toots out a puff of green poison gas that lingers on the ground and poisons the dinosaurs that walk through the cloud (ignoring armor). Flyers float above it. A little stronger than the Flame Thrower, and great against big packs. (Designed by Mason, age 9.)',
-    '🎚️ New progression: choose a map and a difficulty level from 1 to 1000. Levels unlock 10 at a time — beat the highest one available to open the next block.',
-    '🧬 Research Lab reworked: spend DNA to permanently level up every weapon — plus your base health and starting cash — with no cap. DNA now drops from every kill and every wave you clear (so even a run that falls short earns something), and pays out more the higher you climb.',
-    '⚔️ Keep your weapon levels close to the level you\'re playing: get ahead and it\'s a breeze, fall behind and you\'ll be overrun. Beating a level funds roughly one weapon upgrade, so you can\'t grind an easy level to over-level and trivialize the rest.',
-    '🐣 Friendlier start: begin with 80 DNA for a first upgrade, and the early levels are softened so Level 1 is beatable with little or no upgrading (full difficulty returns by Level 15). A "Place a weapon to begin" prompt guides the opening, and the first wave auto-starts a few seconds after you place your first weapon.',
-    '🛠️ Tap any placed weapon for a menu right over it — upgrade (cost shown, glows green when affordable) or sell (refund shown, with a confirm tap so a stray tap can\'t sell it).',
-    '🏆 25 achievements on their own menu page — each awards a DNA bonus, with far bigger payouts for the tougher feats.',
-    '💥 Air Strike reworked into a full-zone cluster bomb: it carpets the whole map, wipes out regular dinosaurs, and takes a big bite out of any boss.',
-    '☠ Bosses are much tougher, and the wave-100 finale — the four-armed D-Rex — was completely redrawn.',
-    '🦖 The island comes alive: dinosaurs screech, snarl and bellow as they fall, with the occasional distant roar. Boss roars are bigger, and gunfire and explosions hit harder.',
-    '🚀 Missile Battery: a salvo\'s rockets now all lock onto the same target for concentrated splash — and rockets no longer circle their target before hitting.',
-    '🧪 Developer options (invincibility, unlimited cash, level skip) are password-protected, and runs that use them earn no DNA or achievements.',
-    '🎵 Original looping soundtrack, boss roars, blood splatter, and a wave-100 fireworks celebration.',
-    '💾 Save protection: your progress is backed up automatically, with copy/paste save codes in Settings to move it between devices.',
-    '💡 Added a Tips / Field Manual to the menu.',
+    '☣️ New weapon: MASON\'S GAS — a lingering poison cloud that melts packs of ground dinos. (Designed by Mason, age 9.)',
+    '🎚️ New progression: play any map at any difficulty from 1 to 1000, unlocking 10 levels at a time.',
+    '🧬 Research Lab reworked: uncapped weapon, health, and cash upgrades — DNA now drops from every kill and wave.',
+    '🏆 25 achievements, each paying a DNA reward.',
+    '💥 Air Strike reworked into a full-zone cluster bomb.',
+    '🦖 Tougher bosses, a redrawn wave-100 finale, richer sounds, and a friendlier first level.',
+    '💾 Automatic save backup, plus copy/paste save codes in Settings.',
   ]},
   {v: '1.2.0', date: 'Jul 3, 2026', items: [
     '🦖 Initial release: five maps, 26 dinosaurs, eight weapons, and a DNA research lab.',
-    '🌐 Published to the web, with run-resume so you can close the tab and pick up right where you left off.',
-    '🎨 Graphics and audio overhaul: jungle terrain, the park gates, boss health bars, damage numbers, and boss roars.',
+    '🌐 Published to the web, with run-resume so you can pick up where you left off.',
   ]},
 ];
 

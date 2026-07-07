@@ -2351,10 +2351,39 @@ function render(dt){
       ctx.beginPath(); ctx.arc(p.x + dir2 * s * 0.52, cy - s * 0.2, Math.max(1.4, s * 0.07), 0, Math.PI*2); ctx.fill();
       ctx.restore();
     }
-    // status tints
+    // ON FIRE: flickering flame tongues dance on the dino's back while it burns,
+    // with embers rising off it and a heat glow on the body
     if (d.burnT > 0){
-      ctx.fillStyle = 'rgba(255,120,20,0.35)';
-      ctx.beginPath(); ctx.arc(p.x, p.y - d.size*0.7, d.size*0.5, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,120,20,0.22)';   // heat glow
+      ctx.beginPath(); ctx.arc(p.x, p.y - d.size*0.7, d.size*0.55, 0, Math.PI*2); ctx.fill();
+      const bx = p.x, by = p.y - d.size * (d.flying ? 1.55 : 1.0);
+      const fl = G.time * 14 + d.phase * 3;
+      for (let i = -1; i <= 1; i++){             // three tongues, center one tallest
+        const fx2 = bx + i * d.size * 0.26 + Math.sin(fl + i * 2) * 1.5;
+        const h  = d.size * (0.4 + 0.15 * Math.sin(fl * 1.3 + i * 2.4)) * (i === 0 ? 1.3 : 0.85);
+        const w2 = d.size * 0.15 * (i === 0 ? 1.25 : 0.9);
+        const tip = Math.sin(fl * 1.7 + i) * w2 * 0.6;
+        ctx.fillStyle = 'rgba(255,110,20,0.85)';
+        ctx.beginPath();
+        ctx.moveTo(fx2 - w2, by);
+        ctx.quadraticCurveTo(fx2 - w2 * 0.6, by - h * 0.55, fx2 + tip, by - h);
+        ctx.quadraticCurveTo(fx2 + w2 * 0.7, by - h * 0.5, fx2 + w2, by);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = 'rgba(255,225,100,0.9)'; // hot yellow core
+        ctx.beginPath();
+        ctx.moveTo(fx2 - w2 * 0.45, by);
+        ctx.quadraticCurveTo(fx2 - w2 * 0.25, by - h * 0.35, fx2 + tip * 0.5, by - h * 0.58);
+        ctx.quadraticCurveTo(fx2 + w2 * 0.42, by - h * 0.3, fx2 + w2 * 0.45, by);
+        ctx.closePath(); ctx.fill();
+      }
+      for (let i = 0; i < 3; i++){               // rising embers
+        const cyc = (G.time * 1.5 + i * 0.37 + (d.phase * 0.16 % 1)) % 1;
+        ctx.fillStyle = `rgba(255,${140 + i * 35},40,${0.75 * (1 - cyc)})`;
+        ctx.beginPath();
+        ctx.arc(bx + Math.sin(G.time * 3 + i * 2.5) * d.size * 0.3, by - d.size * 0.35 - cyc * d.size * 0.9,
+                1 + (1 - cyc) * 0.8, 0, Math.PI*2);
+        ctx.fill();
+      }
     }
     if (d.slowT > 0){
       ctx.fillStyle = 'rgba(140,220,255,0.3)';
@@ -3262,13 +3291,20 @@ if (testParams.has('test')){
     G.cash = 99999; G.wave = 5;
     placeTower('flamer', 420, 474, true);              // 44px off the path — closest canPlace allows
     const placedOk = G.towers.some(tw => tw.key === 'flamer' && tw.y === 474);
-    for (let i = 0; i < 6; i++){ spawnDino('compy', 0, false); G.dinos[G.dinos.length-1].dist = 660 + i * 30; }
-    const before = G.dinos.length;
-    for (let s = 0; s < 6; s += 0.05) step(0.05);
-    const kills = before - G.dinos.filter(d => !d.dead).length;
-    const el = $('#errbox'); el.classList.remove('hidden');
-    el.textContent = `FLAME placed=${placedOk} · kills=${kills}/${before} (want > 0) · range=${TOWERS.flamer.range}`;
-    G.paused = true;
+    if (testParams.get('flame') === 'vis'){            // visual mode: catch tanky dinos mid-burn
+      for (let i = 0; i < 3; i++){ spawnDino('ankylosaurus', 0, false); G.dinos[G.dinos.length-1].dist = 640 + i * 44; }
+      for (let s = 0; s < 5 && !G.dinos.some(d => d.burnT > 0); s += 0.05) step(0.05);
+      for (let s = 0; s < 0.4; s += 0.05) step(0.05);  // let the flames establish
+      G.paused = true;
+    } else {
+      for (let i = 0; i < 6; i++){ spawnDino('compy', 0, false); G.dinos[G.dinos.length-1].dist = 660 + i * 30; }
+      const before = G.dinos.length;
+      for (let s = 0; s < 6; s += 0.05) step(0.05);
+      const kills = before - G.dinos.filter(d => !d.dead).length;
+      const el = $('#errbox'); el.classList.remove('hidden');
+      el.textContent = `FLAME placed=${placedOk} · kills=${kills}/${before} (want > 0) · range=${TOWERS.flamer.range}`;
+      G.paused = true;
+    }
   }
   if (testParams.has('speedleak')){ // a leak while sped up must drop back to 1x
     G.speed = 10;
