@@ -1901,16 +1901,21 @@ function spawnMenuDino(w, h){
   };
   menuDinos.push(d);
   // most giants are chasing dinner: tourists sprint ahead, arms flailing.
-  // Roughly a third are DOOMED — too slow, and the beast will sprint them down.
+  // FATES: ~15% will TRIP and be eaten sitting in terror, ~22% are simply too
+  // slow and get run down (≈37% never make it) — the rest outrun the beast.
   if (Math.random() < 0.75){
     const n = 1 + (Math.random() * 2 | 0);
     for (let i = 0; i < n; i++){
-      const doomed = Math.random() < 0.33;
+      const r = Math.random();
+      const fate = r < 0.15 ? 'trip' : r < 0.37 ? 'doomed' : 'safe';
+      // victims get a bigger head start so the chase plays out ON screen
+      const ahead = (fate === 'safe' ? 2.2 : 4.2) + i * 1.2 + Math.random() * 0.8;
       menuTourists.push({
-        x: d.x + dir * d.size * (2.2 + i * 1.1 + Math.random() * 0.7),
+        x: d.x + dir * d.size * ahead,
         y: d.y + rand(-8, 6),
-        vx: speed * (doomed ? rand(0.78, 0.9) : rand(1.02, 1.25)) * dir,
-        dir, size: d.size * 0.42, phase: rand(0, 6.28), doomed,
+        vx: speed * (fate === 'doomed' ? rand(0.84, 0.93) : fate === 'trip' ? rand(0.96, 1.05) : rand(1.05, 1.28)) * dir,
+        dir, size: d.size * 0.42, phase: rand(0, 6.28),
+        fate, doomed: fate === 'doomed', tripT: fate === 'trip' ? rand(2.5, 5) : 0,
         shirt: ['#c94f3e', '#3e7ac9', '#c9a03e', '#7ac93e', '#b04ac9'][(Math.random() * 5) | 0],
         alpha: 0.85, prey: d,
       });
@@ -1940,6 +1945,13 @@ function drawMenuVictim(ctx, tr, m, dir){
     ctx.beginPath(); ctx.moveTo(-s * 0.1, 0);
     ctx.lineTo(-s * 0.35, -s * 0.2 * k); ctx.stroke();
   }
+  ctx.strokeStyle = '#e8c49a'; ctx.lineWidth = s * 0.08;
+  for (const off of [0.6, Math.PI + 0.9]){             // arms flailing wildly
+    const a = Math.sin(G.time * 19 + off) * 0.9;
+    ctx.beginPath(); ctx.moveTo(s * 0.22, 0);
+    ctx.lineTo(s * 0.22 + Math.cos(a) * s * 0.3, -Math.abs(Math.sin(a)) * s * 0.28 - s * 0.06);
+    ctx.stroke();
+  }
   ctx.fillStyle = '#e8c49a';                           // head
   ctx.beginPath(); ctx.arc(s * 0.36, 0, s * 0.12, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = 'rgba(150,25,18,0.8)';               // it's not going well
@@ -1948,6 +1960,29 @@ function drawMenuVictim(ctx, tr, m, dir){
 }
 function drawMenuTourist(ctx, tr){
   const s = tr.size;
+  if (tr.tripped){
+    // flat on their backside, spun around to face the thing, arms up in terror
+    ctx.save();
+    ctx.translate(tr.x, tr.y);
+    ctx.scale(-tr.dir, 1);
+    ctx.globalAlpha = tr.alpha;
+    ctx.lineCap = 'round';
+    const tremble = Math.sin(G.time * 26) * 0.08;
+    ctx.strokeStyle = '#262a32'; ctx.lineWidth = s * 0.11;   // legs splayed out in front
+    ctx.beginPath(); ctx.moveTo(0, -s * 0.16); ctx.lineTo(s * 0.36, -s * 0.03); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -s * 0.16); ctx.lineTo(s * 0.3, -s * 0.11); ctx.stroke();
+    ctx.strokeStyle = tr.shirt; ctx.lineWidth = s * 0.2;     // torso leaning away
+    ctx.beginPath(); ctx.moveTo(0, -s * 0.16); ctx.lineTo(-s * 0.08, -s * 0.52); ctx.stroke();
+    ctx.lineWidth = s * 0.08;                                // both arms thrown up, shaking
+    for (const spread of [-0.18, 0.14]){
+      ctx.beginPath(); ctx.moveTo(-s * 0.07, -s * 0.48);
+      ctx.lineTo(-s * 0.07 + s * (spread + tremble), -s * 0.88); ctx.stroke();
+    }
+    ctx.fillStyle = '#e8c49a';                               // head
+    ctx.beginPath(); ctx.arc(-s * 0.1, -s * 0.64, s * 0.12, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    return;
+  }
   ctx.save();
   ctx.translate(tr.x, tr.y - Math.abs(Math.sin(tr.phase)) * s * 0.07);  // running bounce
   ctx.scale(tr.dir, 1);
@@ -1993,8 +2028,8 @@ function menuScene(dt){
   for (const d of menuDinos){
     if (!d.eat){
       d._sprint = false;
-      for (const tr of menuTourists){                    // doomed prey ahead → burst of speed
-        if (tr.prey === d && tr.doomed && !tr.caught && !tr.dead){
+      for (const tr of menuTourists){                    // catchable prey ahead → burst of speed
+        if (tr.prey === d && (tr.doomed || tr.tripped) && !tr.caught && !tr.dead){
           const gap = (tr.x - (d.x + d.dir * d.size * 0.9)) * d.dir;
           if (gap > 0 && gap < d.size * 7){ d._sprint = true; break; }
         }
@@ -2004,12 +2039,15 @@ function menuScene(dt){
       d.phase += dt * d.stride * sp;
       d.eatPitch = 0;
     } else {
-      // the meal: bend down → CHOMP → toss the head back → gulp it down
+      // the meal: bend down → CHOMP → raise, victim thrashing in the jaws for
+      // a good long while → toss the head back → gulp it down
       const e = d.eat; e.t += dt;
       d.eatPitch = e.t < 0.45 ? (e.t / 0.45) * 0.7
-                 : e.t < 0.75 ? 0.7
-                 : e.t < 1.15 ? 0.7 - ((e.t - 0.75) / 0.4) * 0.95
-                 : e.t < 1.65 ? -0.25 + ((e.t - 1.15) / 0.5) * 0.25 : 0;
+                 : e.t < 0.8  ? 0.7
+                 : e.t < 1.1  ? 0.7 - ((e.t - 0.8) / 0.3) * 0.55
+                 : e.t < 2.1  ? 0.15 + Math.sin(e.t * 9) * 0.05
+                 : e.t < 2.45 ? 0.15 - ((e.t - 2.1) / 0.35) * 0.5
+                 : e.t < 2.95 ? -0.35 + ((e.t - 2.45) / 0.5) * 0.35 : 0;
       if (!e.bit && e.t >= 0.45){                        // the bite lands — blood
         e.bit = true;
         if (e.tr) e.tr.dead = true;
@@ -2020,18 +2058,33 @@ function menuScene(dt){
                           t: 0, dur: rand(0.4, 0.8), r: rand(2, 5)});
         }
       }
-      if (e.t >= 1.65) d.eat = null;                     // burp. carry on.
+      if (e.t >= 2.95) d.eat = null;                     // burp. carry on.
     }
   }
   // tourists sprint for their lives — drawn under the dinos so a catch overlaps
   for (const tr of menuTourists){
+    const d = tr.prey, chaseable = d && menuDinos.includes(d);
     if (!tr.caught && !tr.dead){
-      tr.x += tr.vx * dt;
-      tr.phase += dt * 11;                               // frantic little legs
-      const d = tr.prey;
-      if (d && tr.doomed && !d.eat && menuDinos.includes(d)){
+      if (tr.tripped){
+        // down on the ground, scrabbling backward in terror — going nowhere
+      } else {
+        tr.x += tr.vx * dt;
+        tr.phase += dt * 11;                             // frantic little legs
+        if (tr.fate === 'trip' && chaseable){            // ...until the fateful stumble
+          tr.tripT -= dt;
+          if (tr.tripT <= 0){
+            tr.tripped = true; tr.vx = 0;
+            for (let i = 0; i < 4; i++){                 // dust kicked up by the fall
+              menuPuffs.push({x: tr.x + rand(-7, 7), y: tr.y - rand(0, 5),
+                              vx: rand(-18, 18), vy: rand(-20, -4),
+                              t: 0, dur: rand(0.3, 0.55), r: rand(2, 4), c: '154,143,118'});
+            }
+          }
+        }
+      }
+      if (chaseable && (tr.doomed || tr.tripped) && !d.eat){
         const reach = d.x + d.dir * d.size * 0.9;        // where the lunge lands
-        if ((reach - tr.x) * d.dir >= 0){                // caught — freeze in terror
+        if ((reach - tr.x) * d.dir >= 0){                // caught
           tr.caught = true;
           d.eat = {t: 0, tr};
         }
@@ -2055,15 +2108,15 @@ function menuScene(dt){
     drawDino(ctx, d, d.x, yy, d.dir, d.phase, d.alpha, d.eatPitch || 0);
     if (d.eat && d.eat.bit){
       const e = d.eat;
-      if (e.t < 1.15 && e.tr){                           // victim in the jaws, kicking
+      if (e.t < 2.45 && e.tr){                           // victim in the jaws, thrashing
         const m = menuMouthPos(d, d.eatPitch);
         drawMenuVictim(ctx, e.tr, m, d.dir);
         if (Math.random() < 0.25){                       // dripping
           menuPuffs.push({x: m.x + rand(-4, 4), y: m.y + 4, vx: rand(-8, 8), vy: rand(10, 40),
                           t: 0, dur: rand(0.35, 0.6), r: rand(1.5, 3)});
         }
-      } else if (e.t >= 1.15){                           // the gulp — a lump slides down the neck
-        const k = clamp((e.t - 1.15) / 0.5, 0, 1);
+      } else if (e.t >= 2.45){                           // the gulp — a lump slides down the neck
+        const k = clamp((e.t - 2.45) / 0.5, 0, 1);
         const ux = 0.42 - 0.4 * k, uy = -0.92 + 0.34 * k;
         ctx.fillStyle = 'rgba(99,134,114,0.85)';
         ctx.beginPath();
@@ -2072,12 +2125,12 @@ function menuScene(dt){
       }
     }
   }
-  // a short-lived red spray marks where a tourist used to be
+  // short-lived sprays: red where a tourist used to be, dust where one fell
   menuPuffs = menuPuffs.filter(pf => (pf.t += dt) < pf.dur);
   for (const pf of menuPuffs){
     pf.x += pf.vx * dt; pf.y += pf.vy * dt; pf.vy += 80 * dt;
     const k = pf.t / pf.dur;
-    ctx.fillStyle = `rgba(150,25,18,${0.8 * (1 - k)})`;
+    ctx.fillStyle = `rgba(${pf.c || '150,25,18'},${0.8 * (1 - k)})`;
     ctx.beginPath(); ctx.arc(pf.x, pf.y, pf.r * (1 - k * 0.4), 0, Math.PI * 2); ctx.fill();
   }
   menuDinos = menuDinos.filter(d => d.x > -d.size * 3.2 && d.x < w + d.size * 3.2);
@@ -3295,7 +3348,8 @@ if (new URLSearchParams(location.search).has('menudino')){ // seed roaming menu 
   for (const tr of menuTourists){
     const d = tr.prey;
     if (d) tr.x = d.x + d.dir * d.size * (1.0 + Math.random() * 1.3);
-    if (mdMode === 'eat' && d){ tr.doomed = true; tr.x = d.x + d.dir * d.size * 1.0; } // imminent chomp
+    if (mdMode === 'eat' && d){ tr.doomed = true; tr.fate = 'doomed'; tr.x = d.x + d.dir * d.size * 1.0; }        // imminent chomp
+    if (mdMode === 'trip' && d){ tr.doomed = false; tr.fate = 'trip'; tr.tripT = 0.05; tr.x = d.x + d.dir * d.size * 2.6; } // imminent stumble
   }
 }
 if (new URLSearchParams(location.search).has('lab')){ const lv = new URLSearchParams(location.search).get('lab'); if (lv === 'rich'){ save.dna = 50000; } else if (!isNaN(parseFloat(lv))){ save.dna = parseFloat(lv); } buildLab(); $('#lab').classList.remove('hidden'); }
