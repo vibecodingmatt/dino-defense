@@ -1961,25 +1961,32 @@ function drawMenuVictim(ctx, tr, m, dir){
 function drawMenuTourist(ctx, tr){
   const s = tr.size;
   if (tr.tripped){
-    // flat on their backside, spun around to face the thing, arms up in terror
+    // down on their backside facing the thing — scrabbling backward in panicked
+    // little hops, legs kicking at the dirt, arms waving in big frantic arcs
+    const sc = G.time * 7;                                   // scoot-hop cycle
+    const hop = Math.max(0, Math.sin(sc));
     ctx.save();
-    ctx.translate(tr.x, tr.y);
+    ctx.translate(tr.x, tr.y - hop * s * 0.05);              // bounces with each shove
     ctx.scale(-tr.dir, 1);
     ctx.globalAlpha = tr.alpha;
     ctx.lineCap = 'round';
-    const tremble = Math.sin(G.time * 26) * 0.08;
-    ctx.strokeStyle = '#262a32'; ctx.lineWidth = s * 0.11;   // legs splayed out in front
-    ctx.beginPath(); ctx.moveTo(0, -s * 0.16); ctx.lineTo(s * 0.36, -s * 0.03); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, -s * 0.16); ctx.lineTo(s * 0.3, -s * 0.11); ctx.stroke();
-    ctx.strokeStyle = tr.shirt; ctx.lineWidth = s * 0.2;     // torso leaning away
-    ctx.beginPath(); ctx.moveTo(0, -s * 0.16); ctx.lineTo(-s * 0.08, -s * 0.52); ctx.stroke();
-    ctx.lineWidth = s * 0.08;                                // both arms thrown up, shaking
-    for (const spread of [-0.18, 0.14]){
+    ctx.strokeStyle = '#262a32'; ctx.lineWidth = s * 0.11;   // legs scrabbling at the ground
+    ctx.beginPath(); ctx.moveTo(0, -s * 0.16);
+    ctx.lineTo(s * (0.3 + 0.12 * Math.sin(sc)), -s * (0.03 + 0.05 * Math.max(0, Math.sin(sc)))); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -s * 0.16);
+    ctx.lineTo(s * (0.26 + 0.12 * Math.sin(sc + Math.PI)), -s * (0.1 + 0.05 * Math.max(0, Math.sin(sc + Math.PI)))); ctx.stroke();
+    const rock = Math.sin(sc * 0.9) * 0.03;                  // torso rocking with the shoves
+    ctx.strokeStyle = tr.shirt; ctx.lineWidth = s * 0.2;
+    ctx.beginPath(); ctx.moveTo(0, -s * 0.16); ctx.lineTo(-s * (0.08 + rock), -s * 0.52); ctx.stroke();
+    ctx.lineWidth = s * 0.08;                                // arms waving wildly overhead
+    for (const ph0 of [0, 2.3]){
+      const a = -1.75 + Math.sin(G.time * 13 + ph0) * 0.75;
       ctx.beginPath(); ctx.moveTo(-s * 0.07, -s * 0.48);
-      ctx.lineTo(-s * 0.07 + s * (spread + tremble), -s * 0.88); ctx.stroke();
+      ctx.lineTo(-s * 0.07 + Math.cos(a) * s * 0.42, -s * 0.48 + Math.sin(a) * s * 0.42);
+      ctx.stroke();
     }
-    ctx.fillStyle = '#e8c49a';                               // head
-    ctx.beginPath(); ctx.arc(-s * 0.1, -s * 0.64, s * 0.12, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#e8c49a';                               // head, shaking "no no no"
+    ctx.beginPath(); ctx.arc(-s * (0.1 + Math.sin(G.time * 15) * 0.02), -s * 0.64, s * 0.12, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
     return;
   }
@@ -2066,7 +2073,8 @@ function menuScene(dt){
     const d = tr.prey, chaseable = d && menuDinos.includes(d);
     if (!tr.caught && !tr.dead){
       if (tr.tripped){
-        // down on the ground, scrabbling backward in terror — going nowhere
+        // scrabbling backward away from it in little shoves — not nearly fast enough
+        tr.x += tr.dir * (10 + Math.max(0, Math.sin(G.time * 7)) * 26) * dt;
       } else {
         tr.x += tr.vx * dt;
         tr.phase += dt * 11;                             // frantic little legs
