@@ -815,7 +815,9 @@ function fireTower(t, dt){
       break;
     case 'snipe':
       say('snipe');
-      G.bolts.push({x1:t.x, y1:t.y, x2:tp.x, y2:tp.y, t:0.09, color:'rgba(160,210,255,0.9)', w:2});
+      G.bolts.push({x1:t.x, y1:t.y, x2:tp.x, y2:tp.y, t:0.1, w:2.2,
+                    color: 'rgba(190,230,255,0.95)', glow: 'rgba(110,190,255,0.28)'});
+      addFx('spark', tp.x, tp.y - (target.size || 10) * 0.4, 6);   // round slams home
       applyHit(target, t, st, def);
       break;
     case 'flame': {
@@ -833,12 +835,16 @@ function fireTower(t, dt){
     }
     case 'tesla': {
       say('zap');
+      const maxedT = (t.ulv || 0) >= (def.maxUp || 2);   // maxed coils arc VIOLET
       let cur = target, from = {x:t.x, y:t.y};
       const hitset = new Set();
       for (let i = 0; i <= def.chain; i++){
         if (!cur) break;
         const cp = dinoPos(cur);
-        G.bolts.push({x1:from.x, y1:from.y, x2:cp.x, y2:cp.y, t:0.12, color:'rgba(120,230,255,0.95)', w:2.5, jag:true});
+        G.bolts.push({x1:from.x, y1:from.y, x2:cp.x, y2:cp.y, t:0.16, w:3.2, jag:true,
+                      color: maxedT ? 'rgba(215,160,255,0.95)' : 'rgba(120,230,255,0.95)',
+                      glow:  maxedT ? 'rgba(150,70,255,0.32)'  : 'rgba(60,160,255,0.28)'});
+        addFx('zap', cp.x, cp.y, maxedT ? 16 : 11);       // electric burst at every chained dino
         applyHit(cur, t, st, def);
         hitset.add(cur);
         from = cp;
@@ -986,7 +992,7 @@ function addFx(kind, x, y, r, ang){
   // the air-strike carpet must always be visible, so its bursts bypass the soft cap
   if (G.fx.length > 360 && kind !== 'airburst' && kind !== 'shock') return;
   G.fx.push({kind, x, y, r, ang: ang || 0, t: 0, seed: Math.random() * 9,
-             dur: kind === 'sonic' ? 0.5 : kind === 'boom' ? 0.45 : kind === 'airburst' ? 0.55 : kind === 'frost' ? 0.5 : kind === 'flame' ? 0.22 : kind === 'gaspuff' ? 0.55 : kind === 'ring' ? 0.8 : kind === 'dust' ? 0.9 : kind === 'step' ? 0.45 : kind === 'shock' ? 0.9 : kind === 'birds' ? 1.4 : 0.3});
+             dur: kind === 'sonic' ? 0.5 : kind === 'boom' ? 0.45 : kind === 'airburst' ? 0.55 : kind === 'frost' ? 0.5 : kind === 'flame' ? 0.22 : kind === 'gaspuff' ? 0.55 : kind === 'ring' ? 0.8 : kind === 'dust' ? 0.9 : kind === 'step' ? 0.45 : kind === 'shock' ? 0.9 : kind === 'birds' ? 1.4 : kind === 'zap' ? 0.26 : 0.3});
 }
 function addText(x, y, txt, color, size){
   if (G.texts.length > 40) return;
@@ -1611,9 +1617,9 @@ function deployOmega(){
   G.omega = {
     pathI, dist: len, speed: OMEGA.speed, hp: OMEGA.durability, maxHp: OMEGA.durability,
     phase: 0, turn: -1, dirT: -1, pitch: 0, t: 0, entrance: 0.8, lastStep: -1, hitBosses: new Set(),
-    painter: 'theropod', size: OMEGA.size, flying: false,
-    pal: {body: '#8f98a6', belly: '#c7cedb', accent: '#3fb0ff'},
-    feat: {bigHead: true, glowEyes: true},
+    painter: 'omega', size: OMEGA.size, flying: false,   // dedicated robot-rex painter
+    pal: {body: '#9aa3b2', belly: '#c7cedb', accent: '#3fb0ff'},
+    feat: {},
   };
   const p = samplePath(G.paths[pathI], len);          // materialise at the exit
   G.shake = Math.max(G.shake, 16); G.flashT = 0.6;
@@ -1642,10 +1648,11 @@ function updateOmega(dt){
   o.pitch += clamp(pitchT - o.pitch, -dt * 3.5, dt * 3.5);
   const step = Math.floor(o.phase / Math.PI);
   if (step !== o.lastStep){ o.lastStep = step; G.shake = Math.max(G.shake, 2.6); addFx('step', pp.x, pp.y + 4, o.size * 0.4); }
-  // combat: obliterate grounded dinos in its lane within reach
+  // combat: obliterate GROUNDED dinos in its lane within reach (flyers soar
+  // safely over the machine — it can't touch them)
   const reach = o.size * 0.75;
   for (const d of G.dinos){
-    if (d.dead || d.leaked || d.pathI !== o.pathI) continue;
+    if (d.dead || d.leaked || d.flying || d.pathI !== o.pathI) continue;
     const p = dinoPos(d);
     if (hyp(pp.x, pp.y, p.x, p.y) > reach + d.size * 0.5) continue;
     if (d.boss){
@@ -2097,6 +2104,7 @@ const TIPS = [
   '<b>🦾 Omega</b> (from wave 75, once per run): unleashes a colossal robotic T-Rex that materialises at the exit and stomps up your busiest lane, one-shotting every dinosaur it touches. Each kill wears its armor down, so a big horde can destroy it — and bosses only lose 30% and keep coming. A pricey show-stopper; save it for a wave that\'s about to overwhelm you.',
   '<b>Targeting:</b> the selected weapon\'s "Target" button cycles FIRST / LAST / STRONG / CLOSE. Snipers on STRONG melt tanks; slows on FIRST hold the line.',
   '<b>Flyers</b> (Pteranodons & friends) can only be hit by air-capable weapons — Flame Throwers and Mortars can\'t touch them.',
+  '<b>🦅 The White Pteranodon</b> rides in on waves 40 and 80 — a giant bone-white terror that ONLY air-capable weapons (Gatling, Sniper, Cryo, Tesla, Sonic, Missiles) can hurt. Mortars, flame and gas are useless against it, and even Omega can\'t reach it. Check your air coverage before wave 40.',
   '<b>Armor</b> (Ankylosaurus, Triceratops) shrugs off weak hits. 🎯 Snipers pierce armor completely.',
   '<b>☣️ Mason\'s Gas</b> lays down a lingering poison cloud that ignores armor and shreds packs of ground dinos — but flyers, bosses, and tall long-necks (like Brachiosaurus) rise above it and take no poison.',
   '<b>The Indominus Rex turns invisible.</b> A couple of seconds after it storms in, it vanishes completely — and while unseen it takes NO damage at all. Only a 📡 Sonic Emitter\'s pulse reveals AND exposes it, so plant one right on its path before wave 50 (it also returns on waves 80 and 90). No emitter, no kill.',
@@ -2385,20 +2393,41 @@ function render(dt){
       ctx.beginPath(); ctx.arc(pr.x, pr.y, pr.kind === 'dart' ? 3 : 2.5, 0, Math.PI*2); ctx.fill();
     }
   }
-  // bolts (tesla / sniper tracer)
+  // bolts (tesla / sniper tracer) — layered glow + core + white-hot center
   for (const b of G.bolts){
-    ctx.strokeStyle = b.color; ctx.lineWidth = b.w;
-    ctx.beginPath();
     if (b.jag){
-      const n = 6;
-      ctx.moveTo(b.x1, b.y1);
+      // one jagged polyline, re-rolled every frame so the arc writhes
+      const n = 7, pts = [[b.x1, b.y1]];
       for (let i = 1; i < n; i++){
         const t = i/n;
-        ctx.lineTo(b.x1 + (b.x2-b.x1)*t + rand(-7, 7), b.y1 + (b.y2-b.y1)*t + rand(-7, 7));
+        pts.push([b.x1 + (b.x2-b.x1)*t + rand(-8, 8), b.y1 + (b.y2-b.y1)*t + rand(-8, 8)]);
       }
-      ctx.lineTo(b.x2, b.y2);
-    } else { ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); }
-    ctx.stroke();
+      pts.push([b.x2, b.y2]);
+      const trace = () => {
+        ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+        ctx.stroke();
+      };
+      ctx.strokeStyle = b.glow || 'rgba(60,160,255,0.28)'; ctx.lineWidth = b.w * 3.4; trace();
+      ctx.strokeStyle = b.color; ctx.lineWidth = b.w * 1.35; trace();
+      ctx.strokeStyle = 'rgba(255,255,255,0.95)'; ctx.lineWidth = b.w * 0.5; trace();
+      // stray forks snapping off the main arc
+      for (let f = 0; f < 2; f++){
+        if (Math.random() < 0.65){
+          const [fx0, fy0] = pts[1 + (Math.random() * (pts.length - 2) | 0)];
+          ctx.strokeStyle = b.color; ctx.lineWidth = b.w * 0.55;
+          ctx.beginPath(); ctx.moveTo(fx0, fy0);
+          ctx.lineTo(fx0 + rand(-16, 16), fy0 + rand(-16, 16)); ctx.stroke();
+        }
+      }
+    } else {
+      if (b.glow){ // tracer glow sheath
+        ctx.strokeStyle = b.glow; ctx.lineWidth = b.w * 3;
+        ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke();
+      }
+      ctx.strokeStyle = b.color; ctx.lineWidth = b.w;
+      ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke();
+    }
   }
   // fx
   for (const f of G.fx){
@@ -2456,6 +2485,21 @@ function render(dt){
         ctx.strokeStyle = `rgba(214,163,255,${0.7*(1-k)})`; ctx.lineWidth = 3;
         ctx.beginPath(); ctx.arc(f.x, f.y, f.r * k, 0, Math.PI*2); ctx.stroke();
         break;
+      case 'zap': { // electric burst where a tesla arc lands: ring + radial ticks
+        const za = 1 - k;
+        ctx.strokeStyle = `rgba(190,240,255,${0.85*za})`; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(f.x, f.y, 3 + k * f.r, 0, Math.PI*2); ctx.stroke();
+        ctx.lineWidth = 1.4;
+        for (let i = 0; i < 5; i++){
+          const an = f.seed + i * 1.256;
+          const r1 = 3 + k * f.r, r2 = r1 + 4 + 3 * Math.sin(f.seed * 9 + i * 3);
+          ctx.beginPath();
+          ctx.moveTo(f.x + Math.cos(an) * r1, f.y + Math.sin(an) * r1);
+          ctx.lineTo(f.x + Math.cos(an) * r2, f.y + Math.sin(an) * r2);
+          ctx.stroke();
+        }
+        break;
+      }
       case 'flame': {
         ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.ang);
         const g = ctx.createLinearGradient(0, 0, f.r, 0);
@@ -3172,6 +3216,15 @@ if (testParams.has('test')){
     const hurtByEmitter = boss.hp < before;
     const el = $('#errbox'); el.classList.remove('hidden');
     el.textContent = `INDO cloaked=${cloakedNow} · covered→no-banner=${coveredNoBanner} · lapse→vanished-once=${lapseVanished} · invincible=${invincible} · emitter-hurt=${hurtByEmitter} (all want true)`;
+    G.paused = true;
+  }
+  if (testParams.has('zap')){ // stage a tesla (at the given upgrade level) mid-arc
+    G.cash = 99999; G.wave = 30;
+    placeTower('tesla', 420, 487, true);
+    const zl = clamp(parseInt(testParams.get('zap'), 10) || 0, 0, TOWERS.tesla.maxUp);
+    G.towers.forEach(tw => { if (tw.key === 'tesla') tw.ulv = zl; });
+    for (let i = 0; i < 8; i++){ spawnDino('velociraptor', 0, false); G.dinos[G.dinos.length-1].dist = 690 + i * 26; }
+    for (let s = 0; s < 3 && !G.bolts.length; s += 0.02) step(0.02);  // freeze on the arc frame
     G.paused = true;
   }
   if (testParams.has('speedleak')){ // a leak while sped up must drop back to 1x

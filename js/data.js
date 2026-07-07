@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.23.0';
+const VERSION = '1.24.0';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -24,7 +24,11 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.23.0', date: 'Jul 7, 2026', items: [
+  {v: '1.24.0', date: 'Jul 7, 2026', items: [
+    '🔫 Full weapon glow-up! Every weapon now visibly transforms with each upgrade — longer barrels, ammo drums, gun shields, extra tanks, taller coils, stacked dishes, more launch tubes — and a FULLY MAXED weapon changes colour entirely: the Gatling goes murdered-out black-and-red, the Flame Thrower burns superheated blue, the Sniper becomes a glowing railgun, Mason\'s Gas turns virulent purple with a skull stencil, the Cryo becomes an ice-sheathed deep-freezer, the Mortar a massive gold-banded siege piece, and each sits on dark armour plate with its own pulsing power ring.',
+    '⚡ The Tesla Node\'s lightning got a serious upgrade: thick, forked, white-hot arcs that snap and writhe between dinosaurs with an electric burst at every link in the chain — and a maxed Tesla arcs VIOLET from a twin-coil array.',
+    '🦅 NEW BOSS — THE WHITE PTERANODON! A giant bone-white terror with burning red eyes sweeps in on waves 40 and 80, and ONLY air-capable weapons can hurt it. No air coverage, no chance.',
+    '🤖 Omega was rebuilt as a true robot T-Rex: angular armour plates with rivets and glowing seams, hydraulic piston legs, a servo skull with interlocking metal teeth and a burning optic — and a pointy comms antenna on its head with a blinking red beacon.',
     '⏱️ Fast-forward safety net: if you\'re playing on 2×/4×/10× speed and a dinosaur breaches the gate, the game now automatically drops back to 1× the instant it happens — so a costly leak doesn\'t snowball into losing your base while everything is sped up. You can always speed back up once you\'ve reacted.',
     '🎯 Range buffs: Missile Battery +10%, Mortar +15%, and Sonic Emitter +25% — three of the longer-reach weapons now hit even farther.',
   ]},
@@ -162,6 +166,8 @@ const DINOS = {
   drex:             {name:'D-Rex — Distortus Rex', epithet:'THE DEVIL YOU CREATED', painter:'mutant', hp:16000, speed:58, armor:8, bounty:2000, dmg:60, size:46, boss:true, weight:0, roar:true, regen:0.004,
                      pal:{body:'#6f6a63', belly:'#9c968b', accent:'#b83a30'},
                      feat:{glowEyes:true, fourArms:true}},
+  whiteptera:       {name:'The White Pteranodon', epithet:'DEATH RIDES THE WIND — AIR WEAPONS ONLY', painter:'flyer', hp:4200, speed:66, armor:2, bounty:400, dmg:30, size:40, boss:true, weight:0, roar:true, flying:true,
+                     pal:{body:'#e6e3da', belly:'#fbfaf5', accent:'#c3beb2'}, feat:{crest:true, glowEyes:true}},
 };
 
 /* Boss schedule — every 10th wave. Values are arrays (escorts allowed). */
@@ -169,11 +175,11 @@ const BOSS_WAVES = {
   10:  ['blue'],
   20:  ['trex'],
   30:  ['spinosaurus'],
-  40:  ['trex', 'blue'],
+  40:  ['whiteptera'],                  // air-only boss — forces anti-air coverage
   50:  ['indominus'],
   60:  ['spinosaurus', 'trex'],
   70:  ['indoraptor'],
-  80:  ['indominus', 'spinosaurus'],
+  80:  ['indominus', 'whiteptera'],     // ground camo + air terror together
   90:  ['indoraptor', 'indominus'],
   100: ['drex'],
 };

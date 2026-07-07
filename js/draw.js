@@ -381,8 +381,19 @@ function drawFlyer(ctx, d, ph){
     ctx.fillStyle = p.accent;
     ctx.beginPath(); ctx.moveTo(0.42, -0.2); ctx.lineTo(0.1, -0.42); ctx.lineTo(0.48, -0.1); ctx.closePath(); ctx.fill();
   }
-  ctx.fillStyle = '#1a1a12';
-  ctx.beginPath(); ctx.arc(0.47, -0.14, 0.03, 0, Math.PI*2); ctx.fill();
+  if (f.glowEyes){ // burning red eye for the boss flyer
+    const pulse = 0.7 + 0.3 * Math.sin(ph * 2.5);
+    const eg = ctx.createRadialGradient(0.47, -0.14, 0.005, 0.47, -0.14, 0.1);
+    eg.addColorStop(0, `rgba(255,60,40,${0.85 * pulse})`);
+    eg.addColorStop(1, 'rgba(255,60,40,0)');
+    ctx.fillStyle = eg;
+    ctx.beginPath(); ctx.arc(0.47, -0.14, 0.1, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = `rgba(255,90,60,${pulse})`;
+    ctx.beginPath(); ctx.arc(0.47, -0.14, 0.035, 0, Math.PI*2); ctx.fill();
+  } else {
+    ctx.fillStyle = '#1a1a12';
+    ctx.beginPath(); ctx.arc(0.47, -0.14, 0.03, 0, Math.PI*2); ctx.fill();
+  }
 
   // near wing
   ctx.fillStyle = shade(p.body, 0.06);
@@ -535,7 +546,160 @@ function drawMutantRex(ctx, d, ph){
   leg(ctx, 0.04, -0.66, 0.72, ph, shade(p.body, -0.1), 0.26);
 }
 
-const PAINTERS = {theropod:drawTheropod, quad:drawQuad, sauropod:drawSauropod, flyer:drawFlyer, mutant:drawMutantRex};
+/* ---------- OMEGA REX (the deployable robot T-Rex) ----------
+   A hard-edged war machine: angular armour plates with visible seams and
+   rivets, hydraulic piston legs, a boxy servo skull with a burning optic,
+   and a pointy comms antenna on top with a blinking beacon. */
+function roboLeg(ctx, hipX, hipY, len, ph, color, jointColor, w){
+  // same walk kinematics as leg(), drawn as hard metal segments
+  const swing = Math.sin(ph);
+  const lift  = Math.max(0, Math.cos(ph));
+  const a1 = swing * 0.55;
+  const kx = hipX + Math.sin(a1) * len * 0.5;
+  const ky = hipY + Math.cos(a1) * len * 0.5 - lift * len * 0.14;
+  const a2 = a1 + 0.4 + lift * 1.05;
+  const fx = kx + Math.sin(a2) * len * 0.52;
+  const fy = Math.min(0, ky + Math.cos(a2) * len * 0.52 - lift * len * 0.22);
+  ctx.lineCap = 'butt';
+  ctx.strokeStyle = color; ctx.lineWidth = w;                       // thigh housing
+  ctx.beginPath(); ctx.moveTo(hipX, hipY); ctx.lineTo(kx, ky); ctx.stroke();
+  ctx.strokeStyle = jointColor; ctx.lineWidth = w * 0.32;           // hydraulic piston line
+  ctx.beginPath(); ctx.moveTo(hipX + 0.06, hipY + 0.02); ctx.lineTo(kx + 0.04, ky - 0.03); ctx.stroke();
+  ctx.strokeStyle = color; ctx.lineWidth = w * 0.7;                 // shin strut
+  ctx.beginPath(); ctx.moveTo(kx, ky); ctx.lineTo(fx, fy); ctx.stroke();
+  ctx.fillStyle = jointColor;                                       // knee servo bolt
+  ctx.beginPath(); ctx.arc(kx, ky, w * 0.44, 0, Math.PI*2); ctx.fill();
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = color; ctx.lineWidth = w * 0.48;                // two clawed metal toes
+  ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx + w * 1.25, fy - lift * len * 0.06); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx + w * 0.75, fy + 0.012); ctx.stroke();
+}
+function drawOmegaRex(ctx, d, ph){
+  const p = d.pal;
+  const steel  = p.body;
+  const panel  = shade(p.body, 0.2);
+  const dark   = shade(p.body, -0.32);
+  const darker = shade(p.body, -0.55);
+  const glow   = p.accent || '#3fb0ff';
+  const bob = Math.abs(Math.sin(ph)) * 0.045;
+  const sway = Math.sin(ph * 0.8) * 0.04;
+
+  roboLeg(ctx, -0.05, -0.62, 0.62, ph + Math.PI, dark, darker, 0.17); // far leg
+
+  ctx.save();
+  ctx.translate(0, -bob);
+
+  // segmented tail — three tapering armour sections with seam gaps
+  ctx.fillStyle = dark;
+  ctx.beginPath(); ctx.moveTo(-0.1, -0.92); ctx.lineTo(-0.55, -0.84 + sway); ctx.lineTo(-0.55, -0.55 + sway); ctx.lineTo(-0.1, -0.45); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = darker;
+  ctx.beginPath(); ctx.moveTo(-0.58, -0.82 + sway); ctx.lineTo(-0.98, -0.74 + sway*2); ctx.lineTo(-0.98, -0.55 + sway*2); ctx.lineTo(-0.58, -0.57 + sway); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = dark;
+  ctx.beginPath(); ctx.moveTo(-1.01, -0.72 + sway*2); ctx.lineTo(-1.38, -0.64 + sway*3); ctx.lineTo(-1.38, -0.56 + sway*3); ctx.lineTo(-1.01, -0.57 + sway*2); ctx.closePath(); ctx.fill();
+
+  // angular armoured hull
+  ctx.fillStyle = steel;
+  ctx.beginPath();
+  ctx.moveTo(-0.52, -0.6); ctx.lineTo(-0.44, -0.96); ctx.lineTo(0.02, -1.06); ctx.lineTo(0.42, -0.98);
+  ctx.lineTo(0.58, -0.72); ctx.lineTo(0.44, -0.44); ctx.lineTo(-0.08, -0.36); ctx.lineTo(-0.46, -0.44);
+  ctx.closePath(); ctx.fill();
+  // lighter belly plate
+  ctx.fillStyle = panel;
+  ctx.beginPath(); ctx.moveTo(-0.34, -0.44); ctx.lineTo(0.34, -0.44); ctx.lineTo(0.4, -0.62); ctx.lineTo(-0.4, -0.62); ctx.closePath(); ctx.fill();
+  // panel seams + rivets
+  ctx.strokeStyle = darker; ctx.lineWidth = 0.018;
+  ctx.beginPath(); ctx.moveTo(-0.44, -0.78); ctx.lineTo(0.5, -0.78); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-0.1, -1.05); ctx.lineTo(-0.06, -0.44); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0.24, -1.0); ctx.lineTo(0.28, -0.5); ctx.stroke();
+  ctx.fillStyle = darker;
+  for (const [rx, ry] of [[-0.36,-0.86],[0.06,-0.94],[0.4,-0.84],[-0.3,-0.52],[0.34,-0.56]]){
+    ctx.beginPath(); ctx.arc(rx, ry, 0.016, 0, Math.PI*2); ctx.fill();
+  }
+  // dorsal heat-vent fins
+  ctx.fillStyle = dark;
+  for (let i = 0; i < 4; i++){
+    const x = -0.34 + i * 0.2;
+    ctx.beginPath(); ctx.moveTo(x, -1.0 - i*0.01); ctx.lineTo(x + 0.06, -1.12 - i*0.01); ctx.lineTo(x + 0.12, -1.0 - i*0.01); ctx.closePath(); ctx.fill();
+  }
+
+  // twin robot arms — pistons with two-claw grippers
+  ctx.lineCap = 'butt';
+  const armSw = Math.sin(ph + Math.PI) * 0.06;
+  for (const [side, col] of [[-0.05, darker], [0.05, dark]]){
+    const sx = 0.32, sy = -0.76 + side;
+    const ex = 0.42 + armSw, ey = -0.62 + side;
+    ctx.strokeStyle = col; ctx.lineWidth = 0.06;
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+    ctx.lineWidth = 0.045;
+    ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex + 0.1, ey + 0.05); ctx.stroke();
+    ctx.lineWidth = 0.028;                        // gripper claws
+    ctx.beginPath(); ctx.moveTo(ex + 0.1, ey + 0.05); ctx.lineTo(ex + 0.16, ey + 0.02); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ex + 0.1, ey + 0.05); ctx.lineTo(ex + 0.15, ey + 0.1); ctx.stroke();
+  }
+
+  // armoured neck
+  ctx.fillStyle = steel;
+  ctx.beginPath(); ctx.moveTo(0.3, -0.92); ctx.lineTo(0.52, -1.14); ctx.lineTo(0.62, -1.02); ctx.lineTo(0.44, -0.7); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = darker; ctx.lineWidth = 0.016;
+  ctx.beginPath(); ctx.moveTo(0.38, -0.86); ctx.lineTo(0.54, -1.02); ctx.stroke();
+
+  // boxy servo skull with heavy brow
+  const jawOpen = 0.04 + Math.max(0, Math.sin(ph * 0.9)) * 0.05;
+  ctx.fillStyle = steel;
+  ctx.beginPath();
+  ctx.moveTo(0.48, -1.3); ctx.lineTo(0.98, -1.26); ctx.lineTo(1.02, -1.14); ctx.lineTo(0.96, -1.08); ctx.lineTo(0.5, -1.06); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = dark;   // brow plate
+  ctx.beginPath(); ctx.moveTo(0.5, -1.3); ctx.lineTo(0.78, -1.29); ctx.lineTo(0.74, -1.22); ctx.lineTo(0.5, -1.22); ctx.closePath(); ctx.fill();
+  // lower jaw — hard hinged plate
+  ctx.fillStyle = darker;
+  ctx.beginPath();
+  ctx.moveTo(0.52, -1.05); ctx.lineTo(0.94, -1.04 + jawOpen); ctx.lineTo(0.92, -0.98 + jawOpen); ctx.lineTo(0.52, -0.99); ctx.closePath(); ctx.fill();
+  // interlocking metal teeth
+  ctx.fillStyle = '#dfe6ee';
+  for (let i = 0; i < 5; i++){
+    const x = 0.58 + i * 0.075;
+    ctx.beginPath(); ctx.moveTo(x, -1.08); ctx.lineTo(x + 0.028, -1.03); ctx.lineTo(x + 0.056, -1.08); ctx.closePath(); ctx.fill();
+  }
+  // burning optic
+  const pulse = 0.7 + 0.3 * Math.sin(ph * 2.2);
+  const eg = ctx.createRadialGradient(0.62, -1.19, 0.005, 0.62, -1.19, 0.12);
+  eg.addColorStop(0, `rgba(255,60,40,${0.9 * pulse})`);
+  eg.addColorStop(1, 'rgba(255,60,40,0)');
+  ctx.fillStyle = eg;
+  ctx.beginPath(); ctx.arc(0.62, -1.19, 0.12, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#12080a';
+  ctx.beginPath(); ctx.arc(0.62, -1.19, 0.045, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = `rgba(255,90,50,${pulse})`;
+  ctx.beginPath(); ctx.arc(0.62, -1.19, 0.026, 0, Math.PI*2); ctx.fill();
+
+  // pointy comms antenna with a blinking beacon
+  ctx.strokeStyle = dark; ctx.lineWidth = 0.028; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(0.6, -1.3); ctx.lineTo(0.68, -1.56); ctx.stroke();
+  ctx.strokeStyle = darker; ctx.lineWidth = 0.016;   // little cross-bar
+  ctx.beginPath(); ctx.moveTo(0.6, -1.44); ctx.lineTo(0.69, -1.47); ctx.stroke();
+  const blink = Math.sin(ph * 3.2) > 0.2;
+  if (blink){
+    const bg = ctx.createRadialGradient(0.68, -1.58, 0.004, 0.68, -1.58, 0.1);
+    bg.addColorStop(0, 'rgba(255,70,60,0.95)');
+    bg.addColorStop(1, 'rgba(255,70,60,0)');
+    ctx.fillStyle = bg;
+    ctx.beginPath(); ctx.arc(0.68, -1.58, 0.1, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.fillStyle = blink ? '#ff5044' : '#701818';
+  ctx.beginPath(); ctx.arc(0.68, -1.58, 0.035, 0, Math.PI*2); ctx.fill();
+
+  // glowing power conduit along the spine
+  ctx.strokeStyle = glow; ctx.globalAlpha = 0.5 + 0.3 * Math.sin(ph * 2.6);
+  ctx.lineWidth = 0.022;
+  ctx.beginPath(); ctx.moveTo(-0.4, -0.94); ctx.quadraticCurveTo(0.02, -1.02, 0.4, -0.96); ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  ctx.restore();
+
+  roboLeg(ctx, 0.02, -0.62, 0.64, ph, steel, darker, 0.18); // near leg
+}
+
+const PAINTERS = {theropod:drawTheropod, quad:drawQuad, sauropod:drawSauropod, flyer:drawFlyer, mutant:drawMutantRex, omega:drawOmegaRex};
 
 /* Draws a full dinosaur at world position.
    turn: -1..1 facing (mid-values render the turn itself as a squash-flip)
@@ -573,13 +737,14 @@ function drawDino(ctx, d, x, y, turn, ph, alpha, pitch){
 function drawTowerBase(ctx, x, y, key, selected, lv){
   const def = TOWERS[key];
   lv = lv || 0;
+  const maxed = lv > 0 && lv >= (def.maxUp || 2);
   const R = 17 + lv * 2.2; // pad grows with each upgrade
   ctx.save();
   ctx.translate(x, y);
   // ground shadow
   ctx.fillStyle = 'rgba(0,0,0,0.3)';
   ctx.beginPath(); ctx.ellipse(2, 4, R + 2, R * 0.82, 0, 0, Math.PI*2); ctx.fill();
-  // octagonal concrete pad
+  // octagonal concrete pad — maxed units sit on dark armored plate
   ctx.beginPath();
   for (let i = 0; i < 8; i++){
     const a = i/8*Math.PI*2 + Math.PI/8;
@@ -588,14 +753,15 @@ function drawTowerBase(ctx, x, y, key, selected, lv){
   }
   ctx.closePath();
   const g = ctx.createLinearGradient(-R, -R, R, R);
-  g.addColorStop(0, lv >= 2 ? '#5a6152' : '#4c5246'); g.addColorStop(1, '#2a2e27');
+  g.addColorStop(0, maxed ? '#3b4038' : lv >= 2 ? '#5a6152' : '#4c5246');
+  g.addColorStop(1, maxed ? '#1c1f1a' : '#2a2e27');
   ctx.fillStyle = g; ctx.fill();
   ctx.strokeStyle = selected ? '#ffd24a' : '#181c15';
   ctx.lineWidth = selected ? 2.5 : 1.5; ctx.stroke();
-  // colored hazard ring
+  // colored hazard ring — dashed while training, a solid power ring at max
   ctx.save();
-  ctx.strokeStyle = def.color; ctx.globalAlpha = 0.85; ctx.lineWidth = 2.5;
-  ctx.setLineDash([5, 4]);
+  ctx.strokeStyle = def.color; ctx.globalAlpha = maxed ? 0.95 : 0.85; ctx.lineWidth = maxed ? 3 : 2.5;
+  if (!maxed) ctx.setLineDash([5, 4]);
   ctx.beginPath(); ctx.arc(0, 0, R - 4, 0, Math.PI*2); ctx.stroke();
   ctx.setLineDash([]);
   ctx.restore();
@@ -689,17 +855,20 @@ function drawTowerTurret(ctx, t, flash, time){
   time = time || 0;
   const rec = (t.recoil || 0) * 4;   // barrel kickback in px
   const lv = t.ulv || 0;
-  const maxed = lv > 0 && lv >= (TOWERS[t.key].maxUp || 2);
+  const def = TOWERS[t.key] || {};
+  const maxed = lv > 0 && lv >= (def.maxUp || 2);
   ctx.save();
   ctx.translate(t.x, t.y);
-  // fully-upgraded weapons hum with a pulsing gold aura
+  // fully-upgraded weapons hum with a pulsing aura in their own colour
   if (maxed){
     const pl = (Math.sin(time * 3 + t.x) + 1) / 2;
-    ctx.strokeStyle = `rgba(255,210,74,${0.25 + 0.25 * pl})`;
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(0, 0, 25 + pl * 2.5, 0, Math.PI*2); ctx.stroke();
+    ctx.save();
+    ctx.strokeStyle = def.color || '#ffd24a'; ctx.globalAlpha = 0.28 + 0.3 * pl;
+    ctx.lineWidth = 2.2;
+    ctx.beginPath(); ctx.arc(0, 0, 25 + pl * 3, 0, Math.PI*2); ctx.stroke();
+    ctx.restore();
   }
-  ctx.scale(1 + lv * 0.14, 1 + lv * 0.14); // hardware grows with each upgrade
+  ctx.scale(1 + lv * 0.16, 1 + lv * 0.16); // hardware grows with each upgrade
   ctx.rotate((t.key === 'sonic' || t.key === 'tesla') ? 0 : t.angle);
   ctx.lineCap = 'round';
   switch (t.key){
@@ -716,150 +885,291 @@ function drawTowerTurret(ctx, t, flash, time){
       ctx.fillStyle = '#8fd14f'; ctx.beginPath(); ctx.arc(-1, 0, 3.2, 0, Math.PI*2); ctx.fill();
       break;
     }
-    case 'gatling': { // six-barrel minigun, barrels spin when hunting
+    case 'gatling': { // six-barrel minigun → veteran units run murdered-out black & red
       ctx.translate(-rec * 0.6, 0);
-      ctx.fillStyle = '#565b52';
+      const bl = 19 + lv * 2.2;                         // barrels lengthen each level
+      if (lv >= 2){                                     // frontal gun-shield
+        ctx.fillStyle = maxed ? '#26262a' : '#454a42';
+        ctx.beginPath(); ctx.moveTo(8, -12.5); ctx.lineTo(11, -12.5); ctx.lineTo(11, 12.5); ctx.lineTo(8, 12.5); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = maxed ? '#e04a3a' : '#6a7060'; ctx.lineWidth = 0.8;
+        ctx.strokeRect(8, -12.5, 3, 25);
+      }
+      if (lv >= 1){                                     // ammo drum slung underneath
+        ctx.fillStyle = maxed ? '#38313a' : '#4a4436';
+        ctx.beginPath(); ctx.ellipse(-3, 8.5, 5.5, 4, 0.2, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = maxed ? '#ff5a4a' : '#8a7a55'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(-3, 8.5, 2.2, 0, Math.PI*2); ctx.stroke();
+      }
+      ctx.fillStyle = maxed ? '#2e2e30' : '#565b52';
       ctx.beginPath(); ctx.moveTo(2, -10); ctx.lineTo(6, -10); ctx.lineTo(6, 10); ctx.lineTo(2, 10); ctx.closePath(); ctx.fill();
       const sp = t.spin || 0;
       for (let i = 0; i < 6; i++){
         const a = sp + i/6*Math.PI*2, off = Math.sin(a)*3.6;
-        ctx.strokeStyle = Math.cos(a) > 0 ? '#a2a89e' : '#61675c';
-        ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(6, off); ctx.lineTo(19, off); ctx.stroke();
+        ctx.strokeStyle = Math.cos(a) > 0 ? (maxed ? '#d0574a' : '#a2a89e') : (maxed ? '#5e2c26' : '#61675c');
+        ctx.lineWidth = 2 + lv * 0.2;
+        ctx.beginPath(); ctx.moveTo(6, off); ctx.lineTo(bl, off); ctx.stroke();
       }
-      ctx.fillStyle = '#3a3e36'; ctx.beginPath(); ctx.arc(19, 0, 3.2, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#4a4f46'; ctx.beginPath(); ctx.arc(-1, 0, 7.5, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#c9c9c9'; ctx.beginPath(); ctx.arc(-1, 0, 3.2, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = maxed ? '#1c1c1e' : '#3a3e36'; ctx.beginPath(); ctx.arc(bl, 0, 3.4, 0, Math.PI*2); ctx.fill();
+      if (maxed){                                       // white-hot muzzle collar
+        const hot = 0.5 + 0.5 * Math.sin(time * 9 + t.x);
+        ctx.strokeStyle = `rgba(255,120,80,${0.5 + 0.4*hot})`; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.arc(bl, 0, 4.8, 0, Math.PI*2); ctx.stroke();
+      }
+      ctx.fillStyle = maxed ? '#332e34' : '#4a4f46'; ctx.beginPath(); ctx.arc(-1, 0, 7.5, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = maxed ? '#ff5a4a' : '#c9c9c9'; ctx.beginPath(); ctx.arc(-1, 0, 3.2, 0, Math.PI*2); ctx.fill();
       break;
     }
-    case 'sniper': { // long rifle with muzzle brake and scope glint
+    case 'sniper': { // long rifle → maxed becomes a glowing railgun
       ctx.translate(-rec * 1.2, 0);
-      ctx.fillStyle = '#33475e';
+      const bl = 26 + lv * 4;                           // barrel reaches farther each level
+      ctx.fillStyle = maxed ? '#20293a' : '#33475e';
       ctx.beginPath(); ctx.moveTo(-9, -5); ctx.lineTo(5, -5); ctx.lineTo(7, 0); ctx.lineTo(5, 5); ctx.lineTo(-9, 5); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = '#4a6b9a'; ctx.lineWidth = 3.4;
-      ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(26, 0); ctx.stroke();
-      ctx.fillStyle = '#22303f'; ctx.fillRect(24, -2.6, 5, 5.2);
-      ctx.fillStyle = '#1b2531'; ctx.fillRect(-5, -8, 11, 4);         // scope
-      const gl = (Math.sin(time*1.8 + t.x) + 1) / 2;
-      ctx.fillStyle = `rgba(160,215,255,${0.4 + 0.6*gl})`;
-      ctx.beginPath(); ctx.arc(6.5, -6, 1.5, 0, Math.PI*2); ctx.fill();
-      break;
-    }
-    case 'flamer': { // fuel tank + wide nozzle + flickering pilot light
-      ctx.translate(-rec * 0.5, 0);
-      ctx.fillStyle = '#8a3020'; ctx.beginPath(); ctx.ellipse(-5, 0, 7.5, 6.5, 0, 0, Math.PI*2); ctx.fill();
-      ctx.strokeStyle = '#c9553a'; ctx.lineWidth = 1.4;
-      ctx.beginPath(); ctx.arc(-5, 0, 4.4, 0, Math.PI*2); ctx.stroke();
-      ctx.strokeStyle = '#5e5044'; ctx.lineWidth = 5;
-      ctx.beginPath(); ctx.moveTo(-1, 0); ctx.lineTo(13, 0); ctx.stroke();
-      ctx.fillStyle = '#3c342c';
-      ctx.beginPath(); ctx.moveTo(12, -4); ctx.lineTo(17, -6); ctx.lineTo(17, 6); ctx.lineTo(12, 4); ctx.closePath(); ctx.fill();
-      const pf = 0.6 + 0.4*Math.sin(time*13 + t.x);
-      ctx.fillStyle = `rgba(255,180,60,${0.55*pf})`;
-      ctx.beginPath(); ctx.arc(18.5, 0, 2.2 + pf*1.6, 0, Math.PI*2); ctx.fill();
-      break;
-    }
-    case 'gas': { // pressurised toxin canister + flared vent nozzle
-      ctx.translate(-rec * 0.5, 0);
-      ctx.fillStyle = '#43521f'; ctx.beginPath(); ctx.ellipse(-5, 0, 7.5, 6.5, 0, 0, Math.PI*2); ctx.fill();
-      ctx.strokeStyle = '#a6e04a'; ctx.lineWidth = 1.3;
-      ctx.beginPath(); ctx.arc(-5, 0, 4.3, 0, Math.PI*2); ctx.stroke();
-      ctx.fillStyle = '#c8e88a'; ctx.beginPath(); ctx.arc(-7, -2, 1.4, 0, Math.PI*2); ctx.fill(); // gauge glint
-      ctx.strokeStyle = '#525a44'; ctx.lineWidth = 5;
-      ctx.beginPath(); ctx.moveTo(-1, 0); ctx.lineTo(12, 0); ctx.stroke();
-      ctx.fillStyle = '#2e3a1c'; // flared nozzle
-      ctx.beginPath(); ctx.moveTo(11, -3.5); ctx.lineTo(18, -6); ctx.lineTo(18, 6); ctx.lineTo(11, 3.5); ctx.closePath(); ctx.fill();
-      const pv = 0.5 + 0.5*Math.sin(time*6 + t.x);        // venting vapor puff
-      ctx.fillStyle = `rgba(168,224,74,${0.35*pv})`;
-      ctx.beginPath(); ctx.arc(20 + pv*2, 0, 3 + pv*2.4, 0, Math.PI*2); ctx.fill();
-      break;
-    }
-    case 'tesla': { // coil tower with crackling orb
-      ctx.fillStyle = '#22485a'; ctx.beginPath(); ctx.arc(0, 2, 8, 0, Math.PI*2); ctx.fill();
-      ctx.strokeStyle = '#3d7a8a'; ctx.lineWidth = 4;
-      ctx.beginPath(); ctx.moveTo(0, 2); ctx.lineTo(0, -12); ctx.stroke();
-      ctx.strokeStyle = '#7ab6c8'; ctx.lineWidth = 1.6;
-      for (let i = 0; i < 3; i++){
-        ctx.beginPath(); ctx.ellipse(0, -3 - i*4, 6 - i*1.4, 2.2, 0, 0, Math.PI*2); ctx.stroke();
+      if (lv >= 1){                                     // folding bipod
+        ctx.strokeStyle = maxed ? '#31435e' : '#4a5a70'; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.moveTo(14, 2); ctx.lineTo(19, 8); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(14, -2); ctx.lineTo(19, -8); ctx.stroke();
       }
-      ctx.fillStyle = '#6ee7ff'; ctx.beginPath(); ctx.arc(0, -16, 4.6, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#d8f8ff'; ctx.beginPath(); ctx.arc(-1.2, -17.2, 1.7, 0, Math.PI*2); ctx.fill();
-      if (Math.sin(time*7 + t.y) > 0.45){ // ambient crackle
-        ctx.strokeStyle = 'rgba(160,240,255,0.8)'; ctx.lineWidth = 1.2;
-        for (let i = 0; i < 3; i++){
+      if (maxed){                                       // railgun: dark rails + charged cyan core + coils
+        ctx.strokeStyle = '#1a2836'; ctx.lineWidth = 4.6;
+        ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(bl, 0); ctx.stroke();
+        const chg = 0.5 + 0.5 * Math.sin(time * 5 + t.x);
+        ctx.strokeStyle = `rgba(110,231,255,${0.55 + 0.45*chg})`; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(bl - 1, 0); ctx.stroke();
+        ctx.strokeStyle = '#3d6b8a'; ctx.lineWidth = 1.2;
+        for (let x = 10; x < bl - 3; x += 5){           // accelerator coils
+          ctx.beginPath(); ctx.ellipse(x, 0, 1.6, 3.4, 0, 0, Math.PI*2); ctx.stroke();
+        }
+        ctx.fillStyle = `rgba(160,240,255,${0.5 + 0.5*chg})`;
+        ctx.beginPath(); ctx.arc(bl + 1, 0, 2.2 + chg, 0, Math.PI*2); ctx.fill();
+      } else {
+        ctx.strokeStyle = '#4a6b9a'; ctx.lineWidth = 3.4 + lv * 0.5;
+        ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(bl, 0); ctx.stroke();
+        ctx.fillStyle = '#22303f'; ctx.fillRect(bl - 2, -2.6, 5, 5.2);   // muzzle brake
+      }
+      ctx.fillStyle = maxed ? '#141d29' : '#1b2531';                      // scope grows with level
+      ctx.fillRect(-5 - lv, -8 - lv, 11 + lv * 2.5, 4 + lv * 0.6);
+      const gl = (Math.sin(time*1.8 + t.x) + 1) / 2;
+      ctx.fillStyle = maxed ? `rgba(110,231,255,${0.5 + 0.5*gl})` : `rgba(160,215,255,${0.4 + 0.6*gl})`;
+      ctx.beginPath(); ctx.arc(6.5 + lv * 1.4, -6 - lv * 0.7, 1.5 + lv * 0.3, 0, Math.PI*2); ctx.fill();
+      break;
+    }
+    case 'flamer': { // fuel tank + nozzle → maxed burns superheated BLUE
+      ctx.translate(-rec * 0.5, 0);
+      if (lv >= 1){                                     // second reserve tank
+        ctx.fillStyle = maxed ? '#1c2c38' : '#6e2618';
+        ctx.beginPath(); ctx.ellipse(-11, -4, 5, 4.4, -0.3, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.fillStyle = maxed ? '#20303c' : '#8a3020';
+      ctx.beginPath(); ctx.ellipse(-5, 0, 7.5 + lv, 6.5 + lv * 0.6, 0, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = maxed ? '#5ac8ff' : '#c9553a'; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(-5, 0, 4.4, 0, Math.PI*2); ctx.stroke();
+      ctx.strokeStyle = maxed ? '#3a4650' : '#5e5044'; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(-1, 0); ctx.lineTo(13, 0); ctx.stroke();
+      ctx.fillStyle = maxed ? '#141b20' : '#3c342c';    // nozzle flares wider each level
+      ctx.beginPath(); ctx.moveTo(12, -4 - lv); ctx.lineTo(17 + lv * 1.6, -6 - lv * 1.6); ctx.lineTo(17 + lv * 1.6, 6 + lv * 1.6); ctx.lineTo(12, 4 + lv); ctx.closePath(); ctx.fill();
+      const pf = 0.6 + 0.4*Math.sin(time*13 + t.x);     // pilot light — blue when superheated
+      ctx.fillStyle = maxed ? `rgba(90,190,255,${0.7*pf})` : `rgba(255,180,60,${0.55*pf})`;
+      ctx.beginPath(); ctx.arc(19 + lv * 1.6, 0, 2.2 + pf*(1.6 + lv), 0, Math.PI*2); ctx.fill();
+      if (maxed){
+        ctx.fillStyle = `rgba(220,245,255,${0.7*pf})`;
+        ctx.beginPath(); ctx.arc(19 + lv * 1.6, 0, 1.2 + pf*0.8, 0, Math.PI*2); ctx.fill();
+      }
+      break;
+    }
+    case 'gas': { // toxin canister → maxed turns virulent purple with a skull stencil
+      ctx.translate(-rec * 0.5, 0);
+      if (lv >= 1){                                     // spare canister
+        ctx.fillStyle = maxed ? '#32224a' : '#39461c';
+        ctx.beginPath(); ctx.ellipse(-11, -4, 4.6, 4, -0.3, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.fillStyle = maxed ? '#3c2a4e' : '#43521f';
+      ctx.beginPath(); ctx.ellipse(-5, 0, 7.5 + lv, 6.5 + lv * 0.6, 0, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = maxed ? '#c86aff' : '#a6e04a'; ctx.lineWidth = 1.3;
+      ctx.beginPath(); ctx.arc(-5, 0, 4.3, 0, Math.PI*2); ctx.stroke();
+      if (maxed){                                       // hazard skull stencil
+        ctx.fillStyle = '#e0c8ff';
+        ctx.beginPath(); ctx.arc(-5, -1, 1.7, 0, Math.PI*2); ctx.fill();
+        ctx.fillRect(-6.2, 0.4, 2.4, 1.1);
+        ctx.fillStyle = maxed ? '#3c2a4e' : '#43521f';
+        ctx.beginPath(); ctx.arc(-5.7, -1.2, 0.45, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-4.3, -1.2, 0.45, 0, Math.PI*2); ctx.fill();
+      } else {
+        ctx.fillStyle = '#c8e88a'; ctx.beginPath(); ctx.arc(-7, -2, 1.4, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.strokeStyle = maxed ? '#463a56' : '#525a44'; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(-1, 0); ctx.lineTo(12, 0); ctx.stroke();
+      ctx.fillStyle = maxed ? '#241832' : '#2e3a1c';    // flared nozzle
+      ctx.beginPath(); ctx.moveTo(11, -3.5 - lv*0.6); ctx.lineTo(18 + lv, -6 - lv); ctx.lineTo(18 + lv, 6 + lv); ctx.lineTo(11, 3.5 + lv*0.6); ctx.closePath(); ctx.fill();
+      const pv = 0.5 + 0.5*Math.sin(time*6 + t.x);      // venting vapor
+      ctx.fillStyle = maxed ? `rgba(200,120,255,${0.4*pv})` : `rgba(168,224,74,${0.35*pv})`;
+      ctx.beginPath(); ctx.arc(20 + lv + pv*2, 0, 3 + lv + pv*2.4, 0, Math.PI*2); ctx.fill();
+      break;
+    }
+    case 'tesla': { // coil tower → grows taller, maxed goes twin-coil VIOLET
+      const coilH = 12 + lv * 4;                        // mast height per level
+      const orbY = -(coilH + 4);
+      const orbR = 4.6 + lv * 0.9;
+      const main = maxed ? '#c98aff' : '#6ee7ff';
+      ctx.fillStyle = maxed ? '#33254e' : '#22485a';
+      ctx.beginPath(); ctx.arc(0, 2, 8 + lv, 0, Math.PI*2); ctx.fill();
+      if (maxed){                                       // flanking secondary coils
+        for (const sx of [-8.5, 8.5]){
+          ctx.strokeStyle = '#5a4a7a'; ctx.lineWidth = 2.5;
+          ctx.beginPath(); ctx.moveTo(sx, 3); ctx.lineTo(sx, -7); ctx.stroke();
+          ctx.fillStyle = '#b06aff';
+          ctx.beginPath(); ctx.arc(sx, -9, 2.4, 0, Math.PI*2); ctx.fill();
+        }
+      }
+      ctx.strokeStyle = maxed ? '#6a4e9a' : '#3d7a8a'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(0, 2); ctx.lineTo(0, -coilH); ctx.stroke();
+      ctx.strokeStyle = maxed ? '#a98ad0' : '#7ab6c8'; ctx.lineWidth = 1.6;
+      for (let i = 0; i < 3 + lv; i++){                 // more windings per level
+        ctx.beginPath(); ctx.ellipse(0, -3 - i*4, 6.5 - i*1.1, 2.2, 0, 0, Math.PI*2); ctx.stroke();
+      }
+      const chg = 0.5 + 0.5 * Math.sin(time * 6 + t.y); // orb breathes with charge
+      ctx.fillStyle = `rgba(${maxed ? '200,140,255' : '110,231,255'},${0.25 + 0.3*chg})`;
+      ctx.beginPath(); ctx.arc(0, orbY, orbR + 3 + chg*2, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = main; ctx.beginPath(); ctx.arc(0, orbY, orbR, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = maxed ? '#f0e2ff' : '#d8f8ff';
+      ctx.beginPath(); ctx.arc(-1.2, orbY - 1.2, orbR * 0.38, 0, Math.PI*2); ctx.fill();
+      if (Math.sin(time*7 + t.y) > 0.15 - lv * 0.2){    // crackles more, and harder, per level
+        ctx.strokeStyle = maxed ? 'rgba(225,180,255,0.9)' : 'rgba(160,240,255,0.8)';
+        ctx.lineWidth = 1.2 + lv * 0.3;
+        for (let i = 0; i < 3 + lv; i++){
           const a = time*3 + i*2.1;
           ctx.beginPath();
-          ctx.moveTo(Math.cos(a)*5, -16 + Math.sin(a)*5);
-          ctx.lineTo(Math.cos(a)*9.5 + Math.sin(time*31+i)*2, -16 + Math.sin(a)*9.5 + Math.cos(time*37+i)*2);
+          ctx.moveTo(Math.cos(a)*orbR, orbY + Math.sin(a)*orbR);
+          ctx.lineTo(Math.cos(a)*(orbR + 5 + lv*2) + Math.sin(time*31+i)*2.5, orbY + Math.sin(a)*(orbR + 5 + lv*2) + Math.cos(time*37+i)*2.5);
           ctx.stroke();
         }
-      }
-      break;
-    }
-    case 'missile': { // armored quad-pod, warhead tips glow when loaded
-      ctx.translate(-rec * 0.8, 0);
-      ctx.fillStyle = '#4e4238'; ctx.fillRect(-9, -9, 20, 18);
-      ctx.strokeStyle = '#2c261f'; ctx.lineWidth = 1.5; ctx.strokeRect(-9, -9, 20, 18);
-      const loaded = t.cd <= 0;
-      for (const [ox, oy] of [[3,-4.5],[3,4.5],[8.5,-4.5],[8.5,4.5]]){
-        ctx.fillStyle = '#221d18'; ctx.beginPath(); ctx.arc(ox, oy, 3.2, 0, Math.PI*2); ctx.fill();
-        if (loaded){
-          ctx.fillStyle = '#ff6b6b'; ctx.beginPath(); ctx.arc(ox, oy, 1.8, 0, Math.PI*2); ctx.fill();
+        if (maxed){                                     // arcs leap between the three coils
+          ctx.strokeStyle = 'rgba(200,140,255,0.7)'; ctx.lineWidth = 1;
+          for (const sx of [-8.5, 8.5]){
+            ctx.beginPath(); ctx.moveTo(sx, -9);
+            ctx.lineTo(sx * 0.5 + Math.sin(time*29 + sx)*3, (orbY - 9)/2);
+            ctx.lineTo(0, orbY); ctx.stroke();
+          }
         }
       }
-      ctx.fillStyle = '#5e5044'; ctx.fillRect(-13, -4, 4, 8);
       break;
     }
-    case 'cryo': { // insulated tank + vapor wisps
+    case 'missile': { // launcher pods — a pod PAIR per salvo rocket, maxed goes crimson-black
+      ctx.translate(-rec * 0.8, 0);
+      const cols = 1 + lv;                              // 2 → 4 → 6 launch tubes
+      const bw = 9 + cols * 5.5;
+      ctx.fillStyle = maxed ? '#33231e' : '#4e4238'; ctx.fillRect(-9, -9 - lv, bw, 18 + lv*2);
+      ctx.strokeStyle = maxed ? '#c93a2b' : '#2c261f'; ctx.lineWidth = 1.5; ctx.strokeRect(-9, -9 - lv, bw, 18 + lv*2);
+      if (maxed){                                       // hazard chevrons on the armor
+        ctx.strokeStyle = '#e0b64f'; ctx.lineWidth = 1;
+        for (let i = 0; i < 3; i++){
+          ctx.beginPath(); ctx.moveTo(-8 + i*3, 9 + lv - 0.5); ctx.lineTo(-6 + i*3, 6 + lv - 0.5); ctx.stroke();
+        }
+      }
+      const loaded = t.cd <= 0;
+      for (let c = 0; c < cols; c++){
+        for (const oy of [-4.5, 4.5]){
+          const ox = 3 + c * 5.5;
+          ctx.fillStyle = '#221d18'; ctx.beginPath(); ctx.arc(ox, oy, 3.2, 0, Math.PI*2); ctx.fill();
+          if (loaded){
+            const gl = maxed ? 0.75 + 0.25 * Math.sin(time * 8 + ox) : 1;
+            ctx.fillStyle = maxed ? `rgba(255,60,40,${gl})` : '#ff6b6b';
+            ctx.beginPath(); ctx.arc(ox, oy, 1.8, 0, Math.PI*2); ctx.fill();
+            if (maxed){ ctx.fillStyle = `rgba(255,200,180,${gl})`; ctx.beginPath(); ctx.arc(ox, oy, 0.8, 0, Math.PI*2); ctx.fill(); }
+          }
+        }
+      }
+      ctx.fillStyle = maxed ? '#4a2e26' : '#5e5044'; ctx.fillRect(-13, -4, 4, 8);
+      break;
+    }
+    case 'cryo': { // insulated tank → maxed is a deep-freeze unit sheathed in ice
       ctx.translate(-rec * 0.5, 0);
-      ctx.fillStyle = '#3a6c8a'; ctx.beginPath(); ctx.ellipse(-4, 0, 8, 6.5, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#bfe8ff'; ctx.beginPath(); ctx.ellipse(-6.5, -2, 2.8, 1.8, -0.4, 0, Math.PI*2); ctx.fill();
-      ctx.strokeStyle = '#7ab6d8'; ctx.lineWidth = 5;
-      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(14, 0); ctx.stroke();
-      ctx.fillStyle = '#2c4c62'; ctx.fillRect(12, -3.5, 5, 7);
-      const v = (time*0.7 + t.x*0.013) % 1;
-      ctx.fillStyle = `rgba(200,240,255,${0.4*(1-v)})`;
-      ctx.beginPath(); ctx.arc(17 + v*8, -3 - v*8, 2 + v*3, 0, Math.PI*2); ctx.fill();
+      if (lv >= 1){                                     // coolant sphere on top
+        ctx.fillStyle = maxed ? '#8ad4f0' : '#2e5c7a';
+        ctx.beginPath(); ctx.arc(-8, -6, 3.4, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.fillStyle = maxed ? '#1e4258' : '#3a6c8a';
+      ctx.beginPath(); ctx.ellipse(-4, 0, 8 + lv, 6.5 + lv*0.6, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = maxed ? '#e8f8ff' : '#bfe8ff';
+      ctx.beginPath(); ctx.ellipse(-6.5, -2, 2.8, 1.8, -0.4, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = maxed ? '#9adcff' : '#7ab6d8'; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(14 + lv*2, 0); ctx.stroke();
+      if (maxed){                                       // glowing cryo rings + icicles under the barrel
+        const cgl = 0.5 + 0.5 * Math.sin(time * 4 + t.x);
+        ctx.strokeStyle = `rgba(200,240,255,${0.5 + 0.5*cgl})`; ctx.lineWidth = 1.2;
+        for (let x = 3; x <= 12 + lv*2; x += 4.5){
+          ctx.beginPath(); ctx.ellipse(x, 0, 1.4, 3.6, 0, 0, Math.PI*2); ctx.stroke();
+        }
+        ctx.fillStyle = '#d8f2ff';
+        for (const [ix, ilen] of [[4, 3.4], [9, 4.6], [14, 3]]){
+          ctx.beginPath(); ctx.moveTo(ix - 1, 3); ctx.lineTo(ix, 3 + ilen); ctx.lineTo(ix + 1, 3); ctx.closePath(); ctx.fill();
+        }
+      }
+      ctx.fillStyle = maxed ? '#163244' : '#2c4c62'; ctx.fillRect(12 + lv*2, -3.5 - lv*0.5, 5, 7 + lv);
+      const v = (time*0.7 + t.x*0.013) % 1;             // vapor wisps, heavier per level
+      ctx.fillStyle = `rgba(200,240,255,${(0.4 + lv*0.15)*(1-v)})`;
+      ctx.beginPath(); ctx.arc(17 + lv*2 + v*8, -3 - v*8, 2 + lv + v*3, 0, Math.PI*2); ctx.fill();
       break;
     }
-    case 'mortar': { // stubby high-angle tube on a baseplate
+    case 'mortar': { // high-angle tube → maxed is a massive black siege piece
       ctx.translate(-rec * 1.4, 0);
-      ctx.fillStyle = '#4a453a';
-      ctx.beginPath(); ctx.ellipse(0, 0, 9, 7, 0, 0, Math.PI*2); ctx.fill();
-      ctx.strokeStyle = '#2c2820'; ctx.lineWidth = 1.5; ctx.stroke();
-      // bipod
-      ctx.strokeStyle = '#6a6354'; ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.moveTo(4, -5); ctx.lineTo(10, -9); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(4, 5); ctx.lineTo(10, 9); ctx.stroke();
-      // fat tube angled up-range
-      ctx.strokeStyle = '#5e5844'; ctx.lineWidth = 9;
-      ctx.beginPath(); ctx.moveTo(-4, 0); ctx.lineTo(11, 0); ctx.stroke();
-      ctx.strokeStyle = '#7d7660'; ctx.lineWidth = 5.5;
-      ctx.beginPath(); ctx.moveTo(-2, 0); ctx.lineTo(11, 0); ctx.stroke();
-      // gaping muzzle
-      ctx.fillStyle = '#17150f';
-      ctx.beginPath(); ctx.ellipse(12, 0, 3, 4.6, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = maxed ? '#332f28' : '#4a453a';
+      ctx.beginPath(); ctx.ellipse(0, 0, 9 + lv*2, 7 + lv*1.6, 0, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = maxed ? '#e0b64f' : '#2c2820'; ctx.lineWidth = 1.5; ctx.stroke();
+      if (maxed){                                       // side blast shields
+        ctx.fillStyle = '#26231d';
+        ctx.beginPath(); ctx.moveTo(-2, -9); ctx.lineTo(6, -12); ctx.lineTo(8, -8); ctx.lineTo(0, -6); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(-2, 9); ctx.lineTo(6, 12); ctx.lineTo(8, 8); ctx.lineTo(0, 6); ctx.closePath(); ctx.fill();
+      }
+      ctx.strokeStyle = maxed ? '#4a4438' : '#6a6354'; ctx.lineWidth = 2.5;  // bipod
+      ctx.beginPath(); ctx.moveTo(4, -5); ctx.lineTo(10 + lv*2, -9 - lv); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(4, 5); ctx.lineTo(10 + lv*2, 9 + lv); ctx.stroke();
+      const tl = 11 + lv * 3;                           // the tube itself, far fatter when maxed
+      ctx.strokeStyle = maxed ? '#1c1a14' : '#5e5844'; ctx.lineWidth = 9 + lv*3;
+      ctx.beginPath(); ctx.moveTo(-4, 0); ctx.lineTo(tl, 0); ctx.stroke();
+      ctx.strokeStyle = maxed ? '#3c382c' : '#7d7660'; ctx.lineWidth = 5.5 + lv*2;
+      ctx.beginPath(); ctx.moveTo(-2, 0); ctx.lineTo(tl, 0); ctx.stroke();
+      if (maxed){                                       // twin gold reinforcement bands
+        ctx.strokeStyle = '#e0b64f'; ctx.lineWidth = 1.4;
+        for (const bx of [2, 7]){
+          ctx.beginPath(); ctx.moveTo(bx, -6.4); ctx.lineTo(bx, 6.4); ctx.stroke();
+        }
+      }
+      ctx.fillStyle = '#17150f';                        // gaping muzzle
+      ctx.beginPath(); ctx.ellipse(tl + 1, 0, 3 + lv, 4.6 + lv*1.4, 0, 0, Math.PI*2); ctx.fill();
       ctx.strokeStyle = '#e0b64f'; ctx.lineWidth = 1.2;
-      ctx.beginPath(); ctx.ellipse(12, 0, 3, 4.6, 0, 0, Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(tl + 1, 0, 3 + lv, 4.6 + lv*1.4, 0, 0, Math.PI*2); ctx.stroke();
+      if (maxed && t.cd <= 0){                          // a shell glows deep in the loaded tube
+        const sgl = 0.5 + 0.5 * Math.sin(time * 5);
+        ctx.fillStyle = `rgba(255,140,50,${0.4 + 0.4*sgl})`;
+        ctx.beginPath(); ctx.ellipse(tl + 1, 0, 1.6, 2.6, 0, 0, Math.PI*2); ctx.fill();
+      }
       break;
     }
-    case 'sonic': { // dish array with pulsing halo
-      ctx.fillStyle = '#3a2e4a'; ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.fill();
-      ctx.strokeStyle = '#8a6fae'; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -10); ctx.stroke();
-      ctx.fillStyle = '#d6a3ff'; ctx.beginPath(); ctx.ellipse(0, -13, 8, 4.6, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#4a3a5e'; ctx.beginPath(); ctx.ellipse(0, -13, 5.2, 2.8, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#efe0ff'; ctx.beginPath(); ctx.arc(0, -13, 1.4, 0, Math.PI*2); ctx.fill();
-      const gl = (Math.sin(time*4) + 1) / 2;
-      ctx.strokeStyle = `rgba(214,163,255,${0.2 + 0.3*gl})`; ctx.lineWidth = 1.6;
-      ctx.beginPath(); ctx.arc(0, -13, 10 + gl*3, 0, Math.PI*2); ctx.stroke();
+    case 'sonic': { // dish array → stacks more dishes, maxed rings with magenta power
+      const main = maxed ? '#ff9af0' : '#d6a3ff';
+      ctx.fillStyle = maxed ? '#4a2647' : '#3a2e4a'; ctx.beginPath(); ctx.arc(0, 0, 8 + lv, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = maxed ? '#b05aa8' : '#8a6fae'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -10 - lv*2); ctx.stroke();
+      const dishes = 1 + lv;                            // extra dish per level, stacked up the mast
+      for (let i = 0; i < dishes; i++){
+        const dy = -13 - i * 7, ds = 1 - i * 0.22;
+        ctx.fillStyle = main; ctx.beginPath(); ctx.ellipse(0, dy, 8*ds, 4.6*ds, 0, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = maxed ? '#5e2c58' : '#4a3a5e'; ctx.beginPath(); ctx.ellipse(0, dy, 5.2*ds, 2.8*ds, 0, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = maxed ? '#ffe8fc' : '#efe0ff'; ctx.beginPath(); ctx.arc(0, dy, 1.4*ds, 0, Math.PI*2); ctx.fill();
+      }
+      const gl = (Math.sin(time*4) + 1) / 2;            // resonance rings pulse outward
+      for (let i = 0; i < (maxed ? 2 : 1); i++){
+        ctx.strokeStyle = `rgba(${maxed ? '255,154,240' : '214,163,255'},${(0.25 + 0.3*gl) / (i + 1)})`;
+        ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.arc(0, -13 - lv*3, 10 + gl*3 + i*6 + lv*2, 0, Math.PI*2); ctx.stroke();
+      }
       break;
     }
   }
   if (flash > 0 && ['tranq','gatling','sniper','missile'].includes(t.key)){
-    const fx = t.key === 'sniper' ? 27 : t.key === 'missile' ? 12 : 19;
+    const fx = t.key === 'sniper' ? 27 + lv*4 : t.key === 'missile' ? 12 + lv*3 : 19 + lv*2;
     ctx.fillStyle = `rgba(255,220,120,${flash*3})`;
-    ctx.beginPath(); ctx.arc(fx, 0, 4 + flash*22, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(fx, 0, 4 + flash*(22 + lv*4), 0, Math.PI*2); ctx.fill();
     ctx.fillStyle = `rgba(255,255,220,${flash*3})`;
     ctx.beginPath(); ctx.arc(fx, 0, 2 + flash*9, 0, Math.PI*2); ctx.fill();
   }
