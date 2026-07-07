@@ -845,6 +845,7 @@ function fireTower(t, dt){
                       color: maxedT ? 'rgba(215,160,255,0.95)' : 'rgba(120,230,255,0.95)',
                       glow:  maxedT ? 'rgba(150,70,255,0.32)'  : 'rgba(60,160,255,0.28)'});
         addFx('zap', cp.x, cp.y, maxedT ? 16 : 11);       // electric burst at every chained dino
+        cur.zapT = 0.35;                                   // cartoon skeleton-flash while frying
         applyHit(cur, t, st, def);
         hitset.add(cur);
         from = cp;
@@ -1007,6 +1008,7 @@ function updateDinos(dt){
     if (d.slowT > 0){ d.slowT -= dt; if (d.slowT <= 0) d.slowF = 1; }
     if (d.burnT > 0){ d.burnT -= dt; damage(d, d.burnDps * dt, true); if (d.dead) continue; }
     if (d.revealT > 0) d.revealT -= dt;
+    if (d.zapT > 0) d.zapT -= dt;   // electrocution skeleton-flash timer
     if (d.regen > 0 && d.hp < d.maxHp) d.hp = Math.min(d.maxHp, d.hp + d.regen * d.maxHp * dt);
     // Indominus camouflage: after a brief window of visibility once it's on
     // the field (past its entrance), it gains permanent cloak — from then on
@@ -2320,6 +2322,35 @@ function render(dt){
     // while cloaked, draw nothing else — no health bar, boss aura, or status
     // tints that would betray its position (a Sonic Emitter must reveal it)
     if (hidden) return;
+    // electrocution: strobe a cartoon X-ray — the dino flashes white-hot with
+    // its skeleton showing, jittering, like a saturday-morning zap gag
+    if (d.zapT > 0 && Math.sin(G.time * 42) > -0.35){
+      ctx.save();
+      ctx.translate(rand(-1.5, 1.5), rand(-1.5, 1.5));   // electric jitter
+      const orig = d.pal;
+      d.pal = {body: '#e8efff', belly: '#ffffff', accent: '#cfe0ff'};
+      drawDino(ctx, d, p.x, p.y, d.turn, d.phase, 0.92, pitch);
+      d.pal = orig;
+      // bones over the white flash: skull socket, spine, ribs, leg bone
+      const s = d.size, dir2 = d.turn >= 0 ? 1 : -1;
+      const cy = p.y - s * (d.flying ? 1.55 : 0.62);
+      ctx.strokeStyle = 'rgba(50,60,76,0.9)'; ctx.lineCap = 'round';
+      ctx.lineWidth = Math.max(1.2, s * 0.055);
+      ctx.beginPath(); ctx.moveTo(p.x - dir2 * s * 0.6, cy + s * 0.04);   // spine
+      ctx.quadraticCurveTo(p.x, cy - s * 0.14, p.x + dir2 * s * 0.42, cy - s * 0.06);
+      ctx.stroke();
+      ctx.lineWidth = Math.max(1, s * 0.04);
+      for (let i = 0; i < 3; i++){                                        // ribs
+        const rx = p.x - dir2 * s * (0.32 - i * 0.22);
+        ctx.beginPath(); ctx.arc(rx, cy - s * 0.02, s * 0.17, 0.25, Math.PI - 0.25); ctx.stroke();
+      }
+      if (!d.flying){                                                     // a leg bone
+        ctx.beginPath(); ctx.moveTo(p.x, cy + s * 0.12); ctx.lineTo(p.x + dir2 * s * 0.08, p.y - s * 0.1); ctx.stroke();
+      }
+      ctx.fillStyle = 'rgba(50,60,76,0.9)';                               // eye socket
+      ctx.beginPath(); ctx.arc(p.x + dir2 * s * 0.52, cy - s * 0.2, Math.max(1.4, s * 0.07), 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
     // status tints
     if (d.burnT > 0){
       ctx.fillStyle = 'rgba(255,120,20,0.35)';

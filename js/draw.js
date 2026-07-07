@@ -967,12 +967,12 @@ function drawTowerTurret(ctx, t, flash, time){
       ctx.beginPath(); ctx.moveTo(-1, 0); ctx.lineTo(13, 0); ctx.stroke();
       ctx.fillStyle = maxed ? '#141b20' : '#3c342c';    // nozzle flares wider each level
       ctx.beginPath(); ctx.moveTo(12, -4 - lv); ctx.lineTo(17 + lv * 1.6, -6 - lv * 1.6); ctx.lineTo(17 + lv * 1.6, 6 + lv * 1.6); ctx.lineTo(12, 4 + lv); ctx.closePath(); ctx.fill();
-      const pf = 0.6 + 0.4*Math.sin(time*13 + t.x);     // pilot light — blue when superheated
-      ctx.fillStyle = maxed ? `rgba(90,190,255,${0.7*pf})` : `rgba(255,180,60,${0.55*pf})`;
+      const pf = 0.6 + 0.4*Math.sin(time*13 + t.x);     // pilot light — a roaring orange at max
+      ctx.fillStyle = maxed ? `rgba(255,150,40,${0.75*pf})` : `rgba(255,180,60,${0.55*pf})`;
       ctx.beginPath(); ctx.arc(19 + lv * 1.6, 0, 2.2 + pf*(1.6 + lv), 0, Math.PI*2); ctx.fill();
       if (maxed){
-        ctx.fillStyle = `rgba(220,245,255,${0.7*pf})`;
-        ctx.beginPath(); ctx.arc(19 + lv * 1.6, 0, 1.2 + pf*0.8, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = `rgba(255,235,170,${0.75*pf})`;
+        ctx.beginPath(); ctx.arc(19 + lv * 1.6, 0, 1.2 + pf*0.9, 0, Math.PI*2); ctx.fill();
       }
       break;
     }
@@ -1000,9 +1000,13 @@ function drawTowerTurret(ctx, t, flash, time){
       ctx.beginPath(); ctx.moveTo(-1, 0); ctx.lineTo(12, 0); ctx.stroke();
       ctx.fillStyle = maxed ? '#241832' : '#2e3a1c';    // flared nozzle
       ctx.beginPath(); ctx.moveTo(11, -3.5 - lv*0.6); ctx.lineTo(18 + lv, -6 - lv); ctx.lineTo(18 + lv, 6 + lv); ctx.lineTo(11, 3.5 + lv*0.6); ctx.closePath(); ctx.fill();
-      const pv = 0.5 + 0.5*Math.sin(time*6 + t.x);      // venting vapor
-      ctx.fillStyle = maxed ? `rgba(200,120,255,${0.4*pv})` : `rgba(168,224,74,${0.35*pv})`;
+      const pv = 0.5 + 0.5*Math.sin(time*6 + t.x);      // venting vapor — stays toxic GREEN at max
+      ctx.fillStyle = maxed ? `rgba(140,240,70,${0.5*pv})` : `rgba(168,224,74,${0.35*pv})`;
       ctx.beginPath(); ctx.arc(20 + lv + pv*2, 0, 3 + lv + pv*2.4, 0, Math.PI*2); ctx.fill();
+      if (maxed){
+        ctx.fillStyle = `rgba(220,255,170,${0.5*pv})`;
+        ctx.beginPath(); ctx.arc(20 + lv + pv*2, 0, 1.4 + pv*1.2, 0, Math.PI*2); ctx.fill();
+      }
       break;
     }
     case 'tesla': { // coil tower → grows taller, maxed goes twin-coil VIOLET
@@ -1229,19 +1233,79 @@ function bakeFern(c, x, y, s, th, rng){
     c.stroke();
   }
 }
-function bakeBones(c, x, y, s){
-  c.strokeStyle = '#cfc7ae'; c.lineCap = 'round';
-  c.lineWidth = s*0.16;
-  c.beginPath(); c.moveTo(x - s, y); c.lineTo(x + s, y - s*0.25); c.stroke(); // spine
-  for (let i = 0; i < 4; i++){ // ribs
-    const rx = x - s*0.6 + i*s*0.42, ry = y - i*s*0.06;
-    c.lineWidth = s*0.11;
-    c.beginPath(); c.arc(rx, ry + s*0.28, s*0.3, Math.PI*1.1, Math.PI*1.9); c.stroke();
+function bakeBones(c, x, y, s, rng){
+  /* a full theropod kill-site skeleton: arched vertebral column with neural
+     spines, a curling tail, a proper ribcage, a loose femur, and a big
+     hollow-eyed skull with a toothy snout — half-sunk in a dark stain */
+  rng = rng || Math.random;
+  const bone = '#ded5b8', boneDk = '#a89f82', socket = '#3c372a';
+  const dir = rng() < 0.5 ? 1 : -1;
+  c.save(); c.translate(x, y); c.scale(dir, 1);
+  // old dark stain under the site
+  c.fillStyle = 'rgba(24,20,12,0.28)';
+  c.beginPath(); c.ellipse(s*0.2, s*0.18, s*1.9, s*0.6, 0, 0, Math.PI*2); c.fill();
+  // vertebral column — arched, tapering into a curled tail
+  c.strokeStyle = bone; c.lineCap = 'round';
+  c.lineWidth = s*0.13;
+  c.beginPath(); c.moveTo(-s*1.05, -s*0.02);
+  c.quadraticCurveTo(-s*0.1, -s*0.5, s*0.75, -s*0.2); c.stroke();
+  c.lineWidth = s*0.08;                                        // tail curls away
+  c.beginPath(); c.moveTo(-s*1.05, -s*0.02);
+  c.quadraticCurveTo(-s*1.6, s*0.2, -s*1.95, s*0.02); c.stroke();
+  // neural spines jutting up from each vertebra
+  c.lineWidth = s*0.06;
+  for (let i = 0; i <= 5; i++){
+    const t = i/5, omt = 1 - t;
+    const bx = omt*omt*(-s*1.05) + 2*omt*t*(-s*0.1) + t*t*(s*0.75);
+    const by = omt*omt*(-s*0.02) + 2*omt*t*(-s*0.5) + t*t*(-s*0.2);
+    c.beginPath(); c.moveTo(bx, by); c.lineTo(bx - s*0.04, by - s*0.2); c.stroke();
   }
-  c.fillStyle = '#cfc7ae';
-  c.beginPath(); c.ellipse(x + s*1.18, y - s*0.3, s*0.3, s*0.22, 0.3, 0, Math.PI*2); c.fill(); // skull
-  c.fillStyle = '#6a6350';
-  c.beginPath(); c.arc(x + s*1.12, y - s*0.34, s*0.06, 0, Math.PI*2); c.fill();
+  // ribcage — paired curving ribs, one snapped short
+  for (let i = 0; i < 4; i++){
+    const t = 0.22 + i*0.16, omt = 1 - t;
+    const bx = omt*omt*(-s*1.05) + 2*omt*t*(-s*0.1) + t*t*(s*0.75);
+    const by = omt*omt*(-s*0.02) + 2*omt*t*(-s*0.5) + t*t*(-s*0.2);
+    const broken = i === 2;                       // one shattered rib
+    c.lineWidth = s*0.065;
+    c.beginPath(); c.moveTo(bx, by);
+    c.quadraticCurveTo(bx - s*0.22, by + s*(broken ? 0.22 : 0.42), bx - s*(broken ? 0.16 : 0.1), by + s*(broken ? 0.3 : 0.62));
+    c.stroke();
+  }
+  // a loose femur flung to the side, knobs on both ends
+  c.save(); c.translate(-s*0.35, s*0.62); c.rotate(0.5);
+  c.strokeStyle = boneDk; c.lineWidth = s*0.09;
+  c.beginPath(); c.moveTo(-s*0.3, 0); c.lineTo(s*0.3, 0); c.stroke();
+  c.fillStyle = boneDk;
+  c.beginPath(); c.arc(-s*0.33, 0, s*0.08, 0, Math.PI*2); c.fill();
+  c.beginPath(); c.arc(s*0.33, -s*0.03, s*0.08, 0, Math.PI*2); c.fill();
+  c.beginPath(); c.arc(s*0.33, s*0.04, s*0.07, 0, Math.PI*2); c.fill();
+  c.restore();
+  // the skull: heavy cranium, long toothed snout, hollow orbit
+  c.fillStyle = bone;
+  c.beginPath();
+  c.moveTo(s*0.62, -s*0.42);                                   // crown
+  c.quadraticCurveTo(s*1.1, -s*0.58, s*1.32, -s*0.34);
+  c.lineTo(s*2.0, -s*0.14);                                    // snout ridge
+  c.quadraticCurveTo(s*2.08, -s*0.04, s*1.98, s*0.04);         // snout tip
+  c.lineTo(s*1.05, s*0.13);                                    // jawline
+  c.quadraticCurveTo(s*0.6, s*0.1, s*0.62, -s*0.42);
+  c.closePath(); c.fill();
+  c.strokeStyle = boneDk; c.lineWidth = s*0.035;
+  c.beginPath(); c.moveTo(s*0.68, s*0.1); c.lineTo(s*1.9, s*0.0); c.stroke();
+  // hollow eye socket + nasal fenestra — the "it's watching you" part
+  c.fillStyle = socket;
+  c.beginPath(); c.ellipse(s*1.08, -s*0.24, s*0.15, s*0.19, 0.25, 0, Math.PI*2); c.fill();
+  c.beginPath(); c.ellipse(s*1.62, -s*0.09, s*0.1, s*0.07, 0.15, 0, Math.PI*2); c.fill();
+  // savage teeth along the snout
+  c.fillStyle = '#efe8d0';
+  for (let i = 0; i < 6; i++){
+    const tx = s*(1.12 + i*0.145);
+    c.beginPath(); c.moveTo(tx, s*0.1 - i*s*0.012);
+    c.lineTo(tx + s*0.05, s*(0.3 - i*0.02));
+    c.lineTo(tx + s*0.1, s*0.09 - i*s*0.012);
+    c.closePath(); c.fill();
+  }
+  c.restore();
 }
 function bakeSign(c, x, y){ // electric-fence warning sign on a post
   c.strokeStyle = '#5a5245'; c.lineWidth = 3;
@@ -1254,27 +1318,200 @@ function bakeSign(c, x, y){ // electric-fence warning sign on a post
   c.textAlign = 'center'; c.textBaseline = 'middle';
   c.fillText('⚡', x, y - 25);
 }
-function bakeJeep(c, x, y){ // abandoned tour jeep, side view
-  c.fillStyle = 'rgba(0,0,0,0.28)';
-  c.beginPath(); c.ellipse(x, y + 8, 26, 6, 0, 0, Math.PI*2); c.fill();
-  c.fillStyle = '#b5b12e'; // body
-  c.beginPath();
-  c.moveTo(x - 24, y + 4); c.lineTo(x - 24, y - 6); c.lineTo(x - 10, y - 6);
-  c.lineTo(x - 6, y - 14); c.lineTo(x + 12, y - 14); c.lineTo(x + 16, y - 6);
-  c.lineTo(x + 24, y - 6); c.lineTo(x + 24, y + 4); c.closePath(); c.fill();
-  c.fillStyle = '#8f2f24'; // stripes
-  c.fillRect(x - 24, y - 3, 48, 3);
-  c.fillStyle = '#2c3238'; // windows
-  c.beginPath(); c.moveTo(x - 4, y - 12.5); c.lineTo(x + 10, y - 12.5); c.lineTo(x + 13, y - 7); c.lineTo(x - 4, y - 7); c.closePath(); c.fill();
-  c.fillStyle = '#23241c'; // wheels
-  for (const wx of [-14, 14]){
-    c.beginPath(); c.arc(x + wx, y + 5, 6, 0, Math.PI*2); c.fill();
-    c.fillStyle = '#4a4c3e'; c.beginPath(); c.arc(x + wx, y + 5, 2.6, 0, Math.PI*2); c.fill();
-    c.fillStyle = '#23241c';
+function bakeJeep(c, x, y){ // abandoned STAFF JEEP 29 — wrangler silhouette, side view
+  c.fillStyle = 'rgba(0,0,0,0.3)';
+  c.beginPath(); c.ellipse(x, y + 8, 30, 6.5, 0, 0, Math.PI*2); c.fill();
+  // muddy tire ruts trailing off behind it
+  c.strokeStyle = 'rgba(40,34,22,0.35)'; c.lineWidth = 3;
+  for (const oy of [3, 8]){
+    c.beginPath(); c.moveTo(x - 28, y + oy); c.quadraticCurveTo(x - 48, y + oy + 2, x - 62, y + oy - 1); c.stroke();
   }
-  // vines reclaiming it
-  c.strokeStyle = 'rgba(70,110,50,0.8)'; c.lineWidth = 2;
-  c.beginPath(); c.moveTo(x - 24, y + 2); c.quadraticCurveTo(x - 18, y - 10, x - 8, y - 13); c.stroke();
+  // sand-beige tub with fender bulges
+  const g = c.createLinearGradient(x, y - 16, x, y + 4);
+  g.addColorStop(0, '#cbb98a'); g.addColorStop(1, '#9d8c60');
+  c.fillStyle = g;
+  c.beginPath();
+  c.moveTo(x - 26, y + 4);
+  c.lineTo(x - 26, y - 5); c.quadraticCurveTo(x - 25, y - 8, x - 21, y - 8);   // rear deck
+  c.lineTo(x - 8, y - 8);
+  c.lineTo(x - 5, y - 8); c.lineTo(x + 13, y - 8);                             // belt line
+  c.quadraticCurveTo(x + 19, y - 8, x + 21, y - 6);                            // hood slope
+  c.lineTo(x + 27, y - 5); c.lineTo(x + 27, y + 4);
+  c.closePath(); c.fill();
+  // fender arches (darker)
+  c.fillStyle = '#7d6f4a';
+  for (const wx of [-15, 16]){
+    c.beginPath(); c.arc(x + wx, y + 3, 8.6, Math.PI, 0); c.fill();
+  }
+  // the iconic red side-stripe swoosh
+  c.strokeStyle = '#a5291c'; c.lineWidth = 2.6; c.lineCap = 'round';
+  c.beginPath(); c.moveTo(x - 25, y - 2); c.quadraticCurveTo(x - 2, y - 4.5, x + 25, y - 2); c.stroke();
+  c.strokeStyle = '#6f7a80'; c.lineWidth = 1.2;                                // grey pinstripe under it
+  c.beginPath(); c.moveTo(x - 25, y + 0.5); c.quadraticCurveTo(x - 2, y - 1.5, x + 25, y + 0.5); c.stroke();
+  // roll bar + windshield frame (windshield cracked)
+  c.strokeStyle = '#3a3d34'; c.lineWidth = 2.2;
+  c.beginPath(); c.moveTo(x - 6, y - 8); c.quadraticCurveTo(x - 6, y - 17, x - 1, y - 17); c.stroke(); // roll bar
+  c.beginPath(); c.moveTo(x + 12, y - 8); c.lineTo(x + 9, y - 16); c.stroke();                          // windshield post
+  c.fillStyle = 'rgba(150,180,190,0.4)';                                       // glass
+  c.beginPath(); c.moveTo(x + 11.5, y - 8.5); c.lineTo(x + 9.5, y - 15); c.lineTo(x - 0.5, y - 15.5); c.lineTo(x - 1, y - 8.5); c.closePath(); c.fill();
+  c.strokeStyle = 'rgba(235,245,248,0.75)'; c.lineWidth = 0.8;                 // spider crack
+  for (let i = 0; i < 4; i++){
+    const a = 0.6 + i * 1.5;
+    c.beginPath(); c.moveTo(x + 5, y - 12);
+    c.lineTo(x + 5 + Math.cos(a) * 4.5, y - 12 + Math.sin(a) * 3.5); c.stroke();
+  }
+  // spare tire on the tailgate + wheels with deep-lug tires
+  c.fillStyle = '#1d1e18';
+  c.beginPath(); c.arc(x - 26, y - 1, 5.4, 0, Math.PI*2); c.fill();
+  c.fillStyle = '#3c3e32'; c.beginPath(); c.arc(x - 26, y - 1, 2.2, 0, Math.PI*2); c.fill();
+  for (const wx of [-15, 16]){
+    c.fillStyle = '#1d1e18'; c.beginPath(); c.arc(x + wx, y + 4, 6.6, 0, Math.PI*2); c.fill();
+    c.strokeStyle = '#0e0f0b'; c.lineWidth = 1.4;                              // lug tread
+    for (let i = 0; i < 6; i++){
+      const a = i / 6 * Math.PI * 2;
+      c.beginPath(); c.moveTo(x + wx + Math.cos(a)*4.4, y + 4 + Math.sin(a)*4.4);
+      c.lineTo(x + wx + Math.cos(a)*6.4, y + 4 + Math.sin(a)*6.4); c.stroke();
+    }
+    c.fillStyle = '#5c5e50'; c.beginPath(); c.arc(x + wx, y + 4, 2.4, 0, Math.PI*2); c.fill();
+    c.fillStyle = '#2a2c24'; c.beginPath(); c.arc(x + wx, y + 4, 1, 0, Math.PI*2); c.fill();
+  }
+  // headlight + brush guard on the nose
+  c.fillStyle = '#e8e2c0'; c.beginPath(); c.arc(x + 25.4, y - 3, 1.6, 0, Math.PI*2); c.fill();
+  c.strokeStyle = '#3a3d34'; c.lineWidth = 1.4;
+  c.beginPath(); c.moveTo(x + 27.5, y - 6); c.lineTo(x + 27.5, y + 4); c.stroke();
+  // white "29" unit roundel on the door
+  c.fillStyle = '#e9e4d2'; c.beginPath(); c.arc(x + 2, y - 3.4, 3.4, 0, Math.PI*2); c.fill();
+  c.strokeStyle = '#a5291c'; c.lineWidth = 0.9; c.beginPath(); c.arc(x + 2, y - 3.4, 3.4, 0, Math.PI*2); c.stroke();
+  c.fillStyle = '#2c2c24'; c.font = 'bold 4.5px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText('29', x + 2, y - 3.1);
+  // mud spatter along the sills + vines reclaiming the rear
+  c.fillStyle = 'rgba(60,48,28,0.5)';
+  for (let i = 0; i < 8; i++){
+    c.beginPath(); c.arc(x - 22 + i * 6.4, y + 2.4 + (i % 3) * 0.8, 1 + (i % 2) * 0.8, 0, Math.PI*2); c.fill();
+  }
+  c.strokeStyle = 'rgba(70,110,50,0.85)'; c.lineWidth = 1.8;
+  c.beginPath(); c.moveTo(x - 27, y + 3); c.quadraticCurveTo(x - 24, y - 12, x - 12, y - 9); c.stroke();
+  c.beginPath(); c.moveTo(x - 27, y - 2); c.quadraticCurveTo(x - 20, y - 6, x - 16, y - 8.4); c.stroke();
+}
+function bakeGyro(c, x, y, s){ // wrecked gyrosphere: shattered glass, blood at the breach
+  // shadow + the furrow it plowed when it stopped rolling
+  c.fillStyle = 'rgba(0,0,0,0.3)';
+  c.beginPath(); c.ellipse(x, y + s*0.72, s*1.15, s*0.32, 0, 0, Math.PI*2); c.fill();
+  c.strokeStyle = 'rgba(45,38,24,0.4)'; c.lineWidth = s*0.3;
+  c.beginPath(); c.moveTo(x - s*2.4, y + s*0.75); c.quadraticCurveTo(x - s*1.2, y + s*0.9, x - s*0.4, y + s*0.72); c.stroke();
+  c.save(); c.translate(x, y); c.rotate(-0.18);
+  // glass sphere — faint fill, bright rim, big arc highlight
+  c.fillStyle = 'rgba(205,232,240,0.14)';
+  c.beginPath(); c.arc(0, 0, s, 0, Math.PI*2); c.fill();
+  c.strokeStyle = 'rgba(225,242,248,0.6)'; c.lineWidth = 1.6;
+  c.beginPath(); c.arc(0, 0, s, 0, Math.PI*2); c.stroke();
+  c.strokeStyle = 'rgba(240,250,255,0.5)'; c.lineWidth = 2.2;
+  c.beginPath(); c.arc(0, 0, s*0.82, Math.PI*1.15, Math.PI*1.6); c.stroke();
+  // white structural ring + hub (the gyro frame)
+  c.strokeStyle = '#dde3e6'; c.lineWidth = s*0.11;
+  c.beginPath(); c.ellipse(0, 0, s*0.34, s*0.94, 0, 0, Math.PI*2); c.stroke();
+  c.fillStyle = '#c7ced2';
+  c.beginPath(); c.arc(0, 0, s*0.14, 0, Math.PI*2); c.fill();
+  // twin seats inside, empty and askew
+  c.fillStyle = 'rgba(35,40,46,0.6)';
+  c.beginPath(); c.ellipse(-s*0.28, s*0.22, s*0.2, s*0.3, 0.25, 0, Math.PI*2); c.fill();
+  c.beginPath(); c.ellipse(s*0.12, s*0.26, s*0.2, s*0.3, 0.15, 0, Math.PI*2); c.fill();
+  // the breach: a jagged hole punched through the upper-right glass
+  const hx = s*0.42, hy = -s*0.4;
+  c.fillStyle = 'rgba(12,14,10,0.55)';
+  c.beginPath();
+  for (let i = 0; i < 9; i++){
+    const a = i/9*Math.PI*2;
+    const rr = s*(0.26 + ((i*31) % 7)/7*0.16);
+    const px2 = hx + Math.cos(a)*rr, py2 = hy + Math.sin(a)*rr*0.85;
+    i ? c.lineTo(px2, py2) : c.moveTo(px2, py2);
+  }
+  c.closePath(); c.fill();
+  c.strokeStyle = 'rgba(240,250,255,0.85)'; c.lineWidth = 1;   // glinting broken rim
+  c.stroke();
+  // cracks radiating from the breach across the sphere
+  c.strokeStyle = 'rgba(230,244,250,0.55)'; c.lineWidth = 0.9;
+  for (let i = 0; i < 5; i++){
+    const a = 0.5 + i*1.15;
+    const ex = hx + Math.cos(a)*s*0.75, ey = hy + Math.sin(a)*s*0.7;
+    c.beginPath(); c.moveTo(hx + Math.cos(a)*s*0.3, hy + Math.sin(a)*s*0.27);
+    c.quadraticCurveTo(hx + Math.cos(a + 0.2)*s*0.5, hy + Math.sin(a + 0.2)*s*0.48, ex, ey);
+    c.stroke();
+  }
+  // blood — smeared around the breach, dripping down the inside of the glass
+  c.strokeStyle = 'rgba(122,22,16,0.72)'; c.lineWidth = s*0.07; c.lineCap = 'round';
+  c.beginPath(); c.arc(hx, hy, s*0.3, 0.5, 1.9); c.stroke();
+  c.beginPath(); c.arc(hx - s*0.05, hy + s*0.06, s*0.36, 0.9, 1.7); c.stroke();
+  c.fillStyle = 'rgba(122,22,16,0.66)';
+  for (const [dxx, dlen] of [[-0.12, 0.5], [0.02, 0.72], [0.14, 0.4]]){       // long drips
+    c.beginPath();
+    c.moveTo(hx + s*dxx - s*0.03, hy + s*0.2);
+    c.lineTo(hx + s*dxx, hy + s*0.2 + s*dlen);
+    c.lineTo(hx + s*dxx + s*0.03, hy + s*0.2);
+    c.closePath(); c.fill();
+    c.beginPath(); c.arc(hx + s*dxx, hy + s*0.2 + s*dlen, s*0.035, 0, Math.PI*2); c.fill();
+  }
+  for (let i = 0; i < 7; i++){                                                 // spatter flecks
+    const a = i*0.9, rr = s*(0.36 + (i%3)*0.1);
+    c.beginPath(); c.arc(hx + Math.cos(a)*rr, hy + Math.sin(a)*rr*0.8, s*0.025 + (i%2)*s*0.015, 0, Math.PI*2); c.fill();
+  }
+  c.restore();
+  // dried pool soaked into the ground beneath the breach side
+  c.fillStyle = 'rgba(96,16,12,0.4)';
+  c.beginPath(); c.ellipse(x + s*0.5, y + s*0.78, s*0.5, s*0.16, 0.1, 0, Math.PI*2); c.fill();
+}
+function bakeBarbasol(c, x, y){ // a certain shaving-cream can, half-buried in the mud
+  c.fillStyle = 'rgba(0,0,0,0.25)';
+  c.beginPath(); c.ellipse(x + 1, y + 4, 7, 2.6, 0, 0, Math.PI*2); c.fill();
+  c.fillStyle = 'rgba(58,46,28,0.7)';                          // mud mound swallowing it
+  c.beginPath(); c.ellipse(x, y + 3, 8, 3.4, 0, 0, Math.PI*2); c.fill();
+  c.save(); c.translate(x, y); c.rotate(-0.5);
+  c.fillStyle = '#e8e6df'; c.fillRect(-3.2, -8, 6.4, 11);      // white can
+  c.fillStyle = '#b03028';                                     // red diagonal stripes
+  for (let i = 0; i < 3; i++){
+    c.beginPath();
+    c.moveTo(-3.2, -6 + i*3.6); c.lineTo(3.2, -7.6 + i*3.6);
+    c.lineTo(3.2, -6.4 + i*3.6); c.lineTo(-3.2, -4.8 + i*3.6);
+    c.closePath(); c.fill();
+  }
+  c.fillStyle = '#8a8f94'; c.fillRect(-3.2, -10, 6.4, 2.4);    // cap
+  c.restore();
+}
+function bakeFlare(c, x, y){ // a spent signal flare with a red scorch
+  c.fillStyle = 'rgba(180,40,20,0.16)';                        // faded scorch bloom
+  c.beginPath(); c.ellipse(x, y, 9, 5, 0, 0, Math.PI*2); c.fill();
+  c.save(); c.translate(x, y); c.rotate(0.4);
+  c.strokeStyle = '#a5291c'; c.lineWidth = 2.6; c.lineCap = 'round';
+  c.beginPath(); c.moveTo(-6, 0); c.lineTo(4, 0); c.stroke();  // stick
+  c.fillStyle = '#2a221c';                                     // charred tip
+  c.beginPath(); c.arc(5, 0, 1.8, 0, Math.PI*2); c.fill();
+  c.fillStyle = '#e8d8c8';                                     // ash flecks
+  c.beginPath(); c.arc(6.5, -1, 0.7, 0, Math.PI*2); c.fill();
+  c.restore();
+}
+function bakeLog(c, x, y, s, th, rng){ // fallen mossy trunk
+  c.fillStyle = 'rgba(0,0,0,0.25)';
+  c.beginPath(); c.ellipse(x, y + s*0.3, s*1.6, s*0.4, 0, 0, Math.PI*2); c.fill();
+  c.save(); c.translate(x, y); c.rotate((rng() - 0.5) * 0.5);
+  c.fillStyle = '#4e4028';
+  c.beginPath();
+  c.moveTo(-s*1.5, -s*0.28); c.lineTo(s*1.5, -s*0.34);
+  c.quadraticCurveTo(s*1.7, -s*0.05, s*1.5, s*0.26);
+  c.lineTo(-s*1.5, s*0.3); c.closePath(); c.fill();
+  c.fillStyle = '#6b593a';                                     // exposed end rings
+  c.beginPath(); c.ellipse(s*1.52, -s*0.04, s*0.18, s*0.3, 0, 0, Math.PI*2); c.fill();
+  c.strokeStyle = '#4e4028'; c.lineWidth = 1;
+  c.beginPath(); c.ellipse(s*1.52, -s*0.04, s*0.09, s*0.16, 0, 0, Math.PI*2); c.stroke();
+  c.strokeStyle = 'rgba(30,24,14,0.5)';                        // bark grain
+  for (let i = 0; i < 3; i++){
+    c.beginPath(); c.moveTo(-s*1.4, -s*0.16 + i*s*0.18);
+    c.quadraticCurveTo(0, -s*0.2 + i*s*0.18, s*1.4, -s*0.18 + i*s*0.18); c.stroke();
+  }
+  c.fillStyle = shade(th.tree, 0.25);                          // moss cushions on top
+  for (const [mx, mr] of [[-s*0.9, s*0.3], [-s*0.1, s*0.38], [s*0.7, s*0.26]]){
+    c.beginPath(); c.ellipse(mx, -s*0.3, mr, mr*0.5, 0, 0, Math.PI*2); c.fill();
+  }
+  c.restore();
 }
 
 /* The iconic park gate: two stone pillars + arch + torch bowls.
@@ -1631,16 +1868,47 @@ function renderBackground(level, W, H){
     if (nearPath(x, y, 46)) continue;
     bakeRocks(c, x, y, 8 + rng()*8, rng);
   }
-  for (let b = 0; b < 3; b++){ // old kill sites
-    const x = 60 + rng()*(W-120), y = 60 + rng()*(H-120);
-    if (nearPath(x, y, 52)) continue;
-    bakeBones(c, x, y, 12 + rng()*8);
+  for (let b = 0; b < 3; b++){ // old kill sites — big, toothy, half-buried skeletons
+    for (let tries = 0; tries < 30; tries++){
+      const x = 70 + rng()*(W-140), y = 70 + rng()*(H-140);
+      if (nearPath(x, y, 58)) continue;
+      bakeBones(c, x, y, 14 + rng()*9, rng); break;
+    }
   }
-  { // one abandoned tour jeep per map
+  for (let l = 0; l < 2; l++){ // fallen mossy trunks
+    for (let tries = 0; tries < 30; tries++){
+      const x = 60 + rng()*(W-120), y = 60 + rng()*(H-120);
+      if (nearPath(x, y, 50)) continue;
+      bakeLog(c, x, y, 11 + rng()*6, th, rng); break;
+    }
+  }
+  { // one abandoned STAFF JEEP 29 per map
     for (let tries = 0; tries < 40; tries++){
-      const x = 90 + rng()*(W-180), y = 90 + rng()*(H-180);
-      if (nearPath(x, y, 62)) continue;
+      const x = 100 + rng()*(W-200), y = 90 + rng()*(H-180);
+      if (nearPath(x, y, 64)) continue;
       bakeJeep(c, x, y); break;
+    }
+  }
+  { // one wrecked gyrosphere per map — shattered, bloodied, story told
+    for (let tries = 0; tries < 40; tries++){
+      const x = 110 + rng()*(W-220), y = 110 + rng()*(H-200);
+      if (nearPath(x, y, 72)) continue;
+      bakeGyro(c, x, y, 24); break;
+    }
+  }
+  { // easter egg: the shaving-cream can that started it all, lost in the mud
+    for (let tries = 0; tries < 30; tries++){
+      const x = 50 + rng()*(W-100), y = 50 + rng()*(H-100);
+      if (nearPath(x, y, 40)) continue;
+      bakeBarbasol(c, x, y); break;
+    }
+  }
+  { // a couple of spent signal flares dropped near the road
+    let placed = 0;
+    for (let tries = 0; tries < 40 && placed < 2; tries++){
+      const x = 40 + rng()*(W-80), y = 46 + rng()*(H-80);
+      if (nearPath(x, y, 26) || !nearPath(x, y, 44)) continue;  // in the verge just off the tarmac
+      bakeFlare(c, x, y); placed++;
     }
   }
   // warning signs beside the road

@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.24.0';
+const VERSION = '1.25.0';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -24,7 +24,11 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.24.0', date: 'Jul 7, 2026', items: [
+  {v: '1.25.0', date: 'Jul 7, 2026', items: [
+    '🏞️ The maps grew up: dino remains are now full skeletons — arched spines with neural ridges, ribcages, loose femurs and big hollow-eyed, toothy skulls (no more "keys"). The abandoned tour jeep was rebuilt as a proper Staff Jeep 29 with its red swoosh, roll bar, spare tire, cracked windshield and muddy ruts — and every map now hides a wrecked GYROSPHERE with shattered glass and blood around the breach, fallen mossy logs, spent signal flares by the road, and one very famous shaving-cream can half-buried in the mud. Happy hunting.',
+    '💀 Cartoon electrocution! Dinosaurs caught in a Tesla arc now strobe white-hot with their skeleton flashing through — ribs, spine and eye socket — jittering like a Saturday-morning zap gag.',
+    '🦖 Ground bosses got fast: every non-flying boss now charges at DOUBLE its old speed. The T-Rex actually chases now.',
+    '🔥 Maxed-weapon tips tuned: the fully-upgraded Flame Thrower now pulses a roaring ORANGE at the nozzle, and Mason\'s Gas vents a toxic GREEN plume.',
     '🔫 Full weapon glow-up! Every weapon now visibly transforms with each upgrade — longer barrels, ammo drums, gun shields, extra tanks, taller coils, stacked dishes, more launch tubes — and a FULLY MAXED weapon changes colour entirely: the Gatling goes murdered-out black-and-red, the Flame Thrower burns superheated blue, the Sniper becomes a glowing railgun, Mason\'s Gas turns virulent purple with a skull stencil, the Cryo becomes an ice-sheathed deep-freezer, the Mortar a massive gold-banded siege piece, and each sits on dark armour plate with its own pulsing power ring.',
     '⚡ The Tesla Node\'s lightning got a serious upgrade: thick, forked, white-hot arcs that snap and writhe between dinosaurs with an electric burst at every link in the chain — and a maxed Tesla arcs VIOLET from a twin-coil array.',
     '🦅 NEW BOSS — THE WHITE PTERANODON! A giant bone-white terror with burning red eyes sweeps in on waves 40 and 80, and ONLY air-capable weapons can hurt it. No air coverage, no chance.',
@@ -150,20 +154,20 @@ const DINOS = {
                      pal:{body:'#8a8168', belly:'#ddd4b8', accent:'#57503c'}, feat:{tall:true}},
 
   /* --- BOSSES (spawned on schedule, never in random pool) --- */
-  blue:             {name:'Blue — Alpha Raptor', epithet:'THE PACK HUNTS WITH HER', painter:'theropod', hp:900,  speed:96, armor:1, bounty:120, dmg:15, size:18, boss:true, weight:0,
+  blue:             {name:'Blue — Alpha Raptor', epithet:'THE PACK HUNTS WITH HER', painter:'theropod', hp:900,  speed:192, armor:1, bounty:120, dmg:15, size:18, boss:true, weight:0,
                      pal:{body:'#5a6b78', belly:'#c3ccd4', accent:'#2c5f8a'}, feat:{stripes:true}},
-  trex:             {name:'Tyrannosaurus Rex',   epithet:'THE TYRANT QUEEN', painter:'theropod', hp:3000, speed:60, armor:3, bounty:300, dmg:25, size:32, boss:true, weight:0, roar:true,
+  trex:             {name:'Tyrannosaurus Rex',   epithet:'THE TYRANT QUEEN', painter:'theropod', hp:3000, speed:120, armor:3, bounty:300, dmg:25, size:32, boss:true, weight:0, roar:true,
                      pal:{body:'#6e5a44', belly:'#c9b493', accent:'#3d3022'}, feat:{bigHead:true}},
-  spinosaurus:      {name:'Spinosaurus',         epithet:'THE RIVER MONSTER', painter:'theropod', hp:3600, speed:56, armor:3, bounty:340, dmg:28, size:33, boss:true, weight:0, roar:true,
+  spinosaurus:      {name:'Spinosaurus',         epithet:'THE RIVER MONSTER', painter:'theropod', hp:3600, speed:112, armor:3, bounty:340, dmg:28, size:33, boss:true, weight:0, roar:true,
                      pal:{body:'#5d7268', belly:'#c2d1c0', accent:'#b0703c'}, feat:{sail:true, longSnout:true}},
-  indominus:        {name:'Indominus Rex',       epithet:'THE UNTAMABLE', painter:'theropod', hp:5200, speed:62, armor:4, bounty:420, dmg:32, size:31, boss:true, weight:0, roar:true,
+  indominus:        {name:'Indominus Rex',       epithet:'THE UNTAMABLE', painter:'theropod', hp:5200, speed:124, armor:4, bounty:420, dmg:32, size:31, boss:true, weight:0, roar:true,
                      cloak:true, regen:0.006,
                      pal:{body:'#b9c2c4', belly:'#e9eef0', accent:'#7c8a8d'}, feat:{bigHead:true, spikes:true}},
-  indoraptor:       {name:'Indoraptor',          epithet:'THE NIGHTMARE MADE FLESH', painter:'theropod', hp:4200, speed:88, armor:3, bounty:400, dmg:30, size:24, boss:true, weight:0, roar:true,
+  indoraptor:       {name:'Indoraptor',          epithet:'THE NIGHTMARE MADE FLESH', painter:'theropod', hp:4200, speed:176, armor:3, bounty:400, dmg:30, size:24, boss:true, weight:0, roar:true,
                      pal:{body:'#26262b', belly:'#4c4c55', accent:'#d9a531'}, feat:{stripes:true, slim:true}},
-  giganotosaurus:   {name:'Giganotosaurus',      epithet:'THE APEX OF APEX PREDATORS', painter:'theropod', hp:9000, speed:54, armor:5, bounty:800, dmg:45, size:36, boss:true, weight:0, roar:true,
+  giganotosaurus:   {name:'Giganotosaurus',      epithet:'THE APEX OF APEX PREDATORS', painter:'theropod', hp:9000, speed:108, armor:5, bounty:800, dmg:45, size:36, boss:true, weight:0, roar:true,
                      pal:{body:'#4f4a52', belly:'#b7b0ba', accent:'#8a2f2f'}, feat:{bigHead:true, ridge:true}},
-  drex:             {name:'D-Rex — Distortus Rex', epithet:'THE DEVIL YOU CREATED', painter:'mutant', hp:16000, speed:58, armor:8, bounty:2000, dmg:60, size:46, boss:true, weight:0, roar:true, regen:0.004,
+  drex:             {name:'D-Rex — Distortus Rex', epithet:'THE DEVIL YOU CREATED', painter:'mutant', hp:16000, speed:116, armor:8, bounty:2000, dmg:60, size:46, boss:true, weight:0, roar:true, regen:0.004,
                      pal:{body:'#6f6a63', belly:'#9c968b', accent:'#b83a30'},
                      feat:{glowEyes:true, fourArms:true}},
   whiteptera:       {name:'The White Pteranodon', epithet:'DEATH RIDES THE WIND — AIR WEAPONS ONLY', painter:'flyer', hp:4200, speed:66, armor:2, bounty:400, dmg:30, size:40, boss:true, weight:0, roar:true, flying:true,
