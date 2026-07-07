@@ -3258,6 +3258,18 @@ if (testParams.has('test')){
     for (let s = 0; s < 3 && !G.bolts.length; s += 0.02) step(0.02);  // freeze on the arc frame
     G.paused = true;
   }
+  if (testParams.has('flame')){ // regression: a flamer at the closest legal spot MUST be able to kill
+    G.cash = 99999; G.wave = 5;
+    placeTower('flamer', 420, 474, true);              // 44px off the path — closest canPlace allows
+    const placedOk = G.towers.some(tw => tw.key === 'flamer' && tw.y === 474);
+    for (let i = 0; i < 6; i++){ spawnDino('compy', 0, false); G.dinos[G.dinos.length-1].dist = 660 + i * 30; }
+    const before = G.dinos.length;
+    for (let s = 0; s < 6; s += 0.05) step(0.05);
+    const kills = before - G.dinos.filter(d => !d.dead).length;
+    const el = $('#errbox'); el.classList.remove('hidden');
+    el.textContent = `FLAME placed=${placedOk} · kills=${kills}/${before} (want > 0) · range=${TOWERS.flamer.range}`;
+    G.paused = true;
+  }
   if (testParams.has('speedleak')){ // a leak while sped up must drop back to 1x
     G.speed = 10;
     spawnDino('velociraptor', 0, false);

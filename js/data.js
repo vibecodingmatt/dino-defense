@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.25.0';
+const VERSION = '1.25.1';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -24,7 +24,8 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.25.0', date: 'Jul 7, 2026', items: [
+  {v: '1.25.1', date: 'Jul 7, 2026', items: [
+    '🔥 Fixed a nasty range bug: the Flame Thrower\'s reach was shorter than the closest distance a weapon can even be built from the road — it literally could not hit anything. Its range is DOUBLED, and the other short-reach weapons (Gatling, Cryo, Tesla, Mason\'s Gas) got healthy bumps so every weapon has a proper kill window from day one.',
     '🏞️ The maps grew up: dino remains are now full skeletons — arched spines with neural ridges, ribcages, loose femurs and big hollow-eyed, toothy skulls (no more "keys"). The abandoned tour jeep was rebuilt as a proper Staff Jeep 29 with its red swoosh, roll bar, spare tire, cracked windshield and muddy ruts — and every map now hides a wrecked GYROSPHERE with shattered glass and blood around the breach, fallen mossy logs, spent signal flares by the road, and one very famous shaving-cream can half-buried in the mud. Happy hunting.',
     '💀 Cartoon electrocution! Dinosaurs caught in a Tesla arc now strobe white-hot with their skeleton flashing through — ribs, spine and eye socket — jittering like a Saturday-morning zap gag.',
     '🦖 Ground bosses got fast: every non-flying boss now charges at DOUBLE its old speed. The T-Rex actually chases now.',
@@ -197,17 +198,17 @@ const BOSS_WAVES = {
    Sniper (its whole identity) and the big/expensive ordnance (Missiles,
    Mortar) reach much farther. unlock = first wave the weapon is purchasable. */
 const TOWERS = {
-  gatling: {name:'ACU Gatling',    icon:'🔫', cost:180, dmg:9,   rof:7,    range:46,  air:true,  proj:'bullet', maxUp:3, unlock:1,
+  gatling: {name:'ACU Gatling',    icon:'🔫', cost:180, dmg:9,   rof:7,    range:56,  air:true,  proj:'bullet', maxUp:3, unlock:1,
             desc:'Asset Containment turret. Low damage, very high fire rate, short reach.', color:'#c9c9c9'},
-  flamer:  {name:'Flame Thrower',  icon:'🔥', cost:210, dmg:7,   rof:9,    range:36,  air:false, proj:'flame', maxUp:2, unlock:1,
+  flamer:  {name:'Flame Thrower',  icon:'🔥', cost:210, dmg:7,   rof:9,    range:72,  air:false, proj:'flame', maxUp:2, unlock:1,
             burn:{dps:22, t:2.2}, cone:0.62,
             desc:'Point-blank cone of fire. Sets ground targets ablaze.', color:'#ff9a3d'},
   sniper:  {name:'Ranger Sniper',  icon:'🎯', cost:270, dmg:95,  rof:0.6,  range:113, air:true,  proj:'snipe', pierce:true, maxUp:2, unlock:6,
             desc:'Huge single-shot damage at extreme range. Ignores armor.', color:'#7fb2ff'},
-  cryo:    {name:'Cryo Cannon',    icon:'❄️', cost:290, dmg:12,  rof:1.0,  range:57,  air:true,  proj:'cryo', maxUp:2, unlock:9,
+  cryo:    {name:'Cryo Cannon',    icon:'❄️', cost:290, dmg:12,  rof:1.0,  range:62,  air:true,  proj:'cryo', maxUp:2, unlock:9,
             splash:60, slow:{f:0.5, t:2.4},
             desc:'Freezing shells that heavily slow everything they splash.', color:'#bfe8ff'},
-  tesla:   {name:'Tesla Node',     icon:'⚡', cost:310, dmg:45,  rof:1.0,  range:55,  air:true,  proj:'tesla', maxUp:2, unlock:12,
+  tesla:   {name:'Tesla Node',     icon:'⚡', cost:310, dmg:45,  rof:1.0,  range:62,  air:true,  proj:'tesla', maxUp:2, unlock:12,
             chain:4, chainRange:75,
             desc:'10,000-volt perimeter tech. Arcs between up to 4 dinosaurs.', color:'#6ee7ff'},
   sonic:   {name:'Sonic Emitter',  icon:'📡', cost:370, dmg:50,  rof:0.9,  range:79,  air:true,  proj:'pulse', maxUp:2, unlock:15,
@@ -219,7 +220,7 @@ const TOWERS = {
   mortar:  {name:'Mortar',         icon:'💣', cost:1000, dmg:200, rof:0.3, range:145, air:false, proj:'mortar', maxUp:1, unlock:28,
             splash:100, minRange:30,
             desc:'Lobbed shells devastate herds at the longest range in the armory. Cannot hit flyers or anything too close. One upgrade: massive damage, splash, and extra range.', color:'#e0b64f'},
-  gas:     {name:"Mason's Gas",    icon:'☣️', cost:240, dmg:42,  rof:0.6, range:53,  air:false, proj:'gas', maxUp:2, unlock:3,
+  gas:     {name:"Mason's Gas",    icon:'☣️', cost:240, dmg:42,  rof:0.6, range:58,  air:false, proj:'gas', maxUp:2, unlock:3,
             cloud:{r:78, dur:3.4},
             desc:'Lobs a lingering cloud of toxic gas that poisons ground dinosaurs inside it — brutal against packed groups, and it ignores armor. Flyers, bosses, and tall long-necked dinos rise above the cloud.', color:'#a6e04a'},
 };
