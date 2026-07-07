@@ -1069,6 +1069,9 @@ function updateDinos(dt){
         G.flawless = false; // base took a hit — no longer a flawless run
         G.shake = Math.max(G.shake, 4);
         G.hurtT = 0.6;
+        // a dino just cost real health — drop out of fast-forward so the
+        // player can react, instead of staying sped up through more leaks
+        if (G.speed > 1){ G.speed = 1; updateHUD(); }
       }
       SFX.leak();
       if (G.lives <= 0 && !G.over){ G.lives = 0; defeat(); }
@@ -3169,6 +3172,17 @@ if (testParams.has('test')){
     const hurtByEmitter = boss.hp < before;
     const el = $('#errbox'); el.classList.remove('hidden');
     el.textContent = `INDO cloaked=${cloakedNow} · covered→no-banner=${coveredNoBanner} · lapse→vanished-once=${lapseVanished} · invincible=${invincible} · emitter-hurt=${hurtByEmitter} (all want true)`;
+    G.paused = true;
+  }
+  if (testParams.has('speedleak')){ // a leak while sped up must drop back to 1x
+    G.speed = 10;
+    spawnDino('velociraptor', 0, false);
+    const d = G.dinos[G.dinos.length - 1];
+    d.dist = G.paths[0].len - 1;     // one step from the exit
+    const speedBefore = G.speed;
+    for (let s = 0; s < 1 && G.dinos.length; s += 0.05) step(0.05);
+    const el = $('#errbox'); el.classList.remove('hidden');
+    el.textContent = `SPEEDLEAK before=${speedBefore}× · after leak=${G.speed}× (want 1) · lives=${G.lives}/${G.maxLives}`;
     G.paused = true;
   }
   if (testParams.has('celeb')){ // verify the victory shake settles after ~3s (celebration runs in render())

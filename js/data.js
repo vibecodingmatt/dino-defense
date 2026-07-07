@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.22.2';
+const VERSION = '1.23.0';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -24,6 +24,10 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
+  {v: '1.23.0', date: 'Jul 7, 2026', items: [
+    '⏱️ Fast-forward safety net: if you\'re playing on 2×/4×/10× speed and a dinosaur breaches the gate, the game now automatically drops back to 1× the instant it happens — so a costly leak doesn\'t snowball into losing your base while everything is sped up. You can always speed back up once you\'ve reacted.',
+    '🎯 Range buffs: Missile Battery +10%, Mortar +15%, and Sonic Emitter +25% — three of the longer-reach weapons now hit even farther.',
+  ]},
   {v: '1.22.2', date: 'Jul 6, 2026', items: [
     '🦖 The roaming home-screen bosses got a polish pass: they now walk the FULL width of the screen on desktop (they were getting clipped ~25% from the right edge), their little arms are properly animated (two-jointed, swinging with the stride), and their leg cycle is matched to their walking speed so their feet plant instead of sliding.',
     '📖 Readability: the tagline under the title and the fine print at the bottom of the home screen are brighter with better contrast.',
@@ -196,13 +200,13 @@ const TOWERS = {
   tesla:   {name:'Tesla Node',     icon:'⚡', cost:310, dmg:45,  rof:1.0,  range:55,  air:true,  proj:'tesla', maxUp:2, unlock:12,
             chain:4, chainRange:75,
             desc:'10,000-volt perimeter tech. Arcs between up to 4 dinosaurs.', color:'#6ee7ff'},
-  sonic:   {name:'Sonic Emitter',  icon:'📡', cost:370, dmg:50,  rof:0.9,  range:63,  air:true,  proj:'pulse', maxUp:2, unlock:15,
+  sonic:   {name:'Sonic Emitter',  icon:'📡', cost:370, dmg:50,  rof:0.9,  range:79,  air:true,  proj:'pulse', maxUp:2, unlock:15,
             reveal:true,
             desc:'Damages ALL dinosaurs in radius. Reveals camouflaged bosses.', color:'#d6a3ff'},
-  missile: {name:'Missile Battery',icon:'🚀', cost:470, dmg:90,  rof:0.55, range:88,  air:true,  proj:'missile', maxUp:2, unlock:18,
+  missile: {name:'Missile Battery',icon:'🚀', cost:470, dmg:90,  rof:0.55, range:97,  air:true,  proj:'missile', maxUp:2, unlock:18,
             splash:70,
             desc:'Homing rockets with splash and long reach. Upgrades add a 2nd and 3rd rocket per salvo — the whole volley slams the same target.', color:'#ff6b6b'},
-  mortar:  {name:'Mortar',         icon:'💣', cost:1000, dmg:200, rof:0.3, range:126, air:false, proj:'mortar', maxUp:1, unlock:28,
+  mortar:  {name:'Mortar',         icon:'💣', cost:1000, dmg:200, rof:0.3, range:145, air:false, proj:'mortar', maxUp:1, unlock:28,
             splash:100, minRange:30,
             desc:'Lobbed shells devastate herds at the longest range in the armory. Cannot hit flyers or anything too close. One upgrade: massive damage, splash, and extra range.', color:'#e0b64f'},
   gas:     {name:"Mason's Gas",    icon:'☣️', cost:240, dmg:42,  rof:0.6, range:53,  air:false, proj:'gas', maxUp:2, unlock:3,
