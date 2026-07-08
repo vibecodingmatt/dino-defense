@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.28.0';
+const VERSION = '1.29.0';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -25,6 +25,10 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
+  {v: '1.29.0', date: 'Jul 8, 2026', items: [
+    '🧱 Proving Grounds: dinosaurs now march in from one point in a single-file column, all following the same shortest route — and a dashed guide line shows that route live, reshaping the moment you place or sell a weapon.',
+    '❄️ The Cryo Cannon is now available from wave 1 — slow them down early.',
+  ]},
   {v: '1.28.0', date: 'Jul 7, 2026', items: [
     '🧱 NEW MAP: THE PROVING GROUNDS — an open battlefield with no road. Dinosaurs roam freely from left to right and your weapons ARE the walls: build a zig-zag maze to grind them down. You can never seal the field completely, and flyers just soar straight over.',
     '🌊 NEW MAP: MOSASAUR LAGOON — a jungle road plus a living river swarming with all-new aquatic dinosaurs (Ichthyosaurus, Plesiosaurus, Kronosaurus), ruled by the mighty MOSASAURUS.',
@@ -196,7 +200,7 @@ const TOWERS = {
             desc:'Point-blank cone of fire. Sets ground targets ablaze.', color:'#ff9a3d'},
   sniper:  {name:'Ranger Sniper',  icon:'🎯', cost:270, dmg:95,  rof:0.6,  range:113, air:true,  proj:'snipe', pierce:true, maxUp:2, unlock:6,
             desc:'Huge single-shot damage at extreme range. Ignores armor.', color:'#7fb2ff'},
-  cryo:    {name:'Cryo Cannon',    icon:'❄️', cost:290, dmg:12,  rof:1.0,  range:62,  air:true,  proj:'cryo', maxUp:2, unlock:9,
+  cryo:    {name:'Cryo Cannon',    icon:'❄️', cost:290, dmg:12,  rof:1.0,  range:62,  air:true,  proj:'cryo', maxUp:2, unlock:1,
             splash:60, slow:{f:0.5, t:2.4},
             desc:'Freezing shells that heavily slow everything they splash.', color:'#bfe8ff'},
   tesla:   {name:'Tesla Node',     icon:'⚡', cost:310, dmg:45,  rof:1.0,  range:62,  air:true,  proj:'tesla', maxUp:2, unlock:12,

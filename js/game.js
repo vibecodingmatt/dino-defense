@@ -660,8 +660,10 @@ function spawnDino(key, pathI, isBoss){
     dead: false, leaked: false,
   };
   if (G.level.maze && !d.flying){
-    // open-world map: ground dinos free-roam from the centre-left mouth
-    d.mx = -24; d.my = H / 2 + rand(-90, 90); d.mang = 0;
+    // open-world map: every ground dino enters at the SAME centre-left point
+    // and marches the one shortest route the flow field currently allows —
+    // a single-file column that re-forms whenever the walls change
+    d.mx = -24; d.my = H / 2; d.mang = 0;
     d.dist = d.mx;                       // progress proxy for FIRST/LAST targeting
   }
   G.dinos.push(d);
@@ -669,7 +671,7 @@ function spawnDino(key, pathI, isBoss){
     // cinematic entrance: stalk in past the gate, stop, and roar
     // (the D-Rex takes its time — longer letterbox, second roar mid-entrance)
     d.dist = 100 + rand(0, 50);
-    if (d.mx !== undefined){ d.mx = 90 + rand(0, 50); d.my = H / 2 + rand(-40, 40); d.dist = d.mx; }
+    if (d.mx !== undefined){ d.mx = 90 + rand(0, 50); d.my = H / 2; d.dist = d.mx; }
     d.entranceT = key === 'drex' ? 3.4 : 2.2;
     d.seedE = rand(0, 1);
     G.cinT = key === 'drex' ? 4.4 : 2.8;
@@ -766,6 +768,28 @@ const mazeEntryOpen = f => {                  // is the centre-left entry still 
   }
   return false;
 };
+/* the one route the column is currently marching: entry cell → exit, traced
+   through the flow field (drawn as a faint dashed guide on maze maps) */
+function mazeRoutePts(){
+  const F = G.flow; if (!F) return null;
+  let id = -1, best = 1e9;
+  for (let ri = 0; ri < F.rows; ri++){        // entry cell nearest the centre-left mouth
+    const cy = ri * F.cs + F.cs / 2;
+    if (Math.abs(cy - H / 2) > MAZE_BAND) continue;
+    const cid = ri * F.cols;
+    if (F.dist[cid] >= 0 && Math.abs(cy - H / 2) < best){ best = Math.abs(cy - H / 2); id = cid; }
+  }
+  if (id < 0) return null;
+  const pts = [{x: -20, y: H / 2}];
+  let guard = F.cols * F.rows;
+  while (id >= 0 && guard--){
+    pts.push({x: (id % F.cols) * F.cs + F.cs / 2, y: ((id / F.cols) | 0) * F.cs + F.cs / 2});
+    if (F.dist[id] === 0) break;
+    id = F.next[id];
+  }
+  pts.push({x: W + 20, y: pts[pts.length - 1].y});
+  return pts;
+}
 function mazeSteer(x, y){                     // world-space point to walk toward
   const F = G.flow;
   if (x < 6) return {x: 40, y};               // step onto the grid first
@@ -2577,6 +2601,22 @@ function render(dt){
   // on and rattle the victory/defeat screen forever
   G.shake = Math.max(0, G.shake - dt * 18);
   ctx.drawImage(G.bg, 0, 0);
+
+  // open-world maps: show the one route the column is currently marching —
+  // it redraws live as weapons reshape the maze
+  if (G.level.maze && G.flow){
+    const rp = mazeRoutePts();
+    if (rp){
+      ctx.save();
+      ctx.strokeStyle = 'rgba(232,185,58,0.22)';
+      ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.setLineDash([10, 12]); ctx.lineDashOffset = -G.time * 26;   // crawls toward the exit
+      ctx.beginPath();
+      rp.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
 
   // range ring of the selected tower (under everything)
   if (G.selected){
