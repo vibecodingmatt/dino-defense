@@ -732,8 +732,17 @@ const MAZE_CS = 32, MAZE_BAND = 130;   // cell size + entry/exit half-height
 function mazeRebuild(extra){
   const cs = MAZE_CS, cols = Math.ceil(W / cs), rows = Math.ceil(H / cs);
   const blocked = new Uint8Array(cols * rows);
+  // the border strip is NEVER walkable — no squeezing along the map edge, so
+  // a weapon close to the edge genuinely closes that side and forces the
+  // column the other way (entry/exit bands on the sides stay open)
+  for (let ci = 0; ci < cols; ci++){ blocked[ci] = 1; blocked[(rows - 1) * cols + ci] = 1; }
+  for (let ri = 0; ri < rows; ri++){
+    if (Math.abs(ri * cs + cs / 2 - H / 2) > MAZE_BAND){
+      blocked[ri * cols] = 1; blocked[ri * cols + cols - 1] = 1;
+    }
+  }
   const mark = (tx, ty) => {
-    const r = 26;
+    const r = 30;   // corridors must be a full clear square — no sliver gaps
     for (let ri = Math.max(0, ((ty - r) / cs) | 0); ri <= Math.min(rows - 1, ((ty + r) / cs) | 0); ri++)
       for (let ci = Math.max(0, ((tx - r) / cs) | 0); ci <= Math.min(cols - 1, ((tx + r) / cs) | 0); ci++){
         if (Math.hypot(ci * cs + cs / 2 - tx, ri * cs + cs / 2 - ty) < r) blocked[ri * cols + ci] = 1;
@@ -1162,7 +1171,7 @@ function updateDinos(dt){
       while (da < -Math.PI) da += Math.PI * 2;
       d.mang = (d.mang || 0) + clamp(da, -dt * 4.5, dt * 4.5);
       d.mx += Math.cos(d.mang) * d.speed * slow * dt;
-      d.my = clamp(d.my + Math.sin(d.mang) * d.speed * slow * dt, 16, H - 16);
+      d.my = clamp(d.my + Math.sin(d.mang) * d.speed * slow * dt, 44, H - 44);
       d.dist = d.mx;                      // progress proxy for targeting modes
       d.phase += dt * d.stride * slow;
       pp = {x: d.mx, y: d.my, ang: d.mang};
@@ -3678,15 +3687,20 @@ if (testParams.has('test')){
   }
   if (testParams.has('mazecheck')){ // open-world map: routing works + total blockade is rejected
     G.cash = 1e9;
-    // full-height wall at x=640, one gap left around y≈656 (the towers never
-    // fire — huge cd — so this tests pure routing)
+    // full-height wall at x=640 with one TRUE mid-map gap (towers at y 352,
+    // 380 and 408 skipped; the wall never fires — huge cd — pure routing test)
     for (let y = 16; y <= 704; y += 28){
-      if (y === 644 || y === 672) continue;
+      if (y === 352 || y === 380 || y === 408) continue;
       G.towers.push({key: 'gatling', x: 640, y, ulv: 0, cd: 9999, angle: 0, flash: 0, invested: 0, mode: 'first'});
     }
     G.flow = mazeRebuild();
-    const sealRejected = !canPlace(640, 656);          // closing the last corridor must be illegal
-    const openOk = canPlace(300, 656);                 // a normal spot away from the gap is fine
+    const sealRejected = !canPlace(640, 384);          // closing the last corridor must be illegal
+    const openOk = canPlace(300, 560);                 // a normal spot away from the gap is fine
+    // a weapon near the top border must leave NO over-the-top squeeze:
+    // the border row and the strip under it must both be unwalkable there
+    const f2 = mazeRebuild({x: 200, y: 60});
+    const edgeSealed = f2.dist[6] < 0 && f2.dist[f2.cols + 6] < 0;
+    const dbg = `gapDist=${G.flow.dist[11 * G.flow.cols + 19]},${G.flow.dist[12 * G.flow.cols + 19]}(want >=0)`;
     for (let i = 0; i < 6; i++){
       spawnDino('velociraptor', 0, false);
       const d = G.dinos[G.dinos.length - 1];
@@ -3698,7 +3712,7 @@ if (testParams.has('test')){
     const escaped = G.lives < G.maxLives;
     const d0 = alive[0];
     const el = $('#errbox'); el.classList.remove('hidden');
-    el.textContent = `MAZE sealRejected=${sealRejected}(want true) · openOk=${openOk}(want true) · past wall=${routed} escaped=${escaped} (want some) · d0=${d0 ? (d0.mx | 0) + ',' + (d0.my | 0) : 'none'}`;
+    el.textContent = `MAZE sealRejected=${sealRejected}(want true) · openOk=${openOk}(want true) · edgeSealed=${edgeSealed}(want true) · past wall=${routed} escaped=${escaped} (want some) · d0=${d0 ? (d0.mx | 0) + ',' + (d0.my | 0) : 'none'} · ${dbg}`;
     G.paused = true;
   }
   if (testParams.has('zap')){ // stage a tesla (at the given upgrade level) mid-arc
