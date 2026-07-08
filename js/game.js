@@ -729,6 +729,12 @@ function dinoPos(d){
    your weapons physically shape their route. canPlace() rejects any weapon
    that would disconnect the centre-left entry from the exit entirely. */
 const MAZE_CS = 32, MAZE_BAND = 130;   // cell size + entry/exit half-height
+// maze weapons snap to grid intersections and occupy a 2×2 block of squares
+// (64×64), so walls sit flush cell-to-cell and against the map edges
+const mazeSnap = (x, y) => ({
+  x: clamp(Math.round(x / MAZE_CS) * MAZE_CS, MAZE_CS, Math.floor(W / MAZE_CS) * MAZE_CS - MAZE_CS),
+  y: clamp(Math.round(y / MAZE_CS) * MAZE_CS, MAZE_CS, Math.floor(H / MAZE_CS) * MAZE_CS - MAZE_CS),
+});
 function mazeRebuild(extra){
   const cs = MAZE_CS, cols = Math.ceil(W / cs), rows = Math.ceil(H / cs);
   const blocked = new Uint8Array(cols * rows);
@@ -742,13 +748,11 @@ function mazeRebuild(extra){
     }
   }
   const mark = (tx, ty) => {
-    const r = 40;   // routed corridors must be PHYSICALLY walkable: collision
-                    // holds dinos 26px off every pad, so a walkable cell centre
-                    // needs enough extra clearance for steering slop — no more
-                    // guide lines through slots nothing can actually fit through
-    for (let ri = Math.max(0, ((ty - r) / cs) | 0); ri <= Math.min(rows - 1, ((ty + r) / cs) | 0); ri++)
-      for (let ci = Math.max(0, ((tx - r) / cs) | 0); ci <= Math.min(cols - 1, ((tx + r) / cs) | 0); ci++){
-        if (Math.hypot(ci * cs + cs / 2 - tx, ri * cs + cs / 2 - ty) < r) blocked[ri * cols + ci] = 1;
+    // a weapon occupies whole grid squares (2×2 for a grid-snapped tower) —
+    // walls are cell-perfect, exactly the squares the placement grid shows
+    for (let ri = Math.max(0, ((ty - 32) / cs) | 0); ri <= Math.min(rows - 1, ((ty + 32) / cs) | 0); ri++)
+      for (let ci = Math.max(0, ((tx - 32) / cs) | 0); ci <= Math.min(cols - 1, ((tx + 32) / cs) | 0); ci++){
+        if (Math.abs(ci * cs + cs / 2 - tx) < 32 && Math.abs(ri * cs + cs / 2 - ty) < 32) blocked[ri * cols + ci] = 1;
       }
   };
   for (const t of G.towers) mark(t.x, t.y);
@@ -1188,24 +1192,25 @@ function updateDinos(dt){
       let da = ta - (d.mang || 0);
       while (da > Math.PI) da -= Math.PI * 2;
       while (da < -Math.PI) da += Math.PI * 2;
-      d.mang = (d.mang || 0) + clamp(da, -dt * 4.5, dt * 4.5);
+      d.mang = (d.mang || 0) + clamp(da, -dt * 8, dt * 8);   // agile enough to thread a one-square corridor
       const omx = d.mx, omy = d.my;         // pre-move position — known good
       d.mx += Math.cos(d.mang) * d.speed * slow * dt;
       d.my += Math.sin(d.mang) * d.speed * slow * dt;
-      // weapons are physically solid: eject a clipping dino toward the side it
-      // CAME from (a plain radial push let fast bosses ratchet through the
-      // saddle between two overlapping pads — that was the T-Rex stomping
-      // straight across a wall). Two passes so neighbouring pads settle.
+      // weapons are physically solid GRID BOXES (2×2 squares + a 4px skin):
+      // eject a clipping dino out the face it came in through — never across —
+      // so even a fast boss can't ratchet through a flush wall. Two passes so
+      // neighbouring boxes settle.
       for (let pass = 0; pass < 2; pass++) for (const t of G.towers){
         const dx = d.mx - t.x, dy = d.my - t.y;
-        if (Math.abs(dx) > 26 || Math.abs(dy) > 26) continue;
-        if (dx * dx + dy * dy >= 26 * 26) continue;
-        let ex = omx - t.x, ey = omy - t.y;
-        let ed = Math.hypot(ex, ey);
-        if (ed < 1){ ex = dx; ey = dy; ed = Math.hypot(ex, ey) || 1; }   // spawned inside a pad — pop out radially
-        d.mx = t.x + ex / ed * 26; d.my = t.y + ey / ed * 26;
+        if (Math.abs(dx) >= 36 || Math.abs(dy) >= 36) continue;
+        const ex = omx - t.x, ey = omy - t.y;
+        if (Math.abs(ex) >= Math.abs(ey) && Math.abs(ex) >= 36) d.mx = t.x + Math.sign(ex) * 36;
+        else if (Math.abs(ey) >= 36) d.my = t.y + Math.sign(ey) * 36;
+        else if (Math.abs(ex) >= 36) d.mx = t.x + Math.sign(ex) * 36;
+        else if (Math.abs(dx) > Math.abs(dy)) d.mx = t.x + (dx < 0 ? -36 : 36);  // started inside — pop out the short way
+        else d.my = t.y + (dy < 0 ? -36 : 36);
       }
-      d.my = clamp(d.my, 44, H - 44);
+      d.my = clamp(d.my, 40, H - 20);     // stay reachable to every walkable row's centre (border rows are blocked)
       d.dist = d.mx;                      // progress proxy for targeting modes
       d.phase += dt * d.stride * slow;
       pp = {x: d.mx, y: d.my, ang: d.mang};
@@ -1519,18 +1524,19 @@ function toMenu(){
 
 /* ---------------- towers: place / select / upgrade ---------------- */
 function canPlace(x, y){
-  if (x < 20 || x > W - 20 || y < 20 || y > H - 20) return false;
   if (G.level && G.level.maze){
-    // open-world map: weapons can go ANYWHERE (they're the walls) — except on
-    // another weapon, on a dino, or anywhere that would seal the field shut.
-    // A full blockade can never be a way to win.
-    for (const t of G.towers) if (hyp(x, y, t.x, t.y) < 38) return false;
+    // open-world map: weapons live ON the grid — each takes a 2×2 block of
+    // squares, flush against neighbours or the map edge is fine, overlapping
+    // another weapon is not, and sealing the field shut is never allowed.
+    const s = mazeSnap(x, y);
+    for (const t of G.towers) if (Math.abs(s.x - t.x) < 64 && Math.abs(s.y - t.y) < 64) return false;
     for (const d of G.dinos){
       if (d.dead || d.leaked || d.flying || d.mx === undefined) continue;
-      if (hyp(x, y, d.mx, d.my) < 48) return false;   // never bury a live dino deeper than steering can recover
+      if (Math.abs(s.x - d.mx) < 60 && Math.abs(s.y - d.my) < 60) return false; // never wall a live dino in
     }
-    return mazeEntryOpen(mazeRebuild({x, y}));
+    return mazeEntryOpen(mazeRebuild({x: s.x, y: s.y}));
   }
+  if (x < 20 || x > W - 20 || y < 20 || y > H - 20) return false;
   if (distToAnyPath(x, y) < 42) return false;
   for (const t of G.towers) if (hyp(x, y, t.x, t.y) < 38) return false;
   return true;
@@ -1539,6 +1545,7 @@ function placeTower(key, x, y, force){
   if (!force && !towerUnlocked(key)){ SFX.error(); return; }
   const cost = force ? TOWERS[key].cost : towerCost(key);
   if (G.cash < cost || !canPlace(x, y)) { SFX.error(); return; }
+  if (G.level.maze){ const s = mazeSnap(x, y); x = s.x; y = s.y; }   // weapons sit exactly on their grid squares
   G.cash -= cost;
   G.towers.push({key, x, y, ulv: 0, cd: 0, angle: rand(0, 6.28), flash: 0, invested: cost, mode: 'first'});
   if (G.level.maze) G.flow = mazeRebuild();   // the walls just changed — reroute everyone
@@ -3105,19 +3112,44 @@ function render(dt){
   // placing ghost
   if (G.placing && G.mouse.on){
     const def = TOWERS[G.placing];
-    const ok = canPlace(G.mouse.x, G.mouse.y) && G.cash >= towerCost(G.placing);
+    let px = G.mouse.x, py = G.mouse.y;
+    if (G.level.maze && G.flow){
+      // show the routing grid: which squares are already walled off, and the
+      // exact 2×2 block this weapon will claim — so chokepoints are built by
+      // eye, cell-perfectly, like any proper tower defense
+      const s = mazeSnap(px, py); px = s.x; py = s.y;
+      const F = G.flow, cs = F.cs;
+      ctx.strokeStyle = 'rgba(255,255,255,0.09)'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let ci = 1; ci < F.cols; ci++){ ctx.moveTo(ci * cs, 0); ctx.lineTo(ci * cs, H); }
+      for (let ri = 1; ri < F.rows; ri++){ ctx.moveTo(0, ri * cs); ctx.lineTo(W, ri * cs); }
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,90,60,0.13)';        // squares dinosaurs cannot walk
+      for (let ri = 0; ri < F.rows; ri++) for (let ci = 0; ci < F.cols; ci++){
+        if (F.blocked[ri * F.cols + ci]) ctx.fillRect(ci * cs, ri * cs, cs, cs);
+      }
+    }
+    const ok = canPlace(px, py) && G.cash >= towerCost(G.placing);
     ctx.globalAlpha = 0.85;
     ctx.strokeStyle = ok ? 'rgba(140,240,140,0.6)' : 'rgba(255,90,90,0.7)';
     ctx.fillStyle = ok ? 'rgba(140,240,140,0.12)' : 'rgba(255,90,90,0.12)';
     const rng = def.range * rangeUpMult(G.placing);   // base range + any lab range unlock
-    ctx.beginPath(); ctx.arc(G.mouse.x, G.mouse.y, rng, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-    drawTowerBase(ctx, G.mouse.x, G.mouse.y, G.placing, false, 0);
+    ctx.beginPath(); ctx.arc(px, py, rng, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    if (G.level.maze){
+      // highlight the exact squares about to become wall
+      ctx.fillStyle = ok ? 'rgba(140,240,140,0.28)' : 'rgba(255,90,90,0.33)';
+      ctx.fillRect(px - 32, py - 32, 64, 64);
+      ctx.lineWidth = 2;
+      ctx.strokeRect(px - 32, py - 32, 64, 64);
+      ctx.lineWidth = 1;
+    }
+    drawTowerBase(ctx, px, py, G.placing, false, 0);
     if (G.pendingTap){
       ctx.font = 'bold 13px Verdana, sans-serif'; ctx.textAlign = 'center';
       ctx.fillStyle = 'rgba(0,0,0,0.7)';
-      ctx.fillText(ok ? 'TAP AGAIN TO BUILD' : 'BLOCKED — TAP ELSEWHERE', G.mouse.x + 1, G.mouse.y - 33);
+      ctx.fillText(ok ? 'TAP AGAIN TO BUILD' : 'BLOCKED — TAP ELSEWHERE', px + 1, py - 43);
       ctx.fillStyle = ok ? '#9fe870' : '#ff8a7a';
-      ctx.fillText(ok ? 'TAP AGAIN TO BUILD' : 'BLOCKED — TAP ELSEWHERE', G.mouse.x, G.mouse.y - 34);
+      ctx.fillText(ok ? 'TAP AGAIN TO BUILD' : 'BLOCKED — TAP ELSEWHERE', px, py - 44);
     }
     ctx.globalAlpha = 1;
   }
@@ -3719,22 +3751,23 @@ if (testParams.has('test')){
     el.textContent = `INDO cloaked=${cloakedNow} · covered→no-banner=${coveredNoBanner} · lapse→vanished-once=${lapseVanished} · invincible=${invincible} · emitter-hurt=${hurtByEmitter} (all want true)`;
     G.paused = true;
   }
-  if (testParams.has('mazecheck')){ // open-world map: routing works + total blockade is rejected
+  if (testParams.has('mazecheck')){ // open-world grid: routing, sealing, flush walls, solid boxes
     G.cash = 1e9;
-    // full-height wall at x=640 with one TRUE mid-map gap (towers at y 352,
-    // 380 and 408 skipped; the wall never fires — huge cd — pure routing test)
-    for (let y = 16; y <= 704; y += 28){
-      if (y === 352 || y === 380 || y === 408) continue;
-      G.towers.push({key: 'gatling', x: 640, y, ulv: 0, cd: 9999, angle: 0, flash: 0, invested: 0, mode: 'first'});
-    }
+    const wall = (x, y) => G.towers.push({key: 'gatling', x, y, ulv: 0, cd: 9999, angle: 0, flash: 0, invested: 0, mode: 'first'});
+    // wall A at x=640: flush 2×2 towers, one missing → a 2-square gap (rows 10-11)
+    for (let y = 32; y <= 672; y += 64){ if (y !== 352) wall(640, y); }
+    // wall B at x=960: two offset segments leaving a SINGLE-square slit (row 10)
+    for (let y = 32; y <= 288; y += 64) wall(960, y);
+    for (let y = 384; y <= 672; y += 64) wall(960, y);
     G.flow = mazeRebuild();
-    const sealRejected = !canPlace(640, 384);          // closing the last corridor must be illegal
-    const openOk = canPlace(300, 560);                 // a normal spot away from the gap is fine
-    // a weapon near the top border must leave NO over-the-top squeeze:
-    // the border row and the strip under it must both be unwalkable there
-    const f2 = mazeRebuild({x: 200, y: 60});
+    const sealRejected = !canPlace(640, 352);          // plugging wall A's hole seals the field — illegal
+    const flushOk = canPlace(576, 96);                 // flush against the wall (64 apart) is legal
+    const overlapRejected = !canPlace(640, 320);       // half-on another weapon is not
+    const openOk = canPlace(320, 544);                 // a normal free spot is fine
+    // a weapon flush with the top border must leave NO over-the-top squeeze
+    const f2 = mazeRebuild({x: 192, y: 32});
     const edgeSealed = f2.dist[6] < 0 && f2.dist[f2.cols + 6] < 0;
-    const dbg = `gapDist=${G.flow.dist[11 * G.flow.cols + 19]}(want >=0)`;
+    const dbg = `gapDist=${G.flow.dist[10 * G.flow.cols + 19]},slit=${G.flow.dist[10 * G.flow.cols + 29]}(want >=0)`;
     for (let i = 0; i < 6; i++){
       spawnDino('velociraptor', 0, false);
       const d = G.dinos[G.dinos.length - 1];
@@ -3744,26 +3777,39 @@ if (testParams.has('test')){
     spawnDino('trex', 0, true);
     const bz = G.dinos[G.dinos.length - 1];
     bz.hp = bz.maxHp = 1e9; bz.entranceT = 0; G.cinT = 0; G.banner = null;
-    // instrument the sim: dinos must cross the wall line INSIDE the gap and
-    // never stand on a weapon (phasing via the old stranded fallback looked
-    // exactly like an "escape" — lives dropped either way)
-    let minTd = 1e9; const crossY = [];
-    for (let s = 0; s < 18; s += 0.05){
+    // instrument the sim: every wall crossing must happen INSIDE its gap and
+    // no dino may ever stand on a weapon (phasing looks like an "escape" too)
+    let minTd = 1e9; const crossA = [], crossB = [];
+    for (let s = 0; s < 26; s += 0.05){
       step(0.05);
       for (const d of G.dinos){
         if (d.dead || d.flying || d.mx === undefined) continue;
-        if (d.pmx !== undefined && d.pmx <= 640 && d.mx > 640) crossY.push(d.my | 0);
+        if (d.pmx !== undefined && d.pmx <= 640 && d.mx > 640) crossA.push(d.my | 0);
+        if (d.pmx !== undefined && d.pmx <= 960 && d.mx > 960) crossB.push(d.my | 0);
         d.pmx = d.mx;
-        if (d.mx > 560 && d.mx < 720) for (const t of G.towers){
-          const td = Math.hypot(d.mx - t.x, d.my - t.y);
+        for (const t of G.towers){
+          const td = Math.max(Math.abs(d.mx - t.x), Math.abs(d.my - t.y));   // box distance
           if (td < minTd) minTd = td;
         }
       }
     }
     const escaped = G.lives < G.maxLives;
-    const throughGap = crossY.length > 0 && crossY.every(y => y > 330 && y < 430);
+    const gapA = crossA.length > 0 && crossA.every(y => y > 305 && y < 400);   // 2-square gap: y 320-384
+    const gapB = crossB.length > 0 && crossB.every(y => y > 310 && y < 362);   // 1-square slit: y 320-352
     const el = $('#errbox'); el.classList.remove('hidden');
-    el.textContent = `MAZE sealRejected=${sealRejected}(want true) · openOk=${openOk}(want true) · edgeSealed=${edgeSealed}(want true) · escaped=${escaped} · crossed=${crossY.length} throughGap=${throughGap}(want true) atY=${crossY.join('/')} · minTowerDist=${minTd === 1e9 ? 'n/a' : minTd | 0}(want >=24) · ${dbg}`;
+    el.textContent = `MAZE sealRejected=${sealRejected} flushOk=${flushOk} overlapRejected=${overlapRejected} openOk=${openOk} edgeSealed=${edgeSealed} (want all true) · escaped=${escaped} · gapA=${gapA}(${crossA.join('/')}) gapB=${gapB}(${crossB.join('/')}) (want true) · minBoxDist=${minTd === 1e9 ? 'n/a' : minTd | 0}(want >=34) · ${dbg}`;
+    G.paused = true;
+  }
+  if (testParams.has('grid')){ // visual: the placement grid overlay on the maze map
+    G.cash = 1e9;
+    G.towers.length = 0; G.flow = mazeRebuild();       // clear the default test loadout
+    placeTower('gatling', 448, 224, true);
+    placeTower('gatling', 448, 288, true);            // a flush vertical pair
+    G.placing = 'cryo';
+    G.mouse.x = 500; G.mouse.y = 340; G.mouse.on = true;   // snaps flush under the pair
+    step(0.05);
+    const el = $('#errbox'); el.classList.remove('hidden');
+    el.textContent = `GRID canPlace(512,352)=${canPlace(512, 352)}(want true) · flushLeft=${canPlace(384, 256)}(want true) · onTop=${canPlace(448, 256)}(want false) · towers=${G.towers.map(t => t.x + ',' + t.y).join(' ')}`;
     G.paused = true;
   }
   if (testParams.has('zap')){ // stage a tesla (at the given upgrade level) mid-arc

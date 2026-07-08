@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.29.3';
+const VERSION = '1.30.0';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -25,11 +25,10 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.29.3', date: 'Jul 8, 2026', items: [
-    '🧱 Proving Grounds: dinosaurs now march in from one point in a single-file column, all following the same shortest route — and a dashed guide line shows that route live, reshaping the moment you place or sell a weapon.',
-    '🛡️ Weapons are now truly solid — dinosaurs (even big bosses like the T-Rex) bounce off them instead of occasionally marching straight over the wall.',
-    '📏 The guide line only routes through gaps dinosaurs can actually fit through — corridors now need a full clear square, so no more columns piling up at an impossible squeeze.',
-    '🚧 Dinosaurs can no longer squeeze between a weapon and the map edge — the border is a wall, so an edge-hugging weapon truly forces them the other way.',
+  {v: '1.30.0', date: 'Jul 8, 2026', items: [
+    '🔲 Proving Grounds is now a true build grid: weapons snap to the grid and occupy exact 2×2 squares — place them flush against each other or the map edge to form seamless walls, and the grid appears while you place, highlighting walled-off squares and the exact footprint of the weapon in hand.',
+    '🧱 Dinosaurs march in from one point in a single-file column, all following the same shortest route — a dashed guide line shows it live, and it only ever routes through squares dinosaurs can genuinely walk, one free square at a time.',
+    '🛡️ Weapons are truly solid — dinosaurs (even big bosses like the T-Rex) physically cannot step over them or squeeze between a weapon and the map edge.',
     '❄️ The Cryo Cannon is now available from wave 1 — slow them down early.',
   ]},
   {v: '1.28.0', date: 'Jul 7, 2026', items: [
