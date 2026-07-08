@@ -661,9 +661,9 @@ function spawnDino(key, pathI, isBoss){
   };
   if (G.level.maze && !d.flying){
     // open-world map: every ground dino enters at the SAME centre-left point
-    // and marches the one shortest route the flow field currently allows —
-    // a single-file column that re-forms whenever the walls change
-    d.mx = -24; d.my = H / 2; d.mang = 0;
+    // (the open entry square nearest mid-field) and marches the one shortest
+    // route the flow field currently allows — a single-file column
+    d.mx = -24; d.my = mazeEntryY(); d.mang = 0;
     d.dist = d.mx;                       // progress proxy for FIRST/LAST targeting
   }
   G.dinos.push(d);
@@ -671,7 +671,20 @@ function spawnDino(key, pathI, isBoss){
     // cinematic entrance: stalk in past the gate, stop, and roar
     // (the D-Rex takes its time — longer letterbox, second roar mid-entrance)
     d.dist = 100 + rand(0, 50);
-    if (d.mx !== undefined){ d.mx = 90 + rand(0, 50); d.my = H / 2; d.dist = d.mx; }
+    if (d.mx !== undefined){
+      // stalk in a short way ALONG the current route — a fixed mid-field spawn
+      // could land inside a wall built near the entrance, and the pop-out
+      // then threw the boss to the far side of it
+      let px = 90 + rand(0, 50), py = d.my, remain = 110 + rand(0, 40);
+      const pts = mazeRoutePts();
+      if (pts) for (let i = 1; i < pts.length && remain > 0; i++){
+        const sx = pts[i].x - pts[i - 1].x, sy = pts[i].y - pts[i - 1].y;
+        const seg = Math.hypot(sx, sy);
+        if (seg >= remain){ px = pts[i - 1].x + sx * remain / seg; py = pts[i - 1].y + sy * remain / seg; break; }
+        remain -= seg; px = pts[i].x; py = pts[i].y;
+      }
+      d.mx = px; d.my = py; d.dist = d.mx;
+    }
     d.entranceT = key === 'drex' ? 3.4 : 2.2;
     d.seedE = rand(0, 1);
     G.cinT = key === 'drex' ? 4.4 : 2.8;
@@ -736,17 +749,11 @@ const mazeSnap = (x, y) => ({
   y: clamp(Math.round(y / MAZE_CS) * MAZE_CS, MAZE_CS, Math.floor(H / MAZE_CS) * MAZE_CS - MAZE_CS),
 });
 function mazeRebuild(extra){
-  const cs = MAZE_CS, cols = Math.ceil(W / cs), rows = Math.ceil(H / cs);
+  // every fully-on-screen square is ordinary walkable ground, INCLUDING the
+  // outer rows/cols — closing off the edge is done the honest way, by placing
+  // a weapon flush against it (rows = floor: no phantom half-row off-screen)
+  const cs = MAZE_CS, cols = Math.ceil(W / cs), rows = Math.floor(H / cs);
   const blocked = new Uint8Array(cols * rows);
-  // the border strip is NEVER walkable — no squeezing along the map edge, so
-  // a weapon close to the edge genuinely closes that side and forces the
-  // column the other way (entry/exit bands on the sides stay open)
-  for (let ci = 0; ci < cols; ci++){ blocked[ci] = 1; blocked[(rows - 1) * cols + ci] = 1; }
-  for (let ri = 0; ri < rows; ri++){
-    if (Math.abs(ri * cs + cs / 2 - H / 2) > MAZE_BAND){
-      blocked[ri * cols] = 1; blocked[ri * cols + cols - 1] = 1;
-    }
-  }
   const mark = (tx, ty) => {
     // a weapon occupies whole grid squares (2×2 for a grid-snapped tower) —
     // walls are cell-perfect, exactly the squares the placement grid shows
@@ -784,6 +791,16 @@ const mazeEntryOpen = f => {                  // is the centre-left entry still 
   }
   return false;
 };
+function mazeEntryY(){                        // centre of the open entry cell nearest mid-field
+  const F = G.flow; if (!F) return H / 2;
+  let best = 1e9, y = H / 2;
+  for (let ri = 0; ri < F.rows; ri++){
+    const cy = ri * F.cs + F.cs / 2;
+    if (Math.abs(cy - H / 2) > MAZE_BAND || F.dist[ri * F.cols] < 0) continue;
+    if (Math.abs(cy - H / 2) < best){ best = Math.abs(cy - H / 2); y = cy; }
+  }
+  return y;
+}
 /* the one route the column is currently marching: entry cell → exit, traced
    through the flow field (drawn as a faint dashed guide on maze maps) */
 function mazeRoutePts(){
@@ -796,7 +813,7 @@ function mazeRoutePts(){
     if (F.dist[cid] >= 0 && Math.abs(cy - H / 2) < best){ best = Math.abs(cy - H / 2); id = cid; }
   }
   if (id < 0) return null;
-  const pts = [{x: -20, y: H / 2}];
+  const pts = [{x: -20, y: ((id / F.cols) | 0) * F.cs + F.cs / 2}];
   let guard = F.cols * F.rows;
   while (id >= 0 && guard--){
     pts.push({x: (id % F.cols) * F.cs + F.cs / 2, y: ((id / F.cols) | 0) * F.cs + F.cs / 2});
@@ -1188,14 +1205,16 @@ function updateDinos(dt){
     let pp, atEnd;
     if (G.level.maze && !d.flying && d.mx !== undefined){
       const tgt = mazeSteer(d.mx, d.my);
-      let ta = Math.atan2(tgt.y - d.my, tgt.x - d.mx);
-      let da = ta - (d.mang || 0);
-      while (da > Math.PI) da -= Math.PI * 2;
-      while (da < -Math.PI) da += Math.PI * 2;
-      d.mang = (d.mang || 0) + clamp(da, -dt * 8, dt * 8);   // agile enough to thread a one-square corridor
+      // walk the route polyline DIRECTLY — no turning-circle drift. A fast
+      // boss's steering arc is wider than a one-square corridor, so steering
+      // by angle overshot corners and jammed against the boxes; the body
+      // angle below is purely visual and eases toward the travel direction
+      const tdx = tgt.x - d.mx, tdy = tgt.y - d.my;
+      const tdl = Math.hypot(tdx, tdy) || 1;
+      const stp = d.speed * slow * dt;
       const omx = d.mx, omy = d.my;         // pre-move position — known good
-      d.mx += Math.cos(d.mang) * d.speed * slow * dt;
-      d.my += Math.sin(d.mang) * d.speed * slow * dt;
+      d.mx += tdx / tdl * stp;
+      d.my += tdy / tdl * stp;
       // weapons are physically solid GRID BOXES (2×2 squares + a 4px skin):
       // eject a clipping dino out the face it came in through — never across —
       // so even a fast boss can't ratchet through a flush wall. Two passes so
@@ -1210,7 +1229,14 @@ function updateDinos(dt){
         else if (Math.abs(dx) > Math.abs(dy)) d.mx = t.x + (dx < 0 ? -36 : 36);  // started inside — pop out the short way
         else d.my = t.y + (dy < 0 ? -36 : 36);
       }
-      d.my = clamp(d.my, 40, H - 20);     // stay reachable to every walkable row's centre (border rows are blocked)
+      d.my = clamp(d.my, 10, H - 12);     // the outer rows are walkable now — just stay on-screen
+      const ddx = d.mx - omx, ddy = d.my - omy;
+      if (ddx * ddx + ddy * ddy > 0.01){  // ease the visible heading toward actual travel
+        let da = Math.atan2(ddy, ddx) - (d.mang || 0);
+        while (da > Math.PI) da -= Math.PI * 2;
+        while (da < -Math.PI) da += Math.PI * 2;
+        d.mang = (d.mang || 0) + clamp(da, -dt * 10, dt * 10);
+      }
       d.dist = d.mx;                      // progress proxy for targeting modes
       d.phase += dt * d.stride * slow;
       pp = {x: d.mx, y: d.my, ang: d.mang};
@@ -3798,6 +3824,40 @@ if (testParams.has('test')){
     const gapB = crossB.length > 0 && crossB.every(y => y > 310 && y < 362);   // 1-square slit: y 320-352
     const el = $('#errbox'); el.classList.remove('hidden');
     el.textContent = `MAZE sealRejected=${sealRejected} flushOk=${flushOk} overlapRejected=${overlapRejected} openOk=${openOk} edgeSealed=${edgeSealed} (want all true) · escaped=${escaped} · gapA=${gapA}(${crossA.join('/')}) gapB=${gapB}(${crossB.join('/')}) (want true) · minBoxDist=${minTd === 1e9 ? 'n/a' : minTd | 0}(want >=34) · ${dbg}`;
+    G.paused = true;
+  }
+  if (testParams.has('topcheck')){ // Matt's repro: wall near the entrance, only route is over the very top
+    G.cash = 1e9;
+    G.towers.length = 0;
+    // wall on cols 7-8 from y=96 down to the bottom — ONLY rows 0-1 stay open
+    for (let y = 96; y <= 672; y += 64) G.towers.push({key: 'gatling', x: 256, y, ulv: 0, cd: 9999, angle: 0, flash: 0, invested: 0, mode: 'first'});
+    G.flow = mazeRebuild();
+    const sealTop = !canPlace(256, 32);                // capping the wall flush to the edge would seal — illegal
+    for (let i = 0; i < 5; i++){
+      spawnDino('velociraptor', 0, false);
+      const d = G.dinos[G.dinos.length - 1];
+      d.hp = d.maxHp = 1e9;
+    }
+    spawnDino('trex', 0, true);
+    const bz = G.dinos[G.dinos.length - 1];
+    bz.hp = bz.maxHp = 1e9; bz.entranceT = 0; G.cinT = 0; G.banner = null;
+    let minTd = 1e9; const crossT = [];
+    for (let s = 0; s < 34; s += 0.05){
+      step(0.05);
+      for (const d of G.dinos){
+        if (d.dead || d.flying || d.mx === undefined) continue;
+        if (d.pmx !== undefined && d.pmx <= 256 && d.mx > 256) crossT.push(d.my | 0);
+        d.pmx = d.mx;
+        for (const t of G.towers){
+          const td = Math.max(Math.abs(d.mx - t.x), Math.abs(d.my - t.y));
+          if (td < minTd) minTd = td;
+        }
+      }
+    }
+    const escaped = G.lives < G.maxLives;
+    const overTop = crossT.length > 0 && crossT.every(y => y < 70);   // rows 0-1 only
+    const el = $('#errbox'); el.classList.remove('hidden');
+    el.textContent = `TOP sealTop=${sealTop} overTop=${overTop} escaped=${escaped} (want all true) · crossed=${crossT.length} atY=${crossT.join('/')} · minBoxDist=${minTd === 1e9 ? 'n/a' : minTd | 0}(want >=34)`;
     G.paused = true;
   }
   if (testParams.has('grid')){ // visual: the placement grid overlay on the maze map

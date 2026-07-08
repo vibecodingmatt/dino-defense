@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.30.0';
+const VERSION = '1.30.1';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -25,7 +25,9 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.30.0', date: 'Jul 8, 2026', items: [
+  {v: '1.30.1', date: 'Jul 8, 2026', items: [
+    '🦶 Dinosaurs now walk the route line exactly — no more columns jamming at corners the line said were open, and big bosses can no longer barge through walls (they also stalk in along the route instead of appearing mid-field).',
+    '🌿 The outer edge squares are ordinary walkable ground now — shut an edge route down the honest way, with a weapon placed flush against the border.',
     '🔲 Proving Grounds is now a true build grid: weapons snap to the grid and occupy exact 2×2 squares — place them flush against each other or the map edge to form seamless walls, and the grid appears while you place, highlighting walled-off squares and the exact footprint of the weapon in hand.',
     '🧱 Dinosaurs march in from one point in a single-file column, all following the same shortest route — a dashed guide line shows it live, and it only ever routes through squares dinosaurs can genuinely walk, one free square at a time.',
     '🛡️ Weapons are truly solid — dinosaurs (even big bosses like the T-Rex) physically cannot step over them or squeeze between a weapon and the map edge.',
