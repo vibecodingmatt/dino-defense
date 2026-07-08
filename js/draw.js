@@ -567,6 +567,101 @@ function drawMutantRex(ctx, d, ph){
   leg(ctx, 0.04, -0.66, 0.72, ph, shade(p.body, -0.1), 0.26);
 }
 
+/* ---------- AQUATIC (mosasaurus, plesiosaurus & friends) ----------
+   A marine reptile cutting along the surface: low half-submerged body with
+   a bow wake and ripples, sweeping tail fluke, stroking paddle-flippers.
+   feat.longNeck = plesiosaur swan-neck; feat.bigJaw = mosasaur-style maw;
+   feat.ridge = spine ridge fins. */
+function drawAquatic(ctx, d, ph){
+  const p = d.pal, f = d.feat || {};
+  const sw = Math.sin(ph);                    // swimming undulation
+  const roar = (d.entranceT || 0) > 0 ? Math.min(1, (2.2 - d.entranceT) * 2.5) : 0;
+
+  // underwater shadow of the bulk below the surface
+  ctx.fillStyle = 'rgba(8,22,28,0.3)';
+  ctx.beginPath(); ctx.ellipse(-0.05, 0.07, 0.62, 0.13, 0, 0, Math.PI*2); ctx.fill();
+  // wake: ripple arcs peeling off the bow and trailing behind
+  ctx.strokeStyle = 'rgba(235,248,252,0.55)'; ctx.lineWidth = 0.045; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(0.62, 0.0);
+  ctx.quadraticCurveTo(0.1, 0.13 + sw * 0.02, -0.75, 0.05); ctx.stroke();
+  ctx.globalAlpha = 0.5;
+  ctx.beginPath(); ctx.moveTo(0.7, -0.05);
+  ctx.quadraticCurveTo(0.15, 0.09, -0.95, 0.02 + sw * 0.03); ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // sweeping tail + fluke
+  ctx.fillStyle = shade(p.body, -0.12);
+  ctx.beginPath();
+  ctx.moveTo(-0.32, -0.2);
+  ctx.quadraticCurveTo(-0.78, -0.18 + sw * 0.08, -1.02, -0.08 + sw * 0.15);
+  ctx.quadraticCurveTo(-1.18, -0.02 + sw * 0.18, -1.08, 0.08 + sw * 0.12);  // fluke tip
+  ctx.quadraticCurveTo(-0.72, 0.04 + sw * 0.05, -0.32, 0.02);
+  ctx.closePath(); ctx.fill();
+
+  // low body hump breaking the surface
+  ctx.fillStyle = p.body;
+  ctx.beginPath(); ctx.ellipse(0, -0.12, 0.52, 0.21, -0.05, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = p.belly;                    // wet sheen along the waterline
+  ctx.beginPath(); ctx.ellipse(0.05, -0.02, 0.4, 0.06, -0.04, 0, Math.PI*2); ctx.fill();
+  if (f.ridge){                               // spine ridge fins
+    ctx.fillStyle = shade(p.body, -0.3);
+    for (let i = 0; i < 4; i++){
+      const x = -0.3 + i * 0.17;
+      ctx.beginPath(); ctx.moveTo(x, -0.28); ctx.lineTo(x + 0.05, -0.4); ctx.lineTo(x + 0.11, -0.27); ctx.closePath(); ctx.fill();
+    }
+  }
+  // paddle flipper stroking the water
+  ctx.save();
+  ctx.translate(0.14, -0.06); ctx.rotate(0.65 + sw * 0.45);
+  ctx.fillStyle = shade(p.body, -0.28);
+  ctx.beginPath(); ctx.ellipse(0.12, 0.05, 0.17, 0.07, 0.35, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+
+  if (f.longNeck){
+    // plesiosaur: graceful swan neck up out of the water, small head
+    ctx.strokeStyle = p.body; ctx.lineWidth = 0.14; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(0.32, -0.16);
+    ctx.quadraticCurveTo(0.52, -0.42 + sw * 0.02, 0.58, -0.66 + sw * 0.03); ctx.stroke();
+    ctx.fillStyle = p.body;
+    ctx.beginPath(); ctx.ellipse(0.62, -0.72 + sw * 0.03, 0.12, 0.075, 0.25, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#1a1a12';
+    ctx.beginPath(); ctx.arc(0.66, -0.74 + sw * 0.03, 0.022, 0, Math.PI*2); ctx.fill();
+  } else {
+    // mosasaur-style head: wedge skull riding the surface, toothy maw
+    const big = f.bigJaw ? 1.2 : 1;
+    const jawOpen = 0.04 + Math.max(0, Math.sin(ph * 0.9)) * 0.045 + roar * 0.2;
+    const hy = -0.16 - roar * 0.14;           // rears up out of the water to roar
+    ctx.save();
+    ctx.translate(0.42, hy);
+    if (roar) ctx.rotate(-roar * 0.3);
+    ctx.fillStyle = p.body;                    // skull
+    ctx.beginPath();
+    ctx.moveTo(-0.05, -0.16 * big);
+    ctx.quadraticCurveTo(0.2 * big, -0.19 * big, 0.42 * big, -0.05);
+    ctx.lineTo(0.42 * big, 0.01); ctx.lineTo(-0.05, 0.06); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = shade(p.body, -0.18);      // lower jaw
+    ctx.beginPath();
+    ctx.moveTo(-0.02, 0.04);
+    ctx.lineTo(0.38 * big, 0.03 + jawOpen); ctx.lineTo(0.38 * big, 0.08 + jawOpen);
+    ctx.lineTo(-0.02, 0.1); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#f4f2e4';                 // interlocking fangs
+    for (let i = 0; i < 4; i++){
+      const tx = 0.08 + i * 0.085 * big;
+      ctx.beginPath(); ctx.moveTo(tx - 0.017, 0.015); ctx.lineTo(tx + 0.017, 0.015); ctx.lineTo(tx + 0.002, 0.055); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(tx + 0.028, 0.035 + jawOpen); ctx.lineTo(tx + 0.058, 0.035 + jawOpen); ctx.lineTo(tx + 0.045, 0.008 + jawOpen); ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = '#1a1a12';                 // eye
+    ctx.beginPath(); ctx.arc(0.05, -0.08 * big, 0.028, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+  // spray flecks off the bow
+  ctx.fillStyle = 'rgba(240,250,252,0.7)';
+  for (let i = 0; i < 2; i++){
+    const k = (ph * 0.5 + i * 0.5) % 1;
+    ctx.beginPath(); ctx.arc(0.6 + k * 0.2, -0.05 - k * 0.12, 0.022 * (1 - k), 0, Math.PI*2); ctx.fill();
+  }
+}
+
 /* ---------- OMEGA REX (the deployable robot T-Rex) ----------
    A hard-edged war machine: angular armour plates with visible seams and
    rivets, hydraulic piston legs, a boxy servo skull with a burning optic,
@@ -720,7 +815,7 @@ function drawOmegaRex(ctx, d, ph){
   roboLeg(ctx, 0.02, -0.62, 0.64, ph, steel, darker, 0.18); // near leg
 }
 
-const PAINTERS = {theropod:drawTheropod, quad:drawQuad, sauropod:drawSauropod, flyer:drawFlyer, mutant:drawMutantRex, omega:drawOmegaRex};
+const PAINTERS = {theropod:drawTheropod, quad:drawQuad, sauropod:drawSauropod, flyer:drawFlyer, mutant:drawMutantRex, omega:drawOmegaRex, aquatic:drawAquatic};
 
 /* Draws a full dinosaur at world position.
    turn: -1..1 facing (mid-values render the turn itself as a squash-flip)
@@ -1830,20 +1925,76 @@ function renderBackground(level, W, H){
     }
   }
 
-  /* --- the road --- */
+  /* --- the road (or river, or open field) --- */
   const drawPath = (pts, w, col) => {
     c.strokeStyle = col; c.lineWidth = w; c.lineCap = 'round'; c.lineJoin = 'round';
     c.beginPath();
     pts.forEach((p, i) => i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y));
     c.stroke();
   };
-  for (const pts of level.paths){
-    drawPath(pts, 50, 'rgba(0,0,0,0.25)');           // soft edge shadow
-    drawPath(pts, 46, th.pathEdge);
-    drawPath(pts, 38, th.path);
-    drawPath(pts, 20, shade(th.path, 0.09));         // worn center
+  const isWaterPath = i => (level.waterPaths || []).includes(i);
+  if (level.maze){
+    // no road at all — an open stampede ground. Trampled aprons at the mouth
+    // and the breakout point, and faint worn streaks hinting at the flow.
+    for (const [ax, ay] of [[30, H/2], [W - 30, H/2]]){
+      c.fillStyle = 'rgba(0,0,0,0.15)';
+      c.beginPath(); c.ellipse(ax, ay + 4, 90, 120, 0, 0, Math.PI*2); c.fill();
+      c.fillStyle = shade(th.path, -0.08); c.globalAlpha = 0.5;
+      c.beginPath(); c.ellipse(ax, ay, 84, 112, 0, 0, Math.PI*2); c.fill();
+      c.globalAlpha = 1;
+    }
+    c.strokeStyle = shade(th.path, -0.1); c.globalAlpha = 0.22; c.lineCap = 'round';
+    for (let i = 0; i < 9; i++){
+      const y = H/2 + (rng() - 0.5) * 300;
+      c.lineWidth = 5 + rng() * 8;
+      c.beginPath(); c.moveTo(60 + rng() * 120, y);
+      c.quadraticCurveTo(W/2, y + (rng() - 0.5) * 120, W - 60 - rng() * 120, H/2 + (rng() - 0.5) * 220);
+      c.stroke();
+    }
+    c.globalAlpha = 1;
+  } else {
+    level.paths.forEach((pts, pi) => {
+      if (isWaterPath(pi)){
+        // a living river channel: dark banks, deep water, sunlit centreline
+        drawPath(pts, 58, 'rgba(0,0,0,0.3)');
+        drawPath(pts, 54, shade(th.water, -0.35));
+        drawPath(pts, 46, th.water);
+        drawPath(pts, 26, shade(th.water, 0.18));
+        // sparkle + drifting foam flecks baked along the channel
+        c.fillStyle = 'rgba(255,255,255,0.35)';
+        for (let i = 0; i < pts.length - 1; i++){
+          const a = pts[i], b = pts[i+1], n = Math.floor(Math.hypot(b.x-a.x, b.y-a.y) / 26);
+          for (let j = 0; j < n; j++){
+            const t = j / n;
+            c.globalAlpha = 0.14 + rng() * 0.25;
+            c.beginPath();
+            c.ellipse(a.x + (b.x-a.x)*t + (rng()-0.5)*30, a.y + (b.y-a.y)*t + (rng()-0.5)*30,
+                      2 + rng()*4, 0.8 + rng()*1.4, 0, 0, Math.PI*2);
+            c.fill();
+          }
+        }
+        c.globalAlpha = 1;
+        // reeds crowding the banks
+        for (let i = 0; i < pts.length - 1; i++){
+          const a = pts[i], b = pts[i+1];
+          const ang = Math.atan2(b.y-a.y, b.x-a.x), n = Math.floor(Math.hypot(b.x-a.x, b.y-a.y) / 90);
+          for (let j = 0; j <= n; j++){
+            const t = j / Math.max(1, n), s2 = rng() < 0.5 ? 1 : -1;
+            const rx = a.x + (b.x-a.x)*t + Math.cos(ang + Math.PI/2) * s2 * 34;
+            const ry = a.y + (b.y-a.y)*t + Math.sin(ang + Math.PI/2) * s2 * 34;
+            if (rx > 14 && rx < W - 14 && ry > 14 && ry < H - 14) bakeFern(c, rx, ry, 7 + rng()*5, th, rng);
+          }
+        }
+      } else {
+        drawPath(pts, 50, 'rgba(0,0,0,0.25)');       // soft edge shadow
+        drawPath(pts, 46, th.pathEdge);
+        drawPath(pts, 38, th.path);
+        drawPath(pts, 20, shade(th.path, 0.09));     // worn center
+      }
+    });
   }
-  for (const pts of level.paths){ // jeep tire tracks
+  for (const [pi0, pts] of level.paths.entries()){ // jeep tire tracks
+    if (level.maze || isWaterPath(pi0)) continue;
     c.save();
     c.strokeStyle = shade(th.path, -0.28); c.lineWidth = 3; c.setLineDash([12, 15]);
     for (const off of [-7.5, 7.5]){
@@ -1952,7 +2103,8 @@ function renderBackground(level, W, H){
 
   /* --- gates & checkpoint --- */
   const flames = [];
-  for (const pts of level.paths){
+  for (const [gpi, pts] of level.paths.entries()){
+    if ((level.waterPaths || []).includes(gpi)) continue;  // no torch gate standing in a river
     const a = pts[0], b = pts[1];
     const ang = Math.atan2(b.y-a.y, b.x-a.x);
     // pull the gate onto the visible map along the travel direction

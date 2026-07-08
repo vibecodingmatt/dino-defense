@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.27.3';
+const VERSION = '1.28.0';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -25,7 +25,9 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.27.3', date: 'Jul 7, 2026', items: [
+  {v: '1.28.0', date: 'Jul 7, 2026', items: [
+    '🧱 NEW MAP: THE PROVING GROUNDS — an open battlefield with no road. Dinosaurs roam freely from left to right and your weapons ARE the walls: build a zig-zag maze to grind them down. You can never seal the field completely, and flyers just soar straight over.',
+    '🌊 NEW MAP: MOSASAUR LAGOON — a jungle road plus a living river swarming with all-new aquatic dinosaurs (Ichthyosaurus, Plesiosaurus, Kronosaurus), ruled by the mighty MOSASAURUS.',
     '🦷 Carnivores finally have carnivore teeth — jagged fangs instead of flat white strips, in-game and on the home screen.',
     '🏃 The home-screen giants now chase fleeing tourists — some trip and fall, and about a third get eaten.',
     '🔥 Dinosaurs hit by the Flame Thrower now visibly catch fire, with flames dancing on their backs while they burn.',
@@ -104,6 +106,15 @@ const DINOS = {
   quetzalcoatlus:   {name:'Quetzalcoatlus',     painter:'flyer',    hp:800, speed:58,  armor:1, bounty:55, dmg:8,  size:28, minWave:50, weight:4, flying:true,
                      pal:{body:'#a88c6a', belly:'#e6d8bd', accent:'#6b543a'}, feat:{crest:true}},
 
+  /* --- aquatic (Mosasaur Lagoon) — swim the water channel; can't burn, and
+         they dive under gas clouds --- */
+  ichthyosaurus:    {name:'Ichthyosaurus',      painter:'aquatic',  hp:120, speed:112, armor:0, bounty:12, dmg:2,  size:15, minWave:4,  weight:9, water:true, burnImmune:true,
+                     pal:{body:'#5a7d92', belly:'#d9e6ea', accent:'#324b58'}, feat:{}},
+  plesiosaurus:     {name:'Plesiosaurus',       painter:'aquatic',  hp:380, speed:60,  armor:1, bounty:28, dmg:5,  size:26, minWave:10, weight:7, water:true, burnImmune:true,
+                     pal:{body:'#4f7a6e', belly:'#d5e6da', accent:'#2e4c42'}, feat:{longNeck:true}},
+  kronosaurus:      {name:'Kronosaurus',        painter:'aquatic',  hp:750, speed:55,  armor:3, bounty:52, dmg:8,  size:30, minWave:26, weight:5, water:true, burnImmune:true,
+                     pal:{body:'#44606e', belly:'#c6d6da', accent:'#263a44'}, feat:{bigJaw:true}},
+
   /* --- herbivores & mid-tier --- */
   parasaurolophus:  {name:'Parasaurolophus',    painter:'quad',     hp:150, speed:60,  armor:0, bounty:12, dmg:4,  size:23, minWave:8,  weight:8,
                      pal:{body:'#7a8f56', belly:'#d6dfae', accent:'#a4572e'}, feat:{headCrest:true}},
@@ -151,6 +162,8 @@ const DINOS = {
                      feat:{glowEyes:true, fourArms:true}},
   whiteptera:       {name:'The White Pteranodon', epithet:'DEATH RIDES THE WIND — AIR WEAPONS ONLY', painter:'flyer', hp:4200, speed:66, armor:2, bounty:400, dmg:30, size:40, boss:true, weight:0, roar:true, flying:true,
                      pal:{body:'#e6e3da', belly:'#fbfaf5', accent:'#c3beb2'}, feat:{crest:true, glowEyes:true}},
+  mosasaurus:       {name:'Mosasaurus',           epithet:'THE LAGOON QUEEN', painter:'aquatic', hp:5000, speed:96, armor:4, bounty:450, dmg:34, size:44, boss:true, weight:0, roar:true, water:true, burnImmune:true,
+                     pal:{body:'#31505f', belly:'#cfdde2', accent:'#1b323d'}, feat:{bigJaw:true, ridge:true}},
 };
 
 /* Boss schedule — every 10th wave. Values are arrays (escorts allowed). */
@@ -319,6 +332,24 @@ const LEVELS = [
    theme:{grass:'#20281c', grass2:'#293323', path:'#5c5142', pathEdge:'#3c352b', tree:'#161f12', water:null},
    paths:[[{x:-40,y:200},{x:300,y:200},{x:300,y:500},{x:640,y:500},{x:640,y:160},{x:980,y:160},{x:980,y:430},{x:1320,y:430}],
           [{x:200,y:-40},{x:200,y:340},{x:640,y:340},{x:640,y:160},{x:980,y:160},{x:980,y:430},{x:1320,y:430}]]},
+
+  /* OPEN-WORLD map: no road. Ground dinos pour in at the CENTER-LEFT and
+     free-roam toward the CENTER-RIGHT exit; your weapons are physical walls
+     they must path around (a placement that seals the field completely is
+     rejected). Flyers soar straight across. paths[0] is the virtual straight
+     line used by flyers, Omega, and the gate/checkpoint set dressing. */
+  {name:'The Proving Grounds', sub:'Open savanna — your weapons ARE the wall', night:false, flyerBias:1.5, hpMult:3.4, maze:true,
+   theme:{grass:'#41541f', grass2:'#4e6326', path:'#8a7a50', pathEdge:'#5e5232', tree:'#2b4218', water:null},
+   paths:[[{x:-40,y:360},{x:1320,y:360}]]},
+
+  /* LAND + WATER map: a jungle road AND a river channel. Aquatic dinosaurs
+     (water:true) swim the river — the Mosasaurus rules it (map-specific boss
+     schedule below). paths[1] is the water channel. */
+  {name:'Mosasaur Lagoon', sub:'Site C — the water hunts back', night:false, flyerBias:1.1, hpMult:4.0, waterPaths:[1],
+   theme:{grass:'#3a5030', grass2:'#466038', path:'#93714a', pathEdge:'#64512f', tree:'#26401e', water:'#2e5d74'},
+   bosses:{30:['mosasaurus'], 60:['mosasaurus','trex'], 80:['indominus','mosasaurus']},
+   paths:[[{x:-40,y:150},{x:350,y:150},{x:350,y:320},{x:700,y:320},{x:700,y:160},{x:1050,y:160},{x:1050,y:440},{x:1320,y:440}],
+          [{x:-40,y:560},{x:300,y:560},{x:500,y:480},{x:820,y:480},{x:1010,y:570},{x:1160,y:500},{x:1320,y:440}]]},
 ];
 
 const WAVES_PER_LEVEL = 100;

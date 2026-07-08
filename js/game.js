@@ -577,9 +577,11 @@ function towerStats(t){
 
 /* ---------------- wave generation ---------------- */
 function poolFor(wave){
+  const hasWater = (G.level.waterPaths || []).length > 0;
   const out = [];
   for (const [key, d] of Object.entries(DINOS)){
     if (d.boss || wave < d.minWave) continue;
+    if (d.water && !hasWater) continue;      // aquatic dinos only where there's water
     let w = d.weight;
     if (d.flying) w *= G.level.flyerBias;
     // fade out trivial dinos late
@@ -587,6 +589,14 @@ function poolFor(wave){
     out.push({key, w});
   }
   return out;
+}
+/* water dinos swim the water channel(s); everything else takes the land route */
+function pathForKey(key){
+  const wp = G.level.waterPaths || [];
+  const wantWater = !!DINOS[key].water;
+  const opts = G.paths.map((_, i) => i).filter(i => wantWater === wp.includes(i));
+  const arr = opts.length ? opts : G.paths.map((_, i) => i);
+  return arr[Math.floor(Math.random() * arr.length)];
 }
 function pickWeighted(pool){
   let sum = 0; for (const p of pool) sum += p.w;
@@ -605,13 +615,14 @@ function buildWave(wave){
   const gap = clamp(0.85 - wave * 0.004, 0.42, 0.85);
   for (let i = 0; i < count; i++){
     const key = species[i % species.length];
-    q.push({at: t, key, pathI: Math.floor(Math.random() * G.paths.length), boss: false});
+    q.push({at: t, key, pathI: pathForKey(key), boss: false});
     t += gap * rand(0.8, 1.2) * (DINOS[key].size < 12 ? 0.55 : 1);
   }
-  const bosses = BOSS_WAVES[wave];
+  // maps can override boss waves (e.g. the Mosasaurus rules the Lagoon)
+  const bosses = (G.level.bosses && G.level.bosses[wave]) || BOSS_WAVES[wave];
   if (bosses){
     t += 2.2;
-    bosses.forEach((bk, i) => { q.push({at: t + i*3.2, key: bk, pathI: Math.floor(Math.random()*G.paths.length), boss: true}); });
+    bosses.forEach((bk, i) => { q.push({at: t + i*3.2, key: bk, pathI: pathForKey(bk), boss: true}); });
   }
   return q;
 }
@@ -648,11 +659,17 @@ function spawnDino(key, pathI, isBoss){
     bounty: bountyOf(def, w) * (isBoss ? 1 : 1),
     dead: false, leaked: false,
   };
+  if (G.level.maze && !d.flying){
+    // open-world map: ground dinos free-roam from the centre-left mouth
+    d.mx = -24; d.my = H / 2 + rand(-90, 90); d.mang = 0;
+    d.dist = d.mx;                       // progress proxy for FIRST/LAST targeting
+  }
   G.dinos.push(d);
   if (isBoss){
     // cinematic entrance: stalk in past the gate, stop, and roar
     // (the D-Rex takes its time — longer letterbox, second roar mid-entrance)
     d.dist = 100 + rand(0, 50);
+    if (d.mx !== undefined){ d.mx = 90 + rand(0, 50); d.my = H / 2 + rand(-40, 40); d.dist = d.mx; }
     d.entranceT = key === 'drex' ? 3.4 : 2.2;
     d.seedE = rand(0, 1);
     G.cinT = key === 'drex' ? 4.4 : 2.8;
@@ -679,7 +696,7 @@ function pickTarget(t, st){
   let best = null, bestV = -1e18;
   for (const d of G.dinos){
     if (!targetable(d, def)) continue;
-    const p = samplePath(G.paths[d.pathI], d.dist);
+    const p = dinoPos(d);
     const dd = hyp(t.x, t.y, p.x, p.y);
     if (dd > st.range + d.size * 0.4) continue;
     if (def.minRange && dd < def.minRange) continue; // mortars can't hit close targets
@@ -694,7 +711,72 @@ function pickTarget(t, st){
   }
   return best;
 }
-function dinoPos(d){ return samplePath(G.paths[d.pathI], d.dist); }
+function dinoPos(d){
+  // open-world (maze) maps: ground dinos free-roam via the flow field and
+  // carry their own position; flyers still ride the straight virtual path
+  if (G.level && G.level.maze && !d.flying && d.mx !== undefined){
+    return {x: d.mx, y: d.my, ang: d.mang || 0};
+  }
+  return samplePath(G.paths[d.pathI], d.dist);
+}
+
+/* ---------------- open-world flow field (maze maps) ----------------
+   The field is a 32px grid. Cells overlapped by a weapon pad are walls.
+   A BFS from the centre-right EXIT band labels every reachable cell with its
+   next step toward the exit; ground dinos steer cell-to-cell along it, so
+   your weapons physically shape their route. canPlace() rejects any weapon
+   that would disconnect the centre-left entry from the exit entirely. */
+const MAZE_CS = 32, MAZE_BAND = 130;   // cell size + entry/exit half-height
+function mazeRebuild(extra){
+  const cs = MAZE_CS, cols = Math.ceil(W / cs), rows = Math.ceil(H / cs);
+  const blocked = new Uint8Array(cols * rows);
+  const mark = (tx, ty) => {
+    const r = 26;
+    for (let ri = Math.max(0, ((ty - r) / cs) | 0); ri <= Math.min(rows - 1, ((ty + r) / cs) | 0); ri++)
+      for (let ci = Math.max(0, ((tx - r) / cs) | 0); ci <= Math.min(cols - 1, ((tx + r) / cs) | 0); ci++){
+        if (Math.hypot(ci * cs + cs / 2 - tx, ri * cs + cs / 2 - ty) < r) blocked[ri * cols + ci] = 1;
+      }
+  };
+  for (const t of G.towers) mark(t.x, t.y);
+  if (extra) mark(extra.x, extra.y);
+  const dist = new Int32Array(cols * rows).fill(-1);
+  const next = new Int32Array(cols * rows).fill(-1);
+  const q = [];
+  for (let ri = 0; ri < rows; ri++){          // seed: the exit band on the right edge
+    if (Math.abs(ri * cs + cs / 2 - H / 2) <= MAZE_BAND && !blocked[ri * cols + cols - 1]){
+      const id = ri * cols + cols - 1;
+      dist[id] = 0; q.push(id);
+    }
+  }
+  for (let qi = 0; qi < q.length; qi++){
+    const id = q[qi], ci = id % cols, ri = (id / cols) | 0;
+    for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]){
+      const nc = ci + dc, nr = ri + dr;
+      if (nc < 0 || nc >= cols || nr < 0 || nr >= rows) continue;
+      const nid = nr * cols + nc;
+      if (blocked[nid] || dist[nid] >= 0) continue;
+      dist[nid] = dist[id] + 1; next[nid] = id; q.push(nid);
+    }
+  }
+  return {cs, cols, rows, blocked, dist, next};
+}
+const mazeEntryOpen = f => {                  // is the centre-left entry still connected?
+  for (let ri = 0; ri < f.rows; ri++){
+    if (Math.abs(ri * f.cs + f.cs / 2 - H / 2) <= MAZE_BAND && f.dist[ri * f.cols] >= 0) return true;
+  }
+  return false;
+};
+function mazeSteer(x, y){                     // world-space point to walk toward
+  const F = G.flow;
+  if (x < 6) return {x: 40, y};               // step onto the grid first
+  if (!F) return {x: x + 80, y};
+  const ci = clamp((x / F.cs) | 0, 0, F.cols - 1), ri = clamp((y / F.cs) | 0, 0, F.rows - 1);
+  const id = ri * F.cols + ci;
+  if (ci === F.cols - 1 && F.dist[id] === 0) return {x: x + 80, y};       // in the exit band — break out
+  const n = F.next[id];
+  if (n < 0) return {x: x + 80, y: y + (H / 2 - y) * 0.2};                // stranded (shouldn't happen) — push for the exit
+  return {x: (n % F.cols) * F.cs + F.cs / 2, y: ((n / F.cols) | 0) * F.cs + F.cs / 2};
+}
 
 function damage(d, amt, pierce, src){
   if (d.dead || d.leaked) return;
@@ -1044,13 +1126,30 @@ function updateDinos(dt){
       }
       continue;
     }
-    // move
+    // move — open-world ground dinos steer the flow field around your
+    // weapon-walls; everything else follows its path
     const slow = d.slowT > 0 ? d.slowF : 1;
-    d.dist += d.speed * slow * dt;
-    d.phase += dt * (d.flying ? 6 : d.stride) * slow;
-    const path = G.paths[d.pathI];
-    // facing & body pitch follow the path (smoothed, so corners read as a turn)
-    const pp = samplePath(path, d.dist);
+    let pp, atEnd;
+    if (G.level.maze && !d.flying && d.mx !== undefined){
+      const tgt = mazeSteer(d.mx, d.my);
+      let ta = Math.atan2(tgt.y - d.my, tgt.x - d.mx);
+      let da = ta - (d.mang || 0);
+      while (da > Math.PI) da -= Math.PI * 2;
+      while (da < -Math.PI) da += Math.PI * 2;
+      d.mang = (d.mang || 0) + clamp(da, -dt * 4.5, dt * 4.5);
+      d.mx += Math.cos(d.mang) * d.speed * slow * dt;
+      d.my = clamp(d.my + Math.sin(d.mang) * d.speed * slow * dt, 16, H - 16);
+      d.dist = d.mx;                      // progress proxy for targeting modes
+      d.phase += dt * d.stride * slow;
+      pp = {x: d.mx, y: d.my, ang: d.mang};
+      atEnd = d.mx >= W - 14;             // broke out the right side
+    } else {
+      d.dist += d.speed * slow * dt;
+      d.phase += dt * (d.flying ? 6 : d.stride) * slow;
+      pp = samplePath(G.paths[d.pathI], d.dist);
+      atEnd = d.dist >= G.paths[d.pathI].len;
+    }
+    // facing & body pitch follow the travel direction (smoothed)
     const cosA = Math.cos(pp.ang);
     if (Math.abs(cosA) > 0.15) d.dirT = cosA > 0 ? 1 : -1;
     d.turn += clamp(d.dirT - d.turn, -dt * 7, dt * 7);
@@ -1069,7 +1168,7 @@ function updateDinos(dt){
         else if (d.size >= 40) G.shake = Math.max(G.shake, 1.3);
       }
     }
-    if (d.dist >= path.len){
+    if (atEnd){
       d.leaked = true;
       G.waveLeaked = true; // a dino got through — breaks the clean-wave streak
       if (!save.settings.invincible){
@@ -1200,6 +1299,7 @@ function startLevel(idx, mode, diff){
   }
   G.maxLives = startLives();
   G.streak = 1; G.waveLeaked = false;
+  G.flow = G.level.maze ? mazeRebuild() : null;   // open-world routing grid
   G.stat = {dnaWaves: 0, dnaKills: 0, cashEarned: 0, kills: 0, streakMax: 1};
   saveRun();
   G.state = 'playing';
@@ -1353,6 +1453,17 @@ function toMenu(){
 /* ---------------- towers: place / select / upgrade ---------------- */
 function canPlace(x, y){
   if (x < 20 || x > W - 20 || y < 20 || y > H - 20) return false;
+  if (G.level && G.level.maze){
+    // open-world map: weapons can go ANYWHERE (they're the walls) — except on
+    // another weapon, on a dino, or anywhere that would seal the field shut.
+    // A full blockade can never be a way to win.
+    for (const t of G.towers) if (hyp(x, y, t.x, t.y) < 38) return false;
+    for (const d of G.dinos){
+      if (d.dead || d.leaked || d.flying || d.mx === undefined) continue;
+      if (hyp(x, y, d.mx, d.my) < 34) return false;
+    }
+    return mazeEntryOpen(mazeRebuild({x, y}));
+  }
   if (distToAnyPath(x, y) < 42) return false;
   for (const t of G.towers) if (hyp(x, y, t.x, t.y) < 38) return false;
   return true;
@@ -1363,6 +1474,7 @@ function placeTower(key, x, y, force){
   if (G.cash < cost || !canPlace(x, y)) { SFX.error(); return; }
   G.cash -= cost;
   G.towers.push({key, x, y, ulv: 0, cd: 0, angle: rand(0, 6.28), flash: 0, invested: cost, mode: 'first'});
+  if (G.level.maze) G.flow = mazeRebuild();   // the walls just changed — reroute everyone
   SFX.build();
   addFx('ring', x, y, 10);
   if (!force) track('weapon_built', {weapon: key});
@@ -1477,6 +1589,7 @@ function sellSelected(){
   const t = G.selected; if (!t) return;
   G.cash += sellRefund(t);
   G.towers = G.towers.filter(x => x !== t);
+  if (G.level.maze) G.flow = mazeRebuild();   // a wall came down — reroute
   // sold the last weapon before wave 1 started → cancel the auto-start countdown
   if (G.wave === 0 && !G.waveActive && !G.over && G.towers.length === 0) G.autoTimer = -1;
   selectTower(null);
@@ -1577,7 +1690,7 @@ function updateStrikes(dt){
 /* poison gas clouds: damage GROUND dinos inside, over time. Flyers rise above
    it; so do bosses and tall long-necked sauropods (Brachiosaurus/Apatosaurus) —
    their heads are well clear of a ground-hugging cloud. */
-const gasImmune = d => d.flying || d.boss || d.painter === 'sauropod';
+const gasImmune = d => d.flying || d.boss || d.painter === 'sauropod' || d.painter === 'aquatic'; // swimmers dive under the cloud
 function updateClouds(dt){
   for (const c of G.clouds){
     c.t += dt;
@@ -1848,11 +1961,21 @@ function drawMiniMap(cv, lv){
   for (let k = 0; k < 30; k++){ const rx = rnd() * W, ry = rnd() * H, r = 1.6 + rnd() * 3; c.globalAlpha = 0.45 + rnd() * 0.4; c.beginPath(); c.arc(rx, ry, r, 0, 7); c.fill(); }
   c.globalAlpha = 1;
   c.lineJoin = c.lineCap = 'round';
-  for (const path of lv.paths){
-    c.strokeStyle = t.pathEdge || '#5e4a2d'; c.lineWidth = 14 * sx;
-    c.beginPath(); path.forEach((p, i) => i ? c.lineTo(p.x * sx, p.y * sy) : c.moveTo(p.x * sx, p.y * sy)); c.stroke();
-    c.strokeStyle = t.path || '#8a6f47'; c.lineWidth = 8.5 * sx;
-    c.beginPath(); path.forEach((p, i) => i ? c.lineTo(p.x * sx, p.y * sy) : c.moveTo(p.x * sx, p.y * sy)); c.stroke();
+  if (lv.maze){
+    // open-world: no road — a dashed hint of the stampede across the field
+    c.strokeStyle = 'rgba(232,185,58,0.55)'; c.lineWidth = 4 * sx; c.setLineDash([9 * sx, 8 * sx]);
+    c.beginPath(); c.moveTo(10 * sx, H / 2); c.lineTo(W - 10 * sx, H / 2); c.stroke();
+    c.setLineDash([]);
+    c.fillStyle = 'rgba(232,185,58,0.8)';                      // exit arrowhead
+    c.beginPath(); c.moveTo(W - 6 * sx, H / 2); c.lineTo(W - 22 * sx, H / 2 - 9 * sy); c.lineTo(W - 22 * sx, H / 2 + 9 * sy); c.closePath(); c.fill();
+  } else {
+    lv.paths.forEach((path, pi) => {
+      const isW = (lv.waterPaths || []).includes(pi);
+      c.strokeStyle = isW ? '#1c3a4a' : (t.pathEdge || '#5e4a2d'); c.lineWidth = 14 * sx;
+      c.beginPath(); path.forEach((p, i) => i ? c.lineTo(p.x * sx, p.y * sy) : c.moveTo(p.x * sx, p.y * sy)); c.stroke();
+      c.strokeStyle = isW ? (t.water || '#2e5d74') : (t.path || '#8a6f47'); c.lineWidth = 8.5 * sx;
+      c.beginPath(); path.forEach((p, i) => i ? c.lineTo(p.x * sx, p.y * sy) : c.moveTo(p.x * sx, p.y * sy)); c.stroke();
+    });
   }
   if (lv.night){ c.fillStyle = 'rgba(10,16,34,0.42)'; c.fillRect(0, 0, W, H); }
   const gl = c.createLinearGradient(0, 0, 0, H * 0.55);
@@ -2318,6 +2441,8 @@ const TIPS = [
   '<b>Targeting:</b> the selected weapon\'s "Target" button cycles FIRST / LAST / STRONG / CLOSE. Snipers on STRONG melt tanks; slows on FIRST hold the line.',
   '<b>Flyers</b> (Pteranodons & friends) can only be hit by air-capable weapons — Flame Throwers and Mortars can\'t touch them.',
   '<b>🦅 The White Pteranodon</b> rides in on waves 40 and 80 — a giant bone-white terror that ONLY air-capable weapons (Gatling, Sniper, Cryo, Tesla, Sonic, Missiles) can hurt. Mortars, flame and gas are useless against it, and even Omega can\'t reach it. Check your air coverage before wave 40.',
+  '<b>🧱 The Proving Grounds has no road</b> — dinosaurs pour in at the centre-left and freely roam for the centre-right exit. Your weapons ARE the walls: build a zig-zag maze so they trudge past your guns again and again. You can never seal the field completely — and flyers just soar straight over the top, so keep anti-air everywhere.',
+  '<b>🌊 Mosasaur Lagoon</b> has two lanes: a jungle road AND a river. Aquatic dinosaurs (Ichthyosaurus, Plesiosaurus, Kronosaurus — and the MOSASAURUS) swim the channel; they never burn, and they dive under gas clouds. Cover both lanes or the water will eat you alive.',
   '<b>Armor</b> (Ankylosaurus, Triceratops) shrugs off weak hits. 🎯 Snipers pierce armor completely.',
   '<b>☣️ Mason\'s Gas</b> lays down a lingering poison cloud that ignores armor and shreds packs of ground dinos — but flyers, bosses, and tall long-necks (like Brachiosaurus) rise above it and take no poison.',
   '<b>The Indominus Rex turns invisible.</b> A couple of seconds after it storms in, it vanishes completely — and while unseen it takes NO damage at all. Only a 📡 Sonic Emitter\'s pulse reveals AND exposes it, so plant one right on its path before wave 50 (it also returns on waves 80 and 90). No emitter, no kill.',
@@ -3511,6 +3636,31 @@ if (testParams.has('test')){
     el.textContent = `INDO cloaked=${cloakedNow} · covered→no-banner=${coveredNoBanner} · lapse→vanished-once=${lapseVanished} · invincible=${invincible} · emitter-hurt=${hurtByEmitter} (all want true)`;
     G.paused = true;
   }
+  if (testParams.has('mazecheck')){ // open-world map: routing works + total blockade is rejected
+    G.cash = 1e9;
+    // full-height wall at x=640, one gap left around y≈656 (the towers never
+    // fire — huge cd — so this tests pure routing)
+    for (let y = 16; y <= 704; y += 28){
+      if (y === 644 || y === 672) continue;
+      G.towers.push({key: 'gatling', x: 640, y, ulv: 0, cd: 9999, angle: 0, flash: 0, invested: 0, mode: 'first'});
+    }
+    G.flow = mazeRebuild();
+    const sealRejected = !canPlace(640, 656);          // closing the last corridor must be illegal
+    const openOk = canPlace(300, 656);                 // a normal spot away from the gap is fine
+    for (let i = 0; i < 6; i++){
+      spawnDino('velociraptor', 0, false);
+      const d = G.dinos[G.dinos.length - 1];
+      d.hp = d.maxHp = 1e9;                            // immortal — pure routing test
+    }
+    for (let s = 0; s < 18; s += 0.05) step(0.05);
+    const alive = G.dinos.filter(d => !d.dead && !d.flying && d.mx !== undefined);
+    const routed = alive.filter(d => d.mx > 680).length;
+    const escaped = G.lives < G.maxLives;
+    const d0 = alive[0];
+    const el = $('#errbox'); el.classList.remove('hidden');
+    el.textContent = `MAZE sealRejected=${sealRejected}(want true) · openOk=${openOk}(want true) · past wall=${routed} escaped=${escaped} (want some) · d0=${d0 ? (d0.mx | 0) + ',' + (d0.my | 0) : 'none'}`;
+    G.paused = true;
+  }
   if (testParams.has('zap')){ // stage a tesla (at the given upgrade level) mid-arc
     G.cash = 99999; G.wave = 30;
     placeTower('tesla', 420, 487, true);
@@ -3589,7 +3739,8 @@ if (testParams.has('test')){
     $('#victory').classList.remove('hidden');
   }
   if (testParams.has('boss')){ // stage a live boss entrance
-    spawnDino(DINOS[testParams.get('bosskey')] ? testParams.get('bosskey') : 'trex', 0, true);
+    const bossK = DINOS[testParams.get('bosskey')] ? testParams.get('bosskey') : 'trex';
+    spawnDino(bossK, pathForKey(bossK), true);   // water bosses take the river
     const bt = parseFloat(testParams.get('boss')) || 1;
     for (let s = 0; s < bt; s += 0.05) step(0.05);
     G.paused = true;
