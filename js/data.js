@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.29.1';
+const VERSION = '1.29.2';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -25,8 +25,9 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.29.1', date: 'Jul 8, 2026', items: [
+  {v: '1.29.2', date: 'Jul 8, 2026', items: [
     '🧱 Proving Grounds: dinosaurs now march in from one point in a single-file column, all following the same shortest route — and a dashed guide line shows that route live, reshaping the moment you place or sell a weapon.',
+    '🛡️ Weapons are now truly solid — dinosaurs bounce off them instead of occasionally marching straight over the wall.',
     '🚧 Dinosaurs can no longer squeeze between a weapon and the map edge — the border is a wall, so an edge-hugging weapon truly forces them the other way.',
     '❄️ The Cryo Cannon is now available from wave 1 — slow them down early.',
   ]},

@@ -805,9 +805,23 @@ function mazeSteer(x, y){                     // world-space point to walk towar
   if (!F) return {x: x + 80, y};
   const ci = clamp((x / F.cs) | 0, 0, F.cols - 1), ri = clamp((y / F.cs) | 0, 0, F.rows - 1);
   const id = ri * F.cols + ci;
+  if (F.dist[id] < 0){
+    // clipped into a wall cell (turns are rate-limited, so corners get cut):
+    // recover to the reachable neighbour nearest the exit — never push on
+    // blindly, that walked dinos straight over weapons
+    let best = -1, bd = 1e9;
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++){
+      const nc = ci + dc, nr = ri + dr;
+      if (nc < 0 || nc >= F.cols || nr < 0 || nr >= F.rows) continue;
+      const nd = F.dist[nr * F.cols + nc];
+      if (nd >= 0 && nd < bd){ bd = nd; best = nr * F.cols + nc; }
+    }
+    if (best < 0) return {x: x + 80, y: y + (H / 2 - y) * 0.2};           // truly sealed (canPlace forbids this)
+    return {x: (best % F.cols) * F.cs + F.cs / 2, y: ((best / F.cols) | 0) * F.cs + F.cs / 2};
+  }
   if (ci === F.cols - 1 && F.dist[id] === 0) return {x: x + 80, y};       // in the exit band — break out
   const n = F.next[id];
-  if (n < 0) return {x: x + 80, y: y + (H / 2 - y) * 0.2};                // stranded (shouldn't happen) — push for the exit
+  if (n < 0) return {x: x + 80, y};                                       // on an exit seed cell — straight out
   return {x: (n % F.cols) * F.cs + F.cs / 2, y: ((n / F.cols) | 0) * F.cs + F.cs / 2};
 }
 
@@ -1171,7 +1185,16 @@ function updateDinos(dt){
       while (da < -Math.PI) da += Math.PI * 2;
       d.mang = (d.mang || 0) + clamp(da, -dt * 4.5, dt * 4.5);
       d.mx += Math.cos(d.mang) * d.speed * slow * dt;
-      d.my = clamp(d.my + Math.sin(d.mang) * d.speed * slow * dt, 44, H - 44);
+      d.my += Math.sin(d.mang) * d.speed * slow * dt;
+      // weapons are physically solid — shove the dino out of any pad it clips
+      // (26 < the 30px routing radius, so corridor centres are never pushed)
+      for (const t of G.towers){
+        const dx = d.mx - t.x, dy = d.my - t.y;
+        if (Math.abs(dx) > 26 || Math.abs(dy) > 26) continue;
+        const dd = Math.hypot(dx, dy) || 1;
+        if (dd < 26){ d.mx += dx / dd * (26 - dd); d.my += dy / dd * (26 - dd); }
+      }
+      d.my = clamp(d.my, 44, H - 44);
       d.dist = d.mx;                      // progress proxy for targeting modes
       d.phase += dt * d.stride * slow;
       pp = {x: d.mx, y: d.my, ang: d.mang};
@@ -3706,13 +3729,26 @@ if (testParams.has('test')){
       const d = G.dinos[G.dinos.length - 1];
       d.hp = d.maxHp = 1e9;                            // immortal — pure routing test
     }
-    for (let s = 0; s < 18; s += 0.05) step(0.05);
-    const alive = G.dinos.filter(d => !d.dead && !d.flying && d.mx !== undefined);
-    const routed = alive.filter(d => d.mx > 680).length;
+    // instrument the sim: dinos must cross the wall line INSIDE the gap and
+    // never stand on a weapon (phasing via the old stranded fallback looked
+    // exactly like an "escape" — lives dropped either way)
+    let minTd = 1e9; const crossY = [];
+    for (let s = 0; s < 18; s += 0.05){
+      step(0.05);
+      for (const d of G.dinos){
+        if (d.dead || d.flying || d.mx === undefined) continue;
+        if (d.pmx !== undefined && d.pmx <= 640 && d.mx > 640) crossY.push(d.my | 0);
+        d.pmx = d.mx;
+        if (d.mx > 560 && d.mx < 720) for (const t of G.towers){
+          const td = Math.hypot(d.mx - t.x, d.my - t.y);
+          if (td < minTd) minTd = td;
+        }
+      }
+    }
     const escaped = G.lives < G.maxLives;
-    const d0 = alive[0];
+    const throughGap = crossY.length > 0 && crossY.every(y => y > 330 && y < 430);
     const el = $('#errbox'); el.classList.remove('hidden');
-    el.textContent = `MAZE sealRejected=${sealRejected}(want true) · openOk=${openOk}(want true) · edgeSealed=${edgeSealed}(want true) · past wall=${routed} escaped=${escaped} (want some) · d0=${d0 ? (d0.mx | 0) + ',' + (d0.my | 0) : 'none'} · ${dbg}`;
+    el.textContent = `MAZE sealRejected=${sealRejected}(want true) · openOk=${openOk}(want true) · edgeSealed=${edgeSealed}(want true) · escaped=${escaped} · crossed=${crossY.length} throughGap=${throughGap}(want true) atY=${crossY.join('/')} · minTowerDist=${minTd === 1e9 ? 'n/a' : minTd | 0}(want >=24) · ${dbg}`;
     G.paused = true;
   }
   if (testParams.has('zap')){ // stage a tesla (at the given upgrade level) mid-arc
