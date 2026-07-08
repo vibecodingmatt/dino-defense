@@ -742,7 +742,10 @@ function mazeRebuild(extra){
     }
   }
   const mark = (tx, ty) => {
-    const r = 30;   // corridors must be a full clear square — no sliver gaps
+    const r = 40;   // routed corridors must be PHYSICALLY walkable: collision
+                    // holds dinos 26px off every pad, so a walkable cell centre
+                    // needs enough extra clearance for steering slop — no more
+                    // guide lines through slots nothing can actually fit through
     for (let ri = Math.max(0, ((ty - r) / cs) | 0); ri <= Math.min(rows - 1, ((ty + r) / cs) | 0); ri++)
       for (let ci = Math.max(0, ((tx - r) / cs) | 0); ci <= Math.min(cols - 1, ((tx + r) / cs) | 0); ci++){
         if (Math.hypot(ci * cs + cs / 2 - tx, ri * cs + cs / 2 - ty) < r) blocked[ri * cols + ci] = 1;
@@ -807,14 +810,16 @@ function mazeSteer(x, y){                     // world-space point to walk towar
   const id = ri * F.cols + ci;
   if (F.dist[id] < 0){
     // clipped into a wall cell (turns are rate-limited, so corners get cut):
-    // recover to the reachable neighbour nearest the exit — never push on
-    // blindly, that walked dinos straight over weapons
+    // back out to the NEAREST walkable cell — never the one nearest the exit,
+    // that had dinos grinding forward into the wall trying to reach the far side
     let best = -1, bd = 1e9;
-    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++){
+    for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++){
       const nc = ci + dc, nr = ri + dr;
       if (nc < 0 || nc >= F.cols || nr < 0 || nr >= F.rows) continue;
-      const nd = F.dist[nr * F.cols + nc];
-      if (nd >= 0 && nd < bd){ bd = nd; best = nr * F.cols + nc; }
+      const nid = nr * F.cols + nc;
+      if (F.dist[nid] < 0) continue;
+      const dd = Math.hypot(nc * F.cs + F.cs / 2 - x, nr * F.cs + F.cs / 2 - y) + F.dist[nid] * 0.01;
+      if (dd < bd){ bd = dd; best = nid; }
     }
     if (best < 0) return {x: x + 80, y: y + (H / 2 - y) * 0.2};           // truly sealed (canPlace forbids this)
     return {x: (best % F.cols) * F.cs + F.cs / 2, y: ((best / F.cols) | 0) * F.cs + F.cs / 2};
@@ -1184,15 +1189,21 @@ function updateDinos(dt){
       while (da > Math.PI) da -= Math.PI * 2;
       while (da < -Math.PI) da += Math.PI * 2;
       d.mang = (d.mang || 0) + clamp(da, -dt * 4.5, dt * 4.5);
+      const omx = d.mx, omy = d.my;         // pre-move position — known good
       d.mx += Math.cos(d.mang) * d.speed * slow * dt;
       d.my += Math.sin(d.mang) * d.speed * slow * dt;
-      // weapons are physically solid — shove the dino out of any pad it clips
-      // (26 < the 30px routing radius, so corridor centres are never pushed)
-      for (const t of G.towers){
+      // weapons are physically solid: eject a clipping dino toward the side it
+      // CAME from (a plain radial push let fast bosses ratchet through the
+      // saddle between two overlapping pads — that was the T-Rex stomping
+      // straight across a wall). Two passes so neighbouring pads settle.
+      for (let pass = 0; pass < 2; pass++) for (const t of G.towers){
         const dx = d.mx - t.x, dy = d.my - t.y;
         if (Math.abs(dx) > 26 || Math.abs(dy) > 26) continue;
-        const dd = Math.hypot(dx, dy) || 1;
-        if (dd < 26){ d.mx += dx / dd * (26 - dd); d.my += dy / dd * (26 - dd); }
+        if (dx * dx + dy * dy >= 26 * 26) continue;
+        let ex = omx - t.x, ey = omy - t.y;
+        let ed = Math.hypot(ex, ey);
+        if (ed < 1){ ex = dx; ey = dy; ed = Math.hypot(ex, ey) || 1; }   // spawned inside a pad — pop out radially
+        d.mx = t.x + ex / ed * 26; d.my = t.y + ey / ed * 26;
       }
       d.my = clamp(d.my, 44, H - 44);
       d.dist = d.mx;                      // progress proxy for targeting modes
@@ -1516,7 +1527,7 @@ function canPlace(x, y){
     for (const t of G.towers) if (hyp(x, y, t.x, t.y) < 38) return false;
     for (const d of G.dinos){
       if (d.dead || d.leaked || d.flying || d.mx === undefined) continue;
-      if (hyp(x, y, d.mx, d.my) < 34) return false;
+      if (hyp(x, y, d.mx, d.my) < 48) return false;   // never bury a live dino deeper than steering can recover
     }
     return mazeEntryOpen(mazeRebuild({x, y}));
   }
@@ -3723,12 +3734,16 @@ if (testParams.has('test')){
     // the border row and the strip under it must both be unwalkable there
     const f2 = mazeRebuild({x: 200, y: 60});
     const edgeSealed = f2.dist[6] < 0 && f2.dist[f2.cols + 6] < 0;
-    const dbg = `gapDist=${G.flow.dist[11 * G.flow.cols + 19]},${G.flow.dist[12 * G.flow.cols + 19]}(want >=0)`;
+    const dbg = `gapDist=${G.flow.dist[11 * G.flow.cols + 19]}(want >=0)`;
     for (let i = 0; i < 6; i++){
       spawnDino('velociraptor', 0, false);
       const d = G.dinos[G.dinos.length - 1];
       d.hp = d.maxHp = 1e9;                            // immortal — pure routing test
     }
+    // a big fast boss too — they ratcheted through pad gaps small dinos couldn't
+    spawnDino('trex', 0, true);
+    const bz = G.dinos[G.dinos.length - 1];
+    bz.hp = bz.maxHp = 1e9; bz.entranceT = 0; G.cinT = 0; G.banner = null;
     // instrument the sim: dinos must cross the wall line INSIDE the gap and
     // never stand on a weapon (phasing via the old stranded fallback looked
     // exactly like an "escape" — lives dropped either way)
