@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.30.1';
+const VERSION = '1.31.0';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -25,7 +25,8 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.30.1', date: 'Jul 8, 2026', items: [
+  {v: '1.31.0', date: 'Jul 8, 2026', items: [
+    '📐 Proving Grounds squares are now 4× bigger (a 20×11 field) — each weapon fills exactly one square, and weapon ranges are measured in squares: Gatling covers 1 square in every direction, Cryo 2, Missiles 3, Mortar 4 (growing to 5 fully upgraded), and the rest tuned to 1–2.',
     '🦶 Dinosaurs now walk the route line exactly — no more columns jamming at corners the line said were open, and big bosses can no longer barge through walls (they also stalk in along the route instead of appearing mid-field).',
     '🌿 The outer edge squares are ordinary walkable ground now — shut an edge route down the honest way, with a weapon placed flush against the border.',
     '🔲 Proving Grounds is now a true build grid: weapons snap to the grid and occupy exact 2×2 squares — place them flush against each other or the map edge to form seamless walls, and the grid appears while you place, highlighting walled-off squares and the exact footprint of the weapon in hand.',

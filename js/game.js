@@ -570,7 +570,10 @@ function towerStats(t){
     rof:   def.rof   * Math.pow(UPG.mult.rof, u)   * wlvRofMult(L),
     // range doesn't grow with weapon LEVEL; only the Mortar's in-run upgrade
     // expands it, plus each weapon's optional one-time +10% lab range unlock.
-    range: def.range * (t.key === 'mortar' ? Math.pow(UPG.mult.range, u) : 1) * rangeUpMult(t.key),
+    // On the Proving Grounds ranges are square-denominated instead (mortar
+    // grows from 4 squares to 5 across its upgrades).
+    range: (G.level && G.level.maze ? mazeRange(t.key, u)
+      : def.range * (t.key === 'mortar' ? Math.pow(UPG.mult.range, u) : 1)) * rangeUpMult(t.key),
     splash: def.splash ? def.splash * (1 + (t.key === 'mortar' ? 0.35 : 0.15) * u) : 0,
   };
 }
@@ -741,13 +744,18 @@ function dinoPos(d){
    next step toward the exit; ground dinos steer cell-to-cell along it, so
    your weapons physically shape their route. canPlace() rejects any weapon
    that would disconnect the centre-left entry from the exit entirely. */
-const MAZE_CS = 32, MAZE_BAND = 130;   // cell size + entry/exit half-height
-// maze weapons snap to grid intersections and occupy a 2×2 block of squares
-// (64×64), so walls sit flush cell-to-cell and against the map edges
+const MAZE_CS = 64, MAZE_BAND = 130;   // square size + entry/exit half-height
+// maze weapons snap to square CENTRES and fill exactly ONE square (64×64), so
+// walls sit flush square-to-square and against the map edges
 const mazeSnap = (x, y) => ({
-  x: clamp(Math.round(x / MAZE_CS) * MAZE_CS, MAZE_CS, Math.floor(W / MAZE_CS) * MAZE_CS - MAZE_CS),
-  y: clamp(Math.round(y / MAZE_CS) * MAZE_CS, MAZE_CS, Math.floor(H / MAZE_CS) * MAZE_CS - MAZE_CS),
+  x: clamp(Math.floor(x / MAZE_CS) * MAZE_CS + MAZE_CS / 2, MAZE_CS / 2, Math.ceil(W / MAZE_CS) * MAZE_CS - MAZE_CS / 2),
+  y: clamp(Math.floor(y / MAZE_CS) * MAZE_CS + MAZE_CS / 2, MAZE_CS / 2, Math.floor(H / MAZE_CS) * MAZE_CS - MAZE_CS / 2),
 });
+// Proving Grounds ranges are measured in SQUARES: the ring reaches N full
+// squares out in every direction ((N + 0.5) × 64px from the weapon's centre)
+const MAZE_RANGE_SQ = {gatling: 1, flamer: 1, gas: 1, cryo: 2, tesla: 2, sonic: 2, sniper: 3, missile: 3, mortar: 4};
+const mazeRange = (key, u) =>
+  ((MAZE_RANGE_SQ[key] || 2) + 0.5 + (key === 'mortar' ? (u || 0) / TOWERS.mortar.maxUp : 0)) * MAZE_CS;
 function mazeRebuild(extra){
   // every fully-on-screen square is ordinary walkable ground, INCLUDING the
   // outer rows/cols — closing off the edge is done the honest way, by placing
@@ -755,8 +763,8 @@ function mazeRebuild(extra){
   const cs = MAZE_CS, cols = Math.ceil(W / cs), rows = Math.floor(H / cs);
   const blocked = new Uint8Array(cols * rows);
   const mark = (tx, ty) => {
-    // a weapon occupies whole grid squares (2×2 for a grid-snapped tower) —
-    // walls are cell-perfect, exactly the squares the placement grid shows
+    // a snapped weapon occupies exactly ONE 64px square — walls are
+    // square-perfect, exactly what the placement grid shows
     for (let ri = Math.max(0, ((ty - 32) / cs) | 0); ri <= Math.min(rows - 1, ((ty + 32) / cs) | 0); ri++)
       for (let ci = Math.max(0, ((tx - 32) / cs) | 0); ci <= Math.min(cols - 1, ((tx + 32) / cs) | 0); ci++){
         if (Math.abs(ci * cs + cs / 2 - tx) < 32 && Math.abs(ri * cs + cs / 2 - ty) < 32) blocked[ri * cols + ci] = 1;
@@ -1551,8 +1559,8 @@ function toMenu(){
 /* ---------------- towers: place / select / upgrade ---------------- */
 function canPlace(x, y){
   if (G.level && G.level.maze){
-    // open-world map: weapons live ON the grid — each takes a 2×2 block of
-    // squares, flush against neighbours or the map edge is fine, overlapping
+    // open-world map: weapons live ON the grid — each fills one square,
+    // flush against neighbours or the map edge is fine, overlapping
     // another weapon is not, and sealing the field shut is never allowed.
     const s = mazeSnap(x, y);
     for (const t of G.towers) if (Math.abs(s.x - t.x) < 64 && Math.abs(s.y - t.y) < 64) return false;
@@ -3159,7 +3167,7 @@ function render(dt){
     ctx.globalAlpha = 0.85;
     ctx.strokeStyle = ok ? 'rgba(140,240,140,0.6)' : 'rgba(255,90,90,0.7)';
     ctx.fillStyle = ok ? 'rgba(140,240,140,0.12)' : 'rgba(255,90,90,0.12)';
-    const rng = def.range * rangeUpMult(G.placing);   // base range + any lab range unlock
+    const rng = (G.level.maze ? mazeRange(G.placing, 0) : def.range) * rangeUpMult(G.placing);   // base range + any lab range unlock
     ctx.beginPath(); ctx.arc(px, py, rng, 0, Math.PI*2); ctx.fill(); ctx.stroke();
     if (G.level.maze){
       // highlight the exact squares about to become wall
@@ -3779,21 +3787,21 @@ if (testParams.has('test')){
   }
   if (testParams.has('mazecheck')){ // open-world grid: routing, sealing, flush walls, solid boxes
     G.cash = 1e9;
+    G.towers.length = 0;                               // drop the default test loadout — walls only
     const wall = (x, y) => G.towers.push({key: 'gatling', x, y, ulv: 0, cd: 9999, angle: 0, flash: 0, invested: 0, mode: 'first'});
-    // wall A at x=640: flush 2×2 towers, one missing → a 2-square gap (rows 10-11)
-    for (let y = 32; y <= 672; y += 64){ if (y !== 352) wall(640, y); }
-    // wall B at x=960: two offset segments leaving a SINGLE-square slit (row 10)
-    for (let y = 32; y <= 288; y += 64) wall(960, y);
-    for (let y = 384; y <= 672; y += 64) wall(960, y);
+    // wall A at x=608 (col 9): full flush column with one missing square (row 5)
+    for (let y = 32; y <= 672; y += 64){ if (y !== 352) wall(608, y); }
+    // wall B at x=1120 (col 17): full column with a one-square hole at row 8
+    for (let y = 32; y <= 672; y += 64){ if (y !== 544) wall(1120, y); }
     G.flow = mazeRebuild();
-    const sealRejected = !canPlace(640, 352);          // plugging wall A's hole seals the field — illegal
-    const flushOk = canPlace(576, 96);                 // flush against the wall (64 apart) is legal
-    const overlapRejected = !canPlace(640, 320);       // half-on another weapon is not
+    const sealRejected = !canPlace(608, 352);          // plugging wall A's hole seals the field — illegal
+    const flushOk = canPlace(544, 96);                 // flush against the wall (64 apart) is legal
+    const overlapRejected = !canPlace(608, 96);        // on another weapon's square is not
     const openOk = canPlace(320, 544);                 // a normal free spot is fine
-    // a weapon flush with the top border must leave NO over-the-top squeeze
-    const f2 = mazeRebuild({x: 192, y: 32});
-    const edgeSealed = f2.dist[6] < 0 && f2.dist[f2.cols + 6] < 0;
-    const dbg = `gapDist=${G.flow.dist[10 * G.flow.cols + 19]},slit=${G.flow.dist[10 * G.flow.cols + 29]}(want >=0)`;
+    // a weapon flush with the top border must fully close its square
+    const f2 = mazeRebuild({x: 160, y: 32});
+    const edgeSealed = f2.dist[2] < 0;
+    const dbg = `gapDist=${G.flow.dist[5 * G.flow.cols + 9]},slit=${G.flow.dist[8 * G.flow.cols + 17]}(want >=0)`;
     for (let i = 0; i < 6; i++){
       spawnDino('velociraptor', 0, false);
       const d = G.dinos[G.dinos.length - 1];
@@ -3810,8 +3818,8 @@ if (testParams.has('test')){
       step(0.05);
       for (const d of G.dinos){
         if (d.dead || d.flying || d.mx === undefined) continue;
-        if (d.pmx !== undefined && d.pmx <= 640 && d.mx > 640) crossA.push(d.my | 0);
-        if (d.pmx !== undefined && d.pmx <= 960 && d.mx > 960) crossB.push(d.my | 0);
+        if (d.pmx !== undefined && d.pmx <= 608 && d.mx > 608) crossA.push(d.my | 0);
+        if (d.pmx !== undefined && d.pmx <= 1120 && d.mx > 1120) crossB.push(d.my | 0);
         d.pmx = d.mx;
         for (const t of G.towers){
           const td = Math.max(Math.abs(d.mx - t.x), Math.abs(d.my - t.y));   // box distance
@@ -3820,8 +3828,8 @@ if (testParams.has('test')){
       }
     }
     const escaped = G.lives < G.maxLives;
-    const gapA = crossA.length > 0 && crossA.every(y => y > 305 && y < 400);   // 2-square gap: y 320-384
-    const gapB = crossB.length > 0 && crossB.every(y => y > 310 && y < 362);   // 1-square slit: y 320-352
+    const gapA = crossA.length > 0 && crossA.every(y => y > 315 && y < 390);   // row-5 hole: y 320-384
+    const gapB = crossB.length > 0 && crossB.every(y => y > 507 && y < 582);   // row-8 hole: y 512-576
     const el = $('#errbox'); el.classList.remove('hidden');
     el.textContent = `MAZE sealRejected=${sealRejected} flushOk=${flushOk} overlapRejected=${overlapRejected} openOk=${openOk} edgeSealed=${edgeSealed} (want all true) · escaped=${escaped} · gapA=${gapA}(${crossA.join('/')}) gapB=${gapB}(${crossB.join('/')}) (want true) · minBoxDist=${minTd === 1e9 ? 'n/a' : minTd | 0}(want >=34) · ${dbg}`;
     G.paused = true;
@@ -3829,10 +3837,10 @@ if (testParams.has('test')){
   if (testParams.has('topcheck')){ // Matt's repro: wall near the entrance, only route is over the very top
     G.cash = 1e9;
     G.towers.length = 0;
-    // wall on cols 7-8 from y=96 down to the bottom — ONLY rows 0-1 stay open
-    for (let y = 96; y <= 672; y += 64) G.towers.push({key: 'gatling', x: 256, y, ulv: 0, cd: 9999, angle: 0, flash: 0, invested: 0, mode: 'first'});
+    // wall on col 3 from y=96 down to the bottom — ONLY the top row stays open
+    for (let y = 96; y <= 672; y += 64) G.towers.push({key: 'gatling', x: 224, y, ulv: 0, cd: 9999, angle: 0, flash: 0, invested: 0, mode: 'first'});
     G.flow = mazeRebuild();
-    const sealTop = !canPlace(256, 32);                // capping the wall flush to the edge would seal — illegal
+    const sealTop = !canPlace(224, 32);                // capping the wall flush to the edge would seal — illegal
     for (let i = 0; i < 5; i++){
       spawnDino('velociraptor', 0, false);
       const d = G.dinos[G.dinos.length - 1];
@@ -3846,7 +3854,7 @@ if (testParams.has('test')){
       step(0.05);
       for (const d of G.dinos){
         if (d.dead || d.flying || d.mx === undefined) continue;
-        if (d.pmx !== undefined && d.pmx <= 256 && d.mx > 256) crossT.push(d.my | 0);
+        if (d.pmx !== undefined && d.pmx <= 224 && d.mx > 224) crossT.push(d.my | 0);
         d.pmx = d.mx;
         for (const t of G.towers){
           const td = Math.max(Math.abs(d.mx - t.x), Math.abs(d.my - t.y));
@@ -3863,13 +3871,13 @@ if (testParams.has('test')){
   if (testParams.has('grid')){ // visual: the placement grid overlay on the maze map
     G.cash = 1e9;
     G.towers.length = 0; G.flow = mazeRebuild();       // clear the default test loadout
-    placeTower('gatling', 448, 224, true);
-    placeTower('gatling', 448, 288, true);            // a flush vertical pair
+    placeTower('gatling', 480, 160, true);
+    placeTower('gatling', 480, 224, true);            // a flush vertical pair
     G.placing = 'cryo';
-    G.mouse.x = 500; G.mouse.y = 340; G.mouse.on = true;   // snaps flush under the pair
+    G.mouse.x = 530; G.mouse.y = 270; G.mouse.on = true;   // snaps to (544,288), diagonal to the pair
     step(0.05);
     const el = $('#errbox'); el.classList.remove('hidden');
-    el.textContent = `GRID canPlace(512,352)=${canPlace(512, 352)}(want true) · flushLeft=${canPlace(384, 256)}(want true) · onTop=${canPlace(448, 256)}(want false) · towers=${G.towers.map(t => t.x + ',' + t.y).join(' ')}`;
+    el.textContent = `GRID canPlace(544,288)=${canPlace(544, 288)}(want true) · flushLeft=${canPlace(416, 160)}(want true) · onTop=${canPlace(480, 224)}(want false) · towers=${G.towers.map(t => t.x + ',' + t.y).join(' ')}`;
     G.paused = true;
   }
   if (testParams.has('zap')){ // stage a tesla (at the given upgrade level) mid-arc
