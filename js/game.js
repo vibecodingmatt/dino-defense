@@ -1304,7 +1304,6 @@ function startWave(){
   G.spawnQ = G.pendingWave || buildWave(G.wave);
   G.waveTotal = G.spawnQ.length;
   G.pendingWave = G.wave < WAVES_PER_LEVEL ? buildWave(G.wave + 1) : null;
-  updateIncoming();
   G.spawnT = 0;
   if (G.wave >= 50) unlockAch('wave50');
   updateHUD();
@@ -1418,7 +1417,6 @@ function startLevel(idx, mode, diff){
   buildShop();
   selectTower(null);
   G.pendingWave = G.wave < WAVES_PER_LEVEL ? buildWave(G.wave + 1) : null;
-  updateIncoming();
   updateHUD();
   G.runStartT = performance.now();
   track(mode === 'resume' ? 'run_resume' : 'run_start', {map_name: G.level.name, difficulty: G.difficulty});
@@ -1433,27 +1431,6 @@ function initAmbient(){
   }
 }
 
-/* "incoming" preview panel showing next wave composition */
-function updateIncoming(){
-  const el = $('#incoming');
-  if (!el) return;
-  if (!G.pendingWave){
-    el.innerHTML = '<div class="incTitle">All waves cleared</div>';
-    return;
-  }
-  const counts = {}, bosses = [];
-  for (const s of G.pendingWave){
-    if (s.boss) bosses.push(DINOS[s.key].name);
-    else counts[s.key] = (counts[s.key] || 0) + 1;
-  }
-  let html = `<div class="incTitle">📡 Wave ${G.wave + 1} incoming</div>`;
-  html += Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([k, n]) => {
-    const d = DINOS[k];
-    return `<span class="chip${d.flying ? ' fly' : ''}">${d.flying ? '🪽 ' : ''}${d.name} ×${n}</span>`;
-  }).join('');
-  for (const b of bosses) html += `<span class="chip boss">⚠ ${b}</span>`;
-  el.innerHTML = html;
-}
 function victory(){
   G.over = true;
   save.run = null;
