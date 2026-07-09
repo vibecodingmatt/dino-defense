@@ -1419,6 +1419,7 @@ function startLevel(idx, mode, diff){
   buildShop();
   selectTower(null);
   resetCam();
+  $('#zoomBar').classList.toggle('hidden', !IS_COARSE);   // zoom pill on touch devices only
   G.pendingWave = G.wave < WAVES_PER_LEVEL ? buildWave(G.wave + 1) : null;
   updateHUD();
   G.runStartT = performance.now();
@@ -1436,6 +1437,7 @@ function initAmbient(){
 
 function victory(){
   G.over = true;
+  $('#zoomBar').classList.add('hidden');
   save.run = null;
   const D = G.difficulty;
   const cheated = runDisqualified();
@@ -1515,6 +1517,7 @@ function victory(){
 }
 function defeat(){
   G.over = true;
+  $('#zoomBar').classList.add('hidden');
   clearRun();
   track('run_end', {result: 'loss', map_name: G.level.name, difficulty: G.difficulty, wave: G.wave,
                     duration_sec: Math.round((performance.now() - (G.runStartT || performance.now())) / 1000)});
@@ -1530,6 +1533,7 @@ function toMenu(){
   G.runCheated = false;   // no run in progress — Lab actions here are eligible for trophies
   $('#hud').classList.add('hidden');
   $('#shop').classList.add('hidden');
+  $('#zoomBar').classList.add('hidden');
   $('#gameover').classList.add('hidden');
   $('#victory').classList.add('hidden');
   $('#menu').classList.remove('hidden');
@@ -3276,7 +3280,7 @@ function render(dt){
   if (bosses.length){
     let b = bosses[0];
     for (const d of bosses) if (d.maxHp > b.maxHp) b = d;
-    const bw = 460, bx = (W - bw) / 2, by = 30;
+    const bw = 460, bx = (W - bw) / 2, by = IS_COARSE ? 106 : 30;   // nudge below the mobile zoom pill
     ctx.fillStyle = 'rgba(12,8,8,0.72)'; ctx.fillRect(bx - 10, by - 18, bw + 20, 38);
     ctx.strokeStyle = '#a03828'; ctx.lineWidth = 1.5; ctx.strokeRect(bx - 10, by - 18, bw + 20, 38);
     ctx.fillStyle = '#ffd24a'; ctx.font = 'bold 12px Verdana, sans-serif'; ctx.textAlign = 'center';
@@ -3409,7 +3413,7 @@ const CAM_MIN_ZOOM = 0.8, CAM_MAX_ZOOM = 2.6;
 const CAM_MARGIN = 160;      // how far past the map edges you can pan (dark margin)
 const PLACE_LIFT_PX = 60;    // how far above the fingertip the ghost floats (CSS px)
 
-function resetCam(){ G.cam = {x: 0, y: 0, zoom: 1}; G.gesture = null; }
+function resetCam(){ G.cam = {x: 0, y: 0, zoom: 1}; G.gesture = null; syncZoomUI(); }
 // keep the camera showing the map (plus a little margin); re-anchor the popup
 function clampCam(){
   const c = G.cam;
@@ -3420,7 +3424,19 @@ function clampCam(){
   c.x = (maxX >= minX) ? clamp(c.x, minX, maxX) : (WORLD_W - vw) / 2;   // centre if it all fits
   c.y = (maxY >= minY) ? clamp(c.y, minY, maxY) : (WORLD_H - vh) / 2;
   if (G.selected) positionTowerPop(G.selected);
+  syncZoomUI();
 }
+// zoom keeping the viewport centre fixed (used by the slider / +- buttons)
+function setZoomCentered(z){
+  const c = G.cam;
+  const wx = (W / 2) / c.zoom + c.x, wy = (H / 2) / c.zoom + c.y;   // world point under the centre
+  c.zoom = clamp(z, CAM_MIN_ZOOM, CAM_MAX_ZOOM);
+  c.x = wx - (W / 2) / c.zoom;
+  c.y = wy - (H / 2) / c.zoom;
+  clampCam();
+}
+// reflect the live zoom back onto the slider (keeps it in sync with pinch-zoom)
+function syncZoomUI(){ const s = $('#zoomSlider'); if (s) s.value = G.cam.zoom.toFixed(2); }
 
 // pointer(client) -> canvas buffer px (0..W, 0..H), correcting for CSS scaling
 function clientToBuffer(clientX, clientY){
@@ -3571,6 +3587,17 @@ function endTouch(e){
 }
 cv.addEventListener('pointerup', endTouch);
 cv.addEventListener('pointercancel', endTouch);
+
+// map-zoom pill (top-centre, touch only). Slider + step buttons drive the camera.
+(function initZoomUI(){
+  const s = $('#zoomSlider');
+  if (!s) return;
+  s.min = CAM_MIN_ZOOM; s.max = CAM_MAX_ZOOM;
+  s.addEventListener('input', () => setZoomCentered(parseFloat(s.value)));
+  $('#zoomIn').onclick  = () => setZoomCentered(G.cam.zoom + 0.35);
+  $('#zoomOut').onclick = () => setZoomCentered(G.cam.zoom - 0.35);
+  syncZoomUI();
+})();
 window.addEventListener('keydown', e => {
   if (G.state !== 'playing') return;
   const keys = Object.keys(TOWERS);

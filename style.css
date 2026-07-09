@@ -641,6 +641,35 @@ button.stat { cursor: pointer; }
 * { -webkit-tap-highlight-color: transparent; }
 #hud button, .modal button { touch-action: manipulation; }
 canvas#game { touch-action: none; }   /* we handle pan/pinch/tap ourselves */
+
+/* mobile map-zoom pill (top-centre of the stage) */
+#zoomBar {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+  z-index: 12; display: flex; align-items: center; gap: 8px;
+  padding: 5px 10px 5px 8px; border-radius: 20px;
+  background: rgba(12,16,10,0.74); border: 1px solid var(--line); box-shadow: 0 2px 8px #0007;
+}
+#zoomBar .zIcon { font-size: 12px; opacity: 0.8; }
+#zoomBar .zBtn {
+  width: 26px; height: 26px; padding: 0; border-radius: 50%;
+  border: 1px solid var(--line); background: #1a2113; color: var(--text);
+  font-size: 17px; line-height: 1; display: grid; place-items: center; cursor: pointer;
+  touch-action: manipulation;
+}
+#zoomBar .zBtn:active { background: #2a3520; border-color: var(--accent-soft); }
+#zoomSlider {
+  -webkit-appearance: none; appearance: none; width: 120px; height: 5px; margin: 0;
+  border-radius: 3px; background: #3a4630; outline: none;
+}
+#zoomSlider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 18px; height: 18px;
+  border-radius: 50%; background: var(--accent-soft); border: 2px solid #12180f; cursor: pointer;
+}
+#zoomSlider::-moz-range-thumb {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--accent-soft); border: 2px solid #12180f; cursor: pointer;
+}
+#zoomSlider::-moz-range-track { height: 5px; border-radius: 3px; background: #3a4630; }
 /* a vertical drag on a card scrolls the shop; a sideways drag places the weapon */
 .shopCard { touch-action: pan-y; }
 /* shared small-screen tweaks (both orientations) */

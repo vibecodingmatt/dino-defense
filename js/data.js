@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.31.5';
+const VERSION = '1.31.6';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -25,12 +25,13 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.31.5', date: 'Jul 9, 2026', items: [
+  {v: '1.31.6', date: 'Jul 9, 2026', items: [
     '📐 The Armory panel dropped the "next wave" preview, freeing up more room to show your weapons.',
     '💥 Toned down the screen shake from mortar, missile, and air-strike explosions.',
     '📱 Isla Defense can now be installed to your phone — a new Install button on the home screen walks you through it (and shows iPhone users the Safari steps) to play full-screen and offline.',
     '👆 On touch, the weapon and its range now float above your fingertip while placing, so you can see exactly where it lands.',
     '🗺️ Drag with one finger to pan the map and pinch to zoom — with room past the edges so you can build right up to the bottom.',
+    '🔍 Added a zoom slider at the top of the map on phones, so the pinch-to-zoom is easy to find and fine-tune.',
   ]},
   {v: '1.31.0', date: 'Jul 8, 2026', items: [
     '📐 Proving Grounds squares are now 4× bigger (a 20×11 field) — each weapon fills exactly one square, and weapon ranges are measured in squares: Gatling covers 1 square in every direction, Cryo 2, Missiles 3, Mortar 4 (growing to 5 fully upgraded), and the rest tuned to 1–2.',
