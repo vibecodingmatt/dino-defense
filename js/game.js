@@ -493,7 +493,9 @@ const G = {
   targeting: null, strikes: [], clouds: [], airUsed: 0,
   omega: null, omegaUsed: 0,
   celebration: null, fw: [],
-  mouse: {x: 0, y: 0, on: false},
+  mouse: {x: 0, y: 0, on: false, tx: 0, ty: 0, off: false},
+  cam: {x: 0, y: 0, zoom: 1},   // world camera (pan/zoom on touch; identity on desktop)
+  gesture: null,                // in-progress touch gesture on the map
   autoTimer: -1,
   shake: 0, banner: null,
   time: 0,
@@ -1416,6 +1418,7 @@ function startLevel(idx, mode, diff){
   $('#levelTitle').textContent = `${G.level.name} · Lv ${G.difficulty}`;
   buildShop();
   selectTower(null);
+  resetCam();
   G.pendingWave = G.wave < WAVES_PER_LEVEL ? buildWave(G.wave + 1) : null;
   updateHUD();
   G.runStartT = performance.now();
@@ -1586,10 +1589,12 @@ function positionTowerPop(t){
   const stage = $('#stage'), cvEl = $('#game');
   const sr = stage.getBoundingClientRect(), cr = cvEl.getBoundingClientRect();
   if (!cr.width) return;
-  const scale = cr.width / W;                        // screen px per world unit
-  const cx = (cr.left - sr.left) + t.x * scale;      // tower centre, stage-relative
-  const cy = (cr.top  - sr.top)  + t.y * scale;
-  const towerR = 22 * scale;
+  const sx = cr.width / W, sy = cr.height / H;        // display px per canvas-buffer px
+  const bx = (t.x - G.cam.x) * G.cam.zoom;            // tower centre -> buffer px (through camera)
+  const by = (t.y - G.cam.y) * G.cam.zoom;
+  const cx = (cr.left - sr.left) + bx * sx;           // ...then -> stage-relative display px
+  const cy = (cr.top  - sr.top)  + by * sy;
+  const towerR = 22 * G.cam.zoom * sx;
   const margin = 6;
   // Only let the panel scroll internally when it genuinely can't fit the stage
   // (short mobile-landscape screens); otherwise keep it overflow-free so no
@@ -2656,11 +2661,18 @@ function step(dt){
 function render(dt){
   G.time += dt;
   ctx.save();
+  // clear the whole buffer first: when the mobile camera is panned/zoomed the
+  // margin outside the map shows this clean dark stage colour instead of smear
+  ctx.fillStyle = '#0a0d08'; ctx.fillRect(0, 0, W, H);
   if (G.shake > 0) ctx.translate(rand(-G.shake, G.shake), rand(-G.shake, G.shake));
   // decay shake here (in render, which always runs) rather than in step —
   // step is skipped once the run is over, so a leftover shake used to freeze
   // on and rattle the victory/defeat screen forever
   G.shake = Math.max(0, G.shake - dt * 18);
+  // ---- world camera: pan/zoom on mobile, identity (zoom 1, no pan) on desktop ----
+  ctx.save();
+  ctx.scale(G.cam.zoom, G.cam.zoom);
+  ctx.translate(-G.cam.x, -G.cam.y);
   ctx.drawImage(G.bg, 0, 0);
 
   // open-world maps: show the one route the column is currently marching —
@@ -3154,6 +3166,18 @@ function render(dt){
       ctx.strokeRect(px - 32, py - 32, 64, 64);
       ctx.lineWidth = 1;
     }
+    if (G.mouse.off){
+      // touch placement: the drop point sits ABOVE the fingertip, so draw a
+      // leash from the finger up to the ghost to make the target unmistakable
+      ctx.save();
+      ctx.strokeStyle = ok ? 'rgba(150,240,150,0.55)' : 'rgba(255,120,120,0.6)';
+      ctx.lineWidth = 2; ctx.setLineDash([5, 5]);
+      ctx.beginPath(); ctx.moveTo(G.mouse.tx, G.mouse.ty); ctx.lineTo(px, py); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.beginPath(); ctx.arc(G.mouse.tx, G.mouse.ty, 5, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
     drawTowerBase(ctx, px, py, G.placing, false, 0);
     if (G.pendingTap){
       ctx.font = 'bold 13px Verdana, sans-serif'; ctx.textAlign = 'center';
@@ -3236,6 +3260,9 @@ function render(dt){
       ctx.restore();
     }
   }
+
+  // ---- end world camera; the HUD below is drawn in fixed screen space ----
+  ctx.restore();
 
   // wave spawn progress (thin bar along the top)
   if (G.waveActive && G.waveTotal){
@@ -3375,49 +3402,74 @@ function render(dt){
 }
 
 /* ---------------- input ---------------- */
-function canvasPos(e){
-  const r = cv.getBoundingClientRect();
-  return {x: (e.clientX - r.left) * (W / r.width), y: (e.clientY - r.top) * (H / r.height)};
+const IS_COARSE = matchMedia('(pointer: coarse)').matches; // touch devices
+// world size + mobile camera limits. Desktop never leaves zoom 1 / no pan.
+const WORLD_W = W, WORLD_H = H;
+const CAM_MIN_ZOOM = 0.8, CAM_MAX_ZOOM = 2.6;
+const CAM_MARGIN = 160;      // how far past the map edges you can pan (dark margin)
+const PLACE_LIFT_PX = 60;    // how far above the fingertip the ghost floats (CSS px)
+
+function resetCam(){ G.cam = {x: 0, y: 0, zoom: 1}; G.gesture = null; }
+// keep the camera showing the map (plus a little margin); re-anchor the popup
+function clampCam(){
+  const c = G.cam;
+  c.zoom = clamp(c.zoom, CAM_MIN_ZOOM, CAM_MAX_ZOOM);
+  const vw = W / c.zoom, vh = H / c.zoom;             // viewport size in world units
+  const minX = -CAM_MARGIN, maxX = WORLD_W + CAM_MARGIN - vw;
+  const minY = -CAM_MARGIN, maxY = WORLD_H + CAM_MARGIN - vh;
+  c.x = (maxX >= minX) ? clamp(c.x, minX, maxX) : (WORLD_W - vw) / 2;   // centre if it all fits
+  c.y = (maxY >= minY) ? clamp(c.y, minY, maxY) : (WORLD_H - vh) / 2;
+  if (G.selected) positionTowerPop(G.selected);
 }
-/* map a pointer anywhere on screen to canvas coords; G.mouse.on = over the map */
-function mouseFromPointer(e){
+
+// pointer(client) -> canvas buffer px (0..W, 0..H), correcting for CSS scaling
+function clientToBuffer(clientX, clientY){
   const r = cv.getBoundingClientRect();
+  return {bx: (clientX - r.left) * (W / r.width), by: (clientY - r.top) * (H / r.height), r};
+}
+// canvas buffer px -> world, through the camera
+function bufferToWorld(bx, by){ return {x: bx / G.cam.zoom + G.cam.x, y: by / G.cam.zoom + G.cam.y}; }
+function canvasPos(e){ const b = clientToBuffer(e.clientX, e.clientY); return bufferToWorld(b.bx, b.by); }
+
+// record a placement point. On touch, lift it above the fingertip so the weapon
+// and its range ring aren't hidden under the finger; keep the true fingertip too.
+function setPlacePoint(wx, wy, lift, rectH){
+  G.mouse.tx = wx; G.mouse.ty = wy;
+  let py = wy;
+  if (lift){
+    const rh = rectH || cv.getBoundingClientRect().height || H;
+    py = wy - PLACE_LIFT_PX * (H / rh) / G.cam.zoom;   // constant on-screen lift, in world units
+  }
+  G.mouse.x = wx; G.mouse.y = py; G.mouse.off = !!lift;
+}
+/* map a pointer anywhere on screen to world coords for placement (used by the
+   shop-card drag). Lifts above the finger on touch; exact under the mouse. */
+function mouseFromPointer(e){
+  const b = clientToBuffer(e.clientX, e.clientY);
+  const r = b.r;
   if (!r.width) return;
-  G.mouse.x = clamp((e.clientX - r.left) * (W / r.width), 0, W);
-  G.mouse.y = clamp((e.clientY - r.top) * (H / r.height), 0, H);
+  const w = bufferToWorld(clamp(b.bx, 0, W), clamp(b.by, 0, H));
+  setPlacePoint(w.x, w.y, e.pointerType === 'touch', r.height);
   G.mouse.on = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
 }
+
+// ---- desktop: mouse ----
 cv.addEventListener('mousemove', e => {
+  if (IS_COARSE) return;                     // touch is handled by the pointer gestures below
   const p = canvasPos(e);
-  G.mouse.x = p.x; G.mouse.y = p.y; G.mouse.on = true;
+  G.mouse.x = p.x; G.mouse.y = p.y; G.mouse.tx = p.x; G.mouse.ty = p.y; G.mouse.off = false; G.mouse.on = true;
 });
-cv.addEventListener('mouseleave', () => { G.mouse.on = false; });
-const IS_COARSE = matchMedia('(pointer: coarse)').matches; // touch devices
+cv.addEventListener('mouseleave', () => { if (!IS_COARSE) G.mouse.on = false; });
 cv.addEventListener('click', e => {
-  if (G.state !== 'playing') return;
+  if (IS_COARSE || G.state !== 'playing') return;
   const p = canvasPos(e);
-  if (G.targeting === 'strike'){
-    launchStrike(p.x, p.y);
-    return;
-  }
+  if (G.targeting === 'strike'){ launchStrike(p.x, p.y); return; }
   if (G.placing){
-    if (IS_COARSE){
-      // two-tap on touch: first tap previews, second tap (near it) confirms
-      if (!G.pendingTap || hyp(p.x, p.y, G.pendingTap.x, G.pendingTap.y) > 36){
-        G.pendingTap = {x: p.x, y: p.y};
-        G.mouse.x = p.x; G.mouse.y = p.y; G.mouse.on = true;
-        return;
-      }
-      placeTower(G.placing, G.pendingTap.x, G.pendingTap.y);
-      G.pendingTap = null;
-    } else {
-      placeTower(G.placing, p.x, p.y);
-    }
-    if (!e.shiftKey && G.cash < towerCost(G.placing)) { G.placing = null; }
+    placeTower(G.placing, p.x, p.y);
+    if (!e.shiftKey && G.cash < towerCost(G.placing)) G.placing = null;
     updateHUD();
     return;
   }
-  // select tower under cursor (tapping the selected one again closes the menu)
   let hit = null;
   for (const t of G.towers) if (hyp(p.x, p.y, t.x, t.y) < 24) hit = t;
   selectTower(hit === G.selected ? null : hit);
@@ -3426,6 +3478,99 @@ cv.addEventListener('contextmenu', e => {
   e.preventDefault();
   G.placing = null; G.pendingTap = null; G.targeting = null; selectTower(null); updateHUD();
 });
+
+// ---- mobile: one finger = move ghost (when placing) or pan the map; two fingers = pinch-zoom ----
+const TAP_MOVE = 12;   // client px of travel before a touch counts as a drag, not a tap
+function beginPinch(g){
+  g.mode = 'pinch';
+  const [a, b] = [...g.pts.values()];
+  const A = clientToBuffer(a.x, a.y), B = clientToBuffer(b.x, b.y);
+  g.pinchDist = Math.hypot(A.bx - B.bx, A.by - B.by) || 1;
+  g.pinchZoom = G.cam.zoom;
+  g.pinchWorld = bufferToWorld((A.bx + B.bx) / 2, (A.by + B.by) / 2); // keep this point under the pinch centre
+  G.mouse.on = false;                                                 // hide any ghost while zooming
+}
+function updatePinch(g){
+  const vals = [...g.pts.values()];
+  if (vals.length < 2) return;
+  const A = clientToBuffer(vals[0].x, vals[0].y), B = clientToBuffer(vals[1].x, vals[1].y);
+  const mx = (A.bx + B.bx) / 2, my = (A.by + B.by) / 2;
+  const dist = Math.hypot(A.bx - B.bx, A.by - B.by) || 1;
+  G.cam.zoom = clamp(g.pinchZoom * (dist / g.pinchDist), CAM_MIN_ZOOM, CAM_MAX_ZOOM);
+  G.cam.x = g.pinchWorld.x - mx / G.cam.zoom;
+  G.cam.y = g.pinchWorld.y - my / G.cam.zoom;
+  clampCam();
+}
+// point the ghost at a single remaining touch (start of drag, or after a pinch ends)
+function trackPlaceTouch(p){
+  const b = clientToBuffer(p.x, p.y);
+  const w = bufferToWorld(b.bx, b.by);
+  setPlacePoint(w.x, w.y, true, b.r.height);
+  G.mouse.on = true;
+}
+cv.addEventListener('pointerdown', e => {
+  if (e.pointerType !== 'touch' || G.state !== 'playing') return;
+  e.preventDefault();
+  try { cv.setPointerCapture(e.pointerId); } catch(_){}
+  const g = G.gesture || (G.gesture = {pts: new Map()});
+  g.pts.set(e.pointerId, {x: e.clientX, y: e.clientY});
+  if (g.pts.size >= 2){ beginPinch(g); return; }
+  g.moved = false; g.startX = e.clientX; g.startY = e.clientY;
+  if (G.placing || G.targeting){ g.mode = 'place'; trackPlaceTouch({x: e.clientX, y: e.clientY}); }
+  else { g.mode = 'pan'; g.camX = G.cam.x; g.camY = G.cam.y; }
+});
+cv.addEventListener('pointermove', e => {
+  if (e.pointerType !== 'touch') return;
+  const g = G.gesture; if (!g || !g.pts.has(e.pointerId)) return;
+  e.preventDefault();
+  g.pts.set(e.pointerId, {x: e.clientX, y: e.clientY});
+  if (g.mode === 'pinch'){ updatePinch(g); return; }
+  if (Math.hypot(e.clientX - g.startX, e.clientY - g.startY) > TAP_MOVE) g.moved = true;
+  if (g.mode === 'place'){
+    trackPlaceTouch({x: e.clientX, y: e.clientY});
+  } else if (g.mode === 'pan'){
+    const b = clientToBuffer(e.clientX, e.clientY), s = clientToBuffer(g.startX, g.startY);
+    G.cam.x = g.camX - (b.bx - s.bx) / G.cam.zoom;
+    G.cam.y = g.camY - (b.by - s.by) / G.cam.zoom;
+    clampCam();
+  }
+});
+function endTouch(e){
+  if (e.pointerType !== 'touch') return;
+  const g = G.gesture; if (!g || !g.pts.has(e.pointerId)) return;
+  e.preventDefault();
+  g.pts.delete(e.pointerId);
+  if (g.pts.size >= 2){ beginPinch(g); return; }
+  if (g.pts.size === 1){                       // pinch dropped to one finger → resume drag/pan
+    const p = [...g.pts.values()][0];
+    g.moved = true; g.startX = p.x; g.startY = p.y;
+    if (G.placing || G.targeting){ g.mode = 'place'; trackPlaceTouch(p); }
+    else { g.mode = 'pan'; g.camX = G.cam.x; g.camY = G.cam.y; }
+    return;
+  }
+  // last finger up → resolve the gesture
+  const {mode, moved} = g;
+  G.gesture = null;
+  if (mode === 'place'){
+    if (G.targeting === 'strike'){
+      launchStrike(G.mouse.x, G.mouse.y);
+      G.targeting = null;
+    } else if (G.placing){
+      const okPlace = canPlace(G.mouse.x, G.mouse.y) && G.cash >= towerCost(G.placing);
+      placeTower(G.placing, G.mouse.x, G.mouse.y);   // plays the build or the error cue
+      if (okPlace) G.placing = null;                 // placed → stop; keep it selected if it was blocked
+    }
+    G.mouse.on = false; G.mouse.off = false;
+    updateHUD();
+  } else if (mode === 'pan' && !moved){         // a tap that didn't drag → select/deselect a tower
+    const p = canvasPos(e);
+    let hit = null;
+    for (const t of G.towers) if (hyp(p.x, p.y, t.x, t.y) < 26) hit = t;
+    selectTower(hit === G.selected ? null : hit);
+  }
+}
+cv.addEventListener('pointerup', endTouch);
+cv.addEventListener('pointercancel', endTouch);
 window.addEventListener('keydown', e => {
   if (G.state !== 'playing') return;
   const keys = Object.keys(TOWERS);

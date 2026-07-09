@@ -615,7 +615,8 @@ button.stat { cursor: pointer; }
 
 /* ---------- mobile / narrow screens ---------- */
 * { -webkit-tap-highlight-color: transparent; }
-canvas#game, #hud button, .modal button { touch-action: manipulation; }
+#hud button, .modal button { touch-action: manipulation; }
+canvas#game { touch-action: none; }   /* we handle pan/pinch/tap ourselves */
 /* a vertical drag on a card scrolls the shop; a sideways drag places the weapon */
 .shopCard { touch-action: pan-y; }
 /* shared small-screen tweaks (both orientations) */
