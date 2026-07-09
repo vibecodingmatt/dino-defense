@@ -150,6 +150,9 @@
       </div>
     </section>
 
+    <!-- install-to-device (shown by JS only when installable and not already installed) -->
+    <button id="btnInstall" class="hidden">📲 <span class="instTxt">Install app</span></button>
+
     <!-- NAV -->
     <nav id="menuBtns">
       <button id="btnLab" class="primary">🧬 Research Lab</button>
@@ -209,6 +212,24 @@
     <div class="sub">Bug fixes and enhancements, newest first.</div>
     <div id="clogList"></div>
     <div class="modalBtns"><button id="clogClose" class="primary">Done</button></div>
+  </div>
+</div>
+
+<!-- iOS "Add to Home Screen" instructions -->
+<div id="iosInstall" class="modal hidden">
+  <div class="modalBox">
+    <button class="modalX" title="Close">✕</button>
+    <h2>📲 Add to Home Screen</h2>
+    <div class="sub">Install Isla Defense to play full-screen and offline.</div>
+    <ol class="iosSteps">
+      <li>Tap the <b>Share</b> button
+        <span class="iosIco"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M8 7l4-4 4 4"/><path d="M6 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-1"/></svg></span>
+        in Safari's toolbar.</li>
+      <li>Scroll down and choose <b>“Add to Home Screen”</b> <span class="iosIco">➕</span>.</li>
+      <li>Tap <b>Add</b>, then launch Isla Defense from your Home Screen.</li>
+    </ol>
+    <p class="iosNote">This option lives in <b>Safari</b> only — not Chrome or Firefox on iPhone/iPad.</p>
+    <div class="modalBtns"><button id="iosInstallClose" class="primary">Got it</button></div>
   </div>
 </div>
 

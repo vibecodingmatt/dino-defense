@@ -3635,6 +3635,52 @@ $('#btnAch').onclick = () => { buildAchievements(); $('#achievements').classList
 $('#achClose').onclick = () => $('#achievements').classList.add('hidden');
 $('#verChip').onclick = () => { buildChangelog(); $('#changelog').classList.remove('hidden'); };
 $('#clogClose').onclick = () => $('#changelog').classList.add('hidden');
+
+/* ---- "Install to your device" prompt (Android native / iOS Safari how-to) ---- */
+(function initInstall(){
+  const btn = $('#btnInstall');
+  if (!btn) return;
+  const label = btn.querySelector('.instTxt');
+  const isStandalone = () =>
+    matchMedia('(display-mode: standalone)').matches ||
+    matchMedia('(display-mode: fullscreen)').matches ||
+    matchMedia('(display-mode: minimal-ui)').matches ||
+    navigator.standalone === true;                       // iOS home-screen launch
+  const ua = navigator.userAgent || '';
+  const isIOS = /iP(hone|ad|od)/.test(ua) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPadOS masquerades as Mac
+  const iosSafari = isIOS && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);        // only Safari can Add to Home Screen
+  let deferred = null;                                    // stashed beforeinstallprompt event
+
+  const show = () => { if (!isStandalone()) btn.classList.remove('hidden'); };
+  const hide = () => btn.classList.add('hidden');
+
+  // Android / desktop Chromium: capture the native prompt and surface our own button
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferred = e;
+    if (label) label.textContent = 'Install app';
+    show();
+  });
+  window.addEventListener('appinstalled', () => { deferred = null; hide(); });
+
+  // iOS Safari has no prompt event → offer manual instructions instead
+  if (iosSafari && !isStandalone()){
+    if (label) label.textContent = 'Add to Home Screen';
+    show();
+  }
+
+  btn.onclick = async () => {
+    if (deferred){
+      deferred.prompt();
+      try { await deferred.userChoice; } catch(_){}
+      deferred = null; hide();
+    } else {
+      $('#iosInstall').classList.remove('hidden');        // fallback: show the how-to card
+    }
+  };
+  $('#iosInstallClose').onclick = () => $('#iosInstall').classList.add('hidden');
+})();
 $('#btnLab').onclick = openLab;
 $('#menuDna').onclick = openLab;
 $('#vLab').onclick = openLab;

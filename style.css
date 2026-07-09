@@ -457,6 +457,30 @@ button.stat { cursor: pointer; }
   0%, 100% { box-shadow: 0 0 4px #e8b93a40; }
   50% { box-shadow: 0 0 20px #e8b93a99; }
 }
+/* install-to-device pill (appears on the menu only when installable) */
+#btnInstall {
+  display: block; margin: 24px auto 0; padding: 12px 26px;
+  font-size: 15px; font-weight: bold; border-radius: 12px; cursor: pointer;
+  color: #12180f; background: linear-gradient(180deg, #ffe7a4, var(--accent-soft));
+  border: 1px solid var(--accent-soft); box-shadow: 0 4px 16px #e8b93a44;
+  transition: transform 0.12s, box-shadow 0.2s; animation: instPulse 2.2s infinite;
+}
+#btnInstall:hover { transform: translateY(-2px); box-shadow: 0 6px 22px #e8b93a77; }
+@keyframes instPulse { 0%, 100% { box-shadow: 0 4px 14px #e8b93a33; } 50% { box-shadow: 0 4px 22px #e8b93a88; } }
+
+/* iOS Add-to-Home-Screen steps */
+.iosSteps { list-style: none; counter-reset: step; display: flex; flex-direction: column; gap: 10px; margin: 8px 0 4px; }
+.iosSteps li {
+  counter-increment: step; display: flex; align-items: center; gap: 11px;
+  padding: 11px 13px; background: #0e150c; border: 1px solid var(--line); border-radius: 10px; font-size: 14px;
+}
+.iosSteps li::before {
+  content: counter(step); flex: 0 0 auto; width: 24px; height: 24px; display: grid; place-items: center;
+  border-radius: 50%; background: var(--accent-soft); color: #12180f; font-weight: bold; font-size: 13px;
+}
+.iosIco { display: inline-flex; align-items: center; vertical-align: middle; color: var(--accent); }
+.iosNote { font-size: 12.5px; color: var(--dim); margin-top: 12px; text-align: center; }
+
 .menuFoot { display: flex; flex-direction: column; align-items: center; margin-top: 22px; }
 
 @media (prefers-reduced-motion: reduce) {
