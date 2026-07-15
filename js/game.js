@@ -49,7 +49,7 @@ const SAVE_KEY = 'islaDefense.v1';
 const START_DNA = 80;   // grant so a new player can buy their first upgrade right away
 function defaultSave(){
   return {bestDiff:0, mapBest:{}, wlv:{}, dna:START_DNA, kills:0, run:null, ach:{},
-          stickers:{}, stickerD:{}, wkills:{}, studio:[], granted:true,
+          stickers:{}, stickerD:{}, cardSeen:false, wkills:{}, studio:[], granted:true,
           settings:{invincible:false, unlimitedCash:false, levelSkip:false, allStickers:false, mute:false,
                     auto:true, music:true, wavePreview:true, killCallouts:true, mutedWeapons:{}}};
 }
@@ -69,7 +69,7 @@ function loadSave(){
     const d = defaultSave();
     return {bestDiff: s.bestDiff || 0, mapBest: s.mapBest || {}, wlv: s.wlv || {},
             dna: s.dna || 0, kills: s.kills || 0, run: s.run || null, ach: s.ach || {},
-            stickers: s.stickers || {}, stickerD: s.stickerD || {},
+            stickers: s.stickers || {}, stickerD: s.stickerD || {}, cardSeen: !!s.cardSeen,
             wkills: s.wkills || {}, studio: s.studio || [],
             granted: !!s.granted,
             settings: Object.assign(d.settings, s.settings || {})};
@@ -2715,11 +2715,13 @@ function buildStickers(){
       const n = (save.stickers && save.stickers[wk + ':' + dk]) || 0;
       if (n) got++;
       const shown = n > 0 || save.settings.allStickers;   // dev preview: view-only
-      html += `<td class="cell${shown ? ' got' : ''}${!n && shown ? ' dev' : ''}" data-w="${wk}" data-d="${dk}" title="${def.name} × ${TOWERS[wk].name}${n ? ' — ' + fmt(n) + ' final blow' + (n > 1 ? 's' : '') + ' — tap for the card!' : shown ? ' — DEV preview' : ' — not yet!'}">${shown ? TOWERS[wk].icon : ''}</td>`;
+      html += `<td class="cell${shown ? ' got' : ''}${!n && shown ? ' dev' : ''}" data-w="${wk}" data-d="${dk}" title="${def.name} × ${TOWERS[wk].name}${n ? ' — ' + fmt(n) + ' final blow' + (n > 1 ? 's' : '') + ' — tap for the card!' : shown ? ' — DEV preview' : ' — not yet!'}">${shown ? `<span class="stk">${TOWERS[wk].icon}</span>` : ''}</td>`;
     }
     html += '</tr>';
   }
   table.innerHTML = html;
+  // first-time coach: earned stickers bounce until the player opens a card
+  table.classList.toggle('hintPulse', got > 0 && !save.cardSeen);
   const prog = $('#stickProg');
   if (prog) prog.textContent = `${got} / ${total}` + (save.settings.allStickers ? ' — 🔧 DEV preview: all shown' : '');
 }
@@ -2758,6 +2760,8 @@ function openStickerCard(wk, dk){
       : `<div class="cLine">${wdef.icon} <b>${wdef.name}</b> hasn't finished one yet</div>` +
         `<div class="cDate">🔧 Developer preview — not earned</div>`);
   $('#stickCard').classList.remove('hidden');
+  if (!save.cardSeen){ save.cardSeen = true; persist(); }   // coach bounce retires
+  $('#stickTable').classList.remove('hintPulse');
   cardT0 = performance.now();
   SFX.coin();
   if (!cardRAF) cardLoop();

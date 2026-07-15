@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.36.1';
+const VERSION = '1.36.2';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -25,7 +25,7 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.36.1', date: 'Jul 15, 2026', items: [
+  {v: '1.36.2', date: 'Jul 15, 2026', items: [
     '🃏 Tap any earned sticker to flip out its animated TRADING CARD: the dinosaur struts in place under a rotating sunburst with confetti, twinkles, and a holo-foil shine — plus the weapon that earned it, your tally, and the date you unlocked it.',
     '🔧 Developer options gained a view-only “Preview all stickers” toggle, for browsing every trading card without touching your real collection.',
     '🎨 New: DINO STUDIO — design up to three dinosaurs of your own (species, name, colors); each joins the invasion, one per wave, with its name overhead.',
