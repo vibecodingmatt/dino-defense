@@ -2172,10 +2172,14 @@ function updateHUD(){
   }
   $('#btnWave').disabled = G.waveActive || G.over;
   const rush = !G.waveActive && !G.over && G.wave > 0 && G.rushT > 0 ? rushBonus() : 0;
-  const rushTag = rush > 0 ? ` · ⏩ +$${rush}` : '';
-  $('#btnWave').textContent = G.waveActive ? '⚔ Wave in progress'
-    : (G.autoTimer > 0 ? (G.wave === 0 ? `▶ First wave in ${Math.ceil(G.autoTimer)}…` : `▶ Next in ${Math.ceil(G.autoTimer)}…${rushTag}`)
-    : '▶ Start Wave ' + (G.wave + 1) + rushTag);
+  const compact = window.innerWidth < 700;   // phones: terse labels so the HUD rows never re-wrap
+  const rushTag = rush > 0 ? (compact ? ` ⏩+$${rush}` : ` · ⏩ +$${rush}`) : '';
+  $('#btnWave').textContent =
+    G.waveActive ? (compact ? `⚔ Wave ${G.wave}` : '⚔ Wave in progress')
+    : G.autoTimer > 0 ? (G.wave === 0
+        ? `▶ First wave in ${Math.ceil(G.autoTimer)}…`
+        : (compact ? `▶ ${Math.ceil(G.autoTimer)}s` : `▶ Next in ${Math.ceil(G.autoTimer)}…`) + rushTag)
+    : (compact ? `▶ Wave ${G.wave + 1}` : `▶ Start Wave ${G.wave + 1}`) + rushTag;
   // incoming-wave ticker: what the next wave brings, and an anti-air warning
   const tick = $('#waveTicker');
   if (tick){

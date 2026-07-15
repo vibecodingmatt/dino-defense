@@ -37,9 +37,19 @@ html, body {
   background: linear-gradient(#232b1b, #1a2014);
   border-bottom: 2px solid var(--amber);
   font-size: 14px;
-  flex-wrap: wrap;
+  /* NEVER wrap on desktop/landscape: a second HUD row shrinks the stage and
+     the map visibly "zooms" whenever a badge/label appears or grows. When
+     space is tight the title and ticker shrink instead (portrait phones
+     override this with their own STABLE two-row layout). */
+  flex-wrap: nowrap; overflow: hidden;
 }
-#levelTitle { font-weight: bold; color: var(--amber2); letter-spacing: 0.5px; }
+#hud button { white-space: nowrap; }  /* long labels must widen, never grow a 2nd line */
+#speedBtns { display: inline-flex; flex: none; }  /* 1×/2×/4×/10× never stack into a 2nd line */
+#levelTitle {
+  font-weight: bold; color: var(--amber2); letter-spacing: 0.5px;
+  min-width: 0; flex: 0 4 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+#streakBadge { font-variant-numeric: tabular-nums; }
 .stat { background: #00000040; border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; white-space: nowrap; }
 #hCash { color: var(--amber2); font-weight: bold; }
 #hDna  { color: var(--dna); }
@@ -769,7 +779,10 @@ canvas#game { touch-action: none; }   /* we handle pan/pinch/tap ourselves */
 }
 
 /* ---- incoming-wave ticker (HUD) ---- */
-#waveTicker { color: var(--dim); font-size: 12px; }
+#waveTicker {
+  color: var(--dim); font-size: 12px;
+  min-width: 0; flex: 0 2 auto; overflow: hidden; text-overflow: ellipsis;
+}
 #waveTicker.alert { border-color: var(--amber); color: var(--text); }
 #waveTicker .tickWarn { color: var(--red); animation: blink 0.9s infinite; }
 @media (max-width: 700px) { #waveTicker { display: none; } } /* too tight on phones */
