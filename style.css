@@ -383,6 +383,7 @@ button.stat { cursor: pointer; }
   display: flex; flex-direction: column; align-items: center; gap: 11px;
 }
 .diffTop { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); font-weight: bold; }
+.diffTop .diffHint { color: var(--dim); font-weight: normal; letter-spacing: 0.5px; text-transform: none; }
 #diffCtl { display: flex; align-items: center; gap: 7px; }
 #diffCtl button {
   background: #212a19; color: var(--text); border: 1px solid var(--line);
