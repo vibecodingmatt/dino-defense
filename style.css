@@ -797,3 +797,25 @@ canvas#game { touch-action: none; }   /* we handle pan/pinch/tap ourselves */
 .studioRow .stCol { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--dim); }
 .studioRow .stCol input { width: 34px; height: 28px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: none; cursor: pointer; }
 .studioRow .stDel { padding: 7px 10px; }
+
+/* ---- sticker trading card ---- */
+#stickCard { z-index: 60; }
+#stickTable .cell.got { cursor: pointer; }
+#stickTable .cell.got:hover { box-shadow: inset 0 0 0 1px var(--amber2), 0 0 10px #ffd24a66; }
+#cardBox {
+  position: relative; width: min(380px, 92vw);
+  border-radius: 18px; padding: 10px 10px 12px;
+  background: linear-gradient(160deg, #232c1a, #10140d 60%);
+  animation: cardGlow 2.6s ease-in-out infinite;
+}
+@keyframes cardGlow {
+  0%, 100% { box-shadow: 0 0 0 2px var(--amber), 0 0 26px #e8b93a44, 0 18px 60px #000c; }
+  50%      { box-shadow: 0 0 0 2px var(--amber2), 0 0 46px #ffd24a77, 0 18px 60px #000c; }
+}
+#cardBox .modalX { position: absolute; top: 8px; right: 8px; float: none; margin: 0; z-index: 2; }
+#cardCv { display: block; width: 100%; height: auto; border-radius: 12px; }
+#cardInfo { padding: 10px 6px 2px; text-align: center; }
+#cardInfo h3 { margin: 2px 0; font-size: 21px; color: var(--amber2); letter-spacing: 0.5px; }
+#cardInfo .cEpithet { color: var(--dim); font-style: italic; font-size: 12px; }
+#cardInfo .cLine { margin-top: 7px; font-size: 13.5px; color: var(--text); }
+#cardInfo .cDate { margin-top: 5px; font-size: 12px; color: var(--dna); }

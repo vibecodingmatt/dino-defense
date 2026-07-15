@@ -49,7 +49,7 @@ const SAVE_KEY = 'islaDefense.v1';
 const START_DNA = 80;   // grant so a new player can buy their first upgrade right away
 function defaultSave(){
   return {bestDiff:0, mapBest:{}, wlv:{}, dna:START_DNA, kills:0, run:null, ach:{},
-          stickers:{}, wkills:{}, studio:[], granted:true,
+          stickers:{}, stickerD:{}, wkills:{}, studio:[], granted:true,
           settings:{invincible:false, unlimitedCash:false, levelSkip:false, mute:false, auto:true,
                     music:true, wavePreview:true, killCallouts:true, mutedWeapons:{}}};
 }
@@ -69,7 +69,8 @@ function loadSave(){
     const d = defaultSave();
     return {bestDiff: s.bestDiff || 0, mapBest: s.mapBest || {}, wlv: s.wlv || {},
             dna: s.dna || 0, kills: s.kills || 0, run: s.run || null, ach: s.ach || {},
-            stickers: s.stickers || {}, wkills: s.wkills || {}, studio: s.studio || [],
+            stickers: s.stickers || {}, stickerD: s.stickerD || {},
+            wkills: s.wkills || {}, studio: s.studio || [],
             granted: !!s.granted,
             settings: Object.assign(d.settings, s.settings || {})};
   } catch(e){ return defaultSave(); }
@@ -948,7 +949,12 @@ function damage(d, amt, pierce, src){
       // sticker book (weapon × species) + weapon-mastery career tallies —
       // banked on every kill, persisted with the next wave-end save
       if (!save.stickers) save.stickers = {};
-      save.stickers[src.key + ':' + d.key] = (save.stickers[src.key + ':' + d.key] || 0) + 1;
+      const sk = src.key + ':' + d.key;
+      save.stickers[sk] = (save.stickers[sk] || 0) + 1;
+      if (save.stickers[sk] === 1){                 // first unlock: stamp the date
+        if (!save.stickerD) save.stickerD = {};
+        save.stickerD[sk] = new Date().toLocaleDateString(undefined, {year: 'numeric', month: 'short', day: 'numeric'});
+      }
       if (!save.wkills) save.wkills = {};
       save.wkills[src.key] = (save.wkills[src.key] || 0) + 1;
       // multi-kill combo: several kills by the SAME weapon within a beat
@@ -2708,13 +2714,149 @@ function buildStickers(){
       total++;
       const n = (save.stickers && save.stickers[wk + ':' + dk]) || 0;
       if (n) got++;
-      html += `<td class="cell${n ? ' got' : ''}" title="${def.name} × ${TOWERS[wk].name}${n ? ' — ' + fmt(n) + ' final blow' + (n > 1 ? 's' : '') : ' — not yet!'}">${n ? TOWERS[wk].icon : ''}</td>`;
+      html += `<td class="cell${n ? ' got' : ''}" data-w="${wk}" data-d="${dk}" title="${def.name} × ${TOWERS[wk].name}${n ? ' — ' + fmt(n) + ' final blow' + (n > 1 ? 's' : '') + ' — tap for the card!' : ' — not yet!'}">${n ? TOWERS[wk].icon : ''}</td>`;
     }
     html += '</tr>';
   }
   table.innerHTML = html;
   const prog = $('#stickProg');
   if (prog) prog.textContent = `${got} / ${total}`;
+}
+
+/* ---------------- sticker trading card ----------------
+   Tapping an earned sticker opens an animated foil card: the species drawn
+   LARGE by its own in-game painter, strutting in place under a rotating
+   sunburst, with confetti, twinkles, and a gliding holo-foil sweep — plus
+   the earning weapon, tally, and first-unlock date below. */
+let cardD = null, cardMeta = null, cardT0 = 0, cardRAF = 0;
+const cardTint = (h, a) => `rgba(${parseInt(h.slice(1, 3), 16)},${parseInt(h.slice(3, 5), 16)},${parseInt(h.slice(5, 7), 16)},${a})`;
+function cardRR(c, x, y, w, h, r){   // rounded-rect path (roundRect needs iOS 16+)
+  c.beginPath();
+  c.moveTo(x + r, y);
+  c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r);
+  c.closePath();
+}
+function openStickerCard(wk, dk){
+  const def = DINOS[dk], wdef = TOWERS[wk];
+  if (!def || !wdef) return;
+  const sk = wk + ':' + dk;
+  cardMeta = {wdef, def, seed: (wk + dk).length * 3.7,
+              n: (save.stickers && save.stickers[sk]) || 0,
+              date: (save.stickerD && save.stickerD[sk]) || null};
+  cardD = {key: dk, def, boss: !!def.boss, painter: def.painter, pal: def.pal, feat: def.feat,
+           flying: !!def.flying,
+           size: def.painter === 'sauropod' ? 50 : def.flying ? 48 : def.boss ? 68 : 62,
+           phase: 0, seedE: 0.5};
+  $('#cardInfo').innerHTML =
+    `<h3>${def.name}</h3>` +
+    (def.epithet ? `<div class="cEpithet">${def.epithet}</div>` : '') +
+    `<div class="cLine">${wdef.icon} Taken down by <b>${wdef.name}</b> · <b>${fmt(cardMeta.n)}</b> final blow${cardMeta.n === 1 ? '' : 's'}</div>` +
+    `<div class="cDate">📅 Unlocked ${cardMeta.date || 'long, long ago 🦴'}</div>`;
+  $('#stickCard').classList.remove('hidden');
+  cardT0 = performance.now();
+  SFX.coin();
+  if (!cardRAF) cardLoop();
+}
+function cardLoop(){
+  if ($('#stickCard').classList.contains('hidden') || !cardD){ cardRAF = 0; return; }
+  drawStickerCard((performance.now() - cardT0) / 1000);
+  cardRAF = requestAnimationFrame(cardLoop);
+}
+function drawStickerCard(t){
+  const cvC = $('#cardCv'), c = cvC.getContext('2d');
+  const CW = 360, CH = 400;                        // logical card canvas size
+  c.setTransform(cvC.width / CW, 0, 0, cvC.height / CH, 0, 0);
+  const wcol = cardMeta.wdef.color;
+  const pr = n => { const v = Math.sin(cardMeta.seed * 37.7 + n * 91.3) * 43758.5; return v - Math.floor(v); };
+  const cx = CW / 2, gy = CH - 86;
+  // deep backdrop, breathing toward the weapon's color
+  const bg = c.createLinearGradient(0, 0, 0, CH);
+  bg.addColorStop(0, '#0c1009'); bg.addColorStop(0.55, '#141b0e'); bg.addColorStop(1, '#0b0f08');
+  c.fillStyle = bg; c.fillRect(0, 0, CW, CH);
+  c.globalAlpha = 0.15 + 0.05 * Math.sin(t * 1.7);
+  const bg2 = c.createRadialGradient(cx, gy - 60, 0, cx, gy - 60, 240);
+  bg2.addColorStop(0, wcol); bg2.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = bg2; c.fillRect(0, 0, CW, CH);
+  c.globalAlpha = 1;
+  // rotating sunburst behind the star of the show
+  c.save();
+  c.translate(cx, gy - 55); c.rotate(t * 0.22);
+  for (let i = 0; i < 12; i++){
+    c.rotate(Math.PI / 6);
+    const rg = c.createLinearGradient(0, 0, 230, 0);
+    rg.addColorStop(0, i % 2 ? 'rgba(232,185,58,0.10)' : cardTint(wcol, 0.09));
+    rg.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = rg;
+    c.beginPath(); c.moveTo(0, 0); c.arc(0, 0, 230, -0.11, 0.11); c.closePath(); c.fill();
+  }
+  c.restore();
+  // podium
+  c.fillStyle = 'rgba(0,0,0,0.4)';
+  c.beginPath(); c.ellipse(cx, gy + 6, 120, 22, 0, 0, Math.PI * 2); c.fill();
+  c.strokeStyle = cardTint(wcol, 0.55); c.lineWidth = 1.5;
+  c.beginPath(); c.ellipse(cx, gy + 6, 120, 22, 0, 0, Math.PI * 2); c.stroke();
+  if (cardD.boss){                                 // bosses smolder on their podium
+    c.strokeStyle = `rgba(255,80,60,${0.3 + 0.2 * Math.sin(t * 3)})`; c.lineWidth = 2.5;
+    c.beginPath(); c.ellipse(cx, gy + 6, 131 + Math.sin(t * 3) * 5, 26, 0, 0, Math.PI * 2); c.stroke();
+    for (let i = 0; i < 5; i++){
+      const cyc = (t * 0.4 + i * 0.2) % 1;
+      c.fillStyle = `rgba(255,${120 + i * 20},30,${0.5 * (1 - cyc)})`;
+      c.beginPath(); c.arc(cx + Math.sin(i * 2.1 + t) * 70, gy - 20 - cyc * 120, 1.6 + (1 - cyc) * 1.4, 0, Math.PI * 2); c.fill();
+    }
+  }
+  // the dinosaur itself, strutting in place
+  cardD.phase = t * 3.2;
+  drawDino(c, cardD, cx, gy, 1, cardD.phase, 1, 0);
+  // unlock confetti burst (the first moments only)
+  if (t < 1.5){
+    const cols = ['#ffd24a', '#8fd14f', '#7ec8ff', '#ff6b6b', '#d6a3ff'];
+    for (let i = 0; i < 26; i++){
+      const a = pr(i) * Math.PI * 2, sp = 70 + pr(i + 30) * 160;
+      c.save();
+      c.translate(cx + Math.cos(a) * sp * t, gy - 70 + Math.sin(a) * sp * t * 0.7 + 90 * t * t);
+      c.rotate(t * (4 + pr(i + 60) * 6));
+      c.globalAlpha = Math.max(0, 1 - t / 1.4);
+      c.fillStyle = cols[i % cols.length];
+      c.fillRect(-2.4, -1.5, 4.8, 3);
+      c.restore();
+    }
+    c.globalAlpha = 1;
+  }
+  // twinkling star field
+  for (let i = 0; i < 9; i++){
+    const tw = 0.5 + 0.5 * Math.sin(t * (2 + pr(i + 9) * 3) + i * 2.2);
+    const sx = 24 + pr(i) * (CW - 48), sy = 22 + pr(i + 20) * (CH - 130);
+    const sr = 2 + pr(i + 40) * 3;
+    c.strokeStyle = `rgba(255,235,170,${0.65 * tw})`; c.lineWidth = 1.2;
+    c.beginPath();
+    c.moveTo(sx - sr, sy); c.lineTo(sx + sr, sy);
+    c.moveTo(sx, sy - sr); c.lineTo(sx, sy + sr);
+    c.stroke();
+  }
+  // holo-foil sweep: two glossy bands gliding across the face
+  const sweep = ((t * 0.5) % 2.2) - 0.6;
+  for (const [off, wdt, al] of [[0, 70, 0.10], [0.16, 22, 0.14]]){
+    const sx = (sweep + off) * (CW + CH);
+    const fg = c.createLinearGradient(sx - wdt, 0, sx + wdt, 0);
+    fg.addColorStop(0, 'rgba(255,255,255,0)');
+    fg.addColorStop(0.5, `rgba(255,255,255,${al})`);
+    fg.addColorStop(1, 'rgba(255,255,255,0)');
+    c.save(); c.rotate(-0.35);
+    c.fillStyle = fg;
+    c.fillRect(-CH, -60, CW + CH * 2, CH + 160);
+    c.restore();
+  }
+  // gilded double frame + spinning corner gems
+  c.strokeStyle = 'rgba(232,185,58,0.9)'; c.lineWidth = 2;
+  cardRR(c, 6, 6, CW - 12, CH - 12, 10); c.stroke();
+  c.strokeStyle = cardTint(wcol, 0.8); c.lineWidth = 1.2;
+  cardRR(c, 11, 11, CW - 22, CH - 22, 7); c.stroke();
+  c.fillStyle = '#ffd24a';
+  for (const [dx2, dy2] of [[18, 18], [CW - 18, 18], [18, CH - 18], [CW - 18, CH - 18]]){
+    c.save(); c.translate(dx2, dy2); c.rotate(Math.PI / 4 + t * 0.8);
+    c.fillRect(-3, -3, 6, 6); c.restore();
+  }
 }
 
 /* ---------------- Dino Studio ----------------
@@ -4769,6 +4911,12 @@ $('#btnAch').onclick = () => { buildAchievements(); $('#achievements').classList
 $('#achClose').onclick = () => $('#achievements').classList.add('hidden');
 $('#btnStickers').onclick = () => { buildStickers(); $('#stickers').classList.remove('hidden'); };
 $('#stickClose').onclick = () => $('#stickers').classList.add('hidden');
+// tap an earned sticker → its animated trading card
+$('#stickTable').onclick = e => {
+  const td = e.target.closest ? e.target.closest('td.cell.got') : null;
+  if (td && td.dataset.w) openStickerCard(td.dataset.w, td.dataset.d);
+};
+$('#stickCard').onclick = e => { if (e.target.id === 'stickCard') $('#stickCard').classList.add('hidden'); };
 $('#btnStudio').onclick = () => { buildStudio(); $('#studio').classList.remove('hidden'); };
 $('#studioClose').onclick = () => $('#studio').classList.add('hidden');
 $('#studioAdd').onclick = () => {
