@@ -927,10 +927,21 @@ function drawTowerBase(ctx, x, y, key, selected, lv){
       ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 1.2;
       ctx.beginPath(); ctx.arc(-15, 10, 2.6, 0, Math.PI*2); ctx.stroke();
       break;
-    case 'tesla': // grounding ring
+    case 'tesla': { // grounding ring on scorched, statically-charged earth
+      ctx.fillStyle = 'rgba(18,14,8,0.35)';              // scorched dirt
+      ctx.beginPath(); ctx.ellipse(0, 2, 21, 15, 0, 0, Math.PI*2); ctx.fill();
       ctx.strokeStyle = 'rgba(110,231,255,0.25)'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI*2); ctx.stroke();
+      ctx.strokeStyle = 'rgba(150,200,120,0.5)'; ctx.lineWidth = 1;
+      for (let i = 0; i < 10; i++){                      // grass standing on end
+        const a = i / 10 * Math.PI * 2 + 0.3;
+        const gx = Math.cos(a) * 19, gy = Math.sin(a) * 14 + 2;
+        ctx.beginPath(); ctx.moveTo(gx, gy);
+        ctx.lineTo(gx + Math.sin(i * 5.2) * 1.5, gy - 3.5 - (i % 3));
+        ctx.stroke();
+      }
       break;
+    }
     case 'cryo': // frost halo on the ground
       ctx.fillStyle = 'rgba(190,232,255,0.20)';
       ctx.beginPath(); ctx.ellipse(0, 2, 20, 14, 0, 0, Math.PI*2); ctx.fill();
@@ -1125,13 +1136,29 @@ function drawTowerTurret(ctx, t, flash, time){
       }
       break;
     }
-    case 'tesla': { // coil tower → grows taller, maxed goes twin-coil VIOLET
+    case 'tesla': { // coil tower → grows taller, maxed goes twin-coil VIOLET,
+                    // levitates its orb, and brews a personal storm cloud
       const coilH = 12 + lv * 4;                        // mast height per level
-      const orbY = -(coilH + 4);
       const orbR = 4.6 + lv * 0.9;
       const main = maxed ? '#c98aff' : '#6ee7ff';
+      // 0 just fired → 1 next shot ready (paces the charge-pulse visual)
+      const chargeF = t.cdMax ? Math.max(0, Math.min(1, 1 - t.cd / t.cdMax)) : 1;
+      // maxed: the orb tears free of the mast and floats, bobbing
+      const orbY = -(coilH + 4) - (maxed ? 5 + Math.sin(time * 2.3 + t.y) * 1.6 : 0);
       ctx.fillStyle = maxed ? '#33254e' : '#22485a';
       ctx.beginPath(); ctx.arc(0, 2, 8 + lv, 0, Math.PI*2); ctx.fill();
+      // stray sparks skitter around the grounding ring
+      for (let i = 0; i < 2; i++){
+        const sa = time * (1.8 + i * 0.7) * (i ? -1 : 1) + t.x * 0.3 + i * 2.6;
+        const gx = Math.cos(sa) * 16, gy = Math.sin(sa) * 16 * 0.8 + 2;
+        ctx.fillStyle = maxed ? 'rgba(210,160,255,0.85)' : 'rgba(150,240,255,0.8)';
+        ctx.beginPath(); ctx.arc(gx, gy, 1.2, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = maxed ? 'rgba(210,160,255,0.5)' : 'rgba(150,240,255,0.45)';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(gx, gy);
+        ctx.lineTo(gx + Math.sin(time * 31 + i * 4) * 3, gy - 2 - Math.cos(time * 27 + i) * 1.5);
+        ctx.stroke();
+      }
       if (maxed){                                       // flanking secondary coils
         for (const sx of [-8.5, 8.5]){
           ctx.strokeStyle = '#5a4a7a'; ctx.lineWidth = 2.5;
@@ -1143,8 +1170,23 @@ function drawTowerTurret(ctx, t, flash, time){
       ctx.strokeStyle = maxed ? '#6a4e9a' : '#3d7a8a'; ctx.lineWidth = 4;
       ctx.beginPath(); ctx.moveTo(0, 2); ctx.lineTo(0, -coilH); ctx.stroke();
       ctx.strokeStyle = maxed ? '#a98ad0' : '#7ab6c8'; ctx.lineWidth = 1.6;
-      for (let i = 0; i < 3 + lv; i++){                 // more windings per level
+      const nw = 3 + lv;
+      for (let i = 0; i < nw; i++){                     // more windings per level
         ctx.beginPath(); ctx.ellipse(0, -3 - i*4, 6.5 - i*1.1, 2.2, 0, 0, Math.PI*2); ctx.stroke();
+      }
+      // a bright charge pulse races UP the windings, faster and hotter as the
+      // next shot readies — you can read the cooldown off the coil itself
+      const pk = (time * (1.5 + 4.5 * chargeF) + t.x * 0.1) % 1;
+      ctx.strokeStyle = `rgba(${maxed ? '225,180,255' : '160,240,255'},${0.3 + 0.6 * chargeF})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(0, -3 - pk * (nw - 1) * 4, 6.5 - pk * (nw - 1) * 1.1, 2.2, 0, 0, Math.PI*2);
+      ctx.stroke();
+      if (maxed){                                       // tether: the orb stays leashed to the mast
+        ctx.strokeStyle = 'rgba(200,140,255,0.55)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(0, -coilH);
+        ctx.lineTo(Math.sin(time * 33) * 2.5, (-coilH + orbY + orbR) / 2);
+        ctx.lineTo(0, orbY + orbR); ctx.stroke();
       }
       const chg = 0.5 + 0.5 * Math.sin(time * 6 + t.y); // orb breathes with charge
       ctx.fillStyle = `rgba(${maxed ? '200,140,255' : '110,231,255'},${0.25 + 0.3*chg})`;
@@ -1169,6 +1211,35 @@ function drawTowerTurret(ctx, t, flash, time){
             ctx.lineTo(sx * 0.5 + Math.sin(time*29 + sx)*3, (orbY - 9)/2);
             ctx.lineTo(0, orbY); ctx.stroke();
           }
+        }
+      }
+      if (maxed){ // a personal storm cloud broods over the tower…
+        const cy = orbY - 16 - lv;
+        const flick = Math.sin(time * 13 + t.x * 0.5);
+        if (flick > 0.6){                               // …flickering with inner light
+          ctx.fillStyle = `rgba(200,140,255,${0.18 + 0.2 * (flick - 0.6)})`;
+          ctx.beginPath(); ctx.arc(0, cy - 2, 10, 0, Math.PI*2); ctx.fill();
+        }
+        ctx.fillStyle = '#241d38';
+        ctx.beginPath(); ctx.arc(-7, cy, 5.5, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(0, cy - 3, 7, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(7, cy, 5.5, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#382c52';
+        ctx.beginPath(); ctx.arc(-3, cy - 4.5, 4.5, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(4, cy - 3.5, 3.8, 0, Math.PI*2); ctx.fill();
+        // …and every few seconds it slams a recharge bolt down into the orb
+        const cyc = (time * 0.45 + t.x * 0.077) % 1;
+        if (cyc < 0.07){
+          ctx.strokeStyle = 'rgba(160,80,255,0.5)'; ctx.lineWidth = 3.5;
+          ctx.beginPath(); ctx.moveTo(0, cy + 4);
+          ctx.lineTo(Math.sin(time * 47) * 3, (cy + orbY) / 2);
+          ctx.lineTo(0, orbY - orbR); ctx.stroke();
+          ctx.strokeStyle = 'rgba(255,255,255,0.95)'; ctx.lineWidth = 1.4;
+          ctx.beginPath(); ctx.moveTo(0, cy + 4);
+          ctx.lineTo(Math.sin(time * 47) * 3, (cy + orbY) / 2);
+          ctx.lineTo(0, orbY - orbR); ctx.stroke();
+          ctx.fillStyle = 'rgba(240,225,255,0.75)';     // the orb flares as it drinks
+          ctx.beginPath(); ctx.arc(0, orbY, orbR + 4, 0, Math.PI*2); ctx.fill();
         }
       }
       break;

@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.31.6';
+const VERSION = '1.32.0';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -25,6 +25,14 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
+  {v: '1.32.0', date: 'Jul 14, 2026', items: [
+    '⚡ TESLA SUPERCHARGED: lightning now visibly races dino to dino down the chain, flashes white-hot on the strike, leaves a glowing scar hanging in the air, and throws bouncing welder sparks at every hit — with stray forks reaching for dinos it didn\'t catch.',
+    '💀 The electrocution gag is now a full cartoon strobe: X-ray frames alternate with photo-negative frames, complete with glowing filament eyes, frazzled hide, tail vertebrae, toe bones, and a grinning skull.',
+    '🦴 Dinosaurs killed by the Tesla now freeze as a skeleton and crumble into a smoking pile of bones.',
+    '🌩️ A fully-maxed Tesla brews its own storm cloud that strikes down to recharge the floating orb — every discharge dims the whole island for a heartbeat, and nearby weapons pick up St. Elmo\'s fire.',
+    '🔋 A charge pulse races up the coil faster as the next shot readies, sparks skitter around the scorched base, and the grass stands on end.',
+    '🔥 Zapped dinosaurs stay sooty and smoking for a moment, static still crawling over their hide — and chained dinos stay visibly linked by a leftover arc.',
+  ]},
   {v: '1.31.6', date: 'Jul 9, 2026', items: [
     '📐 The Armory panel dropped the "next wave" preview, freeing up more room to show your weapons.',
     '💥 Toned down the screen shake from mortar, missile, and air-strike explosions.',

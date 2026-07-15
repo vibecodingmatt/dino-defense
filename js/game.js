@@ -487,6 +487,7 @@ const G = {
   wave: 0, waveActive: false,
   cash: 0, lives: 0, maxLives: 0,
   dinos: [], towers: [], projs: [], fx: [], bolts: [], texts: [], corpses: [], decals: [],
+  zapQ: [], links: [],      // pending tesla chain hops + residual dino-to-dino arcs
   spawnQ: [], spawnT: 0,
   speed: 1, paused: false,
   placing: null, selected: null,
@@ -497,7 +498,7 @@ const G = {
   cam: {x: 0, y: 0, zoom: 1},   // world camera (pan/zoom on touch; identity on desktop)
   gesture: null,                // in-progress touch gesture on the map
   autoTimer: -1,
-  shake: 0, banner: null,
+  shake: 0, thunderT: 0, banner: null,
   time: 0,
   over: false,
   difficulty: 1,           // selected difficulty level (1..MAX_DIFFICULTY)
@@ -901,8 +902,15 @@ function damage(d, amt, pierce, src){
       unlockAch('boss_first');
       if (d.key === 'drex') unlockAch('apex');
     } else {
-      addFx('puff', p.x, p.y, d.size);
-      addFx('blood', p.x, p.y + 2, d.size * 0.45);
+      if (src && src.key === 'tesla'){
+        // ⚡ death by Tesla: no gore — the skeleton freezes mid-zap, then
+        // crumbles into a smoking pile of bones with a little static wisp
+        G.fx.push({kind: 'bones', x: p.x, y: p.y, r: d.size, fly: d.flying ? 1 : 0,
+                   seed: Math.random() * 9, t: 0, dur: 1.5});
+      } else {
+        addFx('puff', p.x, p.y, d.size);
+        addFx('blood', p.x, p.y + 2, d.size * 0.45);
+      }
       if (Math.random() < 0.3) SFX.coin();
       // dying vocalization, flavored by body size (occasional + rate-limited)
       if (voxGate() && Math.random() < 0.5){
@@ -965,6 +973,7 @@ function fireTower(t, dt){
   if (t.key === 'gatling') t.spin = (t.spin || 0) + dt * (target ? 26 : 2);
   if (t.cd > 0 || !target) return;
   t.cd = 1 / st.rof;
+  t.cdMax = t.cd;            // lets the tesla coil pace its charge-pulse visual
   t.flash = 0.12;
   t.recoil = 1;
   const tp = dinoPos(target);
@@ -1001,19 +1010,16 @@ function fireTower(t, dt){
     case 'tesla': {
       say('zap');
       const maxedT = (t.ulv || 0) >= (def.maxUp || 2);   // maxed coils arc VIOLET
-      let cur = target, from = {x:t.x, y:t.y};
-      const hitset = new Set();
+      // pick the WHOLE chain now (damage rules unchanged), then let the
+      // lightning visibly RACE dino → dino: each hop lands a tiny beat after
+      // the previous one via the zap queue instead of all in one frame
+      let cur = target;
+      const hitset = new Set(), hops = [];
       for (let i = 0; i <= def.chain; i++){
         if (!cur) break;
         const cp = dinoPos(cur);
-        G.bolts.push({x1:from.x, y1:from.y, x2:cp.x, y2:cp.y, t:0.16, w:3.2, jag:true,
-                      color: maxedT ? 'rgba(215,160,255,0.95)' : 'rgba(120,230,255,0.95)',
-                      glow:  maxedT ? 'rgba(150,70,255,0.32)'  : 'rgba(60,160,255,0.28)'});
-        addFx('zap', cp.x, cp.y, maxedT ? 16 : 11);       // electric burst at every chained dino
-        cur.zapT = 0.35;                                   // cartoon skeleton-flash while frying
-        applyHit(cur, t, st, def);
+        hops.push(cur);
         hitset.add(cur);
-        from = cp;
         let next = null, bd = def.chainRange;
         for (const d of G.dinos){
           if (hitset.has(d) || !targetable(d, def)) continue;
@@ -1022,6 +1028,12 @@ function fireTower(t, dt){
           if (dd < bd){ bd = dd; next = d; }
         }
         cur = next;
+      }
+      hops.forEach((d, i) => G.zapQ.push({delay: i * 0.055, dino: d, from: i ? hops[i - 1] : null,
+                                          tower: t, st, def, maxedT}));
+      if (maxedT){                                        // thunder: the island dims for a heartbeat
+        G.thunderT = 0.3;
+        G.shake = Math.max(G.shake, 2.2);
       }
       break;
     }
@@ -1165,6 +1177,70 @@ function addText(x, y, txt, color, size){
   G.texts.push({x, y, txt, color, size: size || 15, t: 0});
 }
 
+// one jagged lightning polyline, rolled once (bolts re-roll per frame; scars keep this shape)
+function jagPts(x1, y1, x2, y2){
+  const n = 7, pts = [[x1, y1]];
+  for (let i = 1; i < n; i++){
+    const k = i / n;
+    pts.push([x1 + (x2 - x1) * k + rand(-8, 8), y1 + (y2 - y1) * k + rand(-8, 8)]);
+  }
+  pts.push([x2, y2]);
+  return pts;
+}
+
+/* Tesla chain hops queued by fireTower: each hop lands a beat after the last,
+   so the strike visibly leaps down the line. Damage targets were locked at
+   fire time; only the SPECTACLE is staggered. */
+function runZapQ(dt){
+  for (const h of G.zapQ){
+    h.delay -= dt;
+    if (h.delay > 0) continue;
+    h.done = true;
+    const d = h.dino;
+    const cp = dinoPos(d);
+    const from = h.from ? dinoPos(h.from) : {x: h.tower.x, y: h.tower.y};
+    G.bolts.push({x1: from.x, y1: from.y, x2: cp.x, y2: cp.y, t: 0.16, w: 3.2, jag: true,
+                  flash: 1,                              // first frame renders WHITE-hot
+                  color: h.maxedT ? 'rgba(215,160,255,0.95)' : 'rgba(120,230,255,0.95)',
+                  glow:  h.maxedT ? 'rgba(150,70,255,0.32)'  : 'rgba(60,160,255,0.28)'});
+    // the arc leaves an ionized scar hanging in the air + a glow on the ground
+    if (G.fx.length < 340){
+      G.fx.push({kind: 'zapscar', pts: jagPts(from.x, from.y, cp.x, cp.y),
+                 x: cp.x, y: cp.y, maxed: h.maxedT ? 1 : 0, seed: Math.random() * 9, t: 0, dur: 0.45});
+      G.fx.push({kind: 'zapglow', x: cp.x, y: cp.y + 4, r: 15, maxed: h.maxedT ? 1 : 0,
+                 seed: Math.random() * 9, t: 0, dur: 0.5});
+      // white-hot welder sparks burst off the strike point and bounce on the dirt
+      for (let i = 0; i < 6; i++){
+        G.fx.push({kind: 'wspark', x: cp.x, y: cp.y - 4, vx: rand(-75, 75), vy: rand(-130, -30),
+                   gy: cp.y + rand(2, 8), seed: Math.random() * 9, t: 0, dur: rand(0.35, 0.6)});
+      }
+    }
+    addFx('zap', cp.x, cp.y, h.maxedT ? 16 : 11);        // electric burst at every chained dino
+    d.zapT = 0.35;                                        // cartoon skeleton-strobe while frying
+    d.charT = 1;                                          // …then a smoking, sooty hangover
+    if (!d.dead && !d.leaked) applyHit(d, h.tower, h.st, h.def);
+    if (h.from) G.links.push({a: h.from, b: d, t: 0.45, maxed: h.maxedT});
+    // teasing forks: the lightning reaches for dinos the chain DIDN'T take
+    // and fizzles just short of them
+    let teased = 0;
+    for (const d2 of G.dinos){
+      if (teased >= 2) break;
+      if (d2 === d || d2.dead || d2.leaked || d2.zapT > 0 || !targetable(d2, h.def)) continue;
+      const p2 = dinoPos(d2);
+      if (hyp(cp.x, cp.y, p2.x, p2.y) < h.def.chainRange * 1.1){
+        const rc = rand(0.5, 0.7);                       // stops 50–70% of the way there
+        G.bolts.push({x1: cp.x, y1: cp.y, x2: cp.x + (p2.x - cp.x) * rc, y2: cp.y + (p2.y - cp.y) * rc,
+                      t: 0.09, w: 1.5, jag: true,
+                      color: h.maxedT ? 'rgba(215,160,255,0.6)' : 'rgba(120,230,255,0.6)'});
+        teased++;
+      }
+    }
+  }
+  G.zapQ = G.zapQ.filter(h => !h.done);
+  for (const l of G.links) l.t -= dt;
+  G.links = G.links.filter(l => l.t > 0);
+}
+
 /* ---------------- dino update ---------------- */
 function updateDinos(dt){
   for (const d of G.dinos){
@@ -1174,6 +1250,7 @@ function updateDinos(dt){
     if (d.burnT > 0){ d.burnT -= dt; damage(d, d.burnDps * dt, true); if (d.dead) continue; }
     if (d.revealT > 0) d.revealT -= dt;
     if (d.zapT > 0) d.zapT -= dt;   // electrocution skeleton-flash timer
+    else if (d.charT > 0) d.charT -= dt;   // post-zap smoking/sooty hangover
     if (d.regen > 0 && d.hp < d.maxHp) d.hp = Math.min(d.maxHp, d.hp + d.regen * d.maxHp * dt);
     // Indominus camouflage: after a brief window of visibility once it's on
     // the field (past its entrance), it gains permanent cloak — from then on
@@ -1388,6 +1465,7 @@ function startLevel(idx, mode, diff){
   G.hurtT = 0; G.flashT = 0; G.waveTotal = 0; G.cinT = 0;
   initAmbient();
   G.dinos = []; G.projs = []; G.fx = []; G.bolts = []; G.texts = []; G.spawnQ = []; G.corpses = []; G.decals = [];
+  G.zapQ = []; G.links = []; G.thunderT = 0;
   G.selected = null; G.placing = null; G.targeting = null; G.strikes = []; G.clouds = []; G.omega = null;
   G.celebration = null; G.fw = [];
   G.waveActive = false; G.autoTimer = -1; G.over = false; G.banner = null;
@@ -2634,6 +2712,7 @@ function step(dt){
     if (G.autoTimer <= 0) startWave();
   }
   for (const t of G.towers) fireTower(t, dt);
+  runZapQ(dt);
   updateDinos(dt);
   updateProjs(dt);
   updateStrikes(dt);
@@ -2775,39 +2854,110 @@ function render(dt){
     // while cloaked, draw nothing else — no health bar, boss aura, or status
     // tints that would betray its position (a Sonic Emitter must reveal it)
     if (hidden) return;
-    // electrocution: strobe a cartoon X-ray — the dino flashes white-hot with
-    // its skeleton showing, jittering, like a saturday-morning zap gag
-    if (d.zapT > 0 && Math.sin(G.time * 42) > -0.35){
+    // electrocution: a full cartoon strobe — WHITE X-RAY frames alternate with
+    // PHOTO-NEGATIVE frames (white rim, near-black body), skeleton showing
+    // through both, jittering, like a saturday-morning zap gag
+    const strobe = d.zapT > 0 ? Math.sin(G.time * 42) : -0.3;
+    if (d.zapT > 0 && (strobe > 0.05 || strobe < -0.55)){
+      const neg = strobe < -0.55;                        // the negative frame
       ctx.save();
       ctx.translate(rand(-1.5, 1.5), rand(-1.5, 1.5));   // electric jitter
       const orig = d.pal;
-      d.pal = {body: '#e8efff', belly: '#ffffff', accent: '#cfe0ff'};
+      if (neg){
+        // white rim first (the dino redrawn slightly larger), then the black body
+        d.pal = {body: '#f2f6ff', belly: '#ffffff', accent: '#f2f6ff'};
+        ctx.save();
+        ctx.translate(p.x, p.y); ctx.scale(1.07, 1.07); ctx.translate(-p.x, -p.y);
+        drawDino(ctx, d, p.x, p.y, d.turn, d.phase, 0.8, pitch);
+        ctx.restore();
+        d.pal = {body: '#141824', belly: '#1d2436', accent: '#141824'};
+      } else {
+        d.pal = {body: '#e8efff', belly: '#ffffff', accent: '#cfe0ff'};
+      }
       drawDino(ctx, d, p.x, p.y, d.turn, d.phase, 0.92, pitch);
       d.pal = orig;
-      // bones over the white flash: skull socket, spine, ribs, leg bone —
-      // drawn in BODY space so they ride the dino's flip/pitch through corners
+      // bones over the flash: skull + jaw, spine + tail vertebrae, ribs, leg
+      // and toe bones — drawn in BODY space so they ride the dino's flip/pitch
       const s = d.size;
       ctx.translate(p.x, p.y);
       const tx3 = (d.turn === undefined ? 1 : d.turn);
       ctx.scale(Math.sign(tx3 || 1) * Math.max(0.08, Math.abs(tx3)), 1);
       if (pitch){ ctx.translate(0, -s * 0.6); ctx.rotate(pitch); ctx.translate(0, s * 0.6); }
       const cy = -s * (d.flying ? 1.55 : 0.62);
-      ctx.strokeStyle = 'rgba(50,60,76,0.9)'; ctx.lineCap = 'round';
+      const boneCol = neg ? 'rgba(235,245,255,0.95)' : 'rgba(50,60,76,0.9)';
+      ctx.strokeStyle = boneCol; ctx.lineCap = 'round';
       ctx.lineWidth = Math.max(1.2, s * 0.055);
       ctx.beginPath(); ctx.moveTo(-s * 0.6, cy + s * 0.04);               // spine
       ctx.quadraticCurveTo(0, cy - s * 0.14, s * 0.42, cy - s * 0.06);
       ctx.stroke();
+      ctx.lineWidth = Math.max(1, s * 0.035);
+      ctx.beginPath(); ctx.moveTo(-s * 0.6, cy + s * 0.04);               // tail spine
+      ctx.lineTo(-s * 0.95, cy - s * 0.04); ctx.stroke();
+      for (let i = 1; i <= 3; i++){                                       // tail vertebrae
+        const q = i / 4, vx3 = -s * 0.6 - s * 0.35 * q, vy3 = cy + s * 0.04 - s * 0.08 * q;
+        ctx.beginPath(); ctx.moveTo(vx3, vy3 - s * 0.04); ctx.lineTo(vx3, vy3 + s * 0.04); ctx.stroke();
+      }
       ctx.lineWidth = Math.max(1, s * 0.04);
       for (let i = 0; i < 3; i++){                                        // ribs
         const rx = -s * (0.32 - i * 0.22);
         ctx.beginPath(); ctx.arc(rx, cy - s * 0.02, s * 0.17, 0.25, Math.PI - 0.25); ctx.stroke();
       }
-      if (!d.flying){                                                     // a leg bone
+      if (!d.flying){                                                     // leg + toe bones
         ctx.beginPath(); ctx.moveTo(0, cy + s * 0.12); ctx.lineTo(s * 0.08, -s * 0.1); ctx.stroke();
+        ctx.lineWidth = Math.max(1, s * 0.03);
+        ctx.beginPath(); ctx.moveTo(s * 0.08, -s * 0.1); ctx.lineTo(s * 0.17, -s * 0.04); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(s * 0.08, -s * 0.1); ctx.lineTo(s * 0.16, -s * 0.11); ctx.stroke();
       }
-      ctx.fillStyle = 'rgba(50,60,76,0.9)';                               // eye socket
-      ctx.beginPath(); ctx.arc(s * 0.52, cy - s * 0.2, Math.max(1.4, s * 0.07), 0, Math.PI*2); ctx.fill();
+      ctx.lineWidth = Math.max(1, s * 0.04);
+      ctx.beginPath(); ctx.moveTo(s * 0.38, cy - s * 0.08);               // grinning jawline
+      ctx.quadraticCurveTo(s * 0.53, cy - s * 0.04, s * 0.65, cy - s * 0.1); ctx.stroke();
+      ctx.lineWidth = Math.max(1, s * 0.03);
+      for (let i = 0; i < 3; i++){                                        // teeth
+        const jx = s * (0.44 + i * 0.07);
+        ctx.beginPath(); ctx.moveTo(jx, cy - s * 0.07); ctx.lineTo(jx + s * 0.015, cy - s * 0.03); ctx.stroke();
+      }
+      ctx.fillStyle = boneCol;                                            // eye socket…
+      ctx.beginPath(); ctx.arc(s * 0.52, cy - s * 0.2, Math.max(1.6, s * 0.08), 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,220,110,0.4)';                            // …glowing like a
+      ctx.beginPath(); ctx.arc(s * 0.52, cy - s * 0.2, Math.max(2.6, s * 0.14), 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff2b0';                                          // …lightbulb filament
+      ctx.beginPath(); ctx.arc(s * 0.52, cy - s * 0.2, Math.max(1, s * 0.045), 0, Math.PI*2); ctx.fill();
+      // static frazzle: the hide stands on end in jagged electric spikes
+      ctx.strokeStyle = neg ? 'rgba(225,245,255,0.9)' : 'rgba(120,220,255,0.85)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 7; i++){
+        const a2 = i * 0.9 + G.time * 3;
+        const hx = Math.cos(a2) * s * 0.62, hy = cy + Math.sin(a2) * s * 0.42;
+        const dx2 = Math.cos(a2), dy2 = Math.sin(a2);
+        ctx.beginPath(); ctx.moveTo(hx, hy);
+        ctx.lineTo(hx + dx2 * s * 0.09 + rand(-1.5, 1.5), hy + dy2 * s * 0.09 + rand(-1.5, 1.5));
+        ctx.lineTo(hx + dx2 * s * 0.17 + rand(-2, 2), hy + dy2 * s * 0.17 + rand(-2, 2));
+        ctx.stroke();
+      }
       ctx.restore();
+    }
+    // zap hangover: for a moment after the strobe the dino is sooty and
+    // smoking, with leftover static still crawling over its hide
+    if (d.zapT <= 0 && d.charT > 0){
+      const ck = Math.min(1, d.charT);
+      const orig = d.pal;
+      d.pal = {body: '#232228', belly: '#3a3840', accent: '#232228'};
+      drawDino(ctx, d, p.x, p.y, d.turn, d.phase, 0.34 * ck, pitch);
+      d.pal = orig;
+      const s = d.size, byT = p.y - s * (d.flying ? 1.55 : 0.62);
+      if (Math.random() < 0.12 && G.fx.length < 340){
+        G.fx.push({kind: 'zsmoke', x: p.x + rand(-s * 0.4, s * 0.4), y: byT - s * 0.2,
+                   seed: Math.random() * 9, t: 0, dur: 0.7});
+      }
+      if (Math.random() < 0.3){
+        ctx.strokeStyle = `rgba(160,240,255,${0.7 * ck})`; ctx.lineWidth = 1;
+        for (let i = 0; i < 2; i++){
+          const ax = p.x + rand(-s * 0.4, s * 0.4), ay = byT + rand(-s * 0.25, s * 0.25);
+          ctx.beginPath(); ctx.moveTo(ax, ay);
+          ctx.lineTo(ax + rand(-5, 5), ay + rand(-4, 4));
+          ctx.lineTo(ax + rand(-7, 7), ay + rand(-5, 5)); ctx.stroke();
+        }
+      }
     }
     // ON FIRE: flickering flame tongues dance on the dino's back while it burns,
     // with embers rising off it and a heat glow on the body. Drawn in BODY
@@ -2879,6 +3029,8 @@ function render(dt){
     }
   };
   const depth = [];
+  // a fully-maxed Tesla charges the air: its neighbors pick up St. Elmo's fire
+  const stormy = G.towers.filter(z => z.key === 'tesla' && (z.ulv || 0) >= (TOWERS.tesla.maxUp || 2));
   for (const t of G.towers) depth.push({y: t.y + 12, t});
   for (const d of ground) depth.push({y: dinoPos(d).y, d});
   depth.sort((a, b) => a.y - b.y);
@@ -2891,6 +3043,17 @@ function render(dt){
         ctx.fillStyle = '#ffd24a';
         for (let i = 0; i < t.ulv; i++){
           ctx.beginPath(); ctx.arc(t.x - (t.ulv - 1) * 3.5 + i * 7, t.y - 27, 2.2, 0, Math.PI*2); ctx.fill();
+        }
+      }
+      // stray corona sparks dance on weapons parked near a maxed Tesla
+      if (t.key !== 'tesla' && stormy.some(z => hyp(t.x, t.y, z.x, z.y) < 95)){
+        const fl = Math.sin(G.time * 9 + t.x * 0.7);
+        if (fl > 0.45){
+          const ex = t.x + Math.sin(G.time * 23 + t.y) * 2.5, ey = t.y - 25 - Math.sin(G.time * 17 + t.x) * 2;
+          ctx.fillStyle = `rgba(195,155,255,${0.4 + 0.5 * (fl - 0.45)})`;
+          ctx.beginPath(); ctx.arc(ex, ey, 1.4, 0, Math.PI*2); ctx.fill();
+          ctx.strokeStyle = 'rgba(195,155,255,0.5)'; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex + rand(-3, 3), ey - rand(2, 5)); ctx.stroke();
         }
       }
     } else {
@@ -2935,8 +3098,12 @@ function render(dt){
         for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
         ctx.stroke();
       };
-      ctx.strokeStyle = b.glow || 'rgba(60,160,255,0.28)'; ctx.lineWidth = b.w * 3.4; trace();
-      ctx.strokeStyle = b.color; ctx.lineWidth = b.w * 1.35; trace();
+      // the very first frame renders PURE WHITE — lightning reads as a flash
+      // first and a colored shape second
+      const hot = b.flash > 0; if (hot) b.flash--;
+      ctx.strokeStyle = hot ? 'rgba(255,255,255,0.5)' : (b.glow || 'rgba(60,160,255,0.28)');
+      ctx.lineWidth = b.w * 3.4; trace();
+      ctx.strokeStyle = hot ? '#ffffff' : b.color; ctx.lineWidth = b.w * 1.35; trace();
       ctx.strokeStyle = 'rgba(255,255,255,0.95)'; ctx.lineWidth = b.w * 0.5; trace();
       // stray forks snapping off the main arc
       for (let f = 0; f < 2; f++){
@@ -2955,6 +3122,22 @@ function render(dt){
       ctx.strokeStyle = b.color; ctx.lineWidth = b.w;
       ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke();
     }
+  }
+  // residual chain arcs: dinos the tesla chained stay visibly LINKED for a
+  // beat after the strike — a thin writhing thread of leftover current
+  for (const l of G.links){
+    if (l.a.dead || l.a.leaked || l.b.dead || l.b.leaked) continue;
+    const pa = dinoPos(l.a), pb = dinoPos(l.b);
+    const la = 0.55 * (l.t / 0.45);
+    ctx.strokeStyle = l.maxed ? `rgba(210,160,255,${la})` : `rgba(140,230,255,${la})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pa.x, pa.y - l.a.size * 0.5);
+    for (let i = 1; i < 5; i++){
+      const k2 = i / 5;
+      ctx.lineTo(pa.x + (pb.x - pa.x) * k2 + rand(-3, 3),
+                 (pa.y - l.a.size * 0.5) + ((pb.y - l.b.size * 0.5) - (pa.y - l.a.size * 0.5)) * k2 + rand(-3, 3));
+    }
+    ctx.lineTo(pb.x, pb.y - l.b.size * 0.5); ctx.stroke();
   }
   // fx
   for (const f of G.fx){
@@ -3024,6 +3207,116 @@ function render(dt){
           ctx.moveTo(f.x + Math.cos(an) * r1, f.y + Math.sin(an) * r1);
           ctx.lineTo(f.x + Math.cos(an) * r2, f.y + Math.sin(an) * r2);
           ctx.stroke();
+        }
+        break;
+      }
+      case 'zapscar': { // the arc's ionized path hangs in the air and fades
+        const a = 0.5 * (1 - k);
+        ctx.strokeStyle = f.maxed ? `rgba(200,150,255,${a})` : `rgba(140,225,255,${a})`;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(f.pts[0][0], f.pts[0][1]);
+        for (let i = 1; i < f.pts.length; i++) ctx.lineTo(f.pts[i][0], f.pts[i][1]);
+        ctx.stroke();
+        break;
+      }
+      case 'zapglow': { // brief pool of light on the ground under a strike
+        const a = 0.3 * (1 - k);
+        ctx.save();
+        ctx.translate(f.x, f.y); ctx.scale(1, 0.45);
+        const zg = ctx.createRadialGradient(0, 0, 0, 0, 0, f.r);
+        zg.addColorStop(0, f.maxed ? `rgba(200,150,255,${a})` : `rgba(140,230,255,${a})`);
+        zg.addColorStop(1, 'rgba(140,230,255,0)');
+        ctx.fillStyle = zg;
+        ctx.beginPath(); ctx.arc(0, 0, f.r, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+        break;
+      }
+      case 'wspark': { // white-hot welder spark: ballistic arc + one bounce
+        const gAcc = 340, vy0 = f.vy;
+        // time the spark first meets the ground, then reflect off it once
+        const tg = (-vy0 + Math.sqrt(vy0 * vy0 + 2 * gAcc * (f.gy - f.y))) / gAcc;
+        let sx2, sy2;
+        if (f.t <= tg){
+          sx2 = f.x + f.vx * f.t;
+          sy2 = f.y + vy0 * f.t + 0.5 * gAcc * f.t * f.t;
+        } else {
+          const t2 = f.t - tg, vyb = -(vy0 + gAcc * tg) * 0.45, vxb = f.vx * 0.7;
+          sx2 = f.x + f.vx * tg + vxb * t2;
+          sy2 = Math.min(f.gy, f.gy + vyb * t2 + 0.5 * gAcc * t2 * t2);
+        }
+        ctx.fillStyle = `rgba(255,200,120,${0.5 * (1 - k)})`;
+        ctx.beginPath(); ctx.arc(sx2, sy2, 2.2, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = `rgba(255,250,225,${0.95 * (1 - k)})`;
+        ctx.beginPath(); ctx.arc(sx2, sy2, 1.2, 0, Math.PI*2); ctx.fill();
+        break;
+      }
+      case 'zsmoke': { // little gray puff popping off a freshly-zapped hide
+        ctx.fillStyle = `rgba(150,150,160,${0.32 * (1 - k)})`;
+        ctx.beginPath();
+        ctx.arc(f.x + Math.sin(k * 5 + f.seed) * 2.5, f.y - k * 15, 2 + k * 4.5, 0, Math.PI*2);
+        ctx.fill();
+        break;
+      }
+      case 'bones': { // tesla kill: skeleton freezes mid-zap, then crumbles into a pile
+        const s = f.r, gy = f.y + 2;
+        const cy = f.y - s * (f.fly ? 1.5 : 0.62);       // height the body froze at
+        const pr = n => { const v = Math.sin(f.seed * 37.7 + n * 91.3) * 43758.5; return v - Math.floor(v); };
+        if (k < 0.14){
+          // beat 1: a white-hot afterimage hangs in the air with the skeleton showing
+          const a = 1 - k / 0.14;
+          ctx.fillStyle = `rgba(240,248,255,${0.7 * a})`;
+          ctx.beginPath(); ctx.ellipse(f.x, cy, s * 0.62, s * 0.4, 0, 0, Math.PI*2); ctx.fill();
+          ctx.strokeStyle = `rgba(60,72,92,${0.9 * a})`; ctx.lineCap = 'round';
+          ctx.lineWidth = Math.max(1.2, s * 0.05);
+          ctx.beginPath(); ctx.moveTo(f.x - s * 0.55, cy + s * 0.04);
+          ctx.quadraticCurveTo(f.x, cy - s * 0.16, f.x + s * 0.4, cy - s * 0.06); ctx.stroke();
+          ctx.lineWidth = Math.max(1, s * 0.04);
+          for (let i = 0; i < 3; i++){
+            ctx.beginPath(); ctx.arc(f.x - s * (0.3 - i * 0.22), cy, s * 0.16, 0.25, Math.PI - 0.25); ctx.stroke();
+          }
+          ctx.fillStyle = `rgba(60,72,92,${0.9 * a})`;
+          ctx.beginPath(); ctx.arc(f.x + s * 0.5, cy - s * 0.18, Math.max(1.4, s * 0.07), 0, Math.PI*2); ctx.fill();
+        } else {
+          // beat 2: the bones rain down, settle into a pile, and fade
+          const te = f.t - 0.14 * f.dur;                 // seconds since the crumble began
+          const kk = (k - 0.14) / 0.86;
+          const fade = kk > 0.7 ? 1 - (kk - 0.7) / 0.3 : 1;
+          // pile shadow grows as bones land
+          ctx.fillStyle = `rgba(0,0,0,${0.22 * fade * Math.min(1, kk * 2)})`;
+          ctx.beginPath(); ctx.ellipse(f.x, gy + 2, s * 0.5, s * 0.16, 0, 0, Math.PI*2); ctx.fill();
+          ctx.lineCap = 'round';
+          for (let i = 0; i < 6; i++){
+            const tb = Math.max(0, te - pr(i) * 0.12);   // per-bone drop delay
+            const y0 = cy + (pr(i + 5) - 0.5) * s * 0.4;
+            const yl = gy + (pr(i + 20) - 0.5) * 4;      // where this bit lands in the pile
+            const tl = Math.sqrt(Math.max(0.001, 2 * (yl - y0) / 720));  // time to land
+            const tc = Math.min(tb, tl);
+            const by = y0 + 0.5 * 720 * tc * tc;
+            const bx = f.x + (pr(i + 10) - 0.5) * s * 0.5 + (pr(i + 15) - 0.5) * s * 0.5 * Math.min(1, tb / Math.max(tl, 0.001));
+            const rot = (pr(i + 30) - 0.5) * 2 + tc * (pr(i + 40) - 0.5) * 8;
+            ctx.save(); ctx.translate(bx, by); ctx.rotate(rot);
+            ctx.strokeStyle = `rgba(228,224,210,${0.95 * fade})`;
+            ctx.fillStyle = `rgba(228,224,210,${0.95 * fade})`;
+            if (i === 0){                                // the skull
+              ctx.beginPath(); ctx.arc(0, 0, Math.max(2, s * 0.14), 0, Math.PI*2); ctx.fill();
+              ctx.fillStyle = `rgba(40,46,60,${0.9 * fade})`;
+              ctx.beginPath(); ctx.arc(s * 0.04, -s * 0.03, Math.max(0.8, s * 0.045), 0, Math.PI*2); ctx.fill();
+            } else if (i < 3){                           // rib arcs
+              ctx.lineWidth = Math.max(1, s * 0.04);
+              ctx.beginPath(); ctx.arc(0, 0, Math.max(1.6, s * 0.12), 0.3, Math.PI - 0.3); ctx.stroke();
+            } else {                                     // long bones, knobbed ends
+              ctx.lineWidth = Math.max(1.2, s * 0.05);
+              ctx.beginPath(); ctx.moveTo(-s * 0.14, 0); ctx.lineTo(s * 0.14, 0); ctx.stroke();
+              ctx.beginPath(); ctx.arc(-s * 0.14, 0, Math.max(1, s * 0.035), 0, Math.PI*2); ctx.fill();
+              ctx.beginPath(); ctx.arc(s * 0.14, 0, Math.max(1, s * 0.035), 0, Math.PI*2); ctx.fill();
+            }
+            ctx.restore();
+          }
+          // smoke rising off the pile + a little static wisp escaping skyward
+          ctx.fillStyle = `rgba(150,150,160,${0.3 * (1 - kk)})`;
+          ctx.beginPath(); ctx.arc(f.x + Math.sin(kk * 6 + f.seed) * 3, cy - kk * s * 0.9, s * (0.14 + kk * 0.3), 0, Math.PI*2); ctx.fill();
+          ctx.fillStyle = `rgba(160,240,255,${0.9 * (1 - kk)})`;
+          ctx.beginPath(); ctx.arc(f.x + Math.sin(kk * 9 + f.seed) * s * 0.15, cy - kk * s * 1.7, 1.4, 0, Math.PI*2); ctx.fill();
         }
         break;
       }
@@ -3300,6 +3593,13 @@ function render(dt){
     const hg = ctx.createRadialGradient(W/2, H/2, H*0.38, W/2, H/2, H*0.78);
     hg.addColorStop(0, 'rgba(200,20,10,0)'); hg.addColorStop(1, `rgba(200,20,10,${0.3 * a})`);
     ctx.fillStyle = hg; ctx.fillRect(0, 0, W, H);
+  }
+  // thunder-dim while a maxed Tesla discharges — for a heartbeat the whole
+  // island darkens and the bolt becomes the light source
+  if (G.thunderT > 0){
+    G.thunderT = Math.max(0, G.thunderT - dt);
+    ctx.fillStyle = `rgba(8,6,26,${0.17 * (G.thunderT / 0.3)})`;
+    ctx.fillRect(0, 0, W, H);
   }
   // gold flash on wave clear
   if (G.flashT > 0){
