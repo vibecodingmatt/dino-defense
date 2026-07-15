@@ -1033,7 +1033,6 @@ function fireTower(t, dt){
                                           tower: t, st, def, maxedT}));
       if (maxedT){                                        // thunder: the island dims for a heartbeat
         G.thunderT = 0.3;
-        G.shake = Math.max(G.shake, 2.2);
       }
       break;
     }
@@ -1086,7 +1085,6 @@ function updateProjs(dt){
         pr.hit = true;
         const def = TOWERS[pr.tower.key];
         if (!weaponMuted(pr.tower.key)) SFX.boom();
-        G.shake = Math.max(G.shake, 2.5);
         addFx('boom', pr.tx, pr.ty, pr.splash);
         addFx('dust', pr.tx, pr.ty + 4, pr.splash * 0.5);
         for (const d of G.dinos){
@@ -1127,7 +1125,6 @@ function updateProjs(dt){
       if (pr.splash){
         if (!weaponMuted(pr.tower.key)) SFX.boom();
         addFx(pr.kind === 'cryo' ? 'frost' : 'boom', tx, ty, pr.splash);
-        if (pr.kind !== 'cryo') G.shake = Math.max(G.shake, 1.5);
         for (const d of G.dinos){
           if (d.dead || d.leaked) continue;
           if (d.flying && !def.air) continue;
@@ -1834,7 +1831,6 @@ function updateStrikes(dt){
       if (!e.done && s.t >= e.t){
         e.done = true;
         SFX.boom();
-        G.shake = Math.max(G.shake, 3.5);
         const r = AIRSTRIKE.splash * rand(0.95, 1.35);
         addFx('airburst', e.x, e.y, r);
         addFx('shock', e.x, e.y, r * 1.25);
