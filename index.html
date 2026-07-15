@@ -22,6 +22,7 @@
   <div id="hud" class="hidden">
     <span id="levelTitle">Level</span>
     <span class="stat" id="hWave">Wave 0/100</span>
+    <span class="stat hidden" id="waveTicker" title="What the next wave brings: 🦖 ground · 🦅 flying · 🌊 swimming · 💀 boss"></span>
     <span class="stat" id="hCash">$0</span>
     <span class="stat" id="hDna" title="DNA is banked every wave — spend it on permanent upgrades in the Research Lab (island map)">0 DNA</span>
     <span class="stat" id="hLives">❤ 100</span>
@@ -165,6 +166,8 @@
     <nav id="menuBtns">
       <button id="btnLab" class="primary">🧬 Research Lab</button>
       <button id="btnAch">🏆 Achievements</button>
+      <button id="btnStickers">📖 Sticker Book</button>
+      <button id="btnStudio">🎨 Dino Studio</button>
       <button id="btnTips">💡 Field Manual</button>
       <button id="btnSettings">⚙ Settings</button>
     </nav>
@@ -198,6 +201,28 @@
     <div class="sub"><b><span id="achProg">0 / 0</span></b> unlocked. Complete these for permanent trophies — runs that use a developer cheat don't count.</div>
     <div id="achList"></div>
     <div class="modalBtns"><button id="achClose" class="primary">Done</button></div>
+  </div>
+</div>
+
+<!-- sticker book -->
+<div id="stickers" class="modal hidden">
+  <div class="modalBox">
+    <button class="modalX" title="Close">✕</button>
+    <h2>📖 Sticker Book</h2>
+    <div class="sub"><b><span id="stickProg">0 / 0</span></b> stickers collected. Land the <b>final blow</b> on each dinosaur with each weapon to earn its sticker — every weapon has its own signature takedown. Greyed cells can't happen (ground-only weapons vs flyers, gas vs the gas-immune).</div>
+    <div id="stickWrap"><table id="stickTable"></table></div>
+    <div class="modalBtns"><button id="stickClose" class="primary">Done</button></div>
+  </div>
+</div>
+
+<!-- dino studio -->
+<div id="studio" class="modal hidden">
+  <div class="modalBox">
+    <button class="modalX" title="Close">✕</button>
+    <h2>🎨 Dino Studio</h2>
+    <div class="sub">Design your own dinosaurs! Pick a species, name it, choose its colors — each named design joins the invasion (one per wave) with its name overhead. Up to <b>3</b> designs.</div>
+    <div id="studioList"></div>
+    <div class="modalBtns"><button id="studioAdd">➕ New dino</button><button id="studioClose" class="primary">Done</button></div>
   </div>
 </div>
 
@@ -258,6 +283,14 @@
     <label class="optRow">
       <input type="checkbox" id="optMute">
       <span>🔇 Mute all sound</span>
+    </label>
+    <label class="optRow">
+      <input type="checkbox" id="optPreview" checked>
+      <span>🔭 Incoming wave preview <small>Shows what the next wave brings next to the wave counter — and warns when flyers are coming and you have no anti-air.</small></span>
+    </label>
+    <label class="optRow">
+      <input type="checkbox" id="optCallouts" checked>
+      <span>💥 Multi-kill callouts <small>TRIPLE! MEGA! ULTRA! popups when one weapon wipes several dinos at once.</small></span>
     </label>
 
     <div class="optHead">🧪 Developer options <small>Tick the box below and enter the developer password once to reveal the cheats. Runs that use a cheat earn no DNA and no achievements.</small></div>

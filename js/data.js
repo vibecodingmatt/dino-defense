@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.34.0';
+const VERSION = '1.35.0';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -25,7 +25,15 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.34.0', date: 'Jul 15, 2026', items: [
+  {v: '1.35.0', date: 'Jul 15, 2026', items: [
+    '🎨 New: DINO STUDIO — design up to three dinosaurs of your own (species, name, colors); each joins the invasion, one per wave, with its name overhead.',
+    '📖 New: STICKER BOOK — land the final blow on every dinosaur with every weapon to collect all the takedown stickers.',
+    '🎖 Weapon mastery: career kills earn each weapon bronze, silver, and gold laurels on its pad — gold ones sparkle. Progress shows in the weapon menu.',
+    '⏩ Rush bonus: start the next wave early and pocket extra cash — the faster you call it, the bigger the payout.',
+    '🔭 The HUD now previews the next wave (ground / flying / swimming counts and any boss) and warns when flyers are coming and you have no anti-air. Toggle in Settings.',
+    '💥 Multi-kill callouts: TRIPLE! MEGA! ULTRA! RAMPAGE! when one weapon wipes a pack at once. Toggle in Settings.',
+    '🎯 New FLYERS-FIRST targeting mode for air-capable weapons, plus clearer targeting labels in the weapon menu.',
+    '💓 Last stand: when your base is nearly done and a dino closes on the gate, time briefly slows with a heartbeat.',
     '🎬 EVERY weapon now signs its kills with its own animation:',
     '🔫 Gatling: riddled with daylight holes, then the dino deflates and loops away like a popped balloon.',
     '🔥 Flamer: flash-fried into an ash statue that blinks twice… then crumbles into a smoking pile.',

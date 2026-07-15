@@ -894,6 +894,27 @@ function drawTowerBase(ctx, x, y, key, selected, lv){
       ctx.beginPath(); ctx.arc(Math.cos(a)*(R-4.5), Math.sin(a)*(R-4.5), 1.5, 0, Math.PI*2); ctx.fill();
     }
   }
+  // mastery laurels: career kills earn a bronze/silver/gold outer ring with
+  // star pips below the pad — gold trails a slow orbiting sparkle (game.js tallies)
+  const mTier = typeof masteryTier === 'function' ? masteryTier(key) : 0;
+  if (mTier){
+    const mc = mTier === 3 ? '#ffd24a' : mTier === 2 ? '#c9ced6' : '#c78a4e';
+    ctx.strokeStyle = mc; ctx.globalAlpha = 0.85; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(0, 0, R + 3, 0, Math.PI*2); ctx.stroke();
+    ctx.globalAlpha = 1; ctx.fillStyle = mc;
+    for (let i = 0; i < mTier; i++){
+      const a = Math.PI / 2 + (i - (mTier - 1) / 2) * 0.42;
+      const px = Math.cos(a) * (R + 4), py = Math.sin(a) * (R + 4);
+      ctx.beginPath();
+      ctx.moveTo(px, py - 2.4); ctx.lineTo(px + 2.2, py + 1.7); ctx.lineTo(px - 2.2, py + 1.7);
+      ctx.closePath(); ctx.fill();
+    }
+    if (mTier === 3){    // wall-clock time: drawTowerBase gets no game clock
+      const sa = performance.now() / 700 + x * 0.1;
+      ctx.fillStyle = 'rgba(255,240,180,0.9)';
+      ctx.beginPath(); ctx.arc(Math.cos(sa) * (R + 3), Math.sin(sa) * (R + 3), 1.5, 0, Math.PI*2); ctx.fill();
+    }
+  }
   // bolts
   ctx.fillStyle = '#141811';
   for (let i = 0; i < 4; i++){

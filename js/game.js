@@ -48,11 +48,20 @@ function track(event, params){
 const SAVE_KEY = 'islaDefense.v1';
 const START_DNA = 80;   // grant so a new player can buy their first upgrade right away
 function defaultSave(){
-  return {bestDiff:0, mapBest:{}, wlv:{}, dna:START_DNA, kills:0, run:null, ach:{}, granted:true,
-          settings:{invincible:false, unlimitedCash:false, levelSkip:false, mute:false, auto:true, music:true, mutedWeapons:{}}};
+  return {bestDiff:0, mapBest:{}, wlv:{}, dna:START_DNA, kills:0, run:null, ach:{},
+          stickers:{}, wkills:{}, studio:[], granted:true,
+          settings:{invincible:false, unlimitedCash:false, levelSkip:false, mute:false, auto:true,
+                    music:true, wavePreview:true, killCallouts:true, mutedWeapons:{}}};
 }
 /* per-weapon sound mute (toggled from the weapon's popup menu) */
 const weaponMuted = key => !!(save.settings.mutedWeapons && save.settings.mutedWeapons[key]);
+/* weapon mastery: career kills per weapon earn bronze / silver / gold laurels
+   (drawn on the weapon's pad in draw.js, shown in its popup menu) */
+const MASTERY_TIERS = [250, 1500, 6000];
+const masteryTier = key => {
+  const k = (save.wkills && save.wkills[key]) || 0;
+  return k >= MASTERY_TIERS[2] ? 3 : k >= MASTERY_TIERS[1] ? 2 : k >= MASTERY_TIERS[0] ? 1 : 0;
+};
 function loadSave(){
   try {
     const s = JSON.parse(localStorage.getItem(SAVE_KEY));
@@ -60,6 +69,7 @@ function loadSave(){
     const d = defaultSave();
     return {bestDiff: s.bestDiff || 0, mapBest: s.mapBest || {}, wlv: s.wlv || {},
             dna: s.dna || 0, kills: s.kills || 0, run: s.run || null, ach: s.ach || {},
+            stickers: s.stickers || {}, wkills: s.wkills || {}, studio: s.studio || [],
             granted: !!s.granted,
             settings: Object.assign(d.settings, s.settings || {})};
   } catch(e){ return defaultSave(); }
@@ -436,6 +446,12 @@ const SFX = {
     sfxTone({type: 'sine', f0: 520, f1: 880, dur: 0.5, peak: 0.035, wet: 0.5, a: 0.15});
     sfxTone({type: 'sine', f0: 780, f1: 1180, dur: 0.45, peak: 0.02, wet: 0.5, a: 0.18, delay: 0.12});
   },
+  heartbeat(){ // last stand: two low lub-dubs under the slow-motion (always plays)
+    for (const dl of [0, 0.8]){
+      sfxTone({type: 'sine', f0: 66, f1: 46, dur: 0.16, peak: 0.24, wet: 0.15, delay: dl});
+      sfxTone({type: 'sine', f0: 58, f1: 42, dur: 0.14, peak: 0.18, wet: 0.15, delay: dl + 0.16});
+    }
+  },
   zap(){ // electric arc: hissy crackle + gritty buzz
     if (!sfxGate()) return;
     sfxNoise({dur: 0.12, peak: 0.11, type: 'highpass', f0: 2200, Q: 1, wet: 0.25});
@@ -765,6 +781,7 @@ function pickTarget(t, st){
       case 'strong': v = d.hp; break;
       case 'last':   v = -d.dist; break;
       case 'close':  v = -hyp(t.x, t.y, p.x, p.y); break;
+      case 'air':    v = (d.flying ? 1e9 : 0) + d.dist + (d.boss ? 1e6 : 0); break; // flyers first, then furthest
       default:       v = d.dist + (d.boss ? 1e6 : 0); // first (bosses prioritized)
     }
     if (v > bestV){ bestV = v; best = d; }
@@ -926,6 +943,36 @@ function damage(d, amt, pierce, src){
       save.kills = (save.kills || 0) + 1;
       if (save.kills >= 1000  && !save.ach.kills_1k)  unlockAch('kills_1k');
       if (save.kills >= 50000 && !save.ach.kills_50k) unlockAch('kills_50k');
+    }
+    if (src && TOWERS[src.key]){
+      // sticker book (weapon × species) + weapon-mastery career tallies —
+      // banked on every kill, persisted with the next wave-end save
+      if (!save.stickers) save.stickers = {};
+      save.stickers[src.key + ':' + d.key] = (save.stickers[src.key + ':' + d.key] || 0) + 1;
+      if (!save.wkills) save.wkills = {};
+      save.wkills[src.key] = (save.wkills[src.key] || 0) + 1;
+      // multi-kill combo: several kills by the SAME weapon within a beat
+      if (save.settings.killCallouts){
+        const c = G.combo;
+        if (c && c.src === src && G.time - c.t0 < 0.6){
+          c.n++; c.t0 = G.time; c.x = (c.x + p.x) / 2; c.y = (c.y + p.y) / 2;
+        } else {
+          G.combo = {src, n: 1, t0: G.time, x: p.x, y: p.y, txt: null};
+        }
+        const cc = G.combo;
+        if (cc.n >= 3){
+          const label = '💥 ' + (cc.n === 3 ? 'TRIPLE!' : cc.n === 4 ? 'MEGA!' : cc.n === 5 ? 'ULTRA!'
+                                : cc.n === 6 ? 'RAMPAGE!' : '×' + cc.n + ' RAMPAGE!');
+          const size = Math.min(30, 19 + cc.n * 1.6);
+          if (cc.txt && G.texts.includes(cc.txt)){        // grow the popup in place
+            cc.txt.txt = label; cc.txt.size = size; cc.txt.t = 0;
+          } else {
+            addText(cc.x, cc.y - 30, label, '#ffd24a', size);
+            const lt = G.texts[G.texts.length - 1];
+            if (lt && lt.txt === label) cc.txt = lt;
+          }
+        }
+      }
     }
     if (d.boss){
       // cinematic collapse: the corpse tips over, thuds, and fades
@@ -1446,6 +1493,23 @@ function updateDinos(dt){
 }
 
 /* ---------------- wave flow ---------------- */
+/* rush bonus: calling the next wave early (manually) pays out the seconds you
+   didn't wait — the countdown starts the moment the previous wave clears */
+const RUSH_WINDOW = 10;
+const rushBonus = () => Math.max(0, Math.round(G.rushT * (4 + G.wave * 0.6)));
+/* compact composition summary of a built wave, for the HUD ticker */
+function waveSummary(q){
+  if (!q) return null;
+  const s = {ground: 0, fly: 0, water: 0, bosses: []};
+  for (const e of q){
+    const def = DINOS[e.key];
+    if (e.boss) s.bosses.push(def.name);
+    else if (def.flying) s.fly++;
+    else if (def.water) s.water++;
+    else s.ground++;
+  }
+  return s;
+}
 function startWave(){
   if (G.waveActive || G.over) return;
   G.wave++;
@@ -1453,9 +1517,17 @@ function startWave(){
   G.waveLeaked = false; // fresh clean-wave chance for the streak
   G.waveActive = true;
   G.autoTimer = -1;
+  G.rushT = 0;
   G.spawnQ = G.pendingWave || buildWave(G.wave);
   G.waveTotal = G.spawnQ.length;
   G.pendingWave = G.wave < WAVES_PER_LEVEL ? buildWave(G.wave + 1) : null;
+  G.nextPreview = waveSummary(G.pendingWave);
+  // Dino Studio: each named design possesses ONE matching spawn this wave
+  for (const ds of (save.studio || [])){
+    if (!ds.name || !DINOS[ds.sp]) continue;
+    const slot = G.spawnQ.find(e => e.key === ds.sp && !e.boss && !e.custom);
+    if (slot) slot.custom = ds;
+  }
   G.spawnT = 0;
   if (G.wave >= 50) unlockAch('wave50');
   updateHUD();
@@ -1486,6 +1558,7 @@ function endWave(){
   if (G.wave >= WAVES_PER_LEVEL){ victory(); return; }
   saveRun();
   if (save.settings.auto) G.autoTimer = 3;
+  G.rushT = RUSH_WINDOW;   // the early-call bonus clock starts ticking
   updateHUD();
 }
 /* level-skip cheat: instantly clear the current wave and bank it. Clears the
@@ -1557,6 +1630,9 @@ function startLevel(idx, mode, diff){
   }
   G.maxLives = startLives();
   G.streak = 1; G.waveLeaked = false;
+  G.pendingWave = G.wave < WAVES_PER_LEVEL ? buildWave(G.wave + 1) : null;
+  G.nextPreview = waveSummary(G.pendingWave);
+  G.rushT = 0; G.combo = null; G.slowmoT = 0; G.slowmoCd = 0;
   G.flow = G.level.maze ? mazeRebuild() : null;   // open-world routing grid
   G.stat = {dnaWaves: 0, dnaKills: 0, cashEarned: 0, kills: 0, streakMax: 1};
   saveRun();
@@ -1771,13 +1847,17 @@ function renderTowerPanel(){
   const st = towerStats(t);
   const maxed = t.ulv >= def.maxUp;
   $('#tpName').textContent = `${def.icon} ${def.name} — Lv ${t.ulv + 1}${maxed ? ' ★MAX' : ''}`;
+  const mTier = masteryTier(t.key), mKills = (save.wkills && save.wkills[t.key]) || 0;
+  const mNext = MASTERY_TIERS.find(v => mKills < v);
   $('#tpStats').innerHTML =
     (t.key === 'gas'
       ? `POISON <b>${st.dmg.toFixed(0)}</b>/s · CLOUD every <b>${(1/st.rof).toFixed(1)}s</b> · RNG <b>${Math.round(st.range)}</b>`
       : `DMG <b>${st.dmg.toFixed(0)}</b> · ROF <b>${st.rof.toFixed(2)}/s</b> · RNG <b>${Math.round(st.range)}</b>`) +
     (t.key === 'missile' ? ` · <b>${1 + t.ulv}</b> rocket${t.ulv ? 's' : ''}/salvo` : '') +
     (st.splash ? ` · SPLASH <b>${Math.round(st.splash)}</b>` : '') +
-    (def.air ? '' : ' · <span class="warn">cannot hit flyers</span>');
+    (def.air ? '' : ' · <span class="warn">cannot hit flyers</span>') +
+    ` · <span class="mast" title="Weapon mastery: career kills across all runs earn bronze, silver, and gold laurels${mNext ? ' — next at ' + fmt(mNext) : ''}">` +
+    '★'.repeat(mTier) + '☆'.repeat(3 - mTier) + ` ${fmt(mKills)} kills</span>`;
   const btn = $('#up_main');
   if (maxed){
     btn.textContent = '★ Fully upgraded';
@@ -1791,7 +1871,9 @@ function renderTowerPanel(){
     btn.disabled = !afford;                 // greyed-out disabled look when broke
     btn.classList.toggle('can', afford);    // bright green when you can afford it
   }
-  $('#tpMode').textContent = 'Target: ' + t.mode.toUpperCase();
+  const MODE_LABEL = {first: 'FIRST', last: 'LAST', strong: 'STRONGEST', close: 'CLOSEST', air: 'FLYERS FIRST'};
+  $('#tpMode').textContent = '🎯 ' + (MODE_LABEL[t.mode] || t.mode.toUpperCase());
+  $('#tpMode').title = 'Targeting priority (tap to cycle): FIRST = furthest along the path · LAST = newest arrival · STRONGEST = most health · CLOSEST = nearest to this weapon' + (TOWERS[t.key].air ? ' · FLYERS FIRST = airborne dinos before anything else' : '');
   const muted = weaponMuted(t.key), muteBtn = $('#tpMute');
   muteBtn.textContent = muted ? '🔇' : '🔊';
   muteBtn.classList.toggle('muted', muted);
@@ -2080,9 +2162,29 @@ function updateHUD(){
     sb.classList.toggle('hot', G.streak >= STREAK_MAX - 0.001);
   }
   $('#btnWave').disabled = G.waveActive || G.over;
+  const rush = !G.waveActive && !G.over && G.wave > 0 && G.rushT > 0 ? rushBonus() : 0;
+  const rushTag = rush > 0 ? ` · ⏩ +$${rush}` : '';
   $('#btnWave').textContent = G.waveActive ? '⚔ Wave in progress'
-    : (G.autoTimer > 0 ? (G.wave === 0 ? `▶ First wave in ${Math.ceil(G.autoTimer)}…` : `▶ Next in ${Math.ceil(G.autoTimer)}…`)
-    : '▶ Start Wave ' + (G.wave + 1));
+    : (G.autoTimer > 0 ? (G.wave === 0 ? `▶ First wave in ${Math.ceil(G.autoTimer)}…` : `▶ Next in ${Math.ceil(G.autoTimer)}…${rushTag}`)
+    : '▶ Start Wave ' + (G.wave + 1) + rushTag);
+  // incoming-wave ticker: what the next wave brings, and an anti-air warning
+  const tick = $('#waveTicker');
+  if (tick){
+    const pv = G.nextPreview;
+    const show = save.settings.wavePreview && !G.over && pv && G.wave < WAVES_PER_LEVEL;
+    tick.classList.toggle('hidden', !show);
+    if (show){
+      const bits = [];
+      if (pv.ground) bits.push(pv.ground + '🦖');
+      if (pv.fly)    bits.push(pv.fly + '🦅');
+      if (pv.water)  bits.push(pv.water + '🌊');
+      for (const b of pv.bosses) bits.push('💀' + b.split(' ')[0].toUpperCase());
+      const noAir = pv.fly > 0 && !G.towers.some(t => TOWERS[t.key].air);
+      const html = 'Next: ' + bits.join(' ') + (noAir ? ' <b class="tickWarn">⚠ no anti-air!</b>' : '');
+      if (tick.dataset.h !== html){ tick.dataset.h = html; tick.innerHTML = html; }
+      tick.classList.toggle('alert', noAir || pv.bosses.length > 0);
+    }
+  }
   updateStartPrompt();
   $$('#speedBtns button').forEach(b => b.classList.toggle('on', +b.dataset.s === G.speed && !G.paused));
   $('#speedCycle').textContent = G.speed + '×';
@@ -2582,6 +2684,71 @@ function buildAchievements(){
            `</div>`;
   }).join('');
 }
+/* ---------------- sticker book ----------------
+   One sticker per weapon × species: earned by landing the FINAL blow on that
+   species with that weapon. Combos that can't happen (ground-only weapons vs
+   flyers, gas vs the gas-immune) are struck from the page and the total. */
+function stickerPossible(wk, dk){
+  const w = TOWERS[wk], d = DINOS[dk];
+  if (d.flying && !w.air) return false;
+  if (wk === 'gas' && (d.boss || d.flying || d.painter === 'sauropod' || d.painter === 'aquatic')) return false;
+  return true;
+}
+function buildStickers(){
+  const table = $('#stickTable');
+  if (!table) return;
+  const wkeys = Object.keys(TOWERS);
+  let got = 0, total = 0;
+  let html = '<tr><th></th>' + wkeys.map(k =>
+    `<th title="${TOWERS[k].name}">${TOWERS[k].icon}</th>`).join('') + '</tr>';
+  for (const [dk, def] of Object.entries(DINOS)){
+    html += `<tr><td class="spName"><span class="sw" style="background:${def.pal.body}"></span>${def.name}${def.boss ? ' 💀' : ''}</td>`;
+    for (const wk of wkeys){
+      if (!stickerPossible(wk, dk)){ html += '<td class="cell na" title="Not possible">—</td>'; continue; }
+      total++;
+      const n = (save.stickers && save.stickers[wk + ':' + dk]) || 0;
+      if (n) got++;
+      html += `<td class="cell${n ? ' got' : ''}" title="${def.name} × ${TOWERS[wk].name}${n ? ' — ' + fmt(n) + ' final blow' + (n > 1 ? 's' : '') : ' — not yet!'}">${n ? TOWERS[wk].icon : ''}</td>`;
+    }
+    html += '</tr>';
+  }
+  table.innerHTML = html;
+  const prog = $('#stickProg');
+  if (prog) prog.textContent = `${got} / ${total}`;
+}
+
+/* ---------------- Dino Studio ----------------
+   Up to three player-designed dinosaurs (species + name + colors). Each named
+   design possesses one matching spawn per wave and parades its name overhead. */
+function buildStudio(){
+  const el = $('#studioList');
+  if (!el) return;
+  el.innerHTML = '';
+  if (!save.studio) save.studio = [];
+  if (!save.studio.length){
+    el.innerHTML = '<div class="sub">No designs yet — tap “New dino” and make it yours.</div>';
+  }
+  save.studio.forEach((d, i) => {
+    const row = document.createElement('div');
+    row.className = 'studioRow';
+    const opts = Object.entries(DINOS).filter(([, def]) => !def.boss)
+      .map(([k, def]) => `<option value="${k}"${d.sp === k ? ' selected' : ''}>${def.name}${def.flying ? ' 🦅' : def.water ? ' 🌊' : ''}</option>`).join('');
+    row.innerHTML =
+      `<input class="stName" maxlength="14" placeholder="Name your dino…" value="${(d.name || '').replace(/"/g, '&quot;')}">` +
+      `<select class="stSp">${opts}</select>` +
+      `<label class="stCol">Body <input type="color" class="stBody" value="${d.body}"></label>` +
+      `<label class="stCol">Belly <input type="color" class="stBelly" value="${d.belly}"></label>` +
+      `<button class="stDel" title="Delete this design">🗑</button>`;
+    row.querySelector('.stName').oninput  = e => { d.name = e.target.value.trim(); persist(); };
+    row.querySelector('.stSp').onchange   = e => { d.sp = e.target.value; persist(); };
+    row.querySelector('.stBody').oninput  = e => { d.body = e.target.value; persist(); };
+    row.querySelector('.stBelly').oninput = e => { d.belly = e.target.value; persist(); };
+    row.querySelector('.stDel').onclick   = () => { save.studio.splice(i, 1); persist(); buildStudio(); };
+    el.appendChild(row);
+  });
+  $('#studioAdd').disabled = save.studio.length >= 3;
+}
+
 function checkWeaponAch(){
   const keys = Object.keys(TOWERS);
   const maxL = Math.max(...keys.map(k => wlv(k)));
@@ -2736,6 +2903,8 @@ function syncSettings(){
   $('#optMute').checked = save.settings.mute;
   $('#optAuto').checked = save.settings.auto;
   $('#optMusic').checked = save.settings.music;
+  $('#optPreview').checked = save.settings.wavePreview;
+  $('#optCallouts').checked = save.settings.killCallouts;
 }
 
 /* ---------------- main loop ---------------- */
@@ -2764,6 +2933,23 @@ function frame(now){
 }
 
 function step(dt){
+  // last stand: with the base nearly dead and a dino closing on the gate,
+  // time itself flinches — a heartbeat of slow motion so the moment lands
+  if (G.slowmoT > 0){ G.slowmoT -= dt; dt *= 0.35; }
+  else if (G.slowmoCd > 0) G.slowmoCd -= dt;
+  if (G.slowmoT <= 0 && G.slowmoCd <= 0 && !G.over && !save.settings.invincible &&
+      G.lives > 0 && G.lives <= Math.max(3, G.maxLives * 0.08)){
+    for (const d of G.dinos){
+      if (d.dead || d.leaked) continue;
+      const nearEnd = d.mx !== undefined ? d.mx > W - 150 : d.dist > G.paths[d.pathI].len - 140;
+      if (nearEnd){
+        G.slowmoT = 1.3; G.slowmoCd = 7;         // at most once every few seconds
+        G.hurtT = Math.max(G.hurtT, 0.5);
+        SFX.heartbeat();
+        break;
+      }
+    }
+  }
   if (save.settings.unlimitedCash) G.cash = 1e9; // top up every tick so nothing is ever unaffordable
   // sparse ambient jungle vocalization while dinos are roaming the field
   if (G.waveActive && G.dinos.length){
@@ -2776,9 +2962,15 @@ function step(dt){
     while (G.spawnQ.length && G.spawnQ[0].at <= G.spawnT){
       const s = G.spawnQ.shift();
       spawnDino(s.key, s.pathI, s.boss);
+      if (s.custom){                       // a Dino Studio original takes the field
+        const d = G.dinos[G.dinos.length - 1];
+        d.pal = {body: s.custom.body, belly: s.custom.belly, accent: d.pal.accent};
+        d.custom = s.custom.name;
+      }
     }
     if (!G.spawnQ.length && G.dinos.length === 0) endWave();
   }
+  if (!G.waveActive && G.rushT > 0) G.rushT -= dt;   // the rush bonus melts away
   if (G.autoTimer > 0){
     G.autoTimer -= dt;
     if (G.autoTimer <= 0) startWave();
@@ -3084,6 +3276,14 @@ function render(dt){
       ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(p.x - w/2, y0, w, 4.5);
       ctx.fillStyle = d.boss ? '#ff5a5a' : '#7ae05a';
       ctx.fillRect(p.x - w/2, y0, w * clamp(d.hp / d.maxHp, 0, 1), 4.5);
+    }
+    // Dino Studio original: its given name floats overhead
+    if (d.custom){
+      const y0 = p.y - d.size * (d.flying ? 2.1 : 1.6) - 13;
+      ctx.font = 'bold 11px Verdana, sans-serif'; ctx.textAlign = 'center';
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.75)'; ctx.lineJoin = 'round';
+      ctx.strokeText('⭐ ' + d.custom, p.x, y0);
+      ctx.fillStyle = '#ffe9a8'; ctx.fillText('⭐ ' + d.custom, p.x, y0);
     }
     if (d.boss){
       ctx.strokeStyle = 'rgba(255,80,60,' + (0.4 + 0.3*Math.sin(d.phase)) + ')';
@@ -4498,13 +4698,27 @@ window.addEventListener('keydown', e => {
     else SFX.error();
   }
   if (e.key === 'Escape'){ G.placing = null; G.pendingTap = null; G.targeting = null; selectTower(null); updateHUD(); }
-  if (e.key === ' '){ e.preventDefault(); if (!G.waveActive) startWave(); else togglePause(); }
+  if (e.key === ' '){ e.preventDefault(); if (!G.waveActive) callWave(); else togglePause(); }
   if (e.key === 'm' || e.key === 'M') toggleMute();
 });
 function togglePause(){ G.paused = !G.paused; updateHUD(); }
 
 /* ---------------- wire up UI ---------------- */
-$('#btnWave').onclick = () => { startWave(); };
+/* manual wave start (button or Space): an early call inside the rush window
+   pays out the seconds you skipped */
+function callWave(){
+  const bonus = (!G.waveActive && !G.over && G.wave > 0 && G.rushT > 0) ? rushBonus() : 0;
+  const before = G.wave;
+  startWave();
+  if (bonus > 0 && G.wave === before + 1){
+    G.cash += bonus;
+    if (G.stat) G.stat.cashEarned += bonus;
+    addText(W / 2, 150, `⏩ RUSH BONUS +$${bonus}`, '#ffd24a', 19);
+    SFX.coin();
+    updateHUD();
+  }
+}
+$('#btnWave').onclick = callWave;
 $('#btnSkip').onclick = () => { skipWave(); };
 $('#btnPause').onclick = togglePause;
 function toggleMute(){
@@ -4536,9 +4750,11 @@ $('#tpMute').onclick = () => {
 };
 $('#tpSell').onclick = armOrSell;
 $('#tpMode').onclick = () => {
-  const modes = ['first', 'last', 'strong', 'close'];
   const t = G.selected; if (!t) return;
+  const modes = ['first', 'last', 'strong', 'close'];
+  if (TOWERS[t.key].air) modes.push('air');   // flyers-first only makes sense with anti-air
   t.mode = modes[(modes.indexOf(t.mode) + 1) % modes.length];
+  saveRun();
   renderTowerPanel(); positionTowerPop(t);
 };
 const openLab = () => { buildLab(); $('#lab').classList.remove('hidden'); };
@@ -4551,6 +4767,17 @@ $('#btnTips').onclick = () => { buildTips(); $('#tips').classList.remove('hidden
 $('#tipsClose').onclick = () => $('#tips').classList.add('hidden');
 $('#btnAch').onclick = () => { buildAchievements(); $('#achievements').classList.remove('hidden'); };
 $('#achClose').onclick = () => $('#achievements').classList.add('hidden');
+$('#btnStickers').onclick = () => { buildStickers(); $('#stickers').classList.remove('hidden'); };
+$('#stickClose').onclick = () => $('#stickers').classList.add('hidden');
+$('#btnStudio').onclick = () => { buildStudio(); $('#studio').classList.remove('hidden'); };
+$('#studioClose').onclick = () => $('#studio').classList.add('hidden');
+$('#studioAdd').onclick = () => {
+  if (!save.studio) save.studio = [];
+  if (save.studio.length >= 3) return;
+  const sp = ['velociraptor', 'triceratops', 'pteranodon'][save.studio.length] || 'compy';
+  save.studio.push({sp, name: '', body: '#e055aa', belly: '#ffd9ec'});
+  persist(); buildStudio();
+};
 $('#verChip').onclick = () => { buildChangelog(); $('#changelog').classList.remove('hidden'); };
 $('#clogClose').onclick = () => $('#changelog').classList.add('hidden');
 
@@ -4649,6 +4876,8 @@ $('#optSkip').onchange = e => setCheat('levelSkip', e.target.checked);
 $('#optMute').onchange = e => { save.settings.mute = e.target.checked; persist(); ensureMusic(); };
 $('#optMusic').onchange = e => { save.settings.music = e.target.checked; persist(); ensureMusic(); };
 $('#optAuto').onchange = e => { save.settings.auto = e.target.checked; persist(); };
+$('#optPreview').onchange = e => { save.settings.wavePreview = e.target.checked; persist(); updateHUD(); };
+$('#optCallouts').onchange = e => { save.settings.killCallouts = e.target.checked; persist(); };
 $('#btnExport').onclick = () => {
   const code = btoa(unescape(encodeURIComponent(JSON.stringify(save))));
   prompt('Copy this save code and keep it somewhere safe:', code);
