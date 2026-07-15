@@ -405,6 +405,37 @@ const SFX = {
     if (!sfxGate()) return;
     sfxTone({type: 'sine', f0: 1500, f1: 520, dur: 0.5, peak: 0.05, wet: 0.35});
   },
+  deflate(){ // gatling kill gag: air sputtering out of a punctured dino
+    if (!sfxGate()) return;
+    sfxNoise({dur: 0.5, peak: 0.05, type: 'bandpass', f0: 2400, f1: 900, Q: 2, wet: 0.15});
+    sfxTone({type: 'square', f0: 300, f1: 90, dur: 0.5, peak: 0.02, tremF: 22, tremD: 0.8, wet: 0.1});
+  },
+  sizzle(){ // flamer kill gag: flash-fry crackle
+    if (!sfxGate()) return;
+    sfxNoise({dur: 0.6, peak: 0.05, type: 'highpass', f0: 3000, wet: 0.3});
+    sfxNoise({dur: 0.35, peak: 0.04, type: 'bandpass', f0: 1200, f1: 500, Q: 1, wet: 0.25});
+  },
+  koBoing(){ // sniper kill gag: rubbery launch off the feet
+    if (!sfxGate()) return;
+    sfxTone({type: 'sine', f0: 160, f1: 520, dur: 0.28, peak: 0.06, wet: 0.2, tremF: 30, tremD: 0.4});
+  },
+  shatter(){ // cryo kill gag: the ice block bursts into shards
+    if (!sfxGate()) return;
+    sfxNoise({dur: 0.28, peak: 0.09, type: 'highpass', f0: 4200, wet: 0.35});
+    sfxTone({type: 'triangle', f0: 2200, f1: 900, dur: 0.18, peak: 0.045, wet: 0.3});
+    sfxTone({type: 'triangle', f0: 3100, f1: 1400, dur: 0.14, peak: 0.035, wet: 0.3, delay: 0.05});
+  },
+  notePop(){ // sonic kill gag: the dino resolves into a little arpeggio
+    if (!sfxGate()) return;
+    sfxTone({type: 'triangle', f0: 660, dur: 0.12, peak: 0.045, wet: 0.3});
+    sfxTone({type: 'triangle', f0: 990, dur: 0.14, peak: 0.04, wet: 0.35, delay: 0.09});
+    sfxTone({type: 'triangle', f0: 1320, dur: 0.18, peak: 0.035, wet: 0.4, delay: 0.19});
+  },
+  whoo(){ // gas kill gag: a little ghost floats free
+    if (!sfxGate()) return;
+    sfxTone({type: 'sine', f0: 520, f1: 880, dur: 0.5, peak: 0.035, wet: 0.5, a: 0.15});
+    sfxTone({type: 'sine', f0: 780, f1: 1180, dur: 0.45, peak: 0.02, wet: 0.5, a: 0.18, delay: 0.12});
+  },
   zap(){ // electric arc: hissy crackle + gritty buzz
     if (!sfxGate()) return;
     sfxNoise({dur: 0.12, peak: 0.11, type: 'highpass', f0: 2200, Q: 1, wet: 0.25});
@@ -910,26 +941,34 @@ function damage(d, amt, pierce, src){
       unlockAch('boss_first');
       if (d.key === 'drex') unlockAch('apex');
     } else {
+      /* every weapon signs its kills — each key maps to its own death gag:
+         🚀 gibs: splat-cloud + cartwheeling pieces  💣 punt: launched sky-high
+         🔫 deflate: riddled, then pops like a balloon  🔥 ash: statue crumbles
+         🎯 ko: backflip, X-eyes, circling stars  ❄️ iceblock: freeze + shatter
+         📡 notes: shaken apart into music  ☣️ ghost: a little spirit rises */
+      const GAG = {missile: ['gibs', 1.6], mortar: ['punt', 2.6], gatling: ['deflate', 1.4],
+                   flamer: ['ash', 1.9], sniper: ['ko', 2.1], cryo: ['iceblock', 1.8],
+                   sonic: ['notes', 1.5], gas: ['ghost', 2.2]};
+      const gag = src ? GAG[src.key] : null;
       if (src && src.key === 'tesla'){
         // ⚡ death by Tesla: no gore — the skeleton freezes mid-zap, then
         // crumbles into a smoking pile of bones with a little static wisp
         G.fx.push({kind: 'bones', x: p.x, y: p.y, r: d.size, fly: d.flying ? 1 : 0,
                    seed: Math.random() * 9, t: 0, dur: 1.5});
-      } else if (src && src.key === 'missile' && G.fx.length < 340){
-        // 🚀 death by rocket: the dino GIBS — a crimson splat-cloud pops and
-        // cartoon pieces cartwheel out on smoke trails, bounce once, and fade
-        G.fx.push({kind: 'gibs', x: p.x, y: p.y, r: d.size, fly: d.flying ? 1 : 0,
+      } else if (gag && G.fx.length < 340){
+        G.fx.push({kind: gag[0], x: p.x, y: p.y, r: d.size, fly: d.flying ? 1 : 0,
                    body: d.pal.body, belly: d.pal.belly,
-                   seed: Math.random() * 9, t: 0, dur: 1.6});
-        addFx('blood', p.x, p.y + 2, d.size * 0.6);
-      } else if (src && src.key === 'mortar' && G.fx.length < 340){
-        // 💣 death by mortar: PUNTED off the top of the screen — a beat of
-        // nothing — then back down into a little crater, legs-up and wiggling
-        // (mortars can't hit flyers, so this is always a grounded launch)
-        G.fx.push({kind: 'punt', x: p.x, y: p.y, r: d.size,
-                   body: d.pal.body, belly: d.pal.belly,
-                   seed: Math.random() * 9, t: 0, dur: 2.6});
-        if (!weaponMuted('mortar')) SFX.punt();
+                   dir: p.x >= src.x ? 1 : -1,   // ko: knocked away from the shooter
+                   seed: Math.random() * 9, t: 0, dur: gag[1]});
+        if (gag[0] === 'gibs') addFx('blood', p.x, p.y + 2, d.size * 0.6);
+        if (!weaponMuted(src.key)){
+          if (gag[0] === 'punt') SFX.punt();
+          else if (gag[0] === 'deflate') SFX.deflate();
+          else if (gag[0] === 'ash') SFX.sizzle();
+          else if (gag[0] === 'ko') SFX.koBoing();
+          // iceblock, notes, and ghost play their sound from the animation
+          // itself (at the shatter / pop / ghost-rise beat), not at the kill
+        }
       } else {
         addFx('puff', p.x, p.y, d.size);
         addFx('blood', p.x, p.y + 2, d.size * 0.45);
@@ -954,6 +993,7 @@ function applyHit(d, t, st, def){
   if (def.burn && !d.dead && !d.def.burnImmune){
     d.burnT = def.burn.t;
     d.burnDps = def.burn.dps * wlvDmgMult(wlv('flamer'));
+    d.burnSrc = t;   // so a burn-tick kill still credits the flamer's kill gag
   }
 }
 
@@ -1197,6 +1237,19 @@ function addText(x, y, txt, color, size){
   G.texts.push({x, y, txt, color, size: size || 15, t: 0});
 }
 
+/* tiny cartoon dino silhouette shared by the kill gags — torso + tail +
+   head (+ optional belly patch), drawn around (0,0), facing +x */
+function gagBody(s, body, belly){
+  ctx.fillStyle = body;
+  ctx.beginPath(); ctx.ellipse(0, 0, s * 0.5, s * 0.3, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-s * 0.45, -s * 0.1); ctx.lineTo(-s * 0.85, 0); ctx.lineTo(-s * 0.45, s * 0.12); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.arc(s * 0.55, -s * 0.12, s * 0.18, 0, Math.PI*2); ctx.fill();
+  if (belly){
+    ctx.fillStyle = belly;
+    ctx.beginPath(); ctx.ellipse(0, s * 0.12, s * 0.34, s * 0.16, 0, 0, Math.PI*2); ctx.fill();
+  }
+}
+
 // one jagged lightning polyline, rolled once (bolts re-roll per frame; scars keep this shape)
 function jagPts(x1, y1, x2, y2){
   const n = 7, pts = [[x1, y1]];
@@ -1267,7 +1320,7 @@ function updateDinos(dt){
     if (d.dead || d.leaked) continue;
     // statuses
     if (d.slowT > 0){ d.slowT -= dt; if (d.slowT <= 0) d.slowF = 1; }
-    if (d.burnT > 0){ d.burnT -= dt; damage(d, d.burnDps * dt, true); if (d.dead) continue; }
+    if (d.burnT > 0){ d.burnT -= dt; damage(d, d.burnDps * dt, true, d.burnSrc); if (d.dead) continue; }
     if (d.revealT > 0) d.revealT -= dt;
     if (d.zapT > 0) d.zapT -= dt;   // electrocution skeleton-flash timer
     else if (d.charT > 0) d.charT -= dt;   // post-zap smoking/sooty hangover
@@ -3514,6 +3567,346 @@ function render(dt){
           // a little smoke curling off the crater
           ctx.fillStyle = `rgba(150,150,160,${0.3 * fade * Math.max(0, 1 - te)})`;
           ctx.beginPath(); ctx.arc(f.x + Math.sin(te * 5 + f.seed) * 3, gy - s * 0.3 - te * s * 0.5, s * (0.12 + te * 0.18), 0, Math.PI*2); ctx.fill();
+          ctx.restore();
+        }
+        break;
+      }
+      case 'deflate': { // gatling kill: riddled with daylight holes, then the
+                        // dino deflates and loops away like a released balloon
+        const s = f.r, gy = f.y + 2;
+        const cy = f.y - s * (f.fly ? 1.5 : 0.62);
+        const pr = n => { const v = Math.sin(f.seed * 37.7 + n * 91.3) * 43758.5; return v - Math.floor(v); };
+        // the balloon flight path, shared by the body and its leak-lines
+        const zipX = q => f.x + Math.sin(q * 9 + f.seed) * s * (0.8 + q * 0.8);
+        const zipY = q => cy - q * s * 1.6 + Math.sin(q * 13 + f.seed * 2) * s * 0.5;
+        if (f.t < 0.28){
+          // beat 1: bullet-riddled and jittering, sunbeams through the holes
+          ctx.save();
+          ctx.translate(f.x + Math.sin(f.t * 70) * 1.6, cy + Math.cos(f.t * 63) * 1.2);
+          gagBody(s, f.body, f.belly);
+          const nH = Math.min(6, 1 + Math.floor(f.t / 0.045));
+          for (let i = 0; i < nH; i++){
+            const hx = (pr(i) - 0.5) * s * 0.8, hy = (pr(i + 7) - 0.5) * s * 0.42;
+            ctx.strokeStyle = 'rgba(255,250,210,0.5)'; ctx.lineWidth = Math.max(1, s * 0.035);
+            ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + s * 0.28, hy + s * 0.5); ctx.stroke();
+            ctx.fillStyle = 'rgba(30,26,20,0.9)';
+            ctx.beginPath(); ctx.arc(hx, hy, Math.max(1.2, s * 0.05), 0, Math.PI*2); ctx.fill();
+          }
+          ctx.restore();
+        } else if (f.t < 0.95){
+          // beat 2: pbbbt — it shrinks, flattens, and loops off wildly
+          const kk = (f.t - 0.28) / 0.67;
+          ctx.save(); ctx.translate(zipX(kk), zipY(kk));
+          ctx.rotate(kk * 14 * (pr(3) > 0.5 ? 1 : -1));
+          ctx.scale(1 - kk * 0.72, (1 - kk * 0.72) * (1 - kk * 0.5));
+          gagBody(s, f.body, f.belly);
+          ctx.restore();
+          ctx.strokeStyle = `rgba(255,255,255,${0.5 * (1 - kk)})`;
+          ctx.lineWidth = 1.4; ctx.lineCap = 'round';
+          for (let i = 0; i < 3; i++){                   // sputtering leak-lines behind it
+            const tb = kk - 0.05 - i * 0.06;
+            if (tb <= 0) continue;
+            ctx.beginPath(); ctx.moveTo(zipX(tb), zipY(tb));
+            ctx.lineTo(zipX(tb) + 3, zipY(tb) + 3); ctx.stroke();
+          }
+        } else {
+          // beat 3: the empty hide flutters down like a leaf and settles
+          const kk = (f.t - 0.95) / (f.dur - 0.95);
+          const a = kk > 0.7 ? 1 - (kk - 0.7) / 0.3 : 1;
+          const ex = zipX(1) + Math.sin(kk * 6 + f.seed) * s * 0.45;
+          const ey = zipY(1) + (gy - zipY(1)) * Math.min(1, kk * 1.25);
+          ctx.save(); ctx.translate(ex, ey);
+          ctx.rotate(Math.sin(kk * 6 + f.seed) * 0.5);
+          ctx.globalAlpha = a;
+          ctx.fillStyle = f.body;
+          ctx.beginPath(); ctx.ellipse(0, 0, s * 0.3, s * 0.08, 0, 0, Math.PI*2); ctx.fill();
+          ctx.restore();
+        }
+        break;
+      }
+      case 'ash': { // flamer kill: flash-fried into an ash statue that blinks
+                    // twice — then crumbles from the feet up into a smoking pile
+        const s = f.r, gy = f.y + 2;
+        const cy = f.y - s * 0.62;
+        const pr = n => { const v = Math.sin(f.seed * 37.7 + n * 91.3) * 43758.5; return v - Math.floor(v); };
+        const kk = Math.min(1, Math.max(0, (f.t - 0.55) / 0.75));   // crumble progress
+        const fade = f.t > 1.5 ? Math.max(0, 1 - (f.t - 1.5) / 0.4) : 1;
+        // the growing ash pile (from the first crumb onward)
+        if (kk > 0){
+          ctx.fillStyle = `rgba(138,130,120,${0.95 * fade})`;
+          ctx.beginPath(); ctx.ellipse(f.x, gy, s * 0.5 * Math.min(1, kk * 1.4), s * (0.1 + kk * 0.12), 0, 0, Math.PI*2); ctx.fill();
+          ctx.fillStyle = `rgba(96,88,80,${0.6 * fade})`;
+          ctx.beginPath(); ctx.ellipse(f.x - s * 0.1, gy, s * 0.28 * Math.min(1, kk * 1.4), s * 0.08, 0, 0, Math.PI*2); ctx.fill();
+        }
+        if (kk < 1){
+          // the statue — sinking into its own pile once the crumble starts
+          ctx.save();
+          ctx.beginPath(); ctx.rect(f.x - s * 1.3, cy - s * 2, s * 2.6, gy - (cy - s * 2)); ctx.clip();
+          ctx.translate(f.x, cy + kk * s * 1.25);
+          gagBody(s, '#8f8880', '#a9a29a');
+          ctx.strokeStyle = '#8f8880'; ctx.lineWidth = Math.max(1.6, s * 0.09); ctx.lineCap = 'round';
+          for (const lx of [-s * 0.18, s * 0.16]){       // stiff statue legs
+            ctx.beginPath(); ctx.moveTo(lx, s * 0.2); ctx.lineTo(lx, s * 0.58); ctx.stroke();
+          }
+          ctx.strokeStyle = 'rgba(60,54,48,0.7)'; ctx.lineWidth = 1;
+          for (let i = 0; i < 3; i++){                   // hairline cracks spreading
+            const cx2 = (pr(i) - 0.5) * s * 0.7, cy2 = (pr(i + 4) - 0.5) * s * 0.4;
+            ctx.beginPath(); ctx.moveTo(cx2, cy2);
+            ctx.lineTo(cx2 + (pr(i + 8) - 0.5) * s * 0.3, cy2 + s * 0.18);
+            ctx.lineTo(cx2 + (pr(i + 12) - 0.5) * s * 0.4, cy2 + s * 0.34);
+            ctx.stroke();
+          }
+          // wide cartoon eyes — two slow blinks before the crumble
+          const blink = (f.t > 0.18 && f.t < 0.24) || (f.t > 0.38 && f.t < 0.44);
+          if (!blink && kk < 0.4){
+            for (const ex of [s * 0.48, s * 0.62]){
+              ctx.fillStyle = '#fff';
+              ctx.beginPath(); ctx.ellipse(ex, -s * 0.16, s * 0.06, s * 0.085, 0, 0, Math.PI*2); ctx.fill();
+              ctx.fillStyle = '#222';
+              ctx.beginPath(); ctx.arc(ex, -s * 0.14, s * 0.025, 0, Math.PI*2); ctx.fill();
+            }
+          }
+          ctx.restore();
+          // ash flecks shed off the crumbling edge
+          if (kk > 0){
+            ctx.fillStyle = `rgba(150,142,132,${0.7 * fade})`;
+            for (let i = 0; i < 4; i++){
+              const tf = (f.t * 1.7 + pr(i + 20)) % 0.4;
+              ctx.beginPath();
+              ctx.arc(f.x + (pr(i + 24) - 0.5) * s * 0.9, gy - s * 0.2 - (0.4 - tf) * s * 1.2, 1 + pr(i) * 1.2, 0, Math.PI*2);
+              ctx.fill();
+            }
+          }
+        }
+        // embers drifting up + a smoke wisp off the remains
+        for (let i = 0; i < 3; i++){
+          const tf = (f.t * 0.8 + pr(i + 30)) % 1;
+          ctx.fillStyle = `rgba(255,${140 + (pr(i) * 60 | 0)},50,${0.8 * (1 - tf) * fade})`;
+          ctx.beginPath();
+          ctx.arc(f.x + Math.sin(tf * 7 + i * 2) * s * 0.3, cy + s * 0.3 - tf * s * 1.4, 1.2, 0, Math.PI*2);
+          ctx.fill();
+        }
+        ctx.fillStyle = `rgba(120,120,128,${0.3 * fade})`;
+        ctx.beginPath(); ctx.arc(f.x + Math.sin(f.t * 3 + f.seed) * 3, cy - s * 0.4 - f.t * s * 0.4, s * (0.1 + f.t * 0.14), 0, Math.PI*2); ctx.fill();
+        break;
+      }
+      case 'ko': { // sniper kill: knocked clean off its feet — double backflip,
+                   // flat on its back, X-eyes, stars circling overhead
+        const s = f.r, gy = f.y + 2;
+        const cy0 = f.y - s * (f.fly ? 1.5 : 0.62);
+        const dir = f.dir || 1, tFly = 0.5;
+        const lx = f.x + dir * s * 1.5;                  // where it lands
+        if (f.t < tFly){
+          const kk = f.t / tFly;
+          const px = f.x + dir * kk * s * 1.5;
+          const py = cy0 - Math.sin(kk * Math.PI) * s * 1.1 + kk * ((gy - s * 0.22) - cy0);
+          ctx.strokeStyle = `rgba(255,255,255,${0.6 * (1 - kk)})`; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(f.x - dir * s * 0.7, cy0); ctx.lineTo(px, py); ctx.stroke();
+          ctx.save(); ctx.translate(px, py);
+          ctx.rotate(-dir * kk * Math.PI * 4);           // the double backflip
+          gagBody(s, f.body, f.belly);
+          ctx.restore();
+        } else {
+          const te = f.t - tFly;
+          const fade = f.t > f.dur - 0.3 ? (f.dur - f.t) / 0.3 : 1;
+          if (te < 0.22){                                // landing dust
+            ctx.strokeStyle = `rgba(160,140,105,${0.5 * (1 - te / 0.22)})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.ellipse(lx, gy, s * (0.4 + te * 3), s * (0.14 + te), 0, 0, Math.PI*2); ctx.stroke();
+          }
+          ctx.save(); ctx.globalAlpha = fade;
+          ctx.translate(lx, gy - s * 0.2);
+          const tw = te < 0.55 ? Math.sin(te * 30) * 0.06 * (1 - te / 0.55) : 0; // settling twitch
+          ctx.rotate(Math.PI + tw);                      // flat on its back
+          gagBody(s, f.body, f.belly);
+          ctx.restore();
+          ctx.save(); ctx.globalAlpha = fade;            // stiff legs skyward
+          ctx.strokeStyle = f.body; ctx.lineWidth = Math.max(1.8, s * 0.09); ctx.lineCap = 'round';
+          for (const [ox, ph] of [[-s * 0.16, 0.15], [s * 0.14, -0.12]]){
+            ctx.beginPath(); ctx.moveTo(lx + ox, gy - s * 0.34);
+            ctx.lineTo(lx + ox + ph * s, gy - s * 0.78); ctx.stroke();
+          }
+          // X-eyes on the upside-down head
+          ctx.strokeStyle = '#1c222e'; ctx.lineWidth = Math.max(1, s * 0.035);
+          const hx = lx - dir * s * 0.55, hy = gy - s * 0.1;
+          for (const ox of [-s * 0.06, s * 0.06]){
+            ctx.beginPath();
+            ctx.moveTo(hx + ox - s * 0.035, hy - s * 0.035); ctx.lineTo(hx + ox + s * 0.035, hy + s * 0.035);
+            ctx.moveTo(hx + ox + s * 0.035, hy - s * 0.035); ctx.lineTo(hx + ox - s * 0.035, hy + s * 0.035);
+            ctx.stroke();
+          }
+          // golden stars circling where its head is
+          for (let i = 0; i < 4; i++){
+            const ang = te * 3.2 + i * (Math.PI / 2);
+            const sx2 = hx + Math.cos(ang) * s * 0.5, sy2 = gy - s * 0.7 + Math.sin(ang) * s * 0.14;
+            const tw2 = 0.6 + 0.4 * Math.sin(te * 9 + i * 2);
+            ctx.strokeStyle = `rgba(255,214,74,${tw2 * fade})`; ctx.lineWidth = 1.4;
+            const sr = Math.max(1.6, s * 0.08);
+            ctx.beginPath();
+            ctx.moveTo(sx2 - sr, sy2); ctx.lineTo(sx2 + sr, sy2);
+            ctx.moveTo(sx2, sy2 - sr); ctx.lineTo(sx2, sy2 + sr);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+        break;
+      }
+      case 'iceblock': { // cryo kill: flash-frozen solid — the block teeters,
+                         // tips… and SHATTERS into shards that skid and melt
+        const s = f.r, gy = f.y + 2;
+        const cyA = f.y - s * (f.fly ? 1.5 : 0.62);      // where it froze
+        const pr = n => { const v = Math.sin(f.seed * 37.7 + n * 91.3) * 43758.5; return v - Math.floor(v); };
+        const tShatter = 0.95;
+        if (f.t < tShatter){
+          // a frozen flyer's block drops to earth first
+          const drop = f.fly ? Math.min(1, f.t / 0.35) : 1;
+          const cy = cyA + (f.y - s * 0.62 - cyA) * drop * drop;
+          const tt = Math.max(0, f.t - 0.55) / 0.4;      // teeter ramps up
+          ctx.save(); ctx.translate(f.x, gy);
+          ctx.rotate(Math.sin(tt * 18) * 0.09 * tt);
+          ctx.translate(0, cy - gy);
+          const bw = s * 0.78, bh = s * 0.62;            // the block (rounded corners)
+          ctx.fillStyle = 'rgba(185,228,255,0.88)';
+          ctx.beginPath();
+          ctx.moveTo(-bw + 3, -bh);
+          ctx.arcTo(bw, -bh, bw, bh, 3); ctx.arcTo(bw, bh, -bw, bh, 3);
+          ctx.arcTo(-bw, bh, -bw, -bh, 3); ctx.arcTo(-bw, -bh, bw, -bh, 3);
+          ctx.closePath(); ctx.fill();
+          ctx.globalAlpha = 0.45;                        // the dino, rigid inside
+          gagBody(s * 0.85, f.body, f.belly);
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = 'rgba(235,250,255,0.9)'; ctx.lineWidth = 1.4;
+          ctx.beginPath(); ctx.moveTo(-bw * 0.55, -bh * 0.75); ctx.lineTo(-bw * 0.2, -bh * 0.35); ctx.stroke(); // gleam
+          for (let i = 0; i < 2; i++){                   // twinkling glints
+            const ga = 0.4 + 0.6 * Math.sin(f.t * 7 + i * 2.4);
+            const gx2 = (pr(i + 40) - 0.5) * bw * 1.2, gy2 = (pr(i + 44) - 0.5) * bh * 1.2;
+            ctx.strokeStyle = `rgba(255,255,255,${ga})`; ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(gx2 - 2.5, gy2); ctx.lineTo(gx2 + 2.5, gy2);
+            ctx.moveTo(gx2, gy2 - 2.5); ctx.lineTo(gx2, gy2 + 2.5);
+            ctx.stroke();
+          }
+          if (f.t < 0.12){                               // the freeze-flash
+            ctx.fillStyle = `rgba(255,255,255,${0.8 * (1 - f.t / 0.12)})`;
+            ctx.beginPath(); ctx.ellipse(0, 0, bw * 1.15, bh * 1.15, 0, 0, Math.PI*2); ctx.fill();
+          }
+          ctx.restore();
+        } else {
+          const te = f.t - tShatter;
+          if (!f.sh){ f.sh = 1; if (!weaponMuted('cryo')) SFX.shatter(); }
+          if (te < 0.22){                                // snow poof
+            ctx.fillStyle = `rgba(225,245,255,${0.5 * (1 - te / 0.22)})`;
+            ctx.beginPath(); ctx.arc(f.x, gy - s * 0.4, s * (0.4 + te * 3), 0, Math.PI*2); ctx.fill();
+          }
+          ctx.fillStyle = `rgba(120,160,190,${0.2 * Math.max(0, 1 - te / 0.85)})`; // melt patch
+          ctx.beginPath(); ctx.ellipse(f.x, gy, s * (0.5 + te * 0.4), s * 0.18, 0, 0, Math.PI*2); ctx.fill();
+          for (let i = 0; i < 7; i++){                   // shards skid out and melt
+            const melt = Math.max(0, 1 - te / 0.85);
+            if (melt <= 0) break;
+            const vx = (pr(i) - 0.5) * 2 * (s * 2.4 + 40);
+            const px = f.x + vx * (1 - Math.exp(-te * 3)) / 3;  // friction slide
+            const py = gy + (pr(i + 9) - 0.5) * 5;
+            const sr = Math.max(1.5, s * (0.1 + pr(i + 5) * 0.08)) * melt;
+            ctx.save(); ctx.translate(px, py); ctx.rotate(pr(i + 14) * 6 + te * (pr(i + 17) - 0.5) * 6);
+            ctx.fillStyle = `rgba(200,235,255,${0.85 * melt})`;
+            ctx.strokeStyle = `rgba(255,255,255,${0.7 * melt})`; ctx.lineWidth = 0.8;
+            ctx.beginPath(); ctx.moveTo(-sr, sr * 0.7); ctx.lineTo(0, -sr); ctx.lineTo(sr, sr * 0.5);
+            ctx.closePath(); ctx.fill(); ctx.stroke();
+            ctx.restore();
+          }
+        }
+        break;
+      }
+      case 'notes': { // sonic kill: shaken into a blur — then the dino bursts
+                      // into music notes that drift away on the breeze
+        const s = f.r;
+        const cy = f.y - s * (f.fly ? 1.5 : 0.62);
+        const pr = n => { const v = Math.sin(f.seed * 37.7 + n * 91.3) * 43758.5; return v - Math.floor(v); };
+        if (f.t < 0.3){
+          const kk = f.t / 0.3;
+          const off = s * (0.06 + kk * 0.18);
+          for (const [ox, col, al] of [[-1, '#d6a3ff', 0.5], [1, '#ffffff', 0.4], [0, f.body, 0.7]]){
+            ctx.save();
+            ctx.translate(f.x + ox * off * Math.sin(f.t * 90 + ox), cy);
+            ctx.globalAlpha = al * (1 - kk * 0.35);
+            gagBody(s, col, null);
+            ctx.restore();
+          }
+          ctx.strokeStyle = `rgba(214,163,255,${0.5 * (1 - kk)})`; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(f.x, cy, s * (1.15 - kk * 0.5), 0, Math.PI*2); ctx.stroke();
+        } else {
+          const te = f.t - 0.3;
+          if (!f.no){ f.no = 1; if (!weaponMuted('sonic')) SFX.notePop(); }
+          if (te < 0.2){                                 // the pop
+            ctx.strokeStyle = `rgba(214,163,255,${0.7 * (1 - te / 0.2)})`; ctx.lineWidth = 2.5;
+            ctx.beginPath(); ctx.arc(f.x, cy, s * (0.4 + te * 6), 0, Math.PI*2); ctx.stroke();
+          }
+          const glyphs = ['♪', '♫', '♩', '♪', '♫'];
+          for (let i = 0; i < 5; i++){                   // notes drift up, swaying
+            const tn = te - i * 0.06;
+            if (tn <= 0) continue;
+            const a = Math.max(0, 1 - tn / 1.0);
+            if (a <= 0) continue;
+            ctx.save();
+            ctx.translate(f.x + (pr(i) - 0.5) * s * 0.9 + Math.sin(tn * 4 + i * 1.7) * s * 0.3,
+                          cy - tn * (s * 0.9 + 18) - pr(i + 5) * s * 0.2);
+            ctx.rotate(Math.sin(tn * 5 + i) * 0.25);
+            ctx.fillStyle = i % 2 ? `rgba(255,255,255,${0.9 * a})` : `rgba(214,163,255,${0.95 * a})`;
+            ctx.font = `${Math.max(9, s * 0.5) | 0}px sans-serif`;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(glyphs[i], 0, 0);
+            ctx.restore();
+          }
+        }
+        break;
+      }
+      case 'ghost': { // gas kill: the dino keels over green — and a little
+                      // dino ghost floats up out of it, swaying as it goes
+        const s = f.r, gy = f.y + 2;
+        const pr = n => { const v = Math.sin(f.seed * 37.7 + n * 91.3) * 43758.5; return v - Math.floor(v); };
+        const flopK = Math.min(1, f.t / 0.4);
+        const corpseA = f.t < 1.0 ? 1 : Math.max(0, 1 - (f.t - 1.0) / 0.6);
+        if (corpseA > 0){
+          ctx.save(); ctx.globalAlpha = corpseA;
+          ctx.translate(f.x, gy - s * 0.22);
+          ctx.rotate(flopK * 1.35 * (pr(2) > 0.5 ? 1 : -1)); // keels over
+          gagBody(s, f.body, f.belly);
+          ctx.globalAlpha = corpseA * 0.45;                  // sickly green wash
+          ctx.fillStyle = '#7ec83e';
+          ctx.beginPath(); ctx.ellipse(0, 0, s * 0.55, s * 0.34, 0, 0, Math.PI*2); ctx.fill();
+          ctx.restore();
+          for (let i = 0; i < 3; i++){                       // green bubbles popping off
+            const tb = (f.t * 0.9 + pr(i + 11)) % 1;
+            ctx.fillStyle = `rgba(166,224,74,${0.5 * (1 - tb) * corpseA})`;
+            ctx.beginPath();
+            ctx.arc(f.x + (pr(i) - 0.5) * s * 0.7, gy - s * 0.3 - tb * s * 0.5, 1.5 + tb * 2.5, 0, Math.PI*2);
+            ctx.fill();
+          }
+        }
+        if (f.t > 0.45){
+          const tg2 = f.t - 0.45;
+          if (!f.wo){ f.wo = 1; if (!weaponMuted('gas')) SFX.whoo(); }
+          const gk = tg2 / (f.dur - 0.45);
+          const a = gk < 0.75 ? 0.55 : 0.55 * (1 - (gk - 0.75) / 0.25);
+          const gs = s * 0.45;
+          ctx.save();
+          ctx.translate(f.x + Math.sin(tg2 * 2.6 + f.seed) * s * 0.3, gy - s * 0.5 - gk * s * 2.2);
+          ctx.rotate(Math.sin(tg2 * 2.6 + f.seed) * 0.12);
+          ctx.fillStyle = `rgba(225,250,215,${a})`;
+          ctx.beginPath();                                   // dome + wavy sheet hem
+          ctx.arc(0, -gs * 0.35, gs * 0.55, Math.PI, 0);
+          ctx.lineTo(gs * 0.55, gs * 0.4);
+          for (let j = 0; j < 4; j++){
+            const x1 = gs * 0.55 - (j + 0.5) * gs * 0.275;
+            const x2 = gs * 0.55 - (j + 1) * gs * 0.275;
+            ctx.quadraticCurveTo(x1, gs * 0.4 + (j % 2 ? gs * 0.22 + Math.sin(tg2 * 8 + f.seed) * gs * 0.08 : -gs * 0.1), x2, gs * 0.4);
+          }
+          ctx.closePath(); ctx.fill();
+          ctx.beginPath();                                   // a snout, so it reads as a dino
+          ctx.ellipse(gs * 0.45, -gs * 0.45, gs * 0.28, gs * 0.16, 0, 0, Math.PI*2); ctx.fill();
+          ctx.fillStyle = `rgba(30,40,30,${a})`;             // little eyes
+          ctx.beginPath(); ctx.arc(gs * 0.12, -gs * 0.5, gs * 0.08, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc(gs * 0.38, -gs * 0.5, gs * 0.08, 0, Math.PI*2); ctx.fill();
           ctx.restore();
         }
         break;
