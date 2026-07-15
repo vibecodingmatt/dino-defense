@@ -1136,8 +1136,8 @@ function drawTowerTurret(ctx, t, flash, time){
       }
       break;
     }
-    case 'tesla': { // coil tower → grows taller, maxed goes twin-coil VIOLET,
-                    // levitates its orb, and brews a personal storm cloud
+    case 'tesla': { // coil tower → grows taller, maxed goes twin-coil VIOLET
+                    // and levitates its orb
       const coilH = 12 + lv * 4;                        // mast height per level
       const orbR = 4.6 + lv * 0.9;
       const main = maxed ? '#c98aff' : '#6ee7ff';
@@ -1211,35 +1211,6 @@ function drawTowerTurret(ctx, t, flash, time){
             ctx.lineTo(sx * 0.5 + Math.sin(time*29 + sx)*3, (orbY - 9)/2);
             ctx.lineTo(0, orbY); ctx.stroke();
           }
-        }
-      }
-      if (maxed){ // a personal storm cloud broods over the tower…
-        const cy = orbY - 16 - lv;
-        const flick = Math.sin(time * 13 + t.x * 0.5);
-        if (flick > 0.6){                               // …flickering with inner light
-          ctx.fillStyle = `rgba(200,140,255,${0.18 + 0.2 * (flick - 0.6)})`;
-          ctx.beginPath(); ctx.arc(0, cy - 2, 10, 0, Math.PI*2); ctx.fill();
-        }
-        ctx.fillStyle = '#241d38';
-        ctx.beginPath(); ctx.arc(-7, cy, 5.5, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(0, cy - 3, 7, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(7, cy, 5.5, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = '#382c52';
-        ctx.beginPath(); ctx.arc(-3, cy - 4.5, 4.5, 0, Math.PI*2); ctx.fill();
-        ctx.beginPath(); ctx.arc(4, cy - 3.5, 3.8, 0, Math.PI*2); ctx.fill();
-        // …and every few seconds it slams a recharge bolt down into the orb
-        const cyc = (time * 0.45 + t.x * 0.077) % 1;
-        if (cyc < 0.07){
-          ctx.strokeStyle = 'rgba(160,80,255,0.5)'; ctx.lineWidth = 3.5;
-          ctx.beginPath(); ctx.moveTo(0, cy + 4);
-          ctx.lineTo(Math.sin(time * 47) * 3, (cy + orbY) / 2);
-          ctx.lineTo(0, orbY - orbR); ctx.stroke();
-          ctx.strokeStyle = 'rgba(255,255,255,0.95)'; ctx.lineWidth = 1.4;
-          ctx.beginPath(); ctx.moveTo(0, cy + 4);
-          ctx.lineTo(Math.sin(time * 47) * 3, (cy + orbY) / 2);
-          ctx.lineTo(0, orbY - orbR); ctx.stroke();
-          ctx.fillStyle = 'rgba(240,225,255,0.75)';     // the orb flares as it drinks
-          ctx.beginPath(); ctx.arc(0, orbY, orbR + 4, 0, Math.PI*2); ctx.fill();
         }
       }
       break;

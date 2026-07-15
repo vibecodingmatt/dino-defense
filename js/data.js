@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.32.0';
+const VERSION = '1.32.1';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -25,6 +25,9 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
+  {v: '1.32.1', date: 'Jul 15, 2026', items: [
+    '🌩️ Retired the maxed Tesla\'s storm cloud — it crowded out other weapons when several coils shared the map. The floating orb, thunder-dim, and St. Elmo\'s fire all stay.',
+  ]},
   {v: '1.32.0', date: 'Jul 14, 2026', items: [
     '⚡ TESLA SUPERCHARGED: lightning now visibly races dino to dino down the chain, flashes white-hot on the strike, leaves a glowing scar hanging in the air, and throws bouncing welder sparks at every hit — with stray forks reaching for dinos it didn\'t catch.',
     '💀 The electrocution gag is now a full cartoon strobe: X-ray frames alternate with photo-negative frames, complete with glowing filament eyes, frazzled hide, tail vertebrae, toe bones, and a grinning skull.',
