@@ -440,24 +440,32 @@ button.stat { cursor: pointer; }
 .lvBest { font-size: 11px; color: var(--green); margin-top: 9px; }
 
 /* ---- NAV ---- */
-#menuBtns { display: flex; gap: 12px; margin-top: 26px; flex-wrap: wrap; justify-content: center; }
+/* FEATURE DOCK: six tiles right under the hero — icon, name, live tally */
+#menuBtns {
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px; margin: 20px auto 6px; width: min(880px, 100%);
+}
 #menuBtns button {
-  padding: 12px 22px; font-size: 14.5px; border-radius: 10px;
-  background: #1a2113; color: var(--text); border: 1px solid var(--line); transition: all 0.12s;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 12px 6px 10px; border-radius: 14px; cursor: pointer;
+  background: #0f160cdd; color: var(--text); border: 1px solid var(--line);
+  transition: transform 0.12s, border-color 0.12s, box-shadow 0.12s;
 }
-#menuBtns button:hover { transform: translateY(-2px); border-color: var(--accent-soft); color: #fff; }
-#menuBtns .primary {
-  background: linear-gradient(180deg, #2a3418, #1d2611);
-  border-color: var(--accent-soft); color: var(--accent);
-}
-#btnLab.attention {
-  border-color: var(--accent); color: var(--accent);
-  animation: labPulse 1.4s infinite;
-}
+#menuBtns button:hover { transform: translateY(-3px); border-color: var(--accent-soft); color: #fff; box-shadow: 0 8px 22px #0009; }
+#menuBtns button:active { transform: translateY(0) scale(0.97); }
+#menuBtns .fIco { font-size: 24px; line-height: 1.15; }
+#menuBtns .fName { font-size: 12.5px; font-weight: bold; letter-spacing: 0.3px; }
+#menuBtns .fSub { font-size: 10.5px; color: var(--dim); }
+#menuBtns .primary { background: linear-gradient(180deg, #232e12dd, #17200edd); border-color: var(--accent-soft); }
+#menuBtns .primary .fName { color: var(--accent); }
+#btnLab.attention { border-color: var(--accent); animation: labPulse 1.4s infinite; }
+#btnLab.attention .fSub { color: var(--accent); font-weight: bold; }
 @keyframes labPulse {
   0%, 100% { box-shadow: 0 0 4px #e8b93a40; }
   50% { box-shadow: 0 0 20px #e8b93a99; }
 }
+@media (max-width: 920px) { #menuBtns { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 470px) { #menuBtns { grid-template-columns: repeat(2, 1fr); gap: 8px; } }
 /* install-to-device pill (appears on the menu only when installable) */
 #btnInstall {
   display: block; margin: 24px auto 0; padding: 12px 26px;
@@ -770,7 +778,21 @@ canvas#game { touch-action: none; }   /* we handle pan/pinch/tap ourselves */
 #tpStats .mast { color: var(--amber2); white-space: nowrap; }
 
 /* ---- sticker book ---- */
-#stickWrap { overflow: auto; max-height: 56vh; border: 1px solid var(--line); border-radius: 10px; }
+/* one clean internal scroll region: the modal itself never scrolls, the grid
+   pans invisibly (no scrollbars), and a bottom fade hints at more rows */
+#stickers .modalBox {
+  width: min(780px, 94vw); max-height: 88vh;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+#stickers h2, #stickers .sub, #stickers .modalBtns { flex: none; }
+#stickWrap {
+  flex: 1; min-height: 0; overflow: auto;
+  border: 1px solid var(--line); border-radius: 10px;
+  scrollbar-width: none;                       /* Firefox */
+  -webkit-mask-image: linear-gradient(#000 calc(100% - 26px), transparent);
+          mask-image: linear-gradient(#000 calc(100% - 26px), transparent);
+}
+#stickWrap::-webkit-scrollbar { display: none; }  /* Chromium/Safari */
 #stickTable { border-collapse: collapse; width: 100%; font-size: 13px; }
 #stickTable th { position: sticky; top: 0; background: var(--panel2); padding: 6px 4px; font-size: 15px; z-index: 1; }
 #stickTable td { border-top: 1px solid #262e1e; text-align: center; padding: 3px 4px; }

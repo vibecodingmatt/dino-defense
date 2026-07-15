@@ -1769,6 +1769,9 @@ function toMenu(){
   $('#zoomBar').classList.add('hidden');
   $('#gameover').classList.add('hidden');
   $('#victory').classList.add('hidden');
+  // stage overlays must not bleed through onto the home screen
+  $('#startPrompt').classList.add('hidden');
+  $('#towerPop').classList.add('hidden');
   $('#menu').classList.remove('hidden');
   buildMenu();
 }
@@ -2624,11 +2627,22 @@ function buildMenu(){
   $('#menuDna').innerHTML = `🧬 <b>${fmt(save.dna)}</b> DNA`;
   const sb = $('#statBest'); if (sb) sb.innerHTML = save.bestDiff ? `⛰️ Reached <b>Lv ${save.bestDiff}</b>` : `🌱 New ranger`;
   const sa = $('#statAch'); if (sa) sa.innerHTML = `🏆 <b>${got}/${ACHIEVEMENTS.length}</b> trophies`;
-  // pulse the Lab button whenever any weapon or base upgrade is affordable
+  // pulse the Lab tile whenever any weapon or base upgrade is affordable
   const canBuy = Object.keys(TOWERS).some(k => save.dna >= wlvCost(TOWERS[k], wlv(k)))
     || META.some(m => save.dna >= metaCost(m, mlvl(m.key)));
   $('#btnLab').classList.toggle('attention', canBuy);
-  $('#btnLab').innerHTML = canBuy ? '🧬 Research Lab — upgrades ready!' : '🧬 Research Lab';
+  const fl = $('#fSubLab'); if (fl) fl.textContent = canBuy ? '⬆ upgrades ready!' : fmt(save.dna) + ' DNA banked';
+  // live tallies on the feature-dock tiles
+  let sGot = 0, sTot = 0;
+  for (const wk of Object.keys(TOWERS)) for (const dk of Object.keys(DINOS)){
+    if (!stickerPossible(wk, dk)) continue;
+    sTot++;
+    if (save.stickers && save.stickers[wk + ':' + dk]) sGot++;
+  }
+  const fs2 = $('#fSubStick'); if (fs2) fs2.textContent = `${sGot}/${sTot} collected`;
+  const nSt = (save.studio || []).length;
+  const fd = $('#fSubStudio'); if (fd) fd.textContent = nSt ? `${nSt} original${nSt > 1 ? 's' : ''} roaming` : 'design your own dino';
+  const fa = $('#fSubAch'); if (fa) fa.textContent = `${got}/${ACHIEVEMENTS.length} trophies`;
   if (!selDiff || selDiff < 1) selDiff = unlockedCap();
   setDiff(selDiff, true);
   const el = $('#levelCards');
@@ -2669,8 +2683,6 @@ function buildMenu(){
     };
     el.appendChild(card);
   });
-  const btn = $('#btnAch');
-  if (btn) btn.textContent = `🏆 Achievements ${got}/${ACHIEVEMENTS.length}`;
 }
 function buildAchievements(){
   const list = $('#achList');
