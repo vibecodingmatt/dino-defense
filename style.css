@@ -819,3 +819,4 @@ canvas#game { touch-action: none; }   /* we handle pan/pinch/tap ourselves */
 #cardInfo .cEpithet { color: var(--dim); font-style: italic; font-size: 12px; }
 #cardInfo .cLine { margin-top: 7px; font-size: 13.5px; color: var(--text); }
 #cardInfo .cDate { margin-top: 5px; font-size: 12px; color: var(--dna); }
+#stickTable .cell.dev { box-shadow: inset 0 0 0 1px var(--dim); background: #1d2417; opacity: 0.8; }

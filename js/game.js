@@ -50,8 +50,8 @@ const START_DNA = 80;   // grant so a new player can buy their first upgrade rig
 function defaultSave(){
   return {bestDiff:0, mapBest:{}, wlv:{}, dna:START_DNA, kills:0, run:null, ach:{},
           stickers:{}, stickerD:{}, wkills:{}, studio:[], granted:true,
-          settings:{invincible:false, unlimitedCash:false, levelSkip:false, mute:false, auto:true,
-                    music:true, wavePreview:true, killCallouts:true, mutedWeapons:{}}};
+          settings:{invincible:false, unlimitedCash:false, levelSkip:false, allStickers:false, mute:false,
+                    auto:true, music:true, wavePreview:true, killCallouts:true, mutedWeapons:{}}};
 }
 /* per-weapon sound mute (toggled from the weapon's popup menu) */
 const weaponMuted = key => !!(save.settings.mutedWeapons && save.settings.mutedWeapons[key]);
@@ -2714,13 +2714,14 @@ function buildStickers(){
       total++;
       const n = (save.stickers && save.stickers[wk + ':' + dk]) || 0;
       if (n) got++;
-      html += `<td class="cell${n ? ' got' : ''}" data-w="${wk}" data-d="${dk}" title="${def.name} × ${TOWERS[wk].name}${n ? ' — ' + fmt(n) + ' final blow' + (n > 1 ? 's' : '') + ' — tap for the card!' : ' — not yet!'}">${n ? TOWERS[wk].icon : ''}</td>`;
+      const shown = n > 0 || save.settings.allStickers;   // dev preview: view-only
+      html += `<td class="cell${shown ? ' got' : ''}${!n && shown ? ' dev' : ''}" data-w="${wk}" data-d="${dk}" title="${def.name} × ${TOWERS[wk].name}${n ? ' — ' + fmt(n) + ' final blow' + (n > 1 ? 's' : '') + ' — tap for the card!' : shown ? ' — DEV preview' : ' — not yet!'}">${shown ? TOWERS[wk].icon : ''}</td>`;
     }
     html += '</tr>';
   }
   table.innerHTML = html;
   const prog = $('#stickProg');
-  if (prog) prog.textContent = `${got} / ${total}`;
+  if (prog) prog.textContent = `${got} / ${total}` + (save.settings.allStickers ? ' — 🔧 DEV preview: all shown' : '');
 }
 
 /* ---------------- sticker trading card ----------------
@@ -2751,8 +2752,11 @@ function openStickerCard(wk, dk){
   $('#cardInfo').innerHTML =
     `<h3>${def.name}</h3>` +
     (def.epithet ? `<div class="cEpithet">${def.epithet}</div>` : '') +
-    `<div class="cLine">${wdef.icon} Taken down by <b>${wdef.name}</b> · <b>${fmt(cardMeta.n)}</b> final blow${cardMeta.n === 1 ? '' : 's'}</div>` +
-    `<div class="cDate">📅 Unlocked ${cardMeta.date || 'long, long ago 🦴'}</div>`;
+    (cardMeta.n > 0
+      ? `<div class="cLine">${wdef.icon} Taken down by <b>${wdef.name}</b> · <b>${fmt(cardMeta.n)}</b> final blow${cardMeta.n === 1 ? '' : 's'}</div>` +
+        `<div class="cDate">📅 Unlocked ${cardMeta.date || 'long, long ago 🦴'}</div>`
+      : `<div class="cLine">${wdef.icon} <b>${wdef.name}</b> hasn't finished one yet</div>` +
+        `<div class="cDate">🔧 Developer preview — not earned</div>`);
   $('#stickCard').classList.remove('hidden');
   cardT0 = performance.now();
   SFX.coin();
@@ -3042,6 +3046,7 @@ function syncSettings(){
   $('#optInv').checked = save.settings.invincible;
   $('#optCash').checked = save.settings.unlimitedCash;
   $('#optSkip').checked = save.settings.levelSkip;
+  $('#optStickAll').checked = save.settings.allStickers;
   $('#optMute').checked = save.settings.mute;
   $('#optAuto').checked = save.settings.auto;
   $('#optMusic').checked = save.settings.music;
@@ -5017,13 +5022,15 @@ $('#optDev').onchange = e => {
     $('#devOptions').classList.remove('hidden');
   } else {
     devUnlocked = false;
-    save.settings.invincible = save.settings.unlimitedCash = save.settings.levelSkip = false;
+    save.settings.invincible = save.settings.unlimitedCash = save.settings.levelSkip = save.settings.allStickers = false;
     persist(); syncSettings(); updateHUD();
   }
 };
 $('#optInv').onchange  = e => setCheat('invincible', e.target.checked);
 $('#optCash').onchange = e => setCheat('unlimitedCash', e.target.checked);
 $('#optSkip').onchange = e => setCheat('levelSkip', e.target.checked);
+// view-only preview, NOT a run-disqualifying cheat: it never writes stickers
+$('#optStickAll').onchange = e => { save.settings.allStickers = e.target.checked; persist(); };
 $('#optMute').onchange = e => { save.settings.mute = e.target.checked; persist(); ensureMusic(); };
 $('#optMusic').onchange = e => { save.settings.music = e.target.checked; persist(); ensureMusic(); };
 $('#optAuto').onchange = e => { save.settings.auto = e.target.checked; persist(); };
