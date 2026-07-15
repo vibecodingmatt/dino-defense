@@ -4833,6 +4833,9 @@ $('#goLab').onclick = openLab;
 const openAch = () => { buildAchievements(); $('#achievements').classList.remove('hidden'); };
 $('#vAch').onclick = openAch;
 $('#goAch').onclick = openAch;
+const openStickers = () => { buildStickers(); $('#stickers').classList.remove('hidden'); };
+$('#vStick').onclick = openStickers;
+$('#goStick').onclick = openStickers;
 $('#labClose').onclick = () => { $('#lab').classList.add('hidden'); buildMenu(); };
 $$('.modalX').forEach(b => b.onclick = () => {
   const m = b.closest('.modal');
