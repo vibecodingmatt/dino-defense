@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.32.2';
+const VERSION = '1.33.0';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -25,7 +25,9 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.32.2', date: 'Jul 15, 2026', items: [
+  {v: '1.33.0', date: 'Jul 15, 2026', items: [
+    '🚀 Rocket kills now GIB: a crimson splat-cloud pops and cartoon pieces — a drumstick, the tail, a leg with the foot still on — cartwheel out on smoke trails, bounce, and fade. Flyers burst mid-air so the bits rain down.',
+    '💣 Mortar kills PUNT the dino sky-high: it spins up off the screen with a whistle, a shadow grows… SLAM — a little crater with its legs sticking out, wiggling.',
     '🌩️ Retired the maxed Tesla\'s storm cloud — it crowded out other weapons when several coils shared the map. The floating orb, thunder-dim, and St. Elmo\'s fire all stay.',
     '📷 Weapons no longer shake the screen — mortar, missile, air-strike, and Tesla fire are now steady-cam. Boss roars, giant footsteps, and hits to your base still rumble.',
   ]},

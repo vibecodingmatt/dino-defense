@@ -397,6 +397,14 @@ const SFX = {
     sfxTone({type: 'sine', f0: 130, f1: 48, dur: 0.2, peak: 0.22, wet: 0.3});
     sfxNoise({dur: 0.12, peak: 0.1, type: 'lowpass', f0: 380, f1: 120, wet: 0.2});
   },
+  punt(){ // mortar kill gag: rising zip as the dino rockets off the screen
+    if (!sfxGate()) return;
+    sfxTone({type: 'sine', f0: 480, f1: 1650, dur: 0.42, peak: 0.055, wet: 0.3});
+  },
+  whistleIn(){ // …and the falling whistle as it comes back down
+    if (!sfxGate()) return;
+    sfxTone({type: 'sine', f0: 1500, f1: 520, dur: 0.5, peak: 0.05, wet: 0.35});
+  },
   zap(){ // electric arc: hissy crackle + gritty buzz
     if (!sfxGate()) return;
     sfxNoise({dur: 0.12, peak: 0.11, type: 'highpass', f0: 2200, Q: 1, wet: 0.25});
@@ -907,6 +915,21 @@ function damage(d, amt, pierce, src){
         // crumbles into a smoking pile of bones with a little static wisp
         G.fx.push({kind: 'bones', x: p.x, y: p.y, r: d.size, fly: d.flying ? 1 : 0,
                    seed: Math.random() * 9, t: 0, dur: 1.5});
+      } else if (src && src.key === 'missile' && G.fx.length < 340){
+        // 🚀 death by rocket: the dino GIBS — a crimson splat-cloud pops and
+        // cartoon pieces cartwheel out on smoke trails, bounce once, and fade
+        G.fx.push({kind: 'gibs', x: p.x, y: p.y, r: d.size, fly: d.flying ? 1 : 0,
+                   body: d.pal.body, belly: d.pal.belly,
+                   seed: Math.random() * 9, t: 0, dur: 1.6});
+        addFx('blood', p.x, p.y + 2, d.size * 0.6);
+      } else if (src && src.key === 'mortar' && G.fx.length < 340){
+        // 💣 death by mortar: PUNTED off the top of the screen — a beat of
+        // nothing — then back down into a little crater, legs-up and wiggling
+        // (mortars can't hit flyers, so this is always a grounded launch)
+        G.fx.push({kind: 'punt', x: p.x, y: p.y, r: d.size,
+                   body: d.pal.body, belly: d.pal.belly,
+                   seed: Math.random() * 9, t: 0, dur: 2.6});
+        if (!weaponMuted('mortar')) SFX.punt();
       } else {
         addFx('puff', p.x, p.y, d.size);
         addFx('blood', p.x, p.y + 2, d.size * 0.45);
@@ -3313,6 +3336,185 @@ function render(dt){
           ctx.beginPath(); ctx.arc(f.x + Math.sin(kk * 6 + f.seed) * 3, cy - kk * s * 0.9, s * (0.14 + kk * 0.3), 0, Math.PI*2); ctx.fill();
           ctx.fillStyle = `rgba(160,240,255,${0.9 * (1 - kk)})`;
           ctx.beginPath(); ctx.arc(f.x + Math.sin(kk * 9 + f.seed) * s * 0.15, cy - kk * s * 1.7, 1.4, 0, Math.PI*2); ctx.fill();
+        }
+        break;
+      }
+      case 'gibs': { // rocket kill: splat-cloud pops, cartoon pieces cartwheel
+                     // out on smoke trails, bounce once (same scheme as wspark)
+        const s = f.r, gAcc = 520;
+        const cy = f.y - s * (f.fly ? 1.5 : 0.62);       // burst at body height
+        const pr = n => { const v = Math.sin(f.seed * 37.7 + n * 91.3) * 43758.5; return v - Math.floor(v); };
+        const fade = k > 0.75 ? 1 - (k - 0.75) / 0.25 : 1;
+        // crimson splat-cloud pops in the first beat
+        if (k < 0.22){
+          const ka = 1 - k / 0.22;
+          for (let i = 0; i < 4; i++){
+            ctx.fillStyle = i ? `rgba(168,24,24,${0.5 * ka})` : `rgba(118,12,12,${0.6 * ka})`;
+            ctx.beginPath();
+            ctx.arc(f.x + (pr(i + 50) - 0.5) * s * 0.7, cy + (pr(i + 55) - 0.5) * s * 0.5,
+                    s * (0.2 + i * 0.11) * (0.6 + (k / 0.22) * 0.8), 0, Math.PI*2);
+            ctx.fill();
+          }
+        }
+        // a smoke ring hangs where the dino stood
+        ctx.strokeStyle = `rgba(140,140,150,${0.3 * (1 - k)})`;
+        ctx.lineWidth = Math.max(1.5, s * 0.09 * (1 - k));
+        ctx.beginPath(); ctx.ellipse(f.x, cy, s * (0.3 + k * 0.55), s * (0.14 + k * 0.26), 0, 0, Math.PI*2); ctx.stroke();
+        ctx.lineCap = 'round';
+        for (let i = 0; i < 5; i++){                     // the pieces
+          const gy = f.y + 2 + (pr(i + 20) - 0.5) * 6;
+          const vx = (pr(i) - 0.5) * 2 * (s * 3 + 60);   // mostly sideways
+          const vy0 = -(90 + pr(i + 5) * 110);
+          const tg = (-vy0 + Math.sqrt(vy0 * vy0 + 2 * gAcc * (gy - cy))) / gAcc;
+          let px, py, airborne;
+          if (f.t <= tg){                                // first arc
+            airborne = true;
+            px = f.x + vx * f.t;
+            py = cy + vy0 * f.t + 0.5 * gAcc * f.t * f.t;
+            if (f.t > 0.05){                             // thin smoke wisps trail behind
+              for (const [back, wa] of [[0.06, 0.3], [0.13, 0.16]]){
+                const tw = f.t - back;
+                if (tw <= 0) continue;
+                ctx.fillStyle = `rgba(160,160,170,${wa * fade})`;
+                ctx.beginPath();
+                ctx.arc(f.x + vx * tw, cy + vy0 * tw + 0.5 * gAcc * tw * tw, Math.max(1.1, s * 0.055), 0, Math.PI*2);
+                ctx.fill();
+              }
+            }
+          } else {                                       // bounced: damped second hop
+            const t2 = f.t - tg, vyb = -(vy0 + gAcc * tg) * 0.4, vxb = vx * 0.55;
+            const tg2 = -2 * vyb / gAcc;
+            const tc = Math.min(t2, tg2);
+            airborne = t2 < tg2;
+            px = f.x + vx * tg + vxb * tc;
+            py = Math.min(gy, gy + vyb * tc + 0.5 * gAcc * tc * tc);
+            if (t2 < 0.14){                              // dust tick on the bounce
+              ctx.strokeStyle = `rgba(150,130,100,${0.5 * (1 - t2 / 0.14)})`;
+              ctx.lineWidth = 1.2;
+              ctx.beginPath(); ctx.ellipse(f.x + vx * tg, gy, 2 + t2 * 40, 1 + t2 * 12, 0, Math.PI, Math.PI * 2); ctx.stroke();
+            }
+          }
+          const rot = (pr(i + 30) - 0.5) * 2 + Math.min(f.t, tg + 0.35) * (pr(i + 40) - 0.5) * 14;
+          ctx.save(); ctx.translate(px, py); ctx.rotate(rot);
+          ctx.globalAlpha = fade;
+          if (i === 0){                                  // drumstick: meat + knobbed bone stub
+            ctx.fillStyle = f.body;
+            ctx.beginPath(); ctx.ellipse(-s * 0.05, 0, s * 0.13, s * 0.09, 0, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = '#e8e4d4'; ctx.lineWidth = Math.max(1.2, s * 0.045);
+            ctx.beginPath(); ctx.moveTo(s * 0.06, 0); ctx.lineTo(s * 0.18, 0); ctx.stroke();
+            ctx.fillStyle = '#e8e4d4';
+            ctx.beginPath(); ctx.arc(s * 0.2, 0, Math.max(1, s * 0.04), 0, Math.PI*2); ctx.fill();
+          } else if (i === 1){                           // the tail, a tapered wedge
+            ctx.fillStyle = f.body;
+            ctx.beginPath(); ctx.moveTo(-s * 0.16, -s * 0.07); ctx.lineTo(s * 0.22, 0); ctx.lineTo(-s * 0.16, s * 0.07); ctx.closePath(); ctx.fill();
+          } else if (i === 2){                           // a leg with the foot still on
+            ctx.strokeStyle = f.body; ctx.lineWidth = Math.max(1.6, s * 0.07);
+            ctx.beginPath(); ctx.moveTo(-s * 0.1, -s * 0.08); ctx.lineTo(0, s * 0.06); ctx.lineTo(s * 0.12, s * 0.08); ctx.stroke();
+            ctx.fillStyle = f.belly;
+            ctx.beginPath(); ctx.ellipse(s * 0.14, s * 0.08, s * 0.06, s * 0.035, 0, 0, Math.PI*2); ctx.fill();
+          } else if (i === 3){                           // rib arc
+            ctx.strokeStyle = '#e8e4d4'; ctx.lineWidth = Math.max(1, s * 0.04);
+            ctx.beginPath(); ctx.arc(0, 0, Math.max(1.6, s * 0.1), 0.3, Math.PI - 0.3); ctx.stroke();
+          } else {                                       // little long bone
+            ctx.strokeStyle = '#e8e4d4'; ctx.lineWidth = Math.max(1.2, s * 0.045);
+            ctx.beginPath(); ctx.moveTo(-s * 0.1, 0); ctx.lineTo(s * 0.1, 0); ctx.stroke();
+            ctx.fillStyle = '#e8e4d4';
+            ctx.beginPath(); ctx.arc(-s * 0.1, 0, Math.max(0.9, s * 0.03), 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(s * 0.1, 0, Math.max(0.9, s * 0.03), 0, Math.PI*2); ctx.fill();
+          }
+          ctx.restore();
+        }
+        break;
+      }
+      case 'punt': { // mortar kill: punted off the top of the screen — a beat
+                     // of nothing — then a shadow, a slam, and legs in the dirt
+        const s = f.r, gy = f.y + 2;
+        const pr = n => { const v = Math.sin(f.seed * 37.7 + n * 91.3) * 43758.5; return v - Math.floor(v); };
+        const dir = pr(1) > 0.5 ? 1 : -1;
+        const tLaunch = 0.55, tSlam = 1.56;              // beats within the 2.6s gag
+        const fade = k > 0.88 ? 1 - (k - 0.88) / 0.12 : 1;
+        if (f.t < tLaunch){
+          // going UP: spinning silhouette, flailing legs, speed lines
+          const kk = f.t / tLaunch;
+          const py = gy - s * 0.6 - Math.pow(kk, 0.8) * 820;
+          ctx.save();
+          ctx.translate(f.x + Math.sin(f.t * 9 + f.seed) * s * 0.12, py);
+          ctx.rotate(f.t * 12 * dir);
+          const sc = 1 - kk * 0.25;                      // shrinks as it recedes
+          ctx.scale(sc, sc);
+          ctx.fillStyle = f.body;
+          ctx.beginPath(); ctx.ellipse(0, 0, s * 0.5, s * 0.3, 0, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.moveTo(-s * 0.45, -s * 0.1); ctx.lineTo(-s * 0.85, 0); ctx.lineTo(-s * 0.45, s * 0.12); ctx.closePath(); ctx.fill();
+          ctx.beginPath(); ctx.arc(s * 0.55, -s * 0.12, s * 0.18, 0, Math.PI*2); ctx.fill();
+          ctx.fillStyle = f.belly;
+          ctx.beginPath(); ctx.ellipse(0, s * 0.12, s * 0.34, s * 0.16, 0, 0, Math.PI*2); ctx.fill();
+          ctx.strokeStyle = f.body; ctx.lineWidth = Math.max(1.6, s * 0.09); ctx.lineCap = 'round';
+          for (const [lx, ph] of [[-s * 0.18, 0], [s * 0.16, 2.2]]){
+            const la = Math.sin(f.t * 26 + ph) * 0.8;
+            ctx.beginPath(); ctx.moveTo(lx, s * 0.2); ctx.lineTo(lx + Math.sin(la) * s * 0.3, s * 0.2 + Math.cos(la) * s * 0.3); ctx.stroke();
+          }
+          ctx.restore();
+          ctx.strokeStyle = `rgba(255,255,255,${0.4 * (1 - kk)})`; ctx.lineWidth = 1.5;
+          for (const lx of [-s * 0.25, s * 0.2]){        // speed lines chasing it
+            ctx.beginPath(); ctx.moveTo(f.x + lx, py + s); ctx.lineTo(f.x + lx, py + s + 14 + kk * 10); ctx.stroke();
+          }
+          if (f.t < 0.18){                               // dust at the tee
+            ctx.fillStyle = `rgba(150,130,100,${0.5 * (1 - f.t / 0.18)})`;
+            ctx.beginPath(); ctx.ellipse(f.x, gy, s * (0.3 + f.t * 3), s * (0.12 + f.t), 0, 0, Math.PI*2); ctx.fill();
+          }
+        } else if (f.t < tSlam){
+          // gone. a beat… then the landing shadow grows — INCOMING
+          const tw = (f.t - (tSlam - 0.32)) / 0.32;
+          if (tw > 0){
+            if (!f.wh){ f.wh = 1; if (!weaponMuted('mortar')) SFX.whistleIn(); }
+            ctx.fillStyle = `rgba(0,0,0,${0.28 * tw})`;
+            ctx.beginPath(); ctx.ellipse(f.x, gy, s * 0.55 * tw, s * 0.2 * tw, 0, 0, Math.PI*2); ctx.fill();
+            if (tw > 0.82){                              // the last instant: a blur streaking in
+              const st = (tw - 0.82) / 0.18;
+              ctx.save(); ctx.globalAlpha = 0.55;
+              ctx.strokeStyle = f.body; ctx.lineWidth = s * 0.3; ctx.lineCap = 'round';
+              ctx.beginPath(); ctx.moveTo(f.x, gy - 120 + st * 90); ctx.lineTo(f.x, gy - 24 + st * 12); ctx.stroke();
+              ctx.restore();
+            }
+          }
+        } else {
+          // SLAM: dust ring + crater, legs up out of the dirt, wiggling
+          const te = f.t - tSlam;
+          if (!f.th){ f.th = 1; if (!weaponMuted('mortar')) SFX.thud(); }
+          if (te < 0.3){
+            const dk = te / 0.3;
+            ctx.strokeStyle = `rgba(170,150,115,${0.55 * (1 - dk)})`;
+            ctx.lineWidth = Math.max(2, s * 0.16 * (1 - dk));
+            ctx.beginPath(); ctx.ellipse(f.x, gy, s * (0.4 + dk * 1.1), s * (0.16 + dk * 0.4), 0, 0, Math.PI*2); ctx.stroke();
+          }
+          ctx.save(); ctx.globalAlpha = fade;
+          ctx.fillStyle = 'rgba(0,0,0,0.28)';            // crater bowl + rim
+          ctx.beginPath(); ctx.ellipse(f.x, gy + 1, s * 0.6, s * 0.22, 0, 0, Math.PI*2); ctx.fill();
+          ctx.fillStyle = '#3a2c1a';
+          ctx.beginPath(); ctx.ellipse(f.x, gy, s * 0.5, s * 0.18, 0, 0, Math.PI*2); ctx.fill();
+          ctx.strokeStyle = '#6b5636'; ctx.lineWidth = Math.max(1.5, s * 0.07);
+          ctx.beginPath(); ctx.ellipse(f.x, gy - 1, s * 0.52, s * 0.19, 0, 0, Math.PI*2); ctx.stroke();
+          ctx.lineCap = 'round';
+          const pop = Math.min(1, te / 0.12);            // legs pop up over the first frames
+          for (const [lx, ph] of [[-s * 0.16, 0], [s * 0.14, 1.7]]){
+            const wig = Math.sin(te * 16 + ph) * 0.16 * Math.max(0, Math.min(1, 1.9 - te));
+            ctx.save(); ctx.translate(f.x + lx, gy); ctx.rotate(wig);
+            ctx.strokeStyle = f.body; ctx.lineWidth = Math.max(2, s * 0.1);
+            ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -s * 0.42 * pop); ctx.stroke();
+            if (pop >= 1){                               // the foot, toes skyward
+              ctx.fillStyle = f.belly;
+              ctx.beginPath(); ctx.ellipse(0, -s * 0.44, s * 0.09, s * 0.05, wig * 2, 0, Math.PI*2); ctx.fill();
+            }
+            ctx.restore();
+          }
+          ctx.strokeStyle = f.body; ctx.lineWidth = Math.max(1.6, s * 0.07);
+          ctx.beginPath(); ctx.moveTo(f.x + s * 0.32, gy);   // tail tip pokes out, drooping
+          ctx.quadraticCurveTo(f.x + s * 0.44, gy - s * 0.3 * pop, f.x + s * (0.52 + Math.sin(te * 12) * 0.02), gy - s * 0.16 * pop);
+          ctx.stroke();
+          // a little smoke curling off the crater
+          ctx.fillStyle = `rgba(150,150,160,${0.3 * fade * Math.max(0, 1 - te)})`;
+          ctx.beginPath(); ctx.arc(f.x + Math.sin(te * 5 + f.seed) * 3, gy - s * 0.3 - te * s * 0.5, s * (0.12 + te * 0.18), 0, Math.PI*2); ctx.fill();
+          ctx.restore();
         }
         break;
       }
