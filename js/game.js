@@ -261,6 +261,11 @@ function sfxTone(o){
     const ws = ac.createWaveShaper(); ws.curve = DIST_CURVE;
     head.connect(ws); head = ws;
   }
+  if (o.lp){ // lowpass — rounds off harsh harmonics (strings, harp, pads)
+    const fl = ac.createBiquadFilter();
+    fl.type = 'lowpass'; fl.frequency.value = o.lp; fl.Q.value = 0.5;
+    head.connect(fl); head = fl;
+  }
   head.connect(g);
   if (o.tremF){ // amplitude wobble — the "growl"
     const lfo = ac.createOscillator(); lfo.frequency.setValueAtTime(o.tremF, t0);
@@ -273,41 +278,107 @@ function sfxTone(o){
   osc.start(t0); osc.stop(t0 + dur + 0.1);
 }
 /* ---------------- background score (synthesized loop) ----------------
-   A quiet 8-bar jungle-adventure theme: deep drone bass over Am–F–C–E,
-   tribal tom/shaker percussion, and an airy pentatonic melody that
-   surfaces on the back half of the loop. Scheduled a bar at a time so
-   toggling music off stops it almost immediately. */
+   An original theme in the grand 90s-adventure-film style: a slow 3/4
+   hymn in B-flat major — a noble horn melody over harp arpeggios,
+   swelling string pads, low strings, and soft timpani, with a cymbal
+   rise lifting into a soaring second phrase. 16 bars, ~42s per loop.
+   Scheduled a bar at a time so toggling music off stops it quickly. */
 const MUS = {
-  bpm: 88,
-  barDur: 60 / 88 * 4,
-  roots:  [110, 110, 87.31, 98, 110, 87.31, 130.81, 82.41], // Am Am F G Am F C E
-  melody: [ // [bar, beat, freq, lengthInBeats]
-    [4, 0, 440, 1.2], [4, 1.5, 523.25, 0.45], [4, 2, 659.25, 1.6],
-    [5, 0, 587.33, 0.9], [5, 1, 523.25, 0.9], [5, 2, 440, 1.8],
-    [6, 0, 659.25, 1.2], [6, 1.5, 783.99, 0.45], [6, 2, 880, 1.7],
-    [7, 0, 783.99, 0.9], [7, 1, 659.25, 0.9], [7, 2, 587.33, 1.8],
+  bpm: 69,
+  barDur: 60 / 69 * 3, // 3/4 time — the stately waltz feel does a lot of the work
+  // [bassFreq, chordTones low→high] per bar:
+  // Bb F/A Gm Eb | Bb F Bb F || Eb Bb/D Cm F | Gm Eb F Bb
+  bars: [
+    [116.54, [233.08, 293.66, 349.23, 466.16]],
+    [110.00, [174.61, 220.00, 261.63, 349.23]],
+    [98.00,  [196.00, 233.08, 293.66, 392.00]],
+    [77.78,  [155.56, 196.00, 233.08, 311.13]],
+    [116.54, [233.08, 293.66, 349.23, 466.16]],
+    [87.31,  [174.61, 220.00, 261.63, 349.23]],
+    [116.54, [233.08, 293.66, 349.23, 466.16]],
+    [87.31,  [174.61, 220.00, 261.63, 349.23]],
+    [77.78,  [155.56, 196.00, 233.08, 311.13]],
+    [73.42,  [233.08, 293.66, 349.23, 466.16]],
+    [130.81, [196.00, 261.63, 311.13, 392.00]],
+    [87.31,  [174.61, 220.00, 261.63, 349.23]],
+    [98.00,  [196.00, 233.08, 293.66, 392.00]],
+    [77.78,  [155.56, 196.00, 233.08, 311.13]],
+    [87.31,  [174.61, 220.00, 261.63, 349.23]],
+    [116.54, [233.08, 293.66, 349.23, 466.16]],
+  ],
+  // rising scale run that carries bar 7 up into the soaring B section
+  lift: [174.61, 196.00, 220.00, 233.08, 261.63, 293.66],
+  melody: [ // [bar, beat, freq, lengthInBeats] — bar 7 rests for the lift
+    [0, 0, 349.23, 1],  [0, 1, 466.16, 2],
+    [1, 0, 440.00, 2],  [1, 2, 392.00, 1],
+    [2, 0, 349.23, 3],
+    [3, 0, 392.00, 1],  [3, 1, 440.00, 1],  [3, 2, 466.16, 1],
+    [4, 0, 523.25, 2],  [4, 2, 466.16, 1],
+    [5, 0, 440.00, 2],  [5, 2, 392.00, 1],
+    [6, 0, 349.23, 3],
+    [8, 0, 466.16, 1],  [8, 1, 622.25, 2],
+    [9, 0, 587.33, 2],  [9, 2, 523.25, 1],
+    [10, 0, 466.16, 2], [10, 2, 392.00, 1],
+    [11, 0, 440.00, 3],
+    [12, 0, 466.16, 1], [12, 1, 523.25, 1], [12, 2, 587.33, 1],
+    [13, 0, 622.25, 2], [13, 2, 587.33, 1],
+    [14, 0, 523.25, 2], [14, 2, 440.00, 1],
+    [15, 0, 466.16, 3],
   ],
 };
 let musicTimer = null, musicNextBar = 0, musicBarIdx = 0;
+/* French-horn-ish lead: two detuned saws through a lowpass, with a slow
+   vibrato that blooms after the attack. The soft onset + long release
+   keep the phrases legato instead of beepy. */
+function hornTone(f, dur, delay, peak){
+  const ac = audio(); if (!ac) return;
+  const t0 = ac.currentTime + delay;
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(peak, t0 + 0.08);
+  g.gain.setValueAtTime(peak, Math.max(t0 + 0.09, t0 + dur - 0.12));
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur + 0.35);
+  const fl = ac.createBiquadFilter();
+  fl.type = 'lowpass'; fl.frequency.value = 1100; fl.Q.value = 0.4;
+  fl.connect(g);
+  const vib = ac.createOscillator(); vib.frequency.value = 4.7;
+  const vg = ac.createGain();
+  vg.gain.setValueAtTime(0, t0);
+  vg.gain.linearRampToValueAtTime(f * 0.005, t0 + 0.4);
+  vib.connect(vg);
+  for (const det of [-4, 4]){
+    const o = ac.createOscillator();
+    o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = det;
+    vg.connect(o.frequency);
+    o.connect(fl);
+    o.start(t0); o.stop(t0 + dur + 0.5);
+  }
+  vib.start(t0); vib.stop(t0 + dur + 0.5);
+  routeOut(g, 0.6, musicGain);
+}
 function scheduleBar(bar, t0){
-  const beat = MUS.barDur / 4;
+  const beat = MUS.barDur / 3;
   const at = t => Math.max(0, t0 + t * beat - AC.currentTime);
-  const root = MUS.roots[bar];
-  // drone bass + soft pad (root, fifth, octave)
-  sfxTone({type: 'triangle', f0: root,        dur: MUS.barDur * 0.98, peak: 0.05,  a: 0.5, wet: 0.3, bus: musicGain, delay: at(0)});
-  sfxTone({type: 'sine',     f0: root * 1.5,  dur: MUS.barDur * 0.98, peak: 0.026, a: 0.9, wet: 0.45, bus: musicGain, delay: at(0)});
-  sfxTone({type: 'sine',     f0: root * 2,    dur: MUS.barDur * 0.98, peak: 0.02,  a: 1.1, wet: 0.45, bus: musicGain, delay: at(0)});
-  // tribal drums
-  for (const [b, f, p] of [[0, 70, 0.13], [0.75, 70, 0.055], [1.5, 104, 0.085], [2.5, 70, 0.115], [3.25, 104, 0.055]])
-    sfxTone({type: 'sine', f0: f, f1: f * 0.55, dur: 0.24, peak: p, wet: 0.3, bus: musicGain, delay: at(b)});
-  // shaker eighths
-  for (let i = 0; i < 8; i++)
-    sfxNoise({dur: 0.05, peak: i % 2 ? 0.011 : 0.018, type: 'highpass', f0: 6200, wet: 0.35, bus: musicGain, delay: at(i * 0.5 + 0.5)});
-  // melody (with a faint octave shimmer)
+  const [bass, ch] = MUS.bars[bar];
+  // low strings on the root + a slow-swelling string-pad triad
+  sfxTone({type: 'triangle', f0: bass, dur: MUS.barDur * 1.04, peak: 0.05, a: 0.3, lp: 700, wet: 0.35, bus: musicGain, delay: at(0)});
+  for (let i = 0; i < 3; i++)
+    sfxTone({type: 'sawtooth', f0: ch[i], dur: MUS.barDur * 1.04, peak: 0.013, a: 1.1, lp: 850, wet: 0.5, bus: musicGain, delay: at(0)});
+  // harp arpeggio in eighths (bar 7: the rising run instead)
+  const run = bar === 7 ? MUS.lift : [0, 1, 2, 3, 2, 1].map(i => ch[i]);
+  run.forEach((f, i) =>
+    sfxTone({type: 'triangle', f0: f, dur: 0.55, peak: i % 2 ? 0.018 : 0.026, a: 0.003, lp: 3200, wet: 0.5, bus: musicGain, delay: at(i * 0.5)}));
+  // soft timpani on each 4-bar phrase downbeat + a cymbal swell into bar 8
+  if (bar % 4 === 0)
+    sfxTone({type: 'sine', f0: 58.27, f1: 44, dur: 0.6, peak: 0.09, wet: 0.4, bus: musicGain, delay: at(0)});
+  if (bar === 7)
+    sfxNoise({dur: 2.4, peak: 0.006, a: 2.1, type: 'highpass', f0: 5500, wet: 0.55, bus: musicGain, delay: at(0)});
+  // horn melody (+ a distant glockenspiel doubling once the theme soars)
   for (const [mb, b, f, len] of MUS.melody){
     if (mb !== bar) continue;
-    sfxTone({type: 'triangle', f0: f,         dur: len * beat, peak: 0.042, a: 0.04, wet: 0.55, bus: musicGain, delay: at(b)});
-    sfxTone({type: 'sine',     f0: f * 2.003, dur: len * beat, peak: 0.011, a: 0.06, wet: 0.55, bus: musicGain, delay: at(b)});
+    hornTone(f, len * beat, at(b), 0.05);
+    if (bar >= 8)
+      sfxTone({type: 'sine', f0: f * 2, dur: 0.9, peak: 0.01, a: 0.003, wet: 0.6, bus: musicGain, delay: at(b)});
   }
 }
 function ensureMusic(){
@@ -322,7 +393,7 @@ function ensureMusic(){
   musicTimer = setInterval(() => {
     if (!AC || AC.state !== 'running') return;
     while (musicNextBar < AC.currentTime + 0.6){
-      scheduleBar(musicBarIdx % MUS.roots.length, musicNextBar);
+      scheduleBar(musicBarIdx % MUS.bars.length, musicNextBar);
       musicBarIdx++;
       musicNextBar += MUS.barDur;
     }
