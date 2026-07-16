@@ -356,6 +356,30 @@ function hornTone(f, dur, delay, peak){
   vib.start(t0); vib.stop(t0 + dur + 0.5);
   routeOut(g, 0.6, musicGain);
 }
+/* flute-ish descant: a pure triangle with airy vibrato, lighter and
+   quicker-speaking than the horn — carries high countermelodies. */
+function fluteTone(f, dur, delay, peak){
+  const ac = audio(); if (!ac) return;
+  const t0 = ac.currentTime + delay;
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(peak, t0 + 0.05);
+  g.gain.setValueAtTime(peak, Math.max(t0 + 0.06, t0 + dur - 0.1));
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur + 0.25);
+  const fl = ac.createBiquadFilter();
+  fl.type = 'lowpass'; fl.frequency.value = 2400; fl.Q.value = 0.3;
+  const o = ac.createOscillator();
+  o.type = 'triangle'; o.frequency.value = f;
+  const vib = ac.createOscillator(); vib.frequency.value = 5.2;
+  const vg = ac.createGain();
+  vg.gain.setValueAtTime(0, t0);
+  vg.gain.linearRampToValueAtTime(f * 0.006, t0 + 0.45);
+  vib.connect(vg); vg.connect(o.frequency);
+  o.connect(fl); fl.connect(g);
+  o.start(t0); o.stop(t0 + dur + 0.3);
+  vib.start(t0); vib.stop(t0 + dur + 0.3);
+  routeOut(g, 0.65, musicGain);
+}
 function scheduleBar(bar, t0){
   const beat = MUS.barDur / 3;
   const at = t => Math.max(0, t0 + t * beat - AC.currentTime);
@@ -466,7 +490,9 @@ function playMidiNote(n, delay){
     return;
   }
   const g = n.prog;
-  if ((g >= 56 && g <= 71) || (g >= 80 && g <= 87)) // brass, winds, leads → horn
+  if (g >= 72 && g <= 79) // pipes & flutes → airy descant voice
+    fluteTone(f, Math.max(0.25, n.dur), delay, 0.045 * v);
+  else if ((g >= 56 && g <= 71) || (g >= 80 && g <= 87)) // brass, winds, leads → horn
     hornTone(f, Math.max(0.3, n.dur), delay, 0.05 * v);
   else if ((g >= 32 && g <= 39) || (g <= 7 && f < 116)) // basses + piano low end
     sfxTone({type: 'triangle', f0: f, dur: n.dur * 1.02, peak: 0.055 * v, a: 0.05, lp: 600, wet: 0.3, bus: musicGain, delay});

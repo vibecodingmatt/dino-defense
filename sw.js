@@ -3,7 +3,7 @@
    Strategy: network-first for the app shell (so pushed updates show up as soon
    as you're online), cache-first for the icons, and a cached fallback whenever
    the network is unavailable. Bump CACHE to force a clean re-precache. */
-const CACHE = 'isla-defense-v2';
+const CACHE = 'isla-defense-v3';
 const SHELL = [
   './',
   'index.html',
