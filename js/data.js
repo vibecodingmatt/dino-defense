@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.38.0';
+const VERSION = '1.39.0';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -25,8 +25,9 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.38.0', date: 'Jul 16, 2026', items: [
+  {v: '1.39.0', date: 'Jul 16, 2026', items: [
     '🎻 All-new soundtrack: the jungle drums are gone, replaced by a sweeping movie-style island theme — a noble horn melody over harp and strings that builds to a soaring finish.',
+    '🎼 The theme is now performed live from a real sheet-music score, so the orchestration can keep growing richer.',
   ]},
   {v: '1.37.1', date: 'Jul 15, 2026', items: [
     '🐛 Fixed the map appearing to zoom in and back out mid-game: the top bar could quietly wrap to an extra line when the 🔥 streak badge or longer wave labels appeared, resizing the whole battlefield. The bar now holds a fixed height everywhere — labels shrink or tighten instead.',

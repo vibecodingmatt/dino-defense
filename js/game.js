@@ -381,6 +381,115 @@ function scheduleBar(bar, t0){
       sfxTone({type: 'sine', f0: f * 2, dur: 0.9, peak: 0.01, a: 0.003, wet: 0.6, bus: musicGain, delay: at(b)});
   }
 }
+/* ---------------- MIDI score (assets/theme.mid) ----------------
+   The theme ships as a Standard MIDI File so the music can be composed
+   in any notation app (MuseScore, GarageBand, …), dropped into assets/,
+   and performed live through the synth voices above. Parsed here into a
+   flat note list (tempo map, running status, program changes). The
+   procedural loop above stays as the fallback whenever the file can't
+   load (file:// play, offline first-run, bad export).
+   ?midi=<name> loads assets/<name> instead — for local A/B listening. */
+let MIDI_THEME = null, midiIdx = 0, midiBase = 0;
+function parseMidi(buf){
+  const d = new DataView(buf);
+  let p = 0;
+  const u8 = () => d.getUint8(p++);
+  const u16 = () => { const v = d.getUint16(p); p += 2; return v; };
+  const u32 = () => { const v = d.getUint32(p); p += 4; return v; };
+  const varlen = () => { let v = 0, b; do { b = u8(); v = (v << 7) | (b & 0x7f); } while (b & 0x80); return v; };
+  const tag = () => String.fromCharCode(u8(), u8(), u8(), u8());
+  if (tag() !== 'MThd') throw new Error('not a midi file');
+  const hlen = u32(); u16(); // format (1 assumed; 0 parses fine too)
+  const ntrk = u16(), div = u16();
+  p += hlen - 6;
+  if (div & 0x8000) throw new Error('smpte timing unsupported');
+  const tempos = []; // [tick, µs per quarter note], across all tracks
+  const raw = [];    // completed notes in ticks
+  for (let t = 0; t < ntrk; t++){
+    if (tag() !== 'MTrk') throw new Error('bad track header');
+    const end = u32() + p;
+    let tick = 0, status = 0;
+    const prog = new Array(16).fill(0);
+    const open = {}; // chn*128+pitch -> stack of pending note-ons
+    while (p < end){
+      tick += varlen();
+      if (d.getUint8(p) & 0x80) status = u8(); // else: running status
+      if (status === 0xff){
+        const type = u8(), len = varlen();
+        if (type === 0x51) tempos.push([tick, (d.getUint8(p) << 16) | (d.getUint8(p + 1) << 8) | d.getUint8(p + 2)]);
+        p += len;
+      } else if (status >= 0xf0){ p += varlen(); } // sysex
+      else {
+        const hi = status & 0xf0, chn = status & 15, d1 = u8();
+        if (hi === 0xc0){ prog[chn] = d1; continue; }
+        if (hi === 0xd0) continue; // channel pressure: one data byte
+        const d2 = u8(), key = chn * 128 + d1;
+        if (hi === 0x90 && d2 > 0)
+          (open[key] = open[key] || []).push({t0: tick, vel: d2, prog: prog[chn]});
+        else if (hi === 0x80 || hi === 0x90){
+          const o = open[key] && open[key].shift();
+          if (o) raw.push({t0: o.t0, t1: tick, p: d1, vel: o.vel, chn, prog: o.prog});
+        }
+      }
+    }
+    p = end;
+  }
+  tempos.sort((a, b) => a[0] - b[0]);
+  const toSec = tick => { // walk the tempo map (default 120 bpm)
+    let sec = 0, last = 0, uspq = 500000;
+    for (const [tt, us] of tempos){
+      if (tt >= tick) break;
+      sec += (tt - last) / div * uspq / 1e6;
+      last = tt; uspq = us;
+    }
+    return sec + (tick - last) / div * uspq / 1e6;
+  };
+  const notes = raw
+    .map(n => ({t: toSec(n.t0), dur: Math.max(0.08, toSec(n.t1) - toSec(n.t0)),
+                p: n.p, vel: n.vel, chn: n.chn, prog: n.prog}))
+    .sort((a, b) => a.t - b.t);
+  if (!notes.length) throw new Error('no notes');
+  const dur = notes.reduce((m, n) => Math.max(m, n.t + n.dur), 0) + 1.6; // breath before the loop repeats
+  return {dur, notes};
+}
+/* Perform one parsed note on the closest-matching synth voice.
+   Routing is by General MIDI program, with a duration heuristic for
+   anything unrecognised. Velocity scales each voice's mix level. */
+function playMidiNote(n, delay){
+  const f = 440 * Math.pow(2, (n.p - 69) / 12);
+  const v = n.vel / 127;
+  if (n.chn === 9){ // GM percussion: kicks & toms → timpani, rest → soft brush
+    if ([35, 36, 41, 43, 45, 47].includes(n.p))
+      sfxTone({type: 'sine', f0: 30 + n.p, f1: 42, dur: 0.5, peak: 0.1 * v, wet: 0.4, bus: musicGain, delay});
+    else
+      sfxNoise({dur: 0.08, peak: 0.016 * v, type: 'highpass', f0: 5000, wet: 0.4, bus: musicGain, delay});
+    return;
+  }
+  const g = n.prog;
+  if ((g >= 56 && g <= 71) || (g >= 80 && g <= 87)) // brass, winds, leads → horn
+    hornTone(f, Math.max(0.3, n.dur), delay, 0.05 * v);
+  else if ((g >= 32 && g <= 39) || (g <= 7 && f < 116)) // basses + piano low end
+    sfxTone({type: 'triangle', f0: f, dur: n.dur * 1.02, peak: 0.055 * v, a: 0.05, lp: 600, wet: 0.3, bus: musicGain, delay});
+  else if (g === 47) // GM orchestral timpani
+    sfxTone({type: 'sine', f0: f, f1: f * 0.75, dur: 0.6, peak: 0.1 * v, wet: 0.4, bus: musicGain, delay});
+  else if (((g >= 40 && g <= 45) || (g >= 48 && g <= 54) || g === 89 || g === 91) && n.dur > 0.45) // strings, choir, pads
+    sfxTone({type: 'sawtooth', f0: f, dur: n.dur * 1.05, peak: 0.014 * v, a: Math.min(0.9, n.dur * 0.35), lp: 850, wet: 0.5, bus: musicGain, delay});
+  else if (n.dur > 0.8 && f < 700) // unknown but sustained → mellow horn
+    hornTone(f, n.dur, delay, 0.035 * v);
+  else // piano, harp, guitar, mallets, anything short → pluck
+    sfxTone({type: 'triangle', f0: f, dur: Math.min(0.9, Math.max(0.3, n.dur * 1.2)), peak: 0.03 * v, a: 0.003, lp: 3200, wet: 0.5, bus: musicGain, delay});
+}
+(function loadMidiTheme(){
+  let name = 'theme.mid';
+  try { name = new URLSearchParams(location.search).get('midi') || name; } catch(e){}
+  fetch('assets/' + name)
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+    .then(b => {
+      MIDI_THEME = parseMidi(b);
+      if (musicTimer){ stopMusic(); ensureMusic(); } // switch over if the fallback already started
+    })
+    .catch(() => {}); // procedural loop stays in charge
+})();
 function ensureMusic(){
   if (!save.settings.music || save.settings.mute){ stopMusic(); return; }
   const ac = audio();
@@ -388,6 +497,22 @@ function ensureMusic(){
   if (musicTimer) return;
   musicGain.gain.cancelScheduledValues(ac.currentTime);
   musicGain.gain.setValueAtTime(0.8, ac.currentTime);
+  if (MIDI_THEME){ // perform the score, a lookahead window at a time
+    midiIdx = 0; midiBase = ac.currentTime + 0.2;
+    musicTimer = setInterval(() => {
+      if (!AC || AC.state !== 'running') return;
+      const horizon = AC.currentTime + 0.9;
+      while (true){
+        if (midiIdx >= MIDI_THEME.notes.length){ midiBase += MIDI_THEME.dur; midiIdx = 0; }
+        const n = MIDI_THEME.notes[midiIdx];
+        const t = midiBase + n.t;
+        if (t >= horizon) break;
+        if (t > AC.currentTime - 0.03) playMidiNote(n, Math.max(0, t - AC.currentTime));
+        midiIdx++;
+      }
+    }, 200);
+    return;
+  }
   musicNextBar = ac.currentTime + 0.15;
   musicBarIdx = 0;
   musicTimer = setInterval(() => {
