@@ -848,6 +848,282 @@ function drawDino(ctx, d, x, y, turn, ph, alpha, pitch){
   ctx.restore();
 }
 
+/* ---------- TOURISTS ----------
+   The park's last visitors, sprinting for the exit ahead of wave 1.
+   Same conventions as the dinosaurs: unit space, facing +x, origin at
+   ground level under the hips, `ph` is the sprint-cycle phase. Everyone
+   is assembled from the same parts, but build, skin, outfit, hair, hat,
+   accessories — and above all HOW they panic — vary per visitor. */
+
+/* one two-segment arm. `u.arms` picks the panic pose; i=0 is the far arm
+   (drawn behind the body, darker), i=1 the near arm (drawn in front). */
+function tArm(ctx, u, ph, i){
+  const t = u.tall, bw = u.build;
+  const sx = 0.02, sy = -1.27 * t, lu = 0.28, lf = 0.26;
+  const sleeve = i ? u.shirt : shade(u.shirt, -0.28);
+  const skin = i ? u.skin : shade(u.skin, -0.2);
+  let a1, a2, ex, ey, hx, hy;
+  const wob = Math.sin(ph * 2.2 + i * 2.6);
+  if (u.arms === 'flail'){                    // both hands high, waving wildly
+    a1 = -1.95 - i * 0.18 + wob * 0.3;
+    ex = sx + Math.cos(a1) * lu; ey = sy + Math.sin(a1) * lu;
+    a2 = a1 + 0.18 + Math.sin(ph * 2.2 + 1.2 + i * 2.6) * 0.5;
+    hx = ex + Math.cos(a2) * lf; hy = ey + Math.sin(a2) * lf;
+  } else if (u.arms === 'clutch'){            // hands clamped on top of the head
+    a1 = -2.45 + i * 0.12 + wob * 0.05;
+    ex = sx + Math.cos(a1) * lu * 1.05; ey = sy + Math.sin(a1) * lu * 1.05;
+    hx = i * 0.1 - 0.03; hy = -1.58 * t - 0.16;
+  } else if (u.arms === 'hathold' && i === 1){ // one hand pinning the hat down
+    ex = sx + 0.18; ey = sy - 0.18;
+    hx = 0.16; hy = -1.58 * t - 0.13;
+  } else if (u.arms === 'camera'){            // filming the disaster, of course
+    ex = sx + 0.14; ey = sy + 0.16 - i * 0.03;
+    hx = 0.27; hy = -1.04 * t - i * 0.035;
+  } else {                                    // pump — proper sprinter arms
+    a1 = 1.35 + Math.sin(ph + Math.PI * i) * 0.8;
+    ex = sx + Math.cos(a1) * lu; ey = sy + Math.sin(a1) * lu;
+    a2 = a1 - 2.05 + Math.sin(ph + Math.PI * i) * 0.15; // folded tight, hands by the ribs
+    hx = ex + Math.cos(a2) * lf * 0.9; hy = ey + Math.sin(a2) * lf * 0.9;
+  }
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = sleeve; ctx.lineWidth = 0.1 * bw;
+  ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+  ctx.strokeStyle = skin; ctx.lineWidth = 0.08 * bw; // bare forearm (short sleeves)
+  ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(hx, hy); ctx.stroke();
+  ctx.fillStyle = skin;
+  ctx.beginPath(); ctx.arc(hx, hy, 0.055, 0, Math.PI * 2); ctx.fill();
+}
+
+function touristBody(ctx, u, ph){
+  const t = u.tall, bw = u.build, skin = u.skin;
+  const hipY = -0.78 * t, shY = -1.3 * t;
+  const headX = 0.06, headY = -1.58 * t, headR = 0.17 * (u.kid ? 1.25 : 1);
+  const legCol = u.bottomType === 'pants' ? u.bottom : skin;
+  const look = u.lookT > 0 ? -1 : 1;          // terrified glance over the shoulder
+  ctx.save();
+  ctx.rotate(u.lean + Math.sin(ph) * 0.02);   // sprint lean + stride rock
+  ctx.translate(0, -Math.abs(Math.sin(ph)) * 0.06);
+
+  tArm(ctx, u, ph, 0);                        // far arm behind everything
+  // legs — frantic scissor via the shared leg() helper
+  leg(ctx, -0.02, hipY, -hipY, ph + Math.PI, shade(legCol, -0.32), 0.125 * bw);
+  leg(ctx, 0.02, hipY, -hipY, ph, legCol, 0.14 * bw);
+
+  // bottoms over the hips
+  if (u.bottomType === 'skirt'){
+    const fl = Math.sin(ph * 2) * 0.05;       // hem flutters with the stride
+    ctx.fillStyle = u.bottom;
+    ctx.beginPath();
+    ctx.moveTo(-0.17 * bw, hipY - 0.08);
+    ctx.lineTo(0.17 * bw, hipY - 0.08);
+    ctx.lineTo(0.24 * bw + fl * 0.4, hipY + 0.3);
+    ctx.lineTo(-0.28 * bw - fl, hipY + 0.3 + fl);
+    ctx.closePath(); ctx.fill();
+  } else if (u.bottomType === 'shorts'){
+    ctx.fillStyle = u.bottom;
+    ctx.beginPath(); ctx.ellipse(0, hipY + 0.05, 0.19 * bw, 0.16, 0, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // neck, then torso (slimmer than it is tall — people, not eggs)
+  ctx.fillStyle = skin;
+  ctx.fillRect(headX - 0.05, headY + headR * 0.55, 0.1, 0.16);
+  ctx.fillStyle = u.shirt;
+  ctx.beginPath();
+  ctx.ellipse(0, (hipY + shY) / 2, 0.17 * bw, (hipY - shY) / 2 + 0.07, 0, 0, Math.PI * 2);
+  ctx.fill();
+  if (u.belly){
+    ctx.fillStyle = shade(u.shirt, -0.07);
+    ctx.beginPath(); ctx.ellipse(0.09 * bw, hipY - 0.14, 0.12 * bw, 0.15, 0.2, 0, Math.PI * 2); ctx.fill();
+  }
+  if (u.floral){ // the loudest vacation shirt on the island
+    ctx.fillStyle = shade(u.shirt, 0.5);
+    for (let i = 0; i < 6; i++){
+      const fx = (-0.13 + (i % 3) * 0.12) * bw, fy = shY + 0.1 + ((i * 7) % 5) * 0.09;
+      ctx.beginPath(); ctx.arc(fx, fy, 0.03, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // luggage
+  if (u.pack === 'backpack'){
+    const pb = Math.abs(Math.sin(ph)) * 0.04; // bounces against the spine
+    ctx.fillStyle = u.packC;
+    ctx.beginPath(); ctx.ellipse(-0.24 * bw, -1.02 * t + pb, 0.13, 0.22, 0.1, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = shade(u.packC, -0.3); ctx.lineWidth = 0.045;
+    ctx.beginPath(); ctx.moveTo(-0.04, shY - 0.04); ctx.lineTo(-0.2 * bw, -1.12 * t + pb); ctx.stroke();
+  } else if (u.pack === 'fanny'){
+    ctx.fillStyle = u.packC;
+    ctx.beginPath(); ctx.ellipse(0.17 * bw, hipY - 0.02, 0.1, 0.075, -0.2, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // camera bouncing on its neck strap (unless it's up filming)
+  if (u.camera && u.arms !== 'camera'){
+    const cx = 0.17 + Math.sin(ph * 1.4) * 0.07, cy = -0.99 * t + Math.abs(Math.sin(ph)) * 0.05;
+    ctx.strokeStyle = '#2b2b30'; ctx.lineWidth = 0.03;
+    ctx.beginPath();
+    ctx.moveTo(0.0, shY - 0.02); ctx.lineTo(cx - 0.05, cy - 0.05);
+    ctx.moveTo(0.09, shY); ctx.lineTo(cx + 0.05, cy - 0.05);
+    ctx.stroke();
+    ctx.fillStyle = '#26262c'; ctx.fillRect(cx - 0.09, cy - 0.06, 0.18, 0.12);
+    ctx.fillStyle = '#55555f'; ctx.beginPath(); ctx.arc(cx + 0.01, cy, 0.035, 0, Math.PI * 2); ctx.fill();
+  }
+  if (u.arms === 'camera'){ // held up in front, still rolling
+    ctx.fillStyle = '#26262c'; ctx.fillRect(0.19, -1.1 * t, 0.17, 0.12);
+    ctx.fillStyle = '#55555f'; ctx.beginPath(); ctx.arc(0.36, -1.04 * t, 0.035, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#d33'; ctx.beginPath(); ctx.arc(0.22, -1.07 * t, 0.014, 0, Math.PI * 2); ctx.fill(); // rec light
+  }
+
+  // head
+  ctx.fillStyle = skin;
+  ctx.beginPath(); ctx.arc(headX, headY, headR, 0, Math.PI * 2); ctx.fill();
+
+  // hair (under the hat)
+  ctx.fillStyle = u.hairC;
+  const hs = u.hairStyle;
+  if (hs === 'short'){
+    ctx.beginPath(); ctx.arc(headX - 0.01, headY - 0.03, headR * 1.02, Math.PI * 0.95, Math.PI * 2.05); ctx.fill();
+  } else if (hs === 'bob'){
+    ctx.beginPath(); ctx.arc(headX - 0.02, headY - 0.03, headR * 1.05, Math.PI * 0.88, Math.PI * 2.04); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(headX - headR * 0.92, headY + 0.04, 0.05, 0.1, 0.15, 0, Math.PI * 2); ctx.fill();
+  } else if (hs === 'pony'){
+    ctx.beginPath(); ctx.arc(headX - 0.01, headY - 0.02, headR * 1.02, Math.PI * 0.9, Math.PI * 2.05); ctx.fill();
+    const fl = Math.sin(ph * 1.7) * 0.07;    // tail whips with the sprint
+    ctx.strokeStyle = u.hairC; ctx.lineCap = 'round'; ctx.lineWidth = 0.07;
+    ctx.beginPath(); ctx.moveTo(headX - headR * 0.8, headY - 0.02);
+    ctx.quadraticCurveTo(headX - headR - 0.12, headY + 0.14 + fl, headX - headR - 0.22, headY + 0.3 - fl);
+    ctx.stroke();
+  } else if (hs === 'long'){
+    ctx.beginPath(); ctx.arc(headX - 0.02, headY - 0.02, headR * 1.08, Math.PI * 0.8, Math.PI * 2.1); ctx.fill();
+    ctx.strokeStyle = u.hairC; ctx.lineCap = 'round';
+    for (let k = 0; k < 3; k++){             // streaming behind, below the hat line
+      const fl = Math.sin(ph * 1.6 + k * 1.9) * 0.05;
+      ctx.lineWidth = 0.05 - k * 0.008;
+      ctx.beginPath(); ctx.moveTo(headX - headR * 0.8, headY + 0.02 + k * 0.06);
+      ctx.quadraticCurveTo(headX - headR - 0.13, headY + 0.08 + k * 0.07 + fl,
+                           headX - headR - 0.28 - k * 0.05, headY + 0.16 + k * 0.09 - fl);
+      ctx.stroke();
+    }
+  } else if (hs === 'bun'){
+    ctx.beginPath(); ctx.arc(headX - 0.01, headY - 0.03, headR * 1.02, Math.PI * 0.95, Math.PI * 2.05); ctx.fill();
+    ctx.beginPath(); ctx.arc(headX - headR * 0.9, headY - headR * 0.55, 0.075, 0, Math.PI * 2); ctx.fill();
+  } else if (hs === 'curls'){
+    for (let k = 0; k < 4; k++){
+      ctx.beginPath(); ctx.arc(headX - 0.12 + k * 0.075, headY - headR * 0.82 + Math.abs(k - 1.5) * 0.02, 0.055, 0, Math.PI * 2); ctx.fill();
+    }
+  } else if (hs === 'pig'){                  // kid pigtails, airborne
+    ctx.strokeStyle = u.hairC; ctx.lineCap = 'round'; ctx.lineWidth = 0.06;
+    ctx.beginPath(); ctx.arc(headX - 0.01, headY - 0.03, headR * 0.95, Math.PI * 0.95, Math.PI * 2.05); ctx.fill();
+    for (let k = 0; k < 2; k++){
+      const fl = Math.sin(ph * 1.8 + k * 2.4) * 0.06;
+      ctx.beginPath(); ctx.moveTo(headX - headR * (0.5 + k * 0.4), headY - headR * (0.8 - k * 0.5));
+      ctx.quadraticCurveTo(headX - headR - 0.1 - k * 0.04, headY - headR * (0.9 - k * 0.6) + fl,
+                           headX - headR - 0.2, headY - headR * (0.5 - k * 0.55) + fl * 1.5);
+      ctx.stroke();
+    }
+  } else if (hs === 'bald'){                 // just a dignified fringe (formerly)
+    ctx.beginPath(); ctx.ellipse(headX - headR * 0.82, headY + 0.05, 0.045, 0.075, 0.2, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // face — flips backward mid-glance
+  const ex = headX + 0.08 * look, ey = headY - 0.02;
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(ex, ey, 0.052, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#1c1c1c';
+  ctx.beginPath(); ctx.arc(ex + 0.018 * look, ey, 0.024, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = shade(skin, -0.42); ctx.lineWidth = 0.022; // eyebrow, shot straight up
+  ctx.beginPath();
+  ctx.moveTo(ex - 0.045 * look, ey - 0.07);
+  ctx.quadraticCurveTo(ex, ey - 0.105, ex + 0.05 * look, ey - 0.085);
+  ctx.stroke();
+  if (u.glasses){
+    ctx.fillStyle = '#1e1e26';
+    ctx.beginPath(); ctx.ellipse(ex, ey, 0.065, 0.045, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#1e1e26'; ctx.lineWidth = 0.02;
+    ctx.beginPath(); ctx.moveTo(ex - 0.06 * look, ey); ctx.lineTo(headX - headR * 0.9 * look, ey - 0.01); ctx.stroke();
+  }
+  ctx.fillStyle = '#5a1f18'; // the scream
+  ctx.beginPath();
+  ctx.ellipse(headX + 0.12 * look, headY + 0.075, 0.04, 0.05 + Math.max(0, Math.sin(ph * 2.1)) * 0.02, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // hat (over the hair; gone if the wind took it)
+  if (u.hat && !u.hatLost){
+    const hc = u.hatC;
+    ctx.fillStyle = hc;
+    if (u.hat === 'cap'){
+      ctx.beginPath(); ctx.arc(headX, headY - 0.05, headR * 1.04, Math.PI, Math.PI * 2); ctx.fill();
+      ctx.fillRect(headX, headY - 0.085, headR + 0.13, 0.05);
+      ctx.fillStyle = shade(hc, -0.25);
+      ctx.beginPath(); ctx.arc(headX, headY - headR - 0.05, 0.024, 0, Math.PI * 2); ctx.fill();
+    } else if (u.hat === 'sun'){
+      ctx.beginPath(); ctx.arc(headX, headY - 0.08, headR * 0.95, Math.PI, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(headX, headY - 0.1, headR + 0.07, 0.04, -0.05, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = shade(hc, -0.35); ctx.lineWidth = 0.035;
+      ctx.beginPath(); ctx.moveTo(headX - headR * 0.85, headY - 0.13); ctx.lineTo(headX + headR * 0.85, headY - 0.13); ctx.stroke();
+    } else if (u.hat === 'safari'){
+      ctx.beginPath(); ctx.ellipse(headX, headY - 0.06, headR + 0.1, 0.045, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(headX, headY - 0.07, headR * 0.88, Math.PI, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = shade(hc, -0.4);
+      ctx.fillRect(headX - headR * 0.88, headY - 0.125, headR * 1.76, 0.045);
+    } else { // visor
+      ctx.fillRect(headX - headR * 0.55, headY - headR * 0.8, headR * 0.55 + 0.13, 0.05);
+    }
+  }
+
+  tArm(ctx, u, ph, 1); // near arm in front of everything
+
+  // the kid's balloon, streaming behind on its string
+  if (u.balloon){
+    const bx = -0.52 + Math.sin(ph * 0.6) * 0.06, by = -2.08 * t + Math.sin(ph * 0.8) * 0.09;
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 0.022;
+    ctx.beginPath(); ctx.moveTo(-0.08, -1.26 * t); // tied at the shoulder strap, behind the head
+    ctx.quadraticCurveTo(-0.34, -1.72 * t, bx, by + 0.2); ctx.stroke();
+    ctx.fillStyle = u.balloonC;
+    ctx.beginPath(); ctx.ellipse(bx, by, 0.16, 0.19, 0.15, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(bx - 0.03, by + 0.18); ctx.lineTo(bx + 0.035, by + 0.18); ctx.lineTo(bx + 0.005, by + 0.24); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.beginPath(); ctx.ellipse(bx - 0.055, by - 0.07, 0.035, 0.05, 0.4, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // sweat, flying off the brow
+  ctx.save();
+  ctx.fillStyle = '#bfe8ff';
+  for (let k = 0; k < 2; k++){
+    const c = ((ph * 0.21 + k * 0.47) % 1 + 1) % 1;
+    ctx.globalAlpha *= (1 - c) * 0.85;
+    ctx.beginPath();
+    ctx.arc(headX - 0.14 - c * 0.4, headY - headR - 0.04 - Math.sin(c * Math.PI) * 0.2 + c * 0.16, 0.036 - c * 0.012, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+  ctx.restore();
+}
+
+/* Draws a tourist at world position — mirrors drawDino's contract
+   (turn flip, pitch onto vertical path legs, ground shadow). */
+function drawTourist(ctx, u, x, y, turn, ph, alpha, pitch){
+  if (alpha <= 0) return;
+  const s = u.size;
+  ctx.save();
+  ctx.globalAlpha = 0.26 * alpha;
+  ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.ellipse(x, y + 1.5, s * 0.5, s * 0.14, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(x, y);
+  const tx = turn === undefined ? 1 : turn;
+  ctx.scale(Math.sign(tx || 1) * Math.max(0.08, Math.abs(tx)), 1);
+  if (pitch){
+    ctx.translate(0, -s * 0.5);
+    ctx.rotate(pitch);
+    ctx.translate(0, s * 0.5);
+  }
+  ctx.scale(s, s);
+  touristBody(ctx, u, ph);
+  ctx.restore();
+}
+
 /* ---------- TOWERS ----------
    lv (0-3 upgrades bought) grows the pad and adds gold trim. */
 function drawTowerBase(ctx, x, y, key, selected, lv){

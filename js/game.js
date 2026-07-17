@@ -765,6 +765,7 @@ const G = {
   wave: 0, waveActive: false,
   cash: 0, lives: 0, maxLives: 0,
   dinos: [], towers: [], projs: [], fx: [], bolts: [], texts: [], corpses: [], decals: [],
+  tourists: [],             // fleeing visitors — pure theatre ahead of wave 1
   zapQ: [], links: [],      // pending tesla chain hops + residual dino-to-dino arcs
   spawnQ: [], spawnT: 0,
   speed: 1, paused: false,
@@ -1720,6 +1721,90 @@ function updateDinos(dt){
   G.dinos = G.dinos.filter(d => !d.dead && !d.leaked);
 }
 
+/* ---------------- the tourist evacuation ----------------
+   The moment wave 1 is counted in, the park's last visitors sprint the
+   path to the exit gate and off the map. Pure theatre: they can't be
+   targeted or hurt and always make it out — but every escape features
+   the same doomed-vacation ensemble, each panicking in their own way. */
+const TOURIST_YELLS = ['AAAAH!', 'RUN!!', 'NOPE NOPE NOPE!', 'WORST. TOUR. EVER!', 'TAXI!!!'];
+function spawnTourists(){
+  if (G.tourists.length || G.wave > 0) return;
+  const wp = G.level.waterPaths || [];
+  const pathI = Math.max(0, G.paths.findIndex((p, i) => !wp.includes(i)));
+  const skins = ['#f2cba2', '#eab58a', '#cf9563', '#a9714b', '#7c4f31', '#5b3a24'];
+  const shirts = ['#f2a63b', '#3f9e63', '#4a83c4', '#8e5fc9', '#efe6d3', '#e86fa4', '#54c8c0', '#d8d84a'];
+  const bottoms = ['#3a4a63', '#5d6b52', '#8a6f4a', '#474747', '#7a4a5f', '#b8b09a'];
+  const hairs = ['#241a10', '#4a2f1a', '#7a4a22', '#b98a3f', '#ddcda6', '#8b8b8b', '#b04a2a'];
+  const hats = ['#efe6cd', '#c4433b', '#3f6fae', '#7a6a4f', '#4a8a52'];
+  const pick = a => a[(Math.random() * a.length) | 0];
+  const cast = [ // fastest up front, stragglers at the back
+    {arms: 'pump', hairStyle: 'pony', hat: 'visor', bottomType: 'shorts', speed: 150, size: 13, tall: 1.04, build: 0.88},                // the jogger — training pays off
+    {arms: 'flail', hairStyle: 'pig', kid: true, balloon: true, bottomType: 'shorts', speed: 134, size: 9.5, tall: 0.9, build: 0.95, yell: 'MOMMYYY!'},
+    {arms: 'hathold', hairStyle: 'short', hat: 'cap', bottomType: 'pants', speed: 128, size: 13.5, tall: 1, build: 1, hatLoss: true},    // loses it anyway
+    {arms: 'camera', hairStyle: 'bob', glasses: true, bottomType: 'skirt', speed: 124, size: 13, tall: 0.98, build: 0.92, camera: true, yell: 'STILL ROLLING!!'},
+    {arms: 'clutch', hairStyle: 'curls', pack: 'backpack', bottomType: 'shorts', speed: 120, size: 13.5, tall: 1.02, build: 1.02},
+    {arms: 'flail', hairStyle: 'long', hat: 'sun', bottomType: 'skirt', speed: 117, size: 13.2, tall: 1.02, build: 0.9},
+    {arms: 'pump', hairStyle: 'bun', hat: 'safari', camera: true, pack: 'fanny', bottomType: 'shorts', speed: 113, size: 14, tall: 1, build: 1.08},
+    {arms: 'flail', hairStyle: 'bald', glasses: true, floral: true, belly: true, bottomType: 'shorts', speed: 107, size: 15, tall: 0.95, build: 1.25, yell: 'WAIT FOR MEEEE!'},
+  ];
+  G.tourists = cast.map((c, i) => Object.assign({
+    pathI, dist: -14 - i * 32 - rand(0, 14), speed: 0,
+    phase: rand(0, 6.3), stride: (c.kid ? 15.5 : 12.5) + rand(-1, 1),
+    turn: 1, dirT: 1, pitch: 0, px: -200, py: -200,
+    lean: rand(0.1, 0.2),
+    skin: pick(skins), shirt: c.floral ? '#e8574f' : pick(shirts),
+    bottom: pick(bottoms), hairC: pick(hairs), hatC: pick(hats),
+    packC: pick(shirts), balloonC: '#e33b3b',
+    lookEvery: rand(1.4, 3), lookT: -rand(0, 2),
+    yell: pick(TOURIST_YELLS), yellAt: Math.random() < 0.75 ? rand(0.18, 0.72) : -1,
+    hatAt: c.hatLoss ? rand(0.35, 0.6) : -1, lastStep: 0,
+  }, c, {speed: c.speed + rand(-4, 4)}));
+  const p0 = samplePath(G.paths[pathI], 8);
+  addText(p0.x + 34, p0.y - 38, '😱 The last visitors flee!', '#ffd9a8', 14);
+}
+function updateTourists(dt){
+  if (!G.tourists.length) return;
+  for (const u of G.tourists){
+    const path = G.paths[u.pathI];
+    // uneven, panicked pace — everyone surges and falters out of sync
+    u.dist += u.speed * (1 + 0.1 * Math.sin(G.time * 2.1 + u.phase * 5)) * dt;
+    u.phase += dt * u.stride;
+    if (u.dist < 0){ u.px = -200; u.py = -200; continue; } // still streaming out of the gate
+    u.lookT -= dt;                                         // terrified glances backward
+    if (u.lookT < -u.lookEvery) u.lookT = 0.42;
+    let pp;
+    if (u.dist <= path.len) pp = samplePath(path, u.dist);
+    else { // keep sprinting straight on, off the map edge
+      const sg = path.segs[path.segs.length - 1];
+      pp = {x: sg.b.x + Math.cos(sg.ang) * (u.dist - path.len),
+            y: sg.b.y + Math.sin(sg.ang) * (u.dist - path.len), ang: sg.ang};
+    }
+    // face and pitch onto the travel direction, like the dinosaurs
+    const cosA = Math.cos(pp.ang);
+    if (Math.abs(cosA) > 0.15) u.dirT = cosA > 0 ? 1 : -1;
+    u.turn += clamp(u.dirT - u.turn, -dt * 9, dt * 9);
+    let pitchT = u.dirT > 0 ? pp.ang : Math.PI - pp.ang;
+    while (pitchT > Math.PI) pitchT -= Math.PI * 2;
+    while (pitchT < -Math.PI) pitchT += Math.PI * 2;
+    u.pitch += clamp(pitchT - u.pitch, -dt * 4, dt * 4);
+    u.px = pp.x; u.py = pp.y;
+    // one-shot gags on the way through
+    const frac = u.dist / path.len;
+    if (u.yellAt >= 0 && frac >= u.yellAt){ u.yellAt = -1; addText(pp.x, pp.y - 34, u.yell, '#ffe2ae', 13); }
+    if (u.hatAt >= 0 && frac >= u.hatAt){
+      u.hatAt = -1; u.hatLost = true; u.arms = 'flail'; // both hands free to panic properly
+      if (G.fx.length < 340) G.fx.push({kind: 'losthat', x: pp.x, y: pp.y - u.size * 1.5, t: 0, dur: 1.6, r: u.size, color: u.hatC, seed: rand(0, 6)});
+      addText(pp.x, pp.y - 34, 'MY HAT!!', '#ffe2ae', 13);
+    }
+    // the heaviest runner kicks up little dust scuffs
+    if (u.build >= 1.2){
+      const stepNow = Math.floor(u.phase / Math.PI);
+      if (stepNow !== u.lastStep){ u.lastStep = stepNow; addFx('step', pp.x - 6, pp.y + 1, 5); }
+    }
+  }
+  G.tourists = G.tourists.filter(u => u.dist < G.paths[u.pathI].len + 110);
+}
+
 /* ---------------- wave flow ---------------- */
 /* rush bonus: calling the next wave early (manually) pays out the seconds you
    didn't wait — the countdown starts the moment the previous wave clears */
@@ -1839,6 +1924,7 @@ function startLevel(idx, mode, diff){
   G.hurtT = 0; G.flashT = 0; G.waveTotal = 0; G.cinT = 0;
   initAmbient();
   G.dinos = []; G.projs = []; G.fx = []; G.bolts = []; G.texts = []; G.spawnQ = []; G.corpses = []; G.decals = [];
+  G.tourists = [];
   G.zapQ = []; G.links = []; G.thunderT = 0;
   G.selected = null; G.placing = null; G.targeting = null; G.strikes = []; G.clouds = []; G.omega = null;
   G.celebration = null; G.fw = [];
@@ -2028,9 +2114,11 @@ function placeTower(key, x, y, force){
   SFX.build();
   addFx('ring', x, y, 10);
   if (!force) track('weapon_built', {weapon: key});
-  // onboarding: the moment the very first weapon is down, count wave 1 in
+  // onboarding: the moment the very first weapon is down, count wave 1 in —
+  // and the park's last visitors make a break for the exit
   if (G.wave === 0 && !G.waveActive && !G.over && G.towers.length === 1 && !(G.autoTimer > 0)){
     G.autoTimer = FIRST_WAVE_DELAY;
+    spawnTourists();
   }
   saveRun();
   updateHUD();
@@ -3367,6 +3455,7 @@ function step(dt){
   for (const t of G.towers) fireTower(t, dt);
   runZapQ(dt);
   updateDinos(dt);
+  updateTourists(dt);
   updateProjs(dt);
   updateStrikes(dt);
   updateClouds(dt);
@@ -3694,6 +3783,7 @@ function render(dt){
   const stormy = G.towers.filter(z => z.key === 'tesla' && (z.ulv || 0) >= (TOWERS.tesla.maxUp || 2));
   for (const t of G.towers) depth.push({y: t.y + 12, t});
   for (const d of ground) depth.push({y: dinoPos(d).y, d});
+  for (const u of G.tourists) if (u.dist > -1) depth.push({y: u.py, u});
   depth.sort((a, b) => a.y - b.y);
   for (const it of depth){
     if (it.t){
@@ -3717,8 +3807,11 @@ function render(dt){
           ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex + rand(-3, 3), ey - rand(2, 5)); ctx.stroke();
         }
       }
-    } else {
+    } else if (it.d){
       drawOne(it.d);
+    } else { // a fleeing visitor (fades out as they clear the map edge)
+      const u = it.u, over = u.dist - G.paths[u.pathI].len;
+      drawTourist(ctx, u, u.px, u.py, u.turn, u.phase, clamp(1 - Math.max(0, over - 30) / 50, 0, 1), u.pitch);
     }
   }
 
@@ -4551,6 +4644,17 @@ function render(dt){
           ctx.fill();
         }
         break;
+      case 'losthat': { // a tourist's cap, blown off — tumbles back and settles
+        const hx = f.x - k * 52, hy = f.y - Math.sin(Math.min(1, k * 1.45) * Math.PI) * 30 + k * k * 34;
+        ctx.save();
+        ctx.globalAlpha = clamp(1 - (k - 0.72) / 0.28, 0, 1);
+        ctx.translate(hx, hy); ctx.rotate(f.seed + k * 7.5);
+        const hr = f.r * 0.5;
+        ctx.fillStyle = f.color;
+        ctx.beginPath(); ctx.arc(0, 0, hr, Math.PI, Math.PI * 2); ctx.fill();
+        ctx.fillRect(-hr * 1.7, -hr * 0.16, hr * 1.7, hr * 0.32);
+        ctx.restore(); break;
+      }
     }
   }
 
@@ -5392,6 +5496,10 @@ if (testParams.has('test')){
       if (testParams.has('armsell')) armOrSell(); // exercise the sell-confirm look
       G.paused = true;
     }, 60);
+  }
+  if (testParams.has('tour')){ // stage the tourist evacuation for screenshots
+    G.towers = [];             // clean field — the demo towers just clutter the shot
+    spawnTourists();
   }
   if (testParams.has('ghost')){ // preview the range indicator that follows a placement drag
     G.placing = testParams.get('ghost') !== '1' ? testParams.get('ghost') : 'missile';
