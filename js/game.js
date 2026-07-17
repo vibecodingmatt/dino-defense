@@ -3004,6 +3004,56 @@ function drawMenuTourist(ctx, tr){
   lk.lookT = tr.fate !== 'safe' && Math.sin(G.time * 2.4 + lk.phase * 3) > 0.45 ? 0.3 : 0;
   drawTourist(ctx, lk, tr.x, tr.y, tr.dir, tr.phase, tr.alpha, 0);
 }
+/* comic speech bubble floating over a cameo's head (menu canvas space) */
+const MENU_LINES = {nedry: "Ah, Ah, Ah!\nYou didn't say the magic word!", hammond: "We spared no expense!"};
+function drawMenuBubble(ctx, tr, w){
+  const text = MENU_LINES[tr.hero];
+  if (!text) return;
+  const hs = (tr.look && tr.look.size) || tr.size * 0.58;
+  const fs = clamp(Math.round(hs * 0.52), 11, 14);
+  ctx.save();
+  ctx.font = `600 ${fs}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+  ctx.textBaseline = 'top';
+  const maxW = 150, lines = [];
+  for (const para of text.split('\n')){          // wrap, honoring explicit breaks
+    let line = '';
+    for (const word of para.split(' ')){
+      const test = line ? line + ' ' + word : word;
+      if (ctx.measureText(test).width > maxW && line){ lines.push(line); line = word; }
+      else line = test;
+    }
+    lines.push(line);
+  }
+  const lh = fs * 1.25, padX = 9, padY = 6;
+  let tw = 0;
+  for (const l of lines) tw = Math.max(tw, ctx.measureText(l).width);
+  const bw = tw + padX * 2, bh = lines.length * lh + padY * 2;
+  const bob = Math.sin(G.time * 3 + tr.phase) * 1.8;
+  const tipX = tr.x, tipY = tr.y - hs * 1.9 + bob;           // just above the head
+  const bx = clamp(tipX - bw / 2, 4, w - bw - 4), by = tipY - 9 - bh;
+  const tailX = clamp(tipX, bx + 14, bx + bw - 14);
+  ctx.globalAlpha = tr.alpha;
+  // bubble body + downward tail, with a soft shadow so it reads on the dark menu
+  ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
+  ctx.fillStyle = '#f7f4ec';
+  const r = 7;
+  ctx.beginPath();
+  ctx.moveTo(bx + r, by);
+  ctx.arcTo(bx + bw, by, bx + bw, by + bh, r);
+  ctx.arcTo(bx + bw, by + bh, bx, by + bh, r);
+  ctx.lineTo(tailX + 7, by + bh);
+  ctx.lineTo(tailX, by + bh + 9);
+  ctx.lineTo(tailX - 7, by + bh);
+  ctx.arcTo(bx, by + bh, bx, by, r);
+  ctx.arcTo(bx, by, bx + bw, by, r);
+  ctx.closePath();
+  ctx.fill();
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+  ctx.fillStyle = '#20242c';
+  ctx.textAlign = 'center';
+  for (let i = 0; i < lines.length; i++) ctx.fillText(lines[i], bx + bw / 2, by + padY + i * lh);
+  ctx.restore();
+}
 function menuScene(dt){
   const m = $('#menu');
   if (!m || m.classList.contains('hidden')) return;
@@ -3132,6 +3182,10 @@ function menuScene(dt){
     const k = pf.t / pf.dur;
     ctx.fillStyle = `rgba(${pf.c || '150,25,18'},${0.8 * (1 - k)})`;
     ctx.beginPath(); ctx.arc(pf.x, pf.y, pf.r * (1 - k * 0.4), 0, Math.PI * 2); ctx.fill();
+  }
+  // celebrity one-liners float on top of everything, while they're still running
+  for (const tr of menuTourists){
+    if (tr.hero && !tr.caught && !tr.dead) drawMenuBubble(ctx, tr, w);
   }
   menuDinos = menuDinos.filter(d => d.x > -d.size * 3.2 && d.x < w + d.size * 3.2);
 }
