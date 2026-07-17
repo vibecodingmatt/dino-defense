@@ -718,6 +718,13 @@ const SFX = {
     sfxTone({type: 'sawtooth', f0: 900, f1: 380,  dur: 0.17, peak: 0.07, dist: true, wet: 0.35, a: 0.01, delay: 0.05});
     sfxNoise({dur: 0.13, peak: 0.06, type: 'bandpass', f0: 2600, f1: 1400, Q: 1.5, wet: 0.3});
   },
+  pteraWail(distant){ // the abduction: a huge piercing pterosaur scream.
+    // The distant version (heard before it's seen) is quiet and drowned in reverb.
+    const q = distant ? 0.3 : 1;
+    sfxTone({type: 'sawtooth', f0: 1650, f1: 460, dur: 0.85, peak: 0.15 * q, dist: true, wet: distant ? 0.85 : 0.5, a: 0.03});
+    sfxTone({type: 'sawtooth', f0: 2400, f1: 700, dur: 0.7,  peak: 0.06 * q, wet: 0.6, a: 0.02, delay: 0.06});
+    sfxNoise({dur: 0.7, peak: 0.07 * q, type: 'bandpass', f0: 3000, f1: 1100, Q: 2, wet: 0.6, a: 0.03});
+  },
   snarl(){ // mid predator: short guttural growl
     sfxTone({type: 'sawtooth', f0: 190, f1: 88, dur: 0.34, peak: 0.16, dist: true, wet: 0.4, tremF: 16, tremD: 0.5, a: 0.02});
     sfxNoise({dur: 0.32, peak: 0.09, type: 'bandpass', f0: 700, f1: 260, Q: 1, wet: 0.35, a: 0.02});
@@ -766,6 +773,7 @@ const G = {
   cash: 0, lives: 0, maxLives: 0,
   dinos: [], towers: [], projs: [], fx: [], bolts: [], texts: [], corpses: [], decals: [],
   tourists: [],             // fleeing visitors — pure theatre ahead of wave 1
+  snatch: null,             // the pteranodon abduction set piece (also theatre)
   zapQ: [], links: [],      // pending tesla chain hops + residual dino-to-dino arcs
   spawnQ: [], spawnT: 0,
   speed: 1, paused: false,
@@ -1738,14 +1746,14 @@ function spawnTourists(){
   const hats = ['#efe6cd', '#c4433b', '#3f6fae', '#7a6a4f', '#4a8a52'];
   const pick = a => a[(Math.random() * a.length) | 0];
   const cast = [ // fastest up front, stragglers at the back
-    {arms: 'pump', hairStyle: 'pony', hat: 'visor', bottomType: 'shorts', speed: 150, size: 13, tall: 1.04, build: 0.88},                // the jogger — training pays off
+    {arms: 'pump', hairStyle: 'pony', hat: 'visor', bottomType: 'shorts', speed: 150, size: 13, tall: 1.04, build: 0.88, skyYell: 'I HAVE A 10K SATURDAYYY!'},   // the jogger — training pays off
     {arms: 'flail', hairStyle: 'pig', kid: true, balloon: true, bottomType: 'shorts', speed: 134, size: 9.5, tall: 0.9, build: 0.95, yell: 'MOMMYYY!'},
-    {arms: 'hathold', hairStyle: 'short', hat: 'cap', bottomType: 'pants', speed: 128, size: 13.5, tall: 1, build: 1, hatLoss: true},    // loses it anyway
-    {arms: 'camera', hairStyle: 'bob', glasses: true, bottomType: 'skirt', speed: 124, size: 13, tall: 0.98, build: 0.92, camera: true, yell: 'STILL ROLLING!!'},
-    {arms: 'clutch', hairStyle: 'curls', pack: 'backpack', bottomType: 'shorts', speed: 120, size: 13.5, tall: 1.02, build: 1.02},
-    {arms: 'flail', hairStyle: 'long', hat: 'sun', bottomType: 'skirt', speed: 117, size: 13.2, tall: 1.02, build: 0.9},
-    {arms: 'pump', hairStyle: 'bun', hat: 'safari', camera: true, pack: 'fanny', bottomType: 'shorts', speed: 113, size: 14, tall: 1, build: 1.08},
-    {arms: 'flail', hairStyle: 'bald', glasses: true, floral: true, belly: true, bottomType: 'shorts', speed: 107, size: 15, tall: 0.95, build: 1.25, yell: 'WAIT FOR MEEEE!'},
+    {arms: 'hathold', hairStyle: 'short', hat: 'cap', bottomType: 'pants', speed: 128, size: 13.5, tall: 1, build: 1, hatLoss: true, skyYell: 'ONE STAR!! ONE STARRR!!'},
+    {arms: 'camera', hairStyle: 'bob', glasses: true, bottomType: 'skirt', speed: 124, size: 13, tall: 0.98, build: 0.92, camera: true, yell: 'STILL ROLLING!!', skyYell: 'WHAT AN ANGLE!! AAAAH!'},
+    {arms: 'clutch', hairStyle: 'curls', pack: 'backpack', bottomType: 'shorts', speed: 120, size: 13.5, tall: 1.02, build: 1.02, skyYell: 'TAKE THE BACKPACK INSTEADDD!'},
+    {arms: 'flail', hairStyle: 'long', hat: 'sun', bottomType: 'skirt', speed: 117, size: 13.2, tall: 1.02, build: 0.9, skyYell: 'THIS WAS A 5-STAR RESORTTT!'},
+    {arms: 'pump', hairStyle: 'bun', hat: 'safari', camera: true, pack: 'fanny', bottomType: 'shorts', speed: 113, size: 14, tall: 1, build: 1.08, skyYell: 'HONEY START THE JEEEEEP!'},
+    {arms: 'flail', hairStyle: 'bald', glasses: true, floral: true, belly: true, bottomType: 'shorts', speed: 107, size: 15, tall: 0.95, build: 1.25, yell: 'WAIT FOR MEEEE!', skyYell: 'I SHOULD\'VE BOOKED THE BEACHHH!'},
   ];
   G.tourists = cast.map((c, i) => Object.assign({
     pathI, dist: -14 - i * 32 - rand(0, 14), speed: 0,
@@ -1759,6 +1767,9 @@ function spawnTourists(){
     yell: pick(TOURIST_YELLS), yellAt: Math.random() < 0.75 ? rand(0.18, 0.72) : -1,
     hatAt: c.hatLoss ? rand(0.35, 0.6) : -1, lastStep: 0,
   }, c, {speed: c.speed + rand(-4, 4)}));
+  // fate marks one adult for the pteranodon (never the kid — we're not monsters)
+  const adults = G.tourists.filter(u => !u.kid);
+  adults[(Math.random() * adults.length) | 0].snatchAt = rand(0.3, 0.48);
   const p0 = samplePath(G.paths[pathI], 8);
   addText(p0.x + 34, p0.y - 38, '😱 The last visitors flee!', '#ffd9a8', 14);
 }
@@ -1790,6 +1801,7 @@ function updateTourists(dt){
     u.px = pp.x; u.py = pp.y;
     // one-shot gags on the way through
     const frac = u.dist / path.len;
+    if (u.snatchAt > 0 && frac >= u.snatchAt && !G.snatch) beginSnatch(u);
     if (u.yellAt >= 0 && frac >= u.yellAt){ u.yellAt = -1; addText(pp.x, pp.y - 34, u.yell, '#ffe2ae', 13); }
     if (u.hatAt >= 0 && frac >= u.hatAt){
       u.hatAt = -1; u.hatLost = true; u.arms = 'flail'; // both hands free to panic properly
@@ -1803,6 +1815,125 @@ function updateTourists(dt){
     }
   }
   G.tourists = G.tourists.filter(u => u.dist < G.paths[u.pathI].len + 110);
+}
+
+/* ---------------- the abduction ----------------
+   Mid-evacuation, a huge pteranodon takes one of the visitors. Pure
+   set-piece drama with a comedy chaser: an unseen shape sweeps the
+   field (omen), dives, snatches its mark clean off the path, and
+   powers up and away while they air-run, kick and heckle from the
+   talons. Costs no lives, counts as nothing — the victim is merely
+   redistributed. Phases: omen → dive → grab → carry. */
+function beginSnatch(u){
+  u.snatchAt = -1;
+  G.snatch = {phase: 'omen', t: 0, u, dir: u.dirT >= 0 ? 1 : -1, size: 46,
+              ph: rand(0, 6), spread: 1, talon: 0, x: 0, y: -300, gy: u.py, yellQ: []};
+  SFX.pteraWail(true);            // heard long before it's seen
+  addFx('birds', u.px - 190, u.py - 40, 10);
+  addFx('birds', u.px + 210, u.py - 70, 10);
+}
+function updateSnatch(dt){
+  const s = G.snatch;
+  if (!s) return;
+  s.t += dt;
+  s.ph += dt * (s.phase === 'dive' ? 3 : 11); // stiff-winged dive, laboured climb
+  const v = s.u;
+  if (s.phase === 'omen'){
+    if (s.t >= 1.5){
+      s.phase = 'dive'; s.t = 0;
+      s.sx = v.px - s.dir * 640; s.sy = v.py - 430;   // plummets in from high behind
+      s.gy = v.py;
+      SFX.pteraWail(false);
+      G.shake = Math.max(G.shake, 2);
+    }
+    return;
+  }
+  if (s.phase === 'dive'){
+    const k = Math.min(1, s.t / 1.05), e = k * k * (3 - 2 * k);
+    // home on the running victim; the arc sags, bottoms out, and meets them
+    s.x = s.sx + (v.px - s.sx) * e;
+    s.y = s.sy + (v.py - v.size * 1.9 - s.sy) * e + Math.sin(e * Math.PI) * 70;
+    s.gy = v.py;
+    s.spread = k < 0.65 ? 0.2 : (k - 0.65) / 0.35;    // wings tucked, then flared to brake
+    s.talon = clamp((k - 0.5) / 0.4, 0, 1);
+    if (k >= 1){
+      s.phase = 'grab'; s.t = 0;
+      G.tourists = G.tourists.filter(t2 => t2 !== v); // off the ground, into the talons
+      v.lean = 0; v.arms = 'flail';
+      if (v.hat && !v.hatLost){                       // the hat stays behind, obviously
+        v.hatLost = true;
+        G.fx.push({kind: 'losthat', x: v.px, y: v.py - v.size * 1.5, t: 0, dur: 1.6, r: v.size, color: v.hatC, seed: rand(0, 6)});
+      }
+      addFx('dust', v.px, v.py + 2, 18);
+      G.shake = Math.max(G.shake, 5);
+      G.thunderT = Math.max(G.thunderT, 0.22);        // the island blinks dark for a beat
+      sfxNoise({dur: 0.4, peak: 0.12, type: 'lowpass', f0: 900, f1: 180, wet: 0.3}); // wing thump
+      addText(v.px, v.py - 52, v.skyYell || 'PUT ME DOWNNN!!', '#ffe2ae', 14);
+      // the survivors: a burst of speed, horrified glances, and a eulogy
+      for (const t2 of G.tourists){ t2.speed *= 1.18; t2.lookT = 0.6; }
+      const rest = G.tourists.filter(t2 => t2.dist > -1);
+      if (rest.length){
+        const a = rest[(Math.random() * rest.length) | 0];
+        s.yellQ.push({in: 0.8, u: a, txt: "IT'S GOT DAVE!!"});
+        const others = rest.filter(t2 => t2 !== a);
+        if (others.length) s.yellQ.push({in: 1.7, u: others[(Math.random() * others.length) | 0], txt: 'WHO IS DAVE??'});
+      }
+    }
+  } else if (s.phase === 'grab'){
+    s.spread = 1; s.talon = 1;
+    if (s.t >= 0.3){ s.phase = 'carry'; s.t = 0; s.vx = s.dir * 70; s.vy = -40; }
+  } else if (s.phase === 'carry'){
+    s.vx += s.dir * 130 * dt;
+    s.vy -= 150 * dt;
+    s.x += s.vx * dt; s.y += s.vy * dt;
+    if (!s.shoe && s.t > 0.55){ // the punchline rains down
+      s.shoe = true;
+      G.fx.push({kind: 'shoe', x: s.x + s.dir * 6, y: s.y + s.size * 0.9, gy: s.gy + 8, t: 0, dur: 3.4, seed: rand(0, 6)});
+    }
+    if (!s.hotel && s.t > 1.3){
+      s.hotel = true;
+      addText(clamp(s.x, 130, W - 130), Math.max(60, s.y + s.size), 'I CAN SEE OUR HOTEL FROM HEREEE!', '#ffe2ae', 13);
+    }
+    if (s.y < -90 || s.x < -170 || s.x > W + 170){ G.snatch = null; return; }
+  }
+  // victim theatrics while airborne: cartoon air-running, head whipping around
+  if (s.phase === 'grab' || s.phase === 'carry'){
+    v.phase += dt * 26;
+    v.lookT = Math.sin(s.t * 4.5) > 0 ? 0.3 : 0;
+  }
+  // deferred survivor one-liners
+  for (const q of s.yellQ){
+    if (q.done) continue;
+    q.in -= dt;
+    if (q.in <= 0){ q.done = true; if (G.tourists.includes(q.u)) addText(q.u.px, q.u.py - 36, q.txt, '#ffe2ae', 13); }
+  }
+}
+/* drawn above the flyers — this is the show */
+function drawSnatch(ctx){
+  const s = G.snatch;
+  if (!s) return;
+  if (s.phase === 'omen'){ // a vast shadow sweeps the field; the shape stays unseen
+    const k = s.t / 1.5, v = s.u;
+    const sx = v.px - s.dir * (1 - k * 2) * 680, sy = v.py - 46 + Math.sin(k * 9) * 26;
+    const g = ctx.createRadialGradient(sx, sy, 10, sx, sy, 210);
+    g.addColorStop(0, 'rgba(8,10,6,0.34)'); g.addColorStop(1, 'rgba(8,10,6,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.ellipse(sx, sy, 215, 66, 0, 0, Math.PI * 2); ctx.fill();
+    return;
+  }
+  // ground shadow shrinks and fades with altitude
+  const alt = clamp((s.gy - s.y) / 540, 0, 1);
+  ctx.fillStyle = `rgba(0,0,0,${0.3 * (1 - alt * 0.75)})`;
+  ctx.beginPath();
+  ctx.ellipse(s.x, s.gy + 2, s.size * (1.15 - alt * 0.65), s.size * 0.26 * (1.15 - alt * 0.65), 0, 0, Math.PI * 2);
+  ctx.fill();
+  // the cargo, dangling from the talons (drawn first so wings overlap)
+  if (s.phase !== 'dive'){
+    const v = s.u;
+    const vy = s.y + s.size * 0.72 + 1.27 * v.tall * v.size + Math.sin(s.t * 6) * 2;
+    drawTourist(ctx, v, s.x + s.dir * 2, vy, s.dir, v.phase, 1, 0, true);
+  }
+  drawSnatcher(ctx, s);
 }
 
 /* ---------------- wave flow ---------------- */
@@ -1927,7 +2058,7 @@ function startLevel(idx, mode, diff){
   G.hurtT = 0; G.flashT = 0; G.waveTotal = 0; G.cinT = 0;
   initAmbient();
   G.dinos = []; G.projs = []; G.fx = []; G.bolts = []; G.texts = []; G.spawnQ = []; G.corpses = []; G.decals = [];
-  G.tourists = [];
+  G.tourists = []; G.snatch = null;
   G.zapQ = []; G.links = []; G.thunderT = 0;
   G.selected = null; G.placing = null; G.targeting = null; G.strikes = []; G.clouds = []; G.omega = null;
   G.celebration = null; G.fw = [];
@@ -3459,6 +3590,7 @@ function step(dt){
   runZapQ(dt);
   updateDinos(dt);
   updateTourists(dt);
+  updateSnatch(dt);
   updateProjs(dt);
   updateStrikes(dt);
   updateClouds(dt);
@@ -4658,6 +4790,24 @@ function render(dt){
         ctx.fillRect(-hr * 1.7, -hr * 0.16, hr * 1.7, hr * 0.32);
         ctx.restore(); break;
       }
+      case 'shoe': { // a lone flip-flop, returned to earth from a great height
+        const landT = Math.sqrt(Math.max(0.05, (f.gy - f.y) / 380));
+        let yy, rot;
+        if (f.t < landT){ yy = f.y + 380 * f.t * f.t; rot = f.seed + f.t * 9; }
+        else { // one small bounce, then at rest
+          const bt = f.t - landT;
+          yy = f.gy - Math.max(0, Math.sin(Math.min(bt * 7, Math.PI)) * 8 * Math.max(0, 1 - bt * 1.8));
+          rot = f.seed + landT * 9 + Math.min(bt * 2, 0.5);
+        }
+        ctx.save();
+        ctx.globalAlpha = clamp((1 - k) * 4, 0, 1);
+        ctx.translate(f.x, yy); ctx.rotate(rot);
+        ctx.fillStyle = '#e8a13f'; // the sole
+        ctx.beginPath(); ctx.ellipse(0, 0, 6.5, 3, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#b5502e'; ctx.lineWidth = 1.2; // toe straps
+        ctx.beginPath(); ctx.moveTo(3.5, -1.8); ctx.lineTo(0.5, 0); ctx.lineTo(3.5, 1.8); ctx.stroke();
+        ctx.restore(); break;
+      }
     }
   }
 
@@ -4667,6 +4817,9 @@ function render(dt){
 
   // flyers on top
   air.forEach(drawOne);
+
+  // the pteranodon abduction plays out above even the flyers
+  drawSnatch(ctx);
 
   // Omega stomps over everything — it's the star of the show
   drawOmega(ctx);
@@ -5503,6 +5656,14 @@ if (testParams.has('test')){
   if (testParams.has('tour')){ // stage the tourist evacuation for screenshots
     G.towers = [];             // clean field — the demo towers just clutter the shot
     spawnTourists();
+  }
+  if (testParams.has('snatch')){ // stage the abduction: mark a specific/early victim
+    G.towers = [];
+    spawnTourists();
+    for (const u of G.tourists) u.snatchAt = -1;
+    const idx = clamp(parseInt(testParams.get('snatch'), 10) || 0, 0, G.tourists.length - 1);
+    const mk = G.tourists[idx].kid ? G.tourists[2] : G.tourists[idx];
+    mk.snatchAt = 0.12;
   }
   if (testParams.has('ghost')){ // preview the range indicator that follows a placement drag
     G.placing = testParams.get('ghost') !== '1' ? testParams.get('ghost') : 'missile';

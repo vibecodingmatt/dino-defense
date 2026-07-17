@@ -1100,15 +1100,18 @@ function touristBody(ctx, u, ph){
 }
 
 /* Draws a tourist at world position — mirrors drawDino's contract
-   (turn flip, pitch onto vertical path legs, ground shadow). */
-function drawTourist(ctx, u, x, y, turn, ph, alpha, pitch){
+   (turn flip, pitch onto vertical path legs, ground shadow).
+   `airborne` skips the ground shadow — for anyone travelling by talon. */
+function drawTourist(ctx, u, x, y, turn, ph, alpha, pitch, airborne){
   if (alpha <= 0) return;
   const s = u.size;
-  ctx.save();
-  ctx.globalAlpha = 0.26 * alpha;
-  ctx.fillStyle = '#000';
-  ctx.beginPath(); ctx.ellipse(x, y + 1.5, s * 0.5, s * 0.14, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.restore();
+  if (!airborne){
+    ctx.save();
+    ctx.globalAlpha = 0.26 * alpha;
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.ellipse(x, y + 1.5, s * 0.5, s * 0.14, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.translate(x, y);
@@ -1121,6 +1124,78 @@ function drawTourist(ctx, u, x, y, turn, ph, alpha, pitch){
   }
   ctx.scale(s, s);
   touristBody(ctx, u, ph);
+  ctx.restore();
+}
+
+/* ---------- THE PTERANODON (abduction set piece) ----------
+   A huge dark pterosaur for the wave-1 evacuation gag. Drawn in world
+   space at (o.x, o.y) — its BODY position — facing o.dir. `spread`
+   opens the wings (0 = swept dive tuck, 1 = full flare), `talon`
+   extends the legs from tucked to reaching. Deep slate hide, blood-red
+   crest, burning eye: serious monster, comedic cargo. */
+function drawSnatcher(ctx, o){
+  const s = o.size, flap = Math.sin(o.ph * 2.2) * (0.35 + o.spread * 0.75);
+  const body = '#332e3d', belly = '#59525f', crest = '#8a2430';
+  const span = 0.85 + o.spread * 0.45;
+  ctx.save();
+  ctx.translate(o.x, o.y);
+  ctx.rotate((o.bank || 0) * o.dir);
+  ctx.scale(o.dir * s, s);
+  // far wing membrane
+  ctx.fillStyle = shade(body, -0.32);
+  ctx.beginPath();
+  ctx.moveTo(-0.05, 0);
+  ctx.quadraticCurveTo(-0.55 * span, -0.28 - flap * 0.55, -1.35 * span, -0.18 - flap * 0.95);
+  ctx.quadraticCurveTo(-0.6 * span, 0.2, -0.05, 0.13);
+  ctx.closePath(); ctx.fill();
+  // body + belly
+  ctx.fillStyle = body;
+  ctx.beginPath(); ctx.ellipse(0, 0, 0.5, 0.17, -0.08, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = belly;
+  ctx.beginPath(); ctx.ellipse(0.03, 0.07, 0.34, 0.08, -0.08, 0, Math.PI * 2); ctx.fill();
+  // head: swept blood-red crest + spear of a beak
+  ctx.fillStyle = body;
+  ctx.beginPath(); ctx.ellipse(0.52, -0.15, 0.16, 0.11, 0.1, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(0.58, -0.22); ctx.lineTo(1.18, -0.02); ctx.lineTo(0.56, 0); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = crest;
+  ctx.beginPath(); ctx.moveTo(0.5, -0.24);
+  ctx.quadraticCurveTo(0.2, -0.5, -0.08, -0.62);
+  ctx.quadraticCurveTo(0.3, -0.34, 0.56, -0.12);
+  ctx.closePath(); ctx.fill();
+  // burning eye
+  const pulse = 0.7 + 0.3 * Math.sin(o.ph * 2.5);
+  const eg = ctx.createRadialGradient(0.53, -0.17, 0.005, 0.53, -0.17, 0.11);
+  eg.addColorStop(0, `rgba(255,70,45,${0.9 * pulse})`);
+  eg.addColorStop(1, 'rgba(255,70,45,0)');
+  ctx.fillStyle = eg;
+  ctx.beginPath(); ctx.arc(0.53, -0.17, 0.11, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = `rgba(255,95,60,${pulse})`;
+  ctx.beginPath(); ctx.arc(0.53, -0.17, 0.035, 0, Math.PI * 2); ctx.fill();
+  // talons — tucked in flight, reaching for the grab
+  ctx.strokeStyle = shade(body, -0.22); ctx.lineCap = 'round';
+  for (const lx of [-0.12, 0.06]){
+    const reach = 0.16 + o.talon * 0.42;
+    const kx = lx + 0.08 + o.talon * 0.05, ky = 0.14 + reach * 0.55;
+    const fx = lx + 0.16, fy = 0.14 + reach;
+    ctx.lineWidth = 0.055;
+    ctx.beginPath(); ctx.moveTo(lx, 0.1); ctx.lineTo(kx, ky); ctx.lineTo(fx, fy); ctx.stroke();
+    ctx.lineWidth = 0.04; // claw hooks
+    ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx + 0.09, fy + 0.07 + o.talon * 0.03); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx - 0.07, fy + 0.08 + o.talon * 0.03); ctx.stroke();
+  }
+  // near wing membrane + finger spars
+  ctx.fillStyle = shade(body, 0.07);
+  ctx.beginPath();
+  ctx.moveTo(0.06, -0.05);
+  ctx.quadraticCurveTo(-0.4 * span, -0.42 - flap * 0.62, -1.2 * span, -0.4 - flap * 1.05);
+  ctx.quadraticCurveTo(-0.5 * span, 0.12, 0.06, 0.1);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = shade(body, -0.15); ctx.lineWidth = 0.028;
+  for (const q of [0.45, 0.75]){
+    ctx.beginPath(); ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(-0.5 * span * q, (-0.35 - flap * 0.7) * q, -1.15 * span * q, (-0.38 - flap * 1.0) * q);
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
