@@ -1825,6 +1825,9 @@ function waveSummary(q){
 }
 function startWave(){
   if (G.waveActive || G.over) return;
+  // manual wave-1 start (button/Space) skips the countdown — the visitors
+  // still get their head start (no-op if the countdown already sent them)
+  if (G.wave === 0) spawnTourists();
   G.wave++;
   if (cheatsActive()) G.runCheated = true; // latch: cheating any wave forfeits this run's trophies
   G.waveLeaked = false; // fresh clean-wave chance for the streak
