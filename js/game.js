@@ -1516,9 +1516,9 @@ function addFx(kind, x, y, r, ang){
   G.fx.push({kind, x, y, r, ang: ang || 0, t: 0, seed: Math.random() * 9,
              dur: kind === 'sonic' ? 0.5 : kind === 'boom' ? 0.45 : kind === 'airburst' ? 0.55 : kind === 'frost' ? 0.5 : kind === 'flame' ? 0.22 : kind === 'gaspuff' ? 0.55 : kind === 'ring' ? 0.8 : kind === 'dust' ? 0.9 : kind === 'step' ? 0.45 : kind === 'shock' ? 0.9 : kind === 'birds' ? 1.4 : kind === 'zap' ? 0.26 : 0.3});
 }
-function addText(x, y, txt, color, size){
+function addText(x, y, txt, color, size, dur){
   if (G.texts.length > 40) return;
-  G.texts.push({x, y, txt, color, size: size || 15, t: 0});
+  G.texts.push({x, y, txt, color, size: size || 15, t: 0, dur: dur || 1.4});
 }
 
 /* tiny cartoon dino silhouette shared by the kill gags — torso + tail +
@@ -1735,15 +1735,44 @@ function updateDinos(dt){
    targeted or hurt and always make it out — but every escape features
    the same doomed-vacation ensemble, each panicking in their own way. */
 const TOURIST_YELLS = ['AAAAH!', 'RUN!!', 'NOPE NOPE NOPE!', 'WORST. TOUR. EVER!', 'TAXI!!!'];
+const TOURIST_LOOKS = {
+  skins: ['#f2cba2', '#eab58a', '#cf9563', '#a9714b', '#7c4f31', '#5b3a24'],
+  shirts: ['#f2a63b', '#3f9e63', '#4a83c4', '#8e5fc9', '#efe6d3', '#e86fa4', '#54c8c0', '#d8d84a'],
+  bottoms: ['#3a4a63', '#5d6b52', '#8a6f4a', '#474747', '#7a4a5f', '#b8b09a'],
+  hairs: ['#241a10', '#4a2f1a', '#7a4a22', '#b98a3f', '#ddcda6', '#8b8b8b', '#b04a2a'],
+  hats: ['#efe6cd', '#c4433b', '#3f6fae', '#7a6a4f', '#4a8a52'],
+};
+/* a fully-randomized visitor look (the wave-1 cast is hand-picked; this is
+   for everyone else — the menu's doomed sprinters, mainly) */
+function randomTouristLook(size, noKid){
+  const P = TOURIST_LOOKS, pick = a => a[(Math.random() * a.length) | 0];
+  const kid = !noKid && Math.random() < 0.14;
+  const u = {
+    size: kid ? size * 0.72 : size, kid,
+    tall: kid ? rand(0.85, 0.95) : rand(0.94, 1.08),
+    build: kid ? rand(0.9, 1) : rand(0.85, 1.25),
+    lean: rand(0.1, 0.2), phase: rand(0, 6.3), lookT: 0,
+    skin: pick(P.skins), shirt: pick(P.shirts), bottom: pick(P.bottoms),
+    bottomType: pick(['shorts', 'shorts', 'pants', 'skirt']),
+    hairStyle: kid ? 'pig' : pick(['short', 'bob', 'pony', 'long', 'bun', 'curls', 'bald']),
+    hairC: pick(P.hairs),
+    hat: Math.random() < 0.45 ? pick(['cap', 'sun', 'safari', 'visor']) : null, hatC: pick(P.hats),
+    arms: pick(['flail', 'flail', 'pump', 'clutch']),
+    glasses: Math.random() < 0.2, camera: Math.random() < 0.2,
+    pack: Math.random() < 0.18 ? 'backpack' : Math.random() < 0.16 ? 'fanny' : null,
+    packC: pick(P.shirts),
+    belly: Math.random() < 0.22, floral: Math.random() < 0.15,
+    balloon: kid && Math.random() < 0.6, balloonC: '#e33b3b',
+  };
+  if (u.belly) u.build = Math.max(u.build, 1.15);
+  if (u.floral) u.shirt = '#e8574f';
+  return u;
+}
 function spawnTourists(){
   if (G.tourists.length || G.wave > 0) return;
   const wp = G.level.waterPaths || [];
   const pathI = Math.max(0, G.paths.findIndex((p, i) => !wp.includes(i)));
-  const skins = ['#f2cba2', '#eab58a', '#cf9563', '#a9714b', '#7c4f31', '#5b3a24'];
-  const shirts = ['#f2a63b', '#3f9e63', '#4a83c4', '#8e5fc9', '#efe6d3', '#e86fa4', '#54c8c0', '#d8d84a'];
-  const bottoms = ['#3a4a63', '#5d6b52', '#8a6f4a', '#474747', '#7a4a5f', '#b8b09a'];
-  const hairs = ['#241a10', '#4a2f1a', '#7a4a22', '#b98a3f', '#ddcda6', '#8b8b8b', '#b04a2a'];
-  const hats = ['#efe6cd', '#c4433b', '#3f6fae', '#7a6a4f', '#4a8a52'];
+  const {skins, shirts, bottoms, hairs, hats} = TOURIST_LOOKS;
   const pick = a => a[(Math.random() * a.length) | 0];
   const cast = [ // fastest up front, stragglers at the back
     {arms: 'pump', hairStyle: 'pony', hat: 'visor', bottomType: 'shorts', speed: 150, size: 13, tall: 1.04, build: 0.88, skyYell: 'I HAVE A 10K SATURDAYYY!'},   // the jogger — training pays off
@@ -1771,7 +1800,7 @@ function spawnTourists(){
   const adults = G.tourists.filter(u => !u.kid);
   adults[(Math.random() * adults.length) | 0].snatchAt = rand(0.3, 0.48);
   const p0 = samplePath(G.paths[pathI], 8);
-  addText(p0.x + 34, p0.y - 38, '😱 The last visitors flee!', '#ffd9a8', 14);
+  addText(p0.x + 34, p0.y - 38, '😱 The last visitors flee!', '#ffd9a8', 14, 2.4);
 }
 function updateTourists(dt){
   if (!G.tourists.length) return;
@@ -1781,6 +1810,15 @@ function updateTourists(dt){
     u.dist += u.speed * (1 + 0.1 * Math.sin(G.time * 2.1 + u.phase * 5)) * dt;
     u.phase += dt * u.stride;
     if (u.dist < 0){ u.px = -200; u.py = -200; continue; } // still streaming out of the gate
+    if (u.shock){ // rooted to the spot, spun around, staring straight up at it
+      u.shockT += dt;
+      u.phase += dt * 2.5;                                 // trembling half-steps
+      const bdir = G.snatch ? G.snatch.dir : 1;
+      u.turn += clamp(-bdir - u.turn, -dt * 9, dt * 9);    // whips round to face the thing
+      u.pitch += clamp(0 - u.pitch, -dt * 4, dt * 4);
+      u.lookT = 0;
+      continue;
+    }
     u.lookT -= dt;                                         // terrified glances backward
     if (u.lookT < -u.lookEvery) u.lookT = 0.42;
     let pp;
@@ -1802,11 +1840,11 @@ function updateTourists(dt){
     // one-shot gags on the way through
     const frac = u.dist / path.len;
     if (u.snatchAt > 0 && frac >= u.snatchAt && !G.snatch) beginSnatch(u);
-    if (u.yellAt >= 0 && frac >= u.yellAt){ u.yellAt = -1; addText(pp.x, pp.y - 34, u.yell, '#ffe2ae', 13); }
+    if (u.yellAt >= 0 && frac >= u.yellAt){ u.yellAt = -1; addText(pp.x, pp.y - 34, u.yell, '#ffe2ae', 13, 2.4); }
     if (u.hatAt >= 0 && frac >= u.hatAt){
       u.hatAt = -1; u.hatLost = true; u.arms = 'flail'; // both hands free to panic properly
       if (G.fx.length < 340) G.fx.push({kind: 'losthat', x: pp.x, y: pp.y - u.size * 1.5, t: 0, dur: 1.6, r: u.size, color: u.hatC, seed: rand(0, 6)});
-      addText(pp.x, pp.y - 34, 'MY HAT!!', '#ffe2ae', 13);
+      addText(pp.x, pp.y - 34, 'MY HAT!!', '#ffe2ae', 13, 2.4);
     }
     // the heaviest runner kicks up little dust scuffs
     if (u.build >= 1.2){
@@ -1856,8 +1894,13 @@ function updateSnatch(dt){
     s.gy = v.py;
     s.spread = k < 0.65 ? 0.2 : (k - 0.65) / 0.35;    // wings tucked, then flared to brake
     s.talon = clamp((k - 0.5) / 0.4, 0, 1);
+    if (k > 0.5 && !v.shock){ // the victim hears wingbeats... turns... and freezes
+      v.shock = true; v.shockT = 0; v.arms = 'clutch';
+      sfxTone({type: 'triangle', f0: 480, f1: 1050, dur: 0.2, peak: 0.05, wet: 0.35}); // a sharp little gasp
+    }
     if (k >= 1){
       s.phase = 'grab'; s.t = 0;
+      v.shock = false;                                // airborne now — back to screaming
       G.tourists = G.tourists.filter(t2 => t2 !== v); // off the ground, into the talons
       v.lean = 0; v.arms = 'flail';
       if (v.hat && !v.hatLost){                       // the hat stays behind, obviously
@@ -1868,7 +1911,7 @@ function updateSnatch(dt){
       G.shake = Math.max(G.shake, 5);
       G.thunderT = Math.max(G.thunderT, 0.22);        // the island blinks dark for a beat
       sfxNoise({dur: 0.4, peak: 0.12, type: 'lowpass', f0: 900, f1: 180, wet: 0.3}); // wing thump
-      addText(v.px, v.py - 52, v.skyYell || 'PUT ME DOWNNN!!', '#ffe2ae', 14);
+      addText(v.px, v.py - 52, v.skyYell || 'PUT ME DOWNNN!!', '#ffe2ae', 14, 2.4);
       // the survivors: a burst of speed, horrified glances, and a eulogy
       for (const t2 of G.tourists){ t2.speed *= 1.18; t2.lookT = 0.6; }
       const rest = G.tourists.filter(t2 => t2.dist > -1);
@@ -1892,7 +1935,7 @@ function updateSnatch(dt){
     }
     if (!s.hotel && s.t > 1.3){
       s.hotel = true;
-      addText(clamp(s.x, 130, W - 130), Math.max(60, s.y + s.size), 'I CAN SEE OUR HOTEL FROM HEREEE!', '#ffe2ae', 13);
+      addText(clamp(s.x, 130, W - 130), Math.max(60, s.y + s.size), 'I CAN SEE OUR HOTEL FROM HEREEE!', '#ffe2ae', 13, 2.4);
     }
     if (s.y < -90 || s.x < -170 || s.x > W + 170){ G.snatch = null; return; }
   }
@@ -1905,7 +1948,7 @@ function updateSnatch(dt){
   for (const q of s.yellQ){
     if (q.done) continue;
     q.in -= dt;
-    if (q.in <= 0){ q.done = true; if (G.tourists.includes(q.u)) addText(q.u.px, q.u.py - 36, q.txt, '#ffe2ae', 13); }
+    if (q.in <= 0){ q.done = true; if (G.tourists.includes(q.u)) addText(q.u.px, q.u.py - 36, q.txt, '#ffe2ae', 13, 2.4); }
   }
 }
 /* drawn above the flyers — this is the show */
@@ -2836,13 +2879,16 @@ function spawnMenuDino(w, h){
       const fate = r < 0.15 ? 'trip' : r < 0.37 ? 'doomed' : 'safe';
       // victims get a bigger head start so the chase plays out ON screen
       const ahead = (fate === 'safe' ? 2.2 : 4.2) + i * 1.2 + Math.random() * 0.8;
+      // full-fidelity look — same craft as the in-game evacuation cast
+      // (the doomed never roll a kid: nobody wants to watch that)
+      const look = randomTouristLook(d.size * 0.42 * 0.58, fate !== 'safe');
       menuTourists.push({
         x: d.x + dir * d.size * ahead,
         y: d.y + rand(-8, 6),
         vx: speed * (fate === 'doomed' ? rand(0.84, 0.93) : fate === 'trip' ? rand(0.96, 1.05) : rand(1.05, 1.28)) * dir,
         dir, size: d.size * 0.42, phase: rand(0, 6.28),
         fate, doomed: fate === 'doomed', tripT: fate === 'trip' ? rand(2.5, 5) : 0,
-        shirt: ['#c94f3e', '#3e7ac9', '#c9a03e', '#7ac93e', '#b04ac9'][(Math.random() * 5) | 0],
+        look, shirt: look.shirt,
         alpha: 0.85, prey: d,
       });
     }
@@ -2857,7 +2903,9 @@ function menuMouthPos(d, pitch){
 }
 /* the caught tourist, clamped sideways in the jaws, legs kicking */
 function drawMenuVictim(ctx, tr, m, dir){
-  const s = tr.size * 0.9;
+  const s = tr.size * 0.9, lk = tr.look || {};
+  const skin = lk.skin || '#e8c49a';
+  const legCol = lk.bottomType === 'pants' ? lk.bottom : skin;
   ctx.save();
   ctx.translate(m.x, m.y);
   ctx.scale(dir, 1);
@@ -2865,80 +2913,40 @@ function drawMenuVictim(ctx, tr, m, dir){
   ctx.lineCap = 'round';
   ctx.strokeStyle = tr.shirt; ctx.lineWidth = s * 0.2; // torso
   ctx.beginPath(); ctx.moveTo(-s * 0.1, 0); ctx.lineTo(s * 0.25, 0); ctx.stroke();
-  ctx.strokeStyle = '#262a32'; ctx.lineWidth = s * 0.1;
+  ctx.strokeStyle = legCol; ctx.lineWidth = s * 0.1;
   for (const off of [0, Math.PI]){                     // kicking legs
     const k = Math.sin(G.time * 22 + off) * 0.7;
     ctx.beginPath(); ctx.moveTo(-s * 0.1, 0);
     ctx.lineTo(-s * 0.35, -s * 0.2 * k); ctx.stroke();
   }
-  ctx.strokeStyle = '#e8c49a'; ctx.lineWidth = s * 0.08;
+  ctx.strokeStyle = skin; ctx.lineWidth = s * 0.08;
   for (const off of [0.6, Math.PI + 0.9]){             // arms flailing wildly
     const a = Math.sin(G.time * 19 + off) * 0.9;
     ctx.beginPath(); ctx.moveTo(s * 0.22, 0);
     ctx.lineTo(s * 0.22 + Math.cos(a) * s * 0.3, -Math.abs(Math.sin(a)) * s * 0.28 - s * 0.06);
     ctx.stroke();
   }
-  ctx.fillStyle = '#e8c49a';                           // head
+  ctx.fillStyle = skin;                                // head (their hat is long gone)
   ctx.beginPath(); ctx.arc(s * 0.36, 0, s * 0.12, 0, Math.PI * 2); ctx.fill();
+  if (lk.hairC && lk.hairStyle !== 'bald'){
+    ctx.fillStyle = lk.hairC;
+    ctx.beginPath(); ctx.arc(s * 0.37, -s * 0.02, s * 0.115, Math.PI * 0.9, Math.PI * 2.05); ctx.fill();
+  }
   ctx.fillStyle = 'rgba(150,25,18,0.8)';               // it's not going well
   ctx.beginPath(); ctx.arc(s * 0.05, s * 0.04, s * 0.09, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 }
 function drawMenuTourist(ctx, tr){
-  const s = tr.size;
+  const lk = tr.look;
   if (tr.tripped){
-    // down on their backside facing the thing — scrabbling backward in panicked
-    // little hops, legs kicking at the dirt, arms waving in big frantic arcs
-    const sc = G.time * 7;                                   // scoot-hop cycle
-    const hop = Math.max(0, Math.sin(sc));
-    ctx.save();
-    ctx.translate(tr.x, tr.y - hop * s * 0.05);              // bounces with each shove
-    ctx.scale(-tr.dir, 1);
-    ctx.globalAlpha = tr.alpha;
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = '#262a32'; ctx.lineWidth = s * 0.11;   // legs scrabbling at the ground
-    ctx.beginPath(); ctx.moveTo(0, -s * 0.16);
-    ctx.lineTo(s * (0.3 + 0.12 * Math.sin(sc)), -s * (0.03 + 0.05 * Math.max(0, Math.sin(sc)))); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, -s * 0.16);
-    ctx.lineTo(s * (0.26 + 0.12 * Math.sin(sc + Math.PI)), -s * (0.1 + 0.05 * Math.max(0, Math.sin(sc + Math.PI)))); ctx.stroke();
-    const rock = Math.sin(sc * 0.9) * 0.03;                  // torso rocking with the shoves
-    ctx.strokeStyle = tr.shirt; ctx.lineWidth = s * 0.2;
-    ctx.beginPath(); ctx.moveTo(0, -s * 0.16); ctx.lineTo(-s * (0.08 + rock), -s * 0.52); ctx.stroke();
-    ctx.lineWidth = s * 0.08;                                // arms waving wildly overhead
-    for (const ph0 of [0, 2.3]){
-      const a = -1.75 + Math.sin(G.time * 13 + ph0) * 0.75;
-      ctx.beginPath(); ctx.moveTo(-s * 0.07, -s * 0.48);
-      ctx.lineTo(-s * 0.07 + Math.cos(a) * s * 0.42, -s * 0.48 + Math.sin(a) * s * 0.42);
-      ctx.stroke();
-    }
-    ctx.fillStyle = '#e8c49a';                               // head, shaking "no no no"
-    ctx.beginPath(); ctx.arc(-s * (0.1 + Math.sin(G.time * 15) * 0.02), -s * 0.64, s * 0.12, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
+    // down on their backside facing the thing, saucer-eyed, scrabbling
+    // backward — the full-fidelity sitting-terror pose
+    drawTouristSitting(ctx, lk, tr.x, tr.y, -tr.dir, G.time, tr.alpha);
     return;
   }
-  ctx.save();
-  ctx.translate(tr.x, tr.y - Math.abs(Math.sin(tr.phase)) * s * 0.07);  // running bounce
-  ctx.scale(tr.dir, 1);
-  ctx.globalAlpha = tr.alpha;
-  ctx.lineCap = 'round';
-  ctx.strokeStyle = '#262a32'; ctx.lineWidth = s * 0.11;   // scissoring legs
-  for (const off of [0, Math.PI]){
-    const sw = Math.sin(tr.phase + off), lift = Math.max(0, Math.cos(tr.phase + off));
-    ctx.beginPath(); ctx.moveTo(0, -s * 0.45);
-    ctx.lineTo(sw * s * 0.22, -lift * s * 0.13); ctx.stroke();
-  }
-  ctx.strokeStyle = tr.shirt; ctx.lineWidth = s * 0.2;     // torso leaning into the sprint
-  ctx.beginPath(); ctx.moveTo(-s * 0.02, -s * 0.45); ctx.lineTo(s * 0.08, -s * 0.78); ctx.stroke();
-  ctx.lineWidth = s * 0.08;                                // panicked arms flailing overhead
-  for (const ph0 of [0, 2.2]){
-    const a = -1.35 + Math.sin(tr.phase * 2 + ph0) * 0.55;
-    ctx.beginPath(); ctx.moveTo(s * 0.06, -s * 0.72);
-    ctx.lineTo(s * 0.06 + Math.cos(a) * s * 0.3, -s * 0.72 + Math.sin(a) * s * 0.3);
-    ctx.stroke();
-  }
-  ctx.fillStyle = '#e8c49a';                               // head
-  ctx.beginPath(); ctx.arc(s * 0.1, -s * 0.9, s * 0.12, 0, Math.PI * 2); ctx.fill();
-  ctx.restore();
+  // sprinting for their lives — nervous glances back at the thing behind
+  lk.lookT = tr.fate !== 'safe' && Math.sin(G.time * 2.4 + lk.phase * 3) > 0.45 ? 0.3 : 0;
+  drawTourist(ctx, lk, tr.x, tr.y, tr.dir, tr.phase, tr.alpha, 0);
 }
 function menuScene(dt){
   const m = $('#menu');
@@ -3001,6 +3009,7 @@ function menuScene(dt){
       if (tr.tripped){
         // scrabbling backward away from it in little shoves — not nearly fast enough
         tr.x += tr.dir * (10 + Math.max(0, Math.sin(G.time * 7)) * 26) * dt;
+        tr.look.shockT += dt;                            // the eyes keep quivering
       } else {
         tr.x += tr.vx * dt;
         tr.phase += dt * 11;                             // frantic little legs
@@ -3008,6 +3017,7 @@ function menuScene(dt){
           tr.tripT -= dt;
           if (tr.tripT <= 0){
             tr.tripped = true; tr.vx = 0;
+            tr.look.shock = true; tr.look.shockT = 0;    // saucer eyes pop as they realise
             for (let i = 0; i < 4; i++){                 // dust kicked up by the fall
               menuPuffs.push({x: tr.x + rand(-7, 7), y: tr.y - rand(0, 5),
                               vx: rand(-18, 18), vy: rand(-20, -4),
@@ -3614,7 +3624,7 @@ function step(dt){
   for (const b of G.bolts) b.t -= dt;
   G.bolts = G.bolts.filter(b => b.t > 0);
   for (const tx of G.texts) tx.t += dt;
-  G.texts = G.texts.filter(tx => tx.t < 1.4);
+  G.texts = G.texts.filter(tx => tx.t < (tx.dur || 1.4));
   if (G.banner){ G.banner.t -= dt; if (G.banner.t <= 0) G.banner = null; }
 }
 
@@ -4953,7 +4963,7 @@ function render(dt){
   ctx.textAlign = 'center';
   for (const tx of G.texts){
     ctx.font = `bold ${tx.size}px Verdana, sans-serif`;
-    ctx.globalAlpha = 1 - tx.t / 1.4;
+    ctx.globalAlpha = 1 - tx.t / (tx.dur || 1.4);
     ctx.fillStyle = '#000'; ctx.fillText(tx.txt, tx.x + 1, tx.y - tx.t * 26 + 1);
     ctx.fillStyle = tx.color; ctx.fillText(tx.txt, tx.x, tx.y - tx.t * 26);
   }
