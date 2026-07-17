@@ -2081,7 +2081,7 @@ function endWave(){
   }
   persist();
   const streakTag = G.streak > 1.001 ? `  🔥×${G.streak.toFixed(1)}` : '';
-  addText(W/2, 120, `Wave ${G.wave} cleared!  +$${bonus}${dnaGain >= 1 ? '  +' + fmt(dnaGain) + ' DNA' : ''}${streakTag}`, '#9fe870');
+  addText(W/2, 120, `Wave ${G.wave} cleared!  +$${bonus}${dnaGain >= 1 ? '  +' + fmt(dnaGain) + ' DNA' : ''}${streakTag}`, '#9fe870', 15, 2.9); // lingers 1.5s longer than the default
   G.flashT = 0.45;
   SFX.fanfare();
   if (G.wave >= WAVES_PER_LEVEL){ victory(); return; }
