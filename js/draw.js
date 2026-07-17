@@ -1,6 +1,6 @@
 'use strict';
 /* =========================================================
-   ISLA DEFENSE — procedural art
+   DINO DEFENSE — procedural art
    All dinosaurs are drawn in code: side view, facing +x,
    origin at ground level under the hips. Caller translates,
    flips and scales. `ph` is a walk-cycle phase in radians.
@@ -971,6 +971,17 @@ function tArm(ctx, u, ph, i){
   } else if (u.arms === 'camera'){            // filming the disaster, of course
     ex = sx + 0.14; ey = sy + 0.16 - i * 0.03;
     hx = 0.27; hy = -1.04 * t - i * 0.035;
+  } else if (u.arms === 'canhold' && i === 1){ // near arm cradles the can up at the chest
+    ex = sx + 0.15; ey = sy + 0.16;
+    hx = 0.24; hy = -1.04 * t;
+  } else if (u.arms === 'cane' && i === 1){    // near arm grips the cane, planted ahead
+    ex = sx + 0.2; ey = sy + 0.32;
+    hx = 0.34; hy = -0.6 * t;
+  } else if (u.arms === 'cane'){               // far arm swings gently at a stroll
+    a1 = 1.4 + Math.sin(ph * 0.6) * 0.22;
+    ex = sx + Math.cos(a1) * lu; ey = sy + Math.sin(a1) * lu;
+    a2 = a1 + 0.2;
+    hx = ex + Math.cos(a2) * lf; hy = ey + Math.sin(a2) * lf;
   } else {                                    // pump — proper sprinter arms
     a1 = 1.35 + Math.sin(ph + Math.PI * i) * 0.8;
     ex = sx + Math.cos(a1) * lu; ey = sy + Math.sin(a1) * lu;
@@ -984,6 +995,28 @@ function tArm(ctx, u, ph, i){
   ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(hx, hy); ctx.stroke();
   ctx.fillStyle = skin;
   ctx.beginPath(); ctx.arc(hx, hy, 0.055, 0, Math.PI * 2); ctx.fill();
+
+  // props held in the near hand
+  if (i === 1 && u.holdItem === 'barbasol'){   // the infamous "shaving cream" can
+    ctx.save();
+    ctx.translate(hx, hy - 0.02);
+    ctx.fillStyle = '#f3f1ea'; ctx.fillRect(-0.045, -0.03, 0.09, 0.15);   // white body
+    ctx.fillStyle = '#c23b2e'; ctx.fillRect(-0.045, 0.02, 0.09, 0.06);    // red label band
+    ctx.fillStyle = '#3a5f9e'; ctx.fillRect(-0.045, 0.083, 0.09, 0.018);  // blue pin-stripe
+    ctx.fillStyle = '#dd5142'; ctx.fillRect(-0.05, -0.06, 0.1, 0.035);    // red cap
+    ctx.fillStyle = '#cfcfc6'; ctx.fillRect(-0.013, -0.085, 0.026, 0.03); // nozzle
+    ctx.restore();
+    ctx.fillStyle = skin;                        // fingers curled back over the can
+    ctx.beginPath(); ctx.arc(hx + 0.03, hy, 0.03, 0, Math.PI * 2); ctx.fill();
+  }
+  if (i === 1 && u.cane){                        // amber-topped walking cane to the ground
+    ctx.strokeStyle = '#6b4a2a'; ctx.lineCap = 'round'; ctx.lineWidth = 0.032;
+    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + 0.07, -0.02); ctx.stroke();
+    ctx.fillStyle = '#d99a2b';                   // the mosquito-in-amber knob
+    ctx.beginPath(); ctx.arc(hx, hy - 0.035, 0.045, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,226,140,0.65)';
+    ctx.beginPath(); ctx.arc(hx - 0.015, hy - 0.05, 0.016, 0, Math.PI * 2); ctx.fill();
+  }
 }
 
 /* head + hair + face + hat, shared by every tourist pose. `look` flips
@@ -1081,6 +1114,23 @@ function touristHead(ctx, u, ph, headX, headY, look){
     ctx.beginPath();
     ctx.ellipse(headX + 0.12 * look, headY + 0.075, 0.04, 0.05 + Math.max(0, Math.sin(ph * 2.1)) * 0.02, 0, 0, Math.PI * 2);
     ctx.fill();
+    if (u.mustache){ // a certain programmer's bushy upper lip
+      ctx.fillStyle = shade(u.hairC, -0.1);
+      ctx.beginPath(); ctx.ellipse(headX + 0.1 * look, headY + 0.04, 0.055, 0.024, 0, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // a full beard hugging the jaw (drawn over the mouth, eyes left clear)
+  if (u.beard){
+    ctx.fillStyle = u.hairC;
+    ctx.beginPath();
+    ctx.moveTo(headX - headR * 0.86, headY - 0.01);
+    ctx.quadraticCurveTo(headX - headR * 0.5, headY + headR * 1.55, headX + 0.03, headY + headR * 1.42);
+    ctx.quadraticCurveTo(headX + headR * 0.95, headY + headR * 1.15, headX + headR * 1.04, headY - 0.03);
+    ctx.quadraticCurveTo(headX + headR * 0.55, headY + headR * 0.55, headX, headY + headR * 0.6);
+    ctx.quadraticCurveTo(headX - headR * 0.55, headY + headR * 0.55, headX - headR * 0.86, headY - 0.01);
+    ctx.fill();
+    ctx.beginPath(); ctx.ellipse(headX + 0.09, headY + 0.035, 0.06, 0.026, 0, 0, Math.PI * 2); ctx.fill(); // moustache
   }
 
   // hat (over the hair; gone if the wind took it)
@@ -1102,6 +1152,11 @@ function touristHead(ctx, u, ph, headX, headY, look){
       ctx.beginPath(); ctx.arc(headX, headY - 0.07, headR * 0.88, Math.PI, Math.PI * 2); ctx.fill();
       ctx.fillStyle = shade(hc, -0.4);
       ctx.fillRect(headX - headR * 0.88, headY - 0.125, headR * 1.76, 0.045);
+    } else if (u.hat === 'panama'){ // light straw hat, low crown + dark band
+      ctx.beginPath(); ctx.ellipse(headX, headY - 0.075, headR + 0.12, 0.05, 0, 0, Math.PI * 2); ctx.fill(); // brim
+      ctx.beginPath(); ctx.arc(headX, headY - 0.06, headR * 0.86, Math.PI * 1.02, Math.PI * 1.98); ctx.fill(); // crown
+      ctx.fillStyle = 'rgba(92,72,44,0.75)';
+      ctx.fillRect(headX - headR * 0.86, headY - 0.095, headR * 1.72, 0.028); // hatband
     } else { // visor
       ctx.fillRect(headX - headR * 0.55, headY - headR * 0.8, headR * 0.55 + 0.13, 0.05);
     }

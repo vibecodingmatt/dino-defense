@@ -1,6 +1,6 @@
 {
-  "name": "Isla Defense",
-  "short_name": "Isla Defense",
+  "name": "Dino Defense",
+  "short_name": "Dino Defense",
   "description": "Dinosaur tower-defense: hold the line as prehistoric giants breach containment.",
   "start_url": "./",
   "scope": "./",

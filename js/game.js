@@ -1,6 +1,6 @@
 'use strict';
 /* =========================================================
-   ISLA DEFENSE — engine, UI, and game logic
+   DINO DEFENSE — engine, UI, and game logic
    ========================================================= */
 
 /* ---------------- helpers ---------------- */
@@ -44,7 +44,11 @@ function track(event, params){
   try { if (window.gtag) gtag('event', event, params || {}); } catch(e){}
 }
 
-/* ---------------- persistent save ---------------- */
+/* ---------------- persistent save ----------------
+   NOTE: the game was renamed Isla Defense → Dino Defense, but the localStorage
+   key and IndexedDB name below are DELIBERATELY left as "islaDefense" so existing
+   players keep every bit of their progress across the rename. They're internal
+   identifiers no player ever sees — do not "tidy" them to dino* or saves are lost. */
 const SAVE_KEY = 'islaDefense.v1';
 const START_DNA = 80;   // grant so a new player can buy their first upgrade right away
 function defaultSave(){
@@ -840,7 +844,12 @@ const FIRST_WAVE_DELAY = 3; // seconds after the first weapon is placed before w
 const hpScale    = w => (0.7 + 0.3*w) * Math.pow(1.020, w) * G.level.hpMult;
 const speedScale = w => Math.min(1.4, 1 + w*0.0035);
 const bountyOf   = (def, w) => Math.max(1, Math.round(def.bounty * (1 + w*0.008)));
-const towerUnlocked = key => (G.wave + 1) >= (TOWERS[key].unlock || 1);
+/* The wave the player is actually playing or shopping for. During prep G.wave is
+   the last cleared wave, so the upcoming wave is G.wave+1; once a wave is live
+   G.wave already points at it. (Using G.wave+1 unconditionally unlocked gear a
+   wave early — e.g. a wave-6 weapon appeared during the active wave 5.) */
+const activeOrNextWave = () => G.waveActive ? G.wave : G.wave + 1;
+const towerUnlocked = key => activeOrNextWave() >= (TOWERS[key].unlock || 1);
 /* each additional copy of the same weapon costs more — spam gets expensive */
 function towerCost(key){
   const def = TOWERS[key];
@@ -1770,6 +1779,34 @@ function randomTouristLook(size, noKid){
   if (u.floral) u.shirt = '#e8574f';
   return u;
 }
+/* Two affectionate cameos for the home-screen chase (see [[home-screen-redesign]]).
+   Dennis Nedry: heavyset, glasses + moustache, yellow rain slicker, forever
+   clutching the "shaving cream" can. John Hammond: white hair and beard, cream
+   linen suit, panama hat and his amber-topped cane — genteel, and far too slow. */
+function nedryLook(size){
+  const u = randomTouristLook(size, true);
+  Object.assign(u, {
+    hero: 'nedry', skin: '#e7b98b', shirt: '#e6c43c',      // rain-slicker yellow
+    bottom: '#39414f', bottomType: 'pants', shoeC: '#2c2c2c',
+    hairStyle: 'short', hairC: '#43301d', glasses: true, mustache: true,
+    belly: true, build: 1.34, tall: 0.9, hat: null, pack: null,
+    camera: false, floral: false, balloon: false,
+    arms: 'canhold', holdItem: 'barbasol',
+  });
+  return u;
+}
+function hammondLook(size){
+  const u = randomTouristLook(size, true);
+  Object.assign(u, {
+    hero: 'hammond', skin: '#e6c4a2', shirt: '#ece5d4',    // cream linen
+    bottom: '#e2dbc8', bottomType: 'pants', shoeC: '#6b4a2e',
+    hairStyle: 'short', hairC: '#eae7de', beard: true, glasses: false,
+    belly: false, build: 1.04, tall: 1.0, hat: 'panama', hatC: '#efe7cf',
+    pack: null, camera: false, floral: false, balloon: false,
+    arms: 'cane', cane: true, lean: 0.26,      // a genteel stoop
+  });
+  return u;
+}
 function spawnTourists(){
   if (G.tourists.length || G.wave > 0) return;
   const wp = G.level.waterPaths || [];
@@ -2422,7 +2459,7 @@ function sellSelected(){
 }
 
 /* ---------------- air strike ---------------- */
-const airUnlocked = () => (G.wave + 1) >= AIRSTRIKE.unlock;
+const airUnlocked = () => activeOrNextWave() >= AIRSTRIKE.unlock;
 const airCost = () => AIRSTRIKE.costs[Math.min(G.airUsed, AIRSTRIKE.costs.length - 1)];
 function updateAirCard(){
   const el = $('#airCard');
@@ -2528,7 +2565,7 @@ function updateClouds(dt){
 }
 
 /* ---------------- Omega — robotic T-Rex show-stopper ---------------- */
-const omegaUnlocked = () => (G.wave + 1) >= OMEGA.unlock;
+const omegaUnlocked = () => activeOrNextWave() >= OMEGA.unlock;
 function updateOmegaCard(){
   const el = $('#omegaCard');
   if (!el) return;
@@ -2876,21 +2913,38 @@ function spawnMenuDino(w, h){
   // slow and get run down (≈37% never make it) — the rest outrun the beast.
   if (Math.random() < 0.75){
     const n = 1 + (Math.random() * 2 | 0);
+    // at most one celebrity cameo per pack: Nedry legs it, Hammond never quite makes it
+    const guest = Math.random() < 0.3 ? (Math.random() < 0.5 ? 'nedry' : 'hammond') : null;
+    const guestIdx = guest ? (Math.random() * n | 0) : -1;
     for (let i = 0; i < n; i++){
-      const r = Math.random();
-      const fate = r < 0.15 ? 'trip' : r < 0.37 ? 'doomed' : 'safe';
-      // victims get a bigger head start so the chase plays out ON screen
-      const ahead = (fate === 'safe' ? 2.2 : 4.2) + i * 1.2 + Math.random() * 0.8;
+      const kind = i === guestIdx ? guest : null;
+      let fate = Math.random();
+      fate = fate < 0.15 ? 'trip' : fate < 0.37 ? 'doomed' : 'safe';
+      if (kind === 'hammond') fate = 'doomed';                 // he is always caught
+      if (kind === 'nedry' && fate === 'trip') fate = 'doomed'; // can't trip clutching the can
+      const baseSize = d.size * 0.42;
       // full-fidelity look — same craft as the in-game evacuation cast
       // (the doomed never roll a kid: nobody wants to watch that)
-      const look = randomTouristLook(d.size * 0.42 * 0.58, fate !== 'safe');
+      const look = kind === 'nedry'   ? nedryLook(baseSize * 0.58)
+                 : kind === 'hammond' ? hammondLook(baseSize * 0.58)
+                 : randomTouristLook(baseSize * 0.58, fate !== 'safe');
+      // Hammond dodders along; everyone else keeps their fate-based pace
+      const spd = kind === 'hammond' ? rand(0.5, 0.62)
+                : fate === 'doomed' ? rand(0.84, 0.93)
+                : fate === 'trip' ? rand(0.96, 1.05) : rand(1.05, 1.28);
+      // victims get a bigger head start so the chase plays out ON screen.
+      // Hammond starts just on-screen (any closer and the off-screen cull at
+      // x<-80 would delete him before the chase); being slow, the dino closing
+      // from further back still runs him down well within view.
+      const ahead = kind === 'hammond' ? 2.6 + i * 0.4
+                  : (fate === 'safe' ? 2.2 : 4.2) + i * 1.2 + Math.random() * 0.8;
       menuTourists.push({
         x: d.x + dir * d.size * ahead,
         y: d.y + rand(-8, 6),
-        vx: speed * (fate === 'doomed' ? rand(0.84, 0.93) : fate === 'trip' ? rand(0.96, 1.05) : rand(1.05, 1.28)) * dir,
-        dir, size: d.size * 0.42, phase: rand(0, 6.28),
+        vx: speed * spd * dir,
+        dir, size: baseSize, phase: rand(0, 6.28),
         fate, doomed: fate === 'doomed', tripT: fate === 'trip' ? rand(2.5, 5) : 0,
-        look, shirt: look.shirt,
+        look, shirt: look.shirt, hero: kind,
         alpha: 0.85, prey: d,
       });
     }
@@ -3014,7 +3068,7 @@ function menuScene(dt){
         tr.look.shockT += dt;                            // the eyes keep quivering
       } else {
         tr.x += tr.vx * dt;
-        tr.phase += dt * 11;                             // frantic little legs
+        tr.phase += dt * (tr.hero === 'hammond' ? 5 : 11); // frantic little legs (Hammond dodders)
         if (tr.fate === 'trip' && chaseable){            // ...until the fateful stumble
           tr.tripT -= dt;
           if (tr.tripT <= 0){

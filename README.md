@@ -1,4 +1,4 @@
-# 🦖 Isla Defense — Containment Breach
+# 🦖 Dino Defense — Containment Breach
 
 A browser-based dinosaur tower defense. No installs, no build step — just open
 `index.html` in any modern browser (double-click it, or right-click → Open With → Chrome).

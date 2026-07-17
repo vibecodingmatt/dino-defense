@@ -1,10 +1,10 @@
 'use strict';
 /* =========================================================
-   ISLA DEFENSE — game data
+   DINO DEFENSE — game data
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.45.0';
+const VERSION = '1.46.0';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -25,6 +25,12 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
+  {v: '1.46.0', date: 'Jul 17, 2026', items: [
+    '🦖 The game has a new name: welcome to DINO DEFENSE — same game, easier to remember (and if you\'ve added it to your home screen, it\'ll go by Dino Defense there too). All your progress carries over untouched.',
+    '🔒 Fixed a bug where level-locked weapons could be bought one wave too early — a weapon that says "Wave 6" now unlocks exactly on Wave 6.',
+    '🥫 A frantic new face on the home screen: a heavyset visitor in a yellow rain slicker sprints past clutching a certain can of "shaving cream" — run, Dennis, run.',
+    '🎩 And a slower one: a distinguished old gentleman in a panama hat and cream suit, leaning on his amber-topped cane. He spared no expense… except on running shoes, and never quite makes it.',
+  ]},
   {v: '1.45.0', date: 'Jul 17, 2026', items: [
     '🦖 Dinosaur design cleanup: back spikes, ridges, feathers, stego plates, anky armor and the Spinosaurus sail now sit ON the body and curve around the back instead of floating on a flat line — and stripes finally stay inside the body outline on every striped dino.',
     '😱 The chosen one now hears the wingbeats: they skid to a stop, spin round to face the pteranodon, and giant cartoon saucer eyes pop out — hands clasped to cheeks — in the heartbeat before the talons close.',
@@ -78,7 +84,7 @@ const CHANGELOG = [
   {v: '1.31.6', date: 'Jul 9, 2026', items: [
     '📐 The Armory panel dropped the "next wave" preview, freeing up more room to show your weapons.',
     '💥 Toned down the screen shake from mortar, missile, and air-strike explosions.',
-    '📱 Isla Defense can now be installed to your phone — a new Install button on the home screen walks you through it (and shows iPhone users the Safari steps) to play full-screen and offline.',
+    '📱 The game can now be installed to your phone — a new Install button on the home screen walks you through it (and shows iPhone users the Safari steps) to play full-screen and offline.',
     '👆 On touch, the weapon and its range now float above your fingertip while placing, so you can see exactly where it lands.',
     '🗺️ Drag with one finger to pan the map and pinch to zoom — with room past the edges so you can build right up to the bottom.',
     '🔍 Added a zoom slider at the top of the map on phones, so the pinch-to-zoom is easy to find and fine-tune.',
