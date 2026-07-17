@@ -848,6 +848,37 @@ function drawDino(ctx, d, x, y, turn, ph, alpha, pitch){
   ctx.restore();
 }
 
+/* ---------- human leg ----------
+   Proper plantigrade running anatomy — unlike the dinosaurs' bird-legged
+   leg() helper: the thigh swings from the hip, the knee leads, the shin
+   trails and folds during recovery, the heel kicks up behind after
+   push-off — and there's an actual shoe on the end. Thigh and shin take
+   separate colours so shorts/pants/bare legs all read correctly. */
+function humanLeg(ctx, hipX, hipY, len, ph, thighC, shinC, w, shoeC){
+  const swing = Math.sin(ph), lift = Math.max(0, Math.cos(ph));
+  const a1 = swing * 0.72;                       // thigh angle from vertical
+  // knee folds hard during the lift, extends again reaching for the ground
+  const flex = 0.2 + lift * 1.3 * (1 - Math.max(0, swing) * 0.45);
+  const a2 = a1 - flex;                          // shin trails the thigh
+  const kx = hipX + Math.sin(a1) * len * 0.52, ky = hipY + Math.cos(a1) * len * 0.52;
+  const fx = kx + Math.sin(a2) * len * 0.5;
+  const fy = Math.min(-0.02, ky + Math.cos(a2) * len * 0.5);
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = thighC; ctx.lineWidth = w;
+  ctx.beginPath(); ctx.moveTo(hipX, hipY); ctx.lineTo(kx, ky); ctx.stroke();
+  ctx.strokeStyle = shinC; ctx.lineWidth = w * 0.78;
+  ctx.beginPath(); ctx.moveTo(kx, ky); ctx.lineTo(fx, fy); ctx.stroke();
+  // the shoe — toe forward, tipping with the stride
+  ctx.save();
+  ctx.translate(fx, fy);
+  ctx.rotate(Math.max(-0.85, Math.min(0.35, a2 * 0.45)));
+  ctx.fillStyle = shoeC;
+  ctx.beginPath(); ctx.ellipse(0.05, -0.005, 0.088, 0.044, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';      // sole highlight
+  ctx.beginPath(); ctx.ellipse(0.05, 0.022, 0.082, 0.014, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
 /* ---------- TOURISTS ----------
    The park's last visitors, sprinting for the exit ahead of wave 1.
    Same conventions as the dinosaurs: unit space, facing +x, origin at
@@ -1024,16 +1055,19 @@ function touristBody(ctx, u, ph){
   const t = u.tall, bw = u.build, skin = u.skin;
   const hipY = -0.78 * t, shY = -1.3 * t;
   const headX = 0.06, headY = -1.58 * t, headR = 0.17 * (u.kid ? 1.25 : 1);
-  const legCol = u.bottomType === 'pants' ? u.bottom : skin;
   const look = u.lookT > 0 ? -1 : 1;          // terrified glance over the shoulder
   ctx.save();
   ctx.rotate(u.lean + Math.sin(ph) * 0.02);   // sprint lean + stride rock
   ctx.translate(0, -Math.abs(Math.sin(ph)) * 0.06);
 
   tArm(ctx, u, ph, 0);                        // far arm behind everything
-  // legs — frantic scissor via the shared leg() helper
-  leg(ctx, -0.02, hipY, -hipY, ph + Math.PI, shade(legCol, -0.32), 0.125 * bw);
-  leg(ctx, 0.02, hipY, -hipY, ph, legCol, 0.14 * bw);
+  // legs — human sprint cycle with shoes; shorts cover the thigh,
+  // pants cover everything, skirts show leg
+  const thC = u.bottomType === 'skirt' ? skin : u.bottom;
+  const shC = u.bottomType === 'pants' ? u.bottom : skin;
+  const shoe = u.shoeC || '#2e2e34';
+  humanLeg(ctx, -0.02, hipY, -hipY, ph + Math.PI, shade(thC, -0.3), shade(shC, -0.3), 0.135 * bw, shade(shoe, -0.3));
+  humanLeg(ctx, 0.02, hipY, -hipY, ph, thC, shC, 0.15 * bw, shoe);
 
   // bottoms over the hips
   if (u.bottomType === 'skirt'){
@@ -1175,16 +1209,23 @@ function drawTouristSitting(ctx, u, x, y, dir, time, alpha){
   const sc = time * 7, hop = Math.max(0, Math.sin(sc));
   ctx.translate(0, -hop * 0.05);              // bounces with each backward shove
   ctx.lineCap = 'round';
-  const legCol = u.bottomType === 'pants' ? u.bottom : skin;
-  // legs kicking at the dirt, knees up, heels digging
-  for (const [off, col, w] of [[Math.PI, shade(legCol, -0.3), 0.115], [0, legCol, 0.13]]){
+  const thC = u.bottomType === 'skirt' ? skin : u.bottom;
+  const shC = u.bottomType === 'pants' ? u.bottom : skin;
+  const shoe = u.shoeC || '#2e2e34';
+  // legs kicking at the dirt — knees up, heels digging, shoes scuffing
+  for (const [off, dk2, w] of [[Math.PI, -0.3, 0.115], [0, 0, 0.13]]){
     const kick = Math.sin(sc + off);
-    ctx.strokeStyle = col; ctx.lineWidth = w * bw;
-    ctx.beginPath();
-    ctx.moveTo(0.02, -0.3);
-    ctx.lineTo(0.3 + kick * 0.07, -0.44 - Math.max(0, kick) * 0.09);
-    ctx.lineTo(0.54 + kick * 0.11, -0.05);
-    ctx.stroke();
+    const kx = 0.28 + kick * 0.07, ky = -0.46 - Math.max(0, kick) * 0.09;
+    const hx2 = 0.52 + kick * 0.11, hy2 = -0.06;
+    ctx.strokeStyle = dk2 ? shade(thC, dk2) : thC; ctx.lineWidth = w * bw;
+    ctx.beginPath(); ctx.moveTo(0.02, -0.3); ctx.lineTo(kx, ky); ctx.stroke();
+    ctx.strokeStyle = dk2 ? shade(shC, dk2) : shC; ctx.lineWidth = w * 0.8 * bw;
+    ctx.beginPath(); ctx.moveTo(kx, ky); ctx.lineTo(hx2, hy2); ctx.stroke();
+    ctx.save();
+    ctx.translate(hx2, hy2); ctx.rotate(-0.5 + kick * 0.15); // heel down, toe up
+    ctx.fillStyle = dk2 ? shade(shoe, dk2) : shoe;
+    ctx.beginPath(); ctx.ellipse(0.05, 0, 0.085, 0.042, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
   }
   // seat — the skirt fans out on the ground
   ctx.fillStyle = u.bottom;

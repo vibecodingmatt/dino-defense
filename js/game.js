@@ -1741,6 +1741,7 @@ const TOURIST_LOOKS = {
   bottoms: ['#3a4a63', '#5d6b52', '#8a6f4a', '#474747', '#7a4a5f', '#b8b09a'],
   hairs: ['#241a10', '#4a2f1a', '#7a4a22', '#b98a3f', '#ddcda6', '#8b8b8b', '#b04a2a'],
   hats: ['#efe6cd', '#c4433b', '#3f6fae', '#7a6a4f', '#4a8a52'],
+  shoes: ['#2e2e34', '#efe9dc', '#7a4a2a', '#c4433b', '#3d5f9e'],
 };
 /* a fully-randomized visitor look (the wave-1 cast is hand-picked; this is
    for everyone else — the menu's doomed sprinters, mainly) */
@@ -1757,6 +1758,7 @@ function randomTouristLook(size, noKid){
     hairStyle: kid ? 'pig' : pick(['short', 'bob', 'pony', 'long', 'bun', 'curls', 'bald']),
     hairC: pick(P.hairs),
     hat: Math.random() < 0.45 ? pick(['cap', 'sun', 'safari', 'visor']) : null, hatC: pick(P.hats),
+    shoeC: pick(P.shoes),
     arms: pick(['flail', 'flail', 'pump', 'clutch']),
     glasses: Math.random() < 0.2, camera: Math.random() < 0.2,
     pack: Math.random() < 0.18 ? 'backpack' : Math.random() < 0.16 ? 'fanny' : null,
@@ -1775,14 +1777,14 @@ function spawnTourists(){
   const {skins, shirts, bottoms, hairs, hats} = TOURIST_LOOKS;
   const pick = a => a[(Math.random() * a.length) | 0];
   const cast = [ // fastest up front, stragglers at the back
-    {arms: 'pump', hairStyle: 'pony', hat: 'visor', bottomType: 'shorts', speed: 150, size: 13, tall: 1.04, build: 0.88, skyYell: 'I HAVE A 10K SATURDAYYY!'},   // the jogger — training pays off
-    {arms: 'flail', hairStyle: 'pig', kid: true, balloon: true, bottomType: 'shorts', speed: 134, size: 9.5, tall: 0.9, build: 0.95, yell: 'MOMMYYY!'},
-    {arms: 'hathold', hairStyle: 'short', hat: 'cap', bottomType: 'pants', speed: 128, size: 13.5, tall: 1, build: 1, hatLoss: true, skyYell: 'ONE STAR!! ONE STARRR!!'},
-    {arms: 'camera', hairStyle: 'bob', glasses: true, bottomType: 'skirt', speed: 124, size: 13, tall: 0.98, build: 0.92, camera: true, yell: 'STILL ROLLING!!', skyYell: 'WHAT AN ANGLE!! AAAAH!'},
-    {arms: 'clutch', hairStyle: 'curls', pack: 'backpack', bottomType: 'shorts', speed: 120, size: 13.5, tall: 1.02, build: 1.02, skyYell: 'TAKE THE BACKPACK INSTEADDD!'},
-    {arms: 'flail', hairStyle: 'long', hat: 'sun', bottomType: 'skirt', speed: 117, size: 13.2, tall: 1.02, build: 0.9, skyYell: 'THIS WAS A 5-STAR RESORTTT!'},
-    {arms: 'pump', hairStyle: 'bun', hat: 'safari', camera: true, pack: 'fanny', bottomType: 'shorts', speed: 113, size: 14, tall: 1, build: 1.08, skyYell: 'HONEY START THE JEEEEEP!'},
-    {arms: 'flail', hairStyle: 'bald', glasses: true, floral: true, belly: true, bottomType: 'shorts', speed: 107, size: 15, tall: 0.95, build: 1.25, yell: 'WAIT FOR MEEEE!', skyYell: 'I SHOULD\'VE BOOKED THE BEACHHH!'},
+    {arms: 'pump', hairStyle: 'pony', hat: 'visor', bottomType: 'shorts', speed: 150, size: 13, tall: 1.04, build: 0.88, shoeC: '#efe9dc', skyYell: 'I HAVE A 10K SATURDAYYY!'},   // the jogger — white trainers, obviously
+    {arms: 'flail', hairStyle: 'pig', kid: true, balloon: true, bottomType: 'shorts', speed: 134, size: 9.5, tall: 0.9, build: 0.95, shoeC: '#c4433b', yell: 'MOMMYYY!'},          // little red sneakers
+    {arms: 'hathold', hairStyle: 'short', hat: 'cap', bottomType: 'pants', speed: 128, size: 13.5, tall: 1, build: 1, shoeC: '#2e2e34', hatLoss: true, skyYell: 'ONE STAR!! ONE STARRR!!'},
+    {arms: 'camera', hairStyle: 'bob', glasses: true, bottomType: 'skirt', speed: 124, size: 13, tall: 0.98, build: 0.92, shoeC: '#7a4a2a', camera: true, yell: 'STILL ROLLING!!', skyYell: 'WHAT AN ANGLE!! AAAAH!'},
+    {arms: 'clutch', hairStyle: 'curls', pack: 'backpack', bottomType: 'shorts', speed: 120, size: 13.5, tall: 1.02, build: 1.02, shoeC: '#3d5f9e', skyYell: 'TAKE THE BACKPACK INSTEADDD!'},
+    {arms: 'flail', hairStyle: 'long', hat: 'sun', bottomType: 'skirt', speed: 117, size: 13.2, tall: 1.02, build: 0.9, shoeC: '#efe9dc', skyYell: 'THIS WAS A 5-STAR RESORTTT!'},
+    {arms: 'pump', hairStyle: 'bun', hat: 'safari', camera: true, pack: 'fanny', bottomType: 'shorts', speed: 113, size: 14, tall: 1, build: 1.08, shoeC: '#7a4a2a', skyYell: 'HONEY START THE JEEEEEP!'}, // sensible hiking boots
+    {arms: 'flail', hairStyle: 'bald', glasses: true, floral: true, belly: true, bottomType: 'shorts', speed: 107, size: 15, tall: 0.95, build: 1.25, shoeC: '#8a6a3f', yell: 'WAIT FOR MEEEE!', skyYell: 'I SHOULD\'VE BOOKED THE BEACHHH!'}, // socks and sandals energy
   ];
   G.tourists = cast.map((c, i) => Object.assign({
     pathI, dist: -14 - i * 32 - rand(0, 14), speed: 0,
