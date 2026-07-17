@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.44.0';
+const VERSION = '1.45.0';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -25,7 +25,8 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.44.0', date: 'Jul 17, 2026', items: [
+  {v: '1.45.0', date: 'Jul 17, 2026', items: [
+    '🦖 Dinosaur design cleanup: back spikes, ridges, feathers, stego plates, anky armor and the Spinosaurus sail now sit ON the body and curve around the back instead of floating on a flat line — and stripes finally stay inside the body outline on every striped dino.',
     '😱 The chosen one now hears the wingbeats: they skid to a stop, spin round to face the pteranodon, and giant cartoon saucer eyes pop out — hands clasped to cheeks — in the heartbeat before the talons close.',
     '💬 The fleeing visitors\' one-liners now hang in the air a second longer, so nobody misses "WHO IS DAVE??".',
     '🏠 The home screen\'s doomed sprinters got the full makeover: every visitor the menu dinosaurs chase (and catch) is now drawn with the same detail as the in-game evacuation crew — hats, hairdos, backpacks, sunglasses and all. The ones who trip now sit frozen in saucer-eyed terror.',

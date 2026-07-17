@@ -36,6 +36,22 @@ function leg(ctx, hipX, hipY, len, ph, color, w){
   ctx.stroke();
 }
 
+/* ---------- back-contour helper ----------
+   Point + outward normal on a rotated ellipse at parameter t (t≈π is the
+   tail end of the back, t≈2π the head end). Back ornaments — spikes,
+   plates, ridges, sails — are seated on this contour so they hug the
+   body's curve and fan outward with it, instead of floating on a flat
+   line above the back. */
+function backEdge(cx, cy, rx, ry, rot, t){
+  const ct = Math.cos(t), st = Math.sin(t), cr = Math.cos(rot), sr = Math.sin(rot);
+  const x = cx + rx * ct * cr - ry * st * sr;
+  const y = cy + rx * ct * sr + ry * st * cr;
+  const nxu = ct / rx, nyu = st / ry;
+  const nx = nxu * cr - nyu * sr, ny = nxu * sr + nyu * cr;
+  const nl = Math.hypot(nx, ny) || 1;
+  return {x, y, nx: nx / nl, ny: ny / nl};
+}
+
 /* ---------- THEROPOD (raptors, rexes, most carnivores) ---------- */
 function drawTheropod(ctx, d, ph){
   const p = d.pal, f = d.feat || {};
@@ -59,9 +75,11 @@ function drawTheropod(ctx, d, ph){
   ctx.quadraticCurveTo(-0.80, -0.62 + Math.sin(ph*0.9 + 0.6)*0.05, -0.15, -0.45);
   ctx.closePath(); ctx.fill();
 
-  // body
+  // body (contour shared by the back ornaments below)
+  const brx = 0.52 * (f.slim ? 0.9 : 1);
+  const bEdge = t => backEdge(0, -0.66, brx, 0.30, -0.12, t);
   ctx.beginPath();
-  ctx.ellipse(0, -0.66, 0.52*  (f.slim?0.9:1), 0.30, -0.12, 0, Math.PI*2);
+  ctx.ellipse(0, -0.66, brx, 0.30, -0.12, 0, Math.PI*2);
   ctx.fill();
   // belly
   ctx.fillStyle = p.belly;
@@ -69,38 +87,62 @@ function drawTheropod(ctx, d, ph){
   ctx.ellipse(0.02, -0.55, 0.42*(f.slim?0.9:1), 0.17, -0.10, 0, Math.PI*2);
   ctx.fill();
 
-  // sail (Spinosaurus)
+  // sail (Spinosaurus) — a low fin whose base rides the back's curve;
+  // the crest rises mostly upward (a pure normal fan reads as a balloon)
   if (f.sail){
     ctx.fillStyle = shade(p.accent, -0.05);
-    ctx.beginPath(); ctx.moveTo(-0.55, -0.80);
-    for (let i = 0; i <= 8; i++){
-      const t = i/8, x = -0.55 + t*1.0;
-      ctx.lineTo(x, -0.80 - Math.sin(t*Math.PI) * 0.55);
+    ctx.beginPath();
+    const N = 9;
+    for (let i = 0; i <= N; i++){
+      const e = bEdge(Math.PI * (1.1 + (i / N) * 0.68));
+      const h = Math.sin((i / N) * Math.PI) * 0.36;
+      if (i === 0) ctx.moveTo(e.x, e.y);
+      ctx.lineTo(e.x + e.nx * h * 0.15, e.y - h);
+    }
+    for (let i = N; i >= 0; i--){ // seat the base just inside the body
+      const e = bEdge(Math.PI * (1.1 + (i / N) * 0.68));
+      ctx.lineTo(e.x - e.nx * 0.05, e.y - e.ny * 0.05);
     }
     ctx.closePath(); ctx.fill();
   }
-  // back ridge / feathers
+  // back ridge / feathers — a row of small fins seated on the contour
   if (f.ridge || f.feathers){
     ctx.fillStyle = f.feathers ? shade(p.accent, 0.15) : shade(p.body, -0.25);
-    ctx.beginPath(); ctx.moveTo(-0.5, -0.88);
-    for (let i = 0; i < 6; i++){ const x = -0.5 + i*0.17; ctx.lineTo(x+0.08, -0.98); ctx.lineTo(x+0.17, -0.88); }
-    ctx.closePath(); ctx.fill();
+    for (let i = 0; i < 6; i++){
+      const e = bEdge(Math.PI * (1.14 + i * 0.115));
+      const w = 0.08, h = f.feathers ? 0.13 : 0.1;
+      const tx = -e.ny, ty = e.nx;
+      ctx.beginPath();
+      ctx.moveTo(e.x - tx * w - e.nx * 0.03, e.y - ty * w - e.ny * 0.03);
+      ctx.lineTo(e.x + e.nx * h - tx * w * 0.2, e.y + e.ny * h - ty * w * 0.2); // fins sweep back a touch
+      ctx.lineTo(e.x + tx * w - e.nx * 0.03, e.y + ty * w - e.ny * 0.03);
+      ctx.closePath(); ctx.fill();
+    }
   }
-  // spikes along back (Indominus / Stygimoloch)
+  // spikes along back (Indominus / Stygimoloch) — same treatment, sharper
   if (f.spikes){
     ctx.fillStyle = shade(p.body, -0.3);
     for (let i = 0; i < 5; i++){
-      const x = -0.45 + i*0.2;
-      ctx.beginPath(); ctx.moveTo(x, -0.9); ctx.lineTo(x+0.05, -1.02); ctx.lineTo(x+0.1, -0.9); ctx.fill();
+      const e = bEdge(Math.PI * (1.16 + i * 0.13));
+      const w = 0.055, h = 0.13;
+      const tx = -e.ny, ty = e.nx;
+      ctx.beginPath();
+      ctx.moveTo(e.x - tx * w - e.nx * 0.03, e.y - ty * w - e.ny * 0.03);
+      ctx.lineTo(e.x + e.nx * h, e.y + e.ny * h);
+      ctx.lineTo(e.x + tx * w - e.nx * 0.03, e.y + ty * w - e.ny * 0.03);
+      ctx.closePath(); ctx.fill();
     }
   }
-  // stripes
+  // stripes — clipped to the body so they end exactly at the outline
   if (f.stripes){
+    ctx.save();
+    ctx.beginPath(); ctx.ellipse(0, -0.66, brx, 0.30, -0.12, 0, Math.PI*2); ctx.clip();
     ctx.strokeStyle = p.accent; ctx.lineWidth = 0.05; ctx.lineCap = 'round';
     for (let i = 0; i < 4; i++){
       const x = -0.3 + i*0.2;
-      ctx.beginPath(); ctx.moveTo(x, -0.9); ctx.quadraticCurveTo(x+0.05, -0.7, x, -0.52); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, -1.0); ctx.quadraticCurveTo(x+0.05, -0.72, x, -0.5); ctx.stroke();
     }
+    ctx.restore();
   }
 
   // neck + head (with a subtle bob counter to the stride)
@@ -276,20 +318,30 @@ function drawQuad(ctx, d, ph){
   ctx.fillStyle = p.belly;
   ctx.beginPath(); ctx.ellipse(0, -0.48, 0.5, 0.16, 0, 0, Math.PI*2); ctx.fill();
 
-  // stego back plates
+  // stego back plates — kite-shaped, seated on and fanning with the back's arc
   if (f.plates){
+    const qEdge = t => backEdge(0, -0.62, 0.62, 0.34, 0, t);
     ctx.fillStyle = shade(p.accent, 0.05);
     for (let i = 0; i < 5; i++){
-      const x = -0.5 + i*0.25, h = 0.28 * Math.sin((i+0.5)/5*Math.PI) + 0.12;
-      ctx.beginPath(); ctx.moveTo(x, -0.9); ctx.lineTo(x+0.11, -0.9 - h); ctx.lineTo(x+0.22, -0.9); ctx.closePath(); ctx.fill();
+      const e = qEdge(Math.PI * (1.14 + i * 0.155));
+      const h = 0.26 * Math.sin((i + 0.5) / 5 * Math.PI) + 0.1, w = 0.105;
+      const tx = -e.ny, ty = e.nx;
+      ctx.beginPath();
+      ctx.moveTo(e.x - tx * w - e.nx * 0.04, e.y - ty * w - e.ny * 0.04);
+      ctx.lineTo(e.x - tx * w * 0.55 + e.nx * h * 0.62, e.y - ty * w * 0.55 + e.ny * h * 0.62);
+      ctx.lineTo(e.x + e.nx * h, e.y + e.ny * h);                 // plate tip
+      ctx.lineTo(e.x + tx * w * 0.55 + e.nx * h * 0.62, e.y + ty * w * 0.55 + e.ny * h * 0.62);
+      ctx.lineTo(e.x + tx * w - e.nx * 0.04, e.y + ty * w - e.ny * 0.04);
+      ctx.closePath(); ctx.fill();
     }
   }
-  // anky armor bumps
+  // anky armor bumps — half-embedded along the back's curve
   if (f.armorBumps){
+    const qEdge = t => backEdge(0, -0.62, 0.62, 0.34, 0, t);
     ctx.fillStyle = shade(p.body, -0.28);
     for (let i = 0; i < 6; i++){
-      const x = -0.45 + i*0.18, y = -0.82 - Math.sin((i+0.5)/6*Math.PI)*0.1;
-      ctx.beginPath(); ctx.arc(x, y, 0.06, 0, Math.PI*2); ctx.fill();
+      const e = qEdge(Math.PI * (1.16 + i * 0.135));
+      ctx.beginPath(); ctx.arc(e.x - e.nx * 0.015, e.y - e.ny * 0.015, 0.062, 0, Math.PI*2); ctx.fill();
     }
   }
 
@@ -603,11 +655,16 @@ function drawAquatic(ctx, d, ph){
   ctx.beginPath(); ctx.ellipse(0, -0.12, 0.52, 0.21, -0.05, 0, Math.PI*2); ctx.fill();
   ctx.fillStyle = p.belly;                    // wet sheen along the waterline
   ctx.beginPath(); ctx.ellipse(0.05, -0.02, 0.4, 0.06, -0.04, 0, Math.PI*2); ctx.fill();
-  if (f.ridge){                               // spine ridge fins
+  if (f.ridge){                               // spine ridge fins riding the hump's curve
     ctx.fillStyle = shade(p.body, -0.3);
     for (let i = 0; i < 4; i++){
-      const x = -0.3 + i * 0.17;
-      ctx.beginPath(); ctx.moveTo(x, -0.28); ctx.lineTo(x + 0.05, -0.4); ctx.lineTo(x + 0.11, -0.27); ctx.closePath(); ctx.fill();
+      const e = backEdge(0, -0.12, 0.52, 0.21, -0.05, Math.PI * (1.22 + i * 0.16));
+      const w = 0.05, h = 0.12, tx = -e.ny, ty = e.nx;
+      ctx.beginPath();
+      ctx.moveTo(e.x - tx * w - e.nx * 0.02, e.y - ty * w - e.ny * 0.02);
+      ctx.lineTo(e.x + e.nx * h - tx * w * 0.4, e.y + e.ny * h - ty * w * 0.4); // fins rake backward
+      ctx.lineTo(e.x + tx * w - e.nx * 0.02, e.y + ty * w - e.ny * 0.02);
+      ctx.closePath(); ctx.fill();
     }
   }
   // paddle flipper stroking the water
