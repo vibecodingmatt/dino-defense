@@ -2914,7 +2914,8 @@ function spawnMenuDino(w, h){
   if (Math.random() < 0.75){
     const n = 1 + (Math.random() * 2 | 0);
     // at most one celebrity cameo per pack: Nedry legs it, Hammond never quite makes it
-    const guest = Math.random() < 0.3 ? (Math.random() < 0.5 ? 'nedry' : 'hammond') : null;
+    // (Hammond gets the bigger share — he's the crowd favourite)
+    const guest = Math.random() < 0.4 ? (Math.random() < 0.58 ? 'hammond' : 'nedry') : null;
     const guestIdx = guest ? (Math.random() * n | 0) : -1;
     for (let i = 0; i < n; i++){
       const kind = i === guestIdx ? guest : null;
@@ -2928,15 +2929,17 @@ function spawnMenuDino(w, h){
       const look = kind === 'nedry'   ? nedryLook(baseSize * 0.58)
                  : kind === 'hammond' ? hammondLook(baseSize * 0.58)
                  : randomTouristLook(baseSize * 0.58, fate !== 'safe');
-      // Hammond dodders along; everyone else keeps their fate-based pace
-      const spd = kind === 'hammond' ? rand(0.5, 0.62)
+      // Hammond dodders along; everyone else keeps their fate-based pace.
+      // He's still far slower than the sprinting dino (always caught), but quick
+      // enough that the chase — and his one-liner — plays out for a good while.
+      const spd = kind === 'hammond' ? rand(0.66, 0.76)
                 : fate === 'doomed' ? rand(0.84, 0.93)
                 : fate === 'trip' ? rand(0.96, 1.05) : rand(1.05, 1.28);
       // victims get a bigger head start so the chase plays out ON screen.
-      // Hammond starts just on-screen (any closer and the off-screen cull at
-      // x<-80 would delete him before the chase); being slow, the dino closing
-      // from further back still runs him down well within view.
-      const ahead = kind === 'hammond' ? 2.6 + i * 0.4
+      // Hammond starts well on-screen (min ahead is bounded below by the off-screen
+      // cull at x<-80); being slow, the dino closing from behind still runs him
+      // down in view — the extra head start just lets more of him emerge first.
+      const ahead = kind === 'hammond' ? 3.1 + i * 0.4
                   : (fate === 'safe' ? 2.2 : 4.2) + i * 1.2 + Math.random() * 0.8;
       menuTourists.push({
         x: d.x + dir * d.size * ahead,

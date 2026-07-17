@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.47.0';
+const VERSION = '1.47.1';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -25,6 +25,9 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
+  {v: '1.47.1', date: 'Jul 17, 2026', items: [
+    '🎩 John Hammond now turns up on the home screen a bit more often, and has slightly quicker feet — so his doomed dash (and "We spared no expense!") lasts a good deal longer before the inevitable. He still never makes it.',
+  ]},
   {v: '1.47.0', date: 'Jul 17, 2026', items: [
     '💬 The home-screen celebrities now have something to say: Nedry taunts "Ah, Ah, Ah! You didn\'t say the magic word!" as he legs it, and Hammond insists "We spared no expense!" — comic speech bubbles that bob along above their heads.',
   ]},
