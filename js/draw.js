@@ -6,12 +6,17 @@
    flips and scales. `ph` is a walk-cycle phase in radians.
    ========================================================= */
 
+const shadeCache = new Map();
 function shade(hex, f){ // lighten (f>0) / darken (f<0) a #rrggbb color
+  const key = hex + ':' + f;
+  if (shadeCache.has(key)) return shadeCache.get(key);
   const n = parseInt(hex.slice(1), 16);
   let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
   if (f >= 0){ r += (255-r)*f; g += (255-g)*f; b += (255-b)*f; }
   else { r *= 1+f; g *= 1+f; b *= 1+f; }
-  return `rgb(${r|0},${g|0},${b|0})`;
+  const out = `rgb(${r|0},${g|0},${b|0})`;
+  shadeCache.set(key, out);
+  return out;
 }
 
 /* ---------- leg helper: two-joint walk cycle with foot lift ---------- */
@@ -280,6 +285,201 @@ function drawTheropod(ctx, d, ph){
 
   // near hind leg (in front of body)
   leg(ctx, 0.02, -0.62, 0.64, ph, shade(p.body, -0.12), 0.17*slim);
+}
+
+/* ---------- TYRANNOSAURUS REX ----------
+   A dedicated, heavyweight silhouette: deep boxy skull, powerful S-neck,
+   barrel ribs, massive thighs and a long counterbalancing tail. The shapes
+   stay bold enough to read at game scale while giving the island's star
+   predator a distinctly cinematic presence. */
+function drawTrex(ctx, d, ph){
+  const p = d.pal;
+  const step = Math.sin(ph), lift = Math.max(0, Math.cos(ph));
+  const bob = Math.abs(step) * 0.045;
+  const roar = (d.entranceT || 0) > 0 ? Math.min(1, Math.max(0, (2.2 - d.entranceT) * 2.5)) : 0;
+
+  function rexLeg(hipX, hipY, phase, color, near){
+    const sw = Math.sin(phase);
+    const up = Math.max(0, Math.cos(phase));
+    const kneeX = hipX + sw * 0.23;
+    const kneeY = hipY + 0.34 - up * 0.08;
+    const ankleX = kneeX - 0.10 + sw * 0.15;
+    const ankleY = Math.min(-0.08, kneeY + 0.31 - up * 0.09);
+    const footX = ankleX + 0.23 + sw * 0.035;
+    const footY = -0.025 - up * 0.035;
+    ctx.strokeStyle = color; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.lineWidth = near ? 0.235 : 0.205;
+    ctx.beginPath(); ctx.moveTo(hipX, hipY); ctx.lineTo(kneeX, kneeY); ctx.stroke();
+    ctx.lineWidth = near ? 0.145 : 0.125;
+    ctx.beginPath(); ctx.moveTo(kneeX, kneeY); ctx.lineTo(ankleX, ankleY); ctx.lineTo(footX, footY); ctx.stroke();
+    // Three lean weight-bearing toes with dark hooked talons. Keep the fan
+    // nearly level in side view so it reads as a grounded foot, not raised nubs.
+    const toes = [
+      {sx:-0.075, sy:-0.012, ex:0.185, ey:-0.006, w:0.038},
+      {sx:-0.055, sy: 0.005, ex:0.145, ey: 0.022, w:0.034},
+      {sx:-0.050, sy:-0.022, ex:0.115, ey:-0.040, w:0.030},
+    ];
+    for (const toe of toes){
+      ctx.strokeStyle = color;
+      ctx.lineWidth = toe.w * (near ? 1 : 0.88);
+      ctx.beginPath();
+      ctx.moveTo(footX + toe.sx, footY + toe.sy);
+      ctx.quadraticCurveTo(footX + toe.ex * 0.56, footY + toe.ey * 0.35,
+                           footX + toe.ex, footY + toe.ey);
+      ctx.stroke();
+      // Tapered keratin claw, slightly down-curved at the point.
+      const tx = footX + toe.ex, ty = footY + toe.ey;
+      ctx.fillStyle = '#29271f';
+      ctx.beginPath();
+      ctx.moveTo(tx - 0.030, ty - toe.w * 0.42);
+      ctx.lineTo(tx + 0.090, ty + 0.010);
+      ctx.lineTo(tx - 0.024, ty + toe.w * 0.42);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+
+  // Far leg first, largely hidden by the enormous hip.
+  rexLeg(-0.17, -0.63, ph + Math.PI, shade(p.body, -0.38), false);
+
+  ctx.save();
+  ctx.translate(0, -bob);
+
+  // Long, thick counterbalance with a slight living sway.
+  const tailSway = Math.sin(ph * 0.82) * 0.055;
+  ctx.fillStyle = shade(p.body, -0.04);
+  ctx.beginPath();
+  ctx.moveTo(-0.26, -0.96);
+  ctx.bezierCurveTo(-0.73, -0.98, -1.16, -0.83 + tailSway, -1.75, -0.73 + tailSway);
+  ctx.quadraticCurveTo(-1.91, -0.68 + tailSway, -1.74, -0.62 + tailSway);
+  ctx.bezierCurveTo(-1.15, -0.61 + tailSway, -0.70, -0.51, -0.22, -0.46);
+  ctx.closePath(); ctx.fill();
+
+  // Barrel chest and huge pelvic mass form the classic heavy rex profile.
+  ctx.fillStyle = p.body;
+  ctx.beginPath();
+  ctx.moveTo(-0.56, -0.82);
+  ctx.bezierCurveTo(-0.36, -1.12, 0.12, -1.12, 0.43, -0.92);
+  ctx.bezierCurveTo(0.58, -0.77, 0.48, -0.47, 0.18, -0.38);
+  ctx.bezierCurveTo(-0.15, -0.29, -0.53, -0.43, -0.62, -0.65);
+  ctx.closePath(); ctx.fill();
+  // Muted throat and belly, kept irregular rather than a clean cartoon oval.
+  ctx.fillStyle = p.belly;
+  ctx.beginPath();
+  ctx.moveTo(-0.40, -0.54);
+  ctx.bezierCurveTo(-0.06, -0.34, 0.31, -0.42, 0.43, -0.68);
+  ctx.bezierCurveTo(0.27, -0.56, -0.08, -0.48, -0.40, -0.62);
+  ctx.closePath(); ctx.fill();
+
+  // Subtle mottling gives the hide depth without turning into visual noise.
+  ctx.fillStyle = p.accent;
+  ctx.globalAlpha *= 0.30;
+  const mottles = [
+    [-0.48,-0.83,.15,.055,-.2],[-0.18,-.96,.12,.045,.15],[.09,-.91,.13,.05,-.1],
+    [-.77,-.78,.16,.04,.08],[-1.10,-.72,.12,.035,-.1],[-.12,-.67,.10,.045,.3],
+    [.24,-.78,.09,.04,-.2]
+  ];
+  for (const m of mottles){
+    ctx.beginPath(); ctx.ellipse(m[0],m[1],m[2],m[3],m[4],0,Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha /= 0.30;
+
+  // Muscular rising neck: broad at the shoulder and tightly joined to the skull.
+  const headBob = Math.sin(ph * 2 + 0.7) * 0.018;
+  const hx = 0.67 - roar * 0.08, hy = -1.08 + headBob - roar * 0.17;
+  ctx.fillStyle = p.body;
+  ctx.beginPath();
+  ctx.moveTo(0.20, -0.96);
+  ctx.bezierCurveTo(0.38, -1.14, 0.51, -1.25, hx + 0.06, hy - 0.04);
+  ctx.lineTo(hx + 0.14, hy + 0.31);
+  ctx.bezierCurveTo(0.57, -0.70, 0.44, -0.57, 0.28, -0.51);
+  ctx.lineTo(0.12, -0.69); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = shade(p.belly, -0.10);
+  ctx.beginPath();
+  ctx.moveTo(0.31,-0.66); ctx.bezierCurveTo(.49,-.75,.55,-.96,hx+.06,hy+.26);
+  ctx.lineTo(hx+.15,hy+.31); ctx.bezierCurveTo(.58,-.71,.47,-.55,.28,-.49); ctx.closePath(); ctx.fill();
+
+  // Skull and jaws rotate together during the entrance roar.
+  ctx.save(); ctx.translate(hx, hy); ctx.rotate(-roar * 0.30);
+  // Home-screen catches have their own readable mouth performance: open on
+  // the lunge, snap shut at contact, then work the jaws while holding prey.
+  let biteJaw = 0;
+  if (d.eat){
+    const et = d.eat.t;
+    biteJaw = et < 0.18 ? (et / 0.18) * 0.46
+            : et < 0.40 ? 0.46
+            : et < 0.48 ? (1 - (et - 0.40) / 0.08) * 0.46
+            : et < 2.10 ? 0.035 + Math.abs(Math.sin((et - 0.48) * 8.5)) * 0.075
+            : et < 2.45 ? 0.10 + Math.sin((et - 2.10) * 9) * 0.035
+            : et < 2.75 ? (1 - (et - 2.45) / 0.30) * 0.06 : 0;
+  }
+  const idleJaw = d.eat ? 0 : Math.max(0, Math.sin(ph * 0.72)) * 0.025;
+  const jawOpen = 0.035 + idleJaw + roar * 0.31 + biteJaw;
+
+  // Deep, broad upper skull with a squared muzzle instead of a generic wedge.
+  ctx.fillStyle = p.body;
+  ctx.beginPath();
+  ctx.moveTo(-0.16,-0.23);
+  ctx.bezierCurveTo(0.04,-0.32,0.31,-0.29,0.48,-0.19);
+  ctx.lineTo(0.63,-0.11); ctx.lineTo(0.63,0.015);
+  ctx.quadraticCurveTo(0.35,0.07,-0.11,0.09);
+  ctx.lineTo(-0.22,-0.05); ctx.closePath(); ctx.fill();
+  // Massive brow and cheek muscle.
+  ctx.fillStyle = shade(p.body, -0.16);
+  ctx.beginPath(); ctx.ellipse(0.01,-0.15,0.24,0.13,-0.05,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(-0.07,0.035,0.17,0.15,0.12,0,Math.PI*2); ctx.fill();
+  // Knobbly nasal ridge catches a highlight along the long skull.
+  ctx.strokeStyle = shade(p.body, 0.14); ctx.lineWidth = 0.035; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(0.02,-0.245); ctx.quadraticCurveTo(.28,-.25,.53,-.15); ctx.stroke();
+
+  // Deep lower jaw with a muscular hinge.
+  ctx.save(); ctx.translate(-0.10, 0.06); ctx.rotate(jawOpen);
+  ctx.fillStyle = shade(p.body, -0.20);
+  ctx.beginPath();
+  ctx.moveTo(0,0); ctx.quadraticCurveTo(.31,.025,.70,-.015);
+  ctx.lineTo(.67,.11); ctx.quadraticCurveTo(.28,.18,-.07,.10); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#341b18';
+  ctx.beginPath(); ctx.moveTo(.04,.005); ctx.quadraticCurveTo(.34,.04,.65,.005);
+  ctx.lineTo(.62,.055); ctx.quadraticCurveTo(.31,.085,.03,.055); ctx.closePath(); ctx.fill();
+  // Lower teeth.
+  ctx.fillStyle = '#e7dfc8';
+  for (let i=0;i<5;i++){
+    const x=.12+i*.105, h=.04+(i%2)*.018;
+    ctx.beginPath(); ctx.moveTo(x-.022,.018); ctx.lineTo(x+.022,.014); ctx.lineTo(x,.014-h); ctx.fill();
+  }
+  ctx.restore();
+
+  // Irregular, interlocking upper teeth.
+  ctx.fillStyle = '#eee7d3';
+  const teeth = [[.04,.075],[.15,.11],[.27,.085],[.39,.12],[.51,.08],[.59,.065]];
+  for (const [x,h] of teeth){
+    ctx.beginPath(); ctx.moveTo(x-.025,.035); ctx.lineTo(x+.025,.03); ctx.lineTo(x+.004,.03+h); ctx.fill();
+  }
+  // Recessed eye under the brow: small, watchful, and amber.
+  ctx.fillStyle = '#17130e'; ctx.beginPath(); ctx.ellipse(-0.005,-0.165,.052,.039,-.1,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#c99a38'; ctx.beginPath(); ctx.arc(.005,-.17,.022,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#171008'; ctx.beginPath(); ctx.ellipse(.008,-.17,.007,.019,0,0,Math.PI*2); ctx.fill();
+  // Nostril near the end of the broad muzzle.
+  ctx.fillStyle = shade(p.body,-0.48); ctx.beginPath(); ctx.ellipse(.48,-.115,.032,.018,-.1,0,Math.PI*2); ctx.fill();
+  // A few restrained scars add age and identity without copying a decal.
+  ctx.strokeStyle = shade(p.body, 0.20); ctx.lineWidth=.014;
+  ctx.beginPath(); ctx.moveTo(.12,-.11); ctx.lineTo(.18,-.06); ctx.moveTo(.15,-.13); ctx.lineTo(.21,-.08); ctx.stroke();
+  ctx.restore();
+
+  // Characteristically tiny two-finger arms, tucked high against the chest.
+  const armSwing = Math.sin(ph + Math.PI) * 0.025;
+  const rexArm = (dy, color, width) => {
+    ctx.strokeStyle=color; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.lineWidth=width;
+    ctx.beginPath(); ctx.moveTo(.34,-.78+dy); ctx.lineTo(.48+armSwing,-.67+dy); ctx.lineTo(.43+armSwing,-.57+dy); ctx.stroke();
+    ctx.lineWidth=width*.38;
+    ctx.beginPath(); ctx.moveTo(.43+armSwing,-.57+dy); ctx.lineTo(.50+armSwing,-.525+dy);
+    ctx.moveTo(.43+armSwing,-.57+dy); ctx.lineTo(.47+armSwing,-.50+dy); ctx.stroke();
+  };
+  rexArm(-.025,shade(p.body,-.38),.052);
+  rexArm(.02,shade(p.body,-.12),.064);
+  ctx.restore();
+
+  // Near leg last for depth.
+  rexLeg(-0.08, -0.61, ph, shade(p.body, -0.10), true);
 }
 
 /* ---------- QUADRUPED (stego, trike, anky, para) ---------- */
@@ -619,6 +819,284 @@ function drawMutantRex(ctx, d, ph){
   leg(ctx, 0.04, -0.66, 0.72, ph, shade(p.body, -0.1), 0.26);
 }
 
+/* ---------- DISTORTUS REX ----------
+   Six-limbed and mostly quadrupedal: an immense distended skull, translucent
+   cranial sac, gorilla-long weight-bearing arms, grasping secondary arms,
+   bloated rear legs and painful asymmetry. */
+function drawDistortusRex(ctx, d, ph){
+  const p=d.pal, pace=Math.sin(ph), heave=Math.abs(pace)*.035;
+  const roar=(d.entranceT||0)>0?Math.min(1,Math.max(0,(3.4-d.entranceT)*1.55)):0;
+  const skin=p.body, shadow=shade(skin,-.34), deep=shade(skin,-.52), light=shade(skin,.13), claw='#302c25';
+
+  function hindLeg(x,phase,color,near){
+    const sw=Math.sin(phase), up=Math.max(0,Math.cos(phase));
+    const kx=x+sw*.16, ky=-.38-up*.035, ax=kx-.08+sw*.10, ay=-.10-up*.04;
+    ctx.strokeStyle=color;ctx.lineCap='round';ctx.lineJoin='round';ctx.lineWidth=near?.29:.25;
+    ctx.beginPath();ctx.moveTo(x,-.68);ctx.lineTo(kx,ky);ctx.stroke();
+    ctx.lineWidth=near?.18:.15;ctx.beginPath();ctx.moveTo(kx,ky);ctx.lineTo(ax,ay);ctx.stroke();
+    for(const toe of [{x:.23,y:.015},{x:.18,y:.055},{x:.14,y:-.025}]){
+      ctx.strokeStyle=color;ctx.lineWidth=near?.052:.044;ctx.beginPath();ctx.moveTo(ax-.03,ay);ctx.lineTo(ax+toe.x,ay+toe.y);ctx.stroke();
+      ctx.fillStyle=claw;ctx.beginPath();ctx.moveTo(ax+toe.x-.025,ay+toe.y-.018);
+      ctx.lineTo(ax+toe.x+.075,ay+toe.y+.006);ctx.lineTo(ax+toe.x-.022,ay+toe.y+.018);ctx.fill();
+    }
+  }
+  function greatArm(sx,sy,phase,color,near){
+    // Ape-like plant cycle: reach and lift during recovery, strike ahead of
+    // the shoulder, then stay low while sweeping backward under body weight.
+    const stride=Math.sin(phase), recovery=Math.max(0,Math.cos(phase));
+    const load=Math.max(0,-Math.cos(phase));
+    const ex=sx+.27+stride*.15, ey=sy+.32-recovery*.11+load*.04;
+    const wx=sx+.45+stride*.31, wy=-.10-recovery*.23;
+    const handRoll=-stride*.15+recovery*.22;
+    ctx.strokeStyle=color;ctx.lineCap='round';ctx.lineJoin='round';ctx.lineWidth=near?.25:.21;
+    ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();
+    ctx.lineWidth=near?.19:.16;ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(wx,wy);ctx.stroke();
+    ctx.fillStyle=color;ctx.beginPath();ctx.ellipse(wx+.03,wy,.13,.075,handRoll,0,Math.PI*2);ctx.fill();
+    for(let i=0;i<3;i++){
+      const fy=wy-.035+i*.035,len=.17-i*.018+recovery*.04;
+      ctx.strokeStyle=color;ctx.lineWidth=near?.045:.038;ctx.beginPath();ctx.moveTo(wx+.04,fy);ctx.lineTo(wx+len,fy+.02);ctx.stroke();
+      ctx.fillStyle=claw;ctx.beginPath();ctx.moveTo(wx+len-.018,fy);ctx.lineTo(wx+len+.07,fy+.025);ctx.lineTo(wx+len-.02,fy+.034);ctx.fill();
+    }
+    if(load>.45){
+      ctx.fillStyle='rgba(55,45,32,'+(.18*load)+')';
+      ctx.beginPath();ctx.ellipse(wx+.04,.005,.20+.04*load,.035,0,0,Math.PI*2);ctx.fill();
+    }
+  }
+  function smallArm(sx,sy,phase,color){
+    const curl=Math.sin(phase)*.035,ex=sx+.23+curl,ey=sy+.15,hx=sx+.42+curl,hy=sy+.06;
+    ctx.strokeStyle=color;ctx.lineCap='round';ctx.lineJoin='round';ctx.lineWidth=.115;
+    ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.lineTo(hx,hy);ctx.stroke();
+    ctx.strokeStyle=claw;ctx.lineWidth=.028;
+    for(let i=0;i<3;i++){ctx.beginPath();ctx.moveTo(hx,hy);ctx.lineTo(hx+.17,hy-.060+i*.055);ctx.stroke();}
+  }
+
+  // Far limbs establish the low, six-limbed stance.
+  hindLeg(-.35,ph+Math.PI,deep,false);
+  greatArm(.23,-.88,ph+Math.PI,deep,false);
+  smallArm(.36,-.72,ph+1.2,deep);
+  ctx.save();ctx.translate(0,-heave);
+
+  // Low tail and a bloated, shoulder-heavy body.
+  ctx.fillStyle=shadow;ctx.beginPath();ctx.moveTo(-.38,-.84);
+  ctx.bezierCurveTo(-.88,-.86,-1.35,-.63,-1.82,-.38+Math.sin(ph*.6)*.04);
+  ctx.quadraticCurveTo(-1.96,-.28,-1.78,-.22);ctx.bezierCurveTo(-1.18,-.34,-.72,-.38,-.30,-.43);ctx.fill();
+  ctx.fillStyle=skin;ctx.beginPath();ctx.moveTo(-.58,-.61);
+  ctx.bezierCurveTo(-.54,-1.02,-.20,-1.18,.12,-1.13);
+  ctx.bezierCurveTo(.42,-1.20,.67,-1.02,.70,-.76);
+  ctx.bezierCurveTo(.73,-.48,.38,-.35,.04,-.34);
+  ctx.bezierCurveTo(-.33,-.30,-.61,-.39,-.58,-.61);ctx.fill();
+  ctx.fillStyle=p.belly;ctx.beginPath();ctx.moveTo(-.40,-.50);
+  ctx.bezierCurveTo(-.10,-.30,.35,-.36,.57,-.56);
+  ctx.bezierCurveTo(.27,-.47,-.08,-.48,-.40,-.59);ctx.fill();
+
+  // Uneven fatty knots under taut hide.
+  ctx.fillStyle=shadow;
+  const knots=[[-.40,-.84,.17,.13],[-.18,-1.02,.15,.11],[.08,-1.06,.18,.13],[.34,-.96,.14,.12],[-.31,-.56,.13,.10],[.25,-.55,.12,.09]];
+  for(const [x,y,rx,ry] of knots){ctx.beginPath();ctx.ellipse(x,y,rx,ry,-.15,0,Math.PI*2);ctx.fill();}
+  ctx.strokeStyle=shade(skin,.18);ctx.lineWidth=.022;ctx.globalAlpha*=.48;
+  for(const [x,y,rx] of knots){ctx.beginPath();ctx.arc(x-.02,y-.025,rx*.55,Math.PI*1.05,Math.PI*1.7);ctx.stroke();}
+  ctx.globalAlpha/=.48;
+
+  // Compressed neck props up a head that looks almost too heavy to carry.
+  const hx=.69-roar*.05,hy=-.92-roar*.12+Math.sin(ph*1.7)*.015;
+  ctx.fillStyle=skin;ctx.beginPath();ctx.moveTo(.24,-1.08);
+  ctx.bezierCurveTo(.47,-1.22,.67,-1.18,hx+.10,hy-.05);
+  ctx.lineTo(hx+.16,hy+.35);ctx.bezierCurveTo(.56,-.62,.40,-.55,.20,-.61);ctx.fill();
+  ctx.fillStyle=shade(p.belly,-.08);ctx.beginPath();ctx.moveTo(.38,-.65);
+  ctx.bezierCurveTo(.57,-.72,.64,-.86,hx+.10,hy+.26);
+  ctx.lineTo(hx+.18,hy+.35);ctx.bezierCurveTo(.58,-.61,.44,-.54,.31,-.58);ctx.fill();
+
+  ctx.save();ctx.translate(hx,hy);ctx.rotate(-roar*.15);
+  let bite=0;
+  if(d.eat){const t=d.eat.t;bite=t<.18?t/.18*.48:t<.40?.48:t<.48?(1-(t-.40)/.08)*.48:t<2.1?.04+Math.abs(Math.sin((t-.48)*8.2))*.08:t<2.45?.11:0;}
+  const jaw=.055+(d.eat?0:Math.max(0,Math.sin(ph*.65))*.025)+roar*.38+bite;
+
+  // One continuous blunt cranial mass — forehead, skull and muzzle are fused,
+  // never a separate sail. Its bulk runs backward into the shoulders.
+  const dome=ctx.createRadialGradient(.12,-.34,.04,.05,-.29,.62);
+  dome.addColorStop(0,shade(skin,.12));dome.addColorStop(.56,skin);dome.addColorStop(1,shadow);
+  ctx.fillStyle=dome;ctx.beginPath();ctx.moveTo(-.50,.04);
+  ctx.bezierCurveTo(-.56,-.18,-.38,-.41,-.09,-.47);
+  ctx.bezierCurveTo(.25,-.52,.54,-.39,.61,-.20);
+  ctx.bezierCurveTo(.66,-.08,.60,.04,.53,.09);
+  ctx.quadraticCurveTo(.15,.17,-.29,.13);ctx.closePath();ctx.fill();
+  // Broad facial pad turns the swollen dome sharply down into a short muzzle.
+  ctx.fillStyle=shade(skin,-.12);ctx.beginPath();
+  ctx.moveTo(.19,-.31);ctx.bezierCurveTo(.43,-.35,.62,-.24,.64,-.10);
+  ctx.lineTo(.61,.075);ctx.quadraticCurveTo(.40,.12,.17,.095);
+  ctx.bezierCurveTo(.08,-.04,.08,-.19,.19,-.31);ctx.fill();
+  // Layered skin folds radiate backward from the overloaded face.
+  ctx.strokeStyle=shade(skin,-.23);ctx.lineWidth=.022;ctx.lineCap='round';
+  ctx.beginPath();
+  ctx.moveTo(.18,-.29);ctx.quadraticCurveTo(-.04,-.36,-.25,-.30);
+  ctx.moveTo(.13,-.20);ctx.quadraticCurveTo(-.08,-.24,-.30,-.16);
+  ctx.moveTo(.12,-.10);ctx.quadraticCurveTo(-.10,-.09,-.31,.01);
+  ctx.moveTo(.33,-.38);ctx.quadraticCurveTo(.12,-.49,-.11,-.48);ctx.stroke();
+
+  // Deep lower jaw, shortened to match the blunt face.
+  ctx.save();ctx.translate(-.12,.075);ctx.rotate(jaw);
+  ctx.fillStyle=deep;ctx.beginPath();ctx.moveTo(0,0);ctx.quadraticCurveTo(.32,.055,.73,-.01);
+  ctx.lineTo(.69,.18);ctx.quadraticCurveTo(.28,.28,-.08,.16);ctx.fill();
+  ctx.fillStyle='#351b19';ctx.beginPath();ctx.moveTo(.045,.025);ctx.quadraticCurveTo(.34,.08,.67,.025);
+  ctx.lineTo(.62,.115);ctx.quadraticCurveTo(.30,.17,.03,.10);ctx.fill();
+  ctx.fillStyle='#e7dfca';
+  for(let i=0;i<6;i++){const x=.08+i*.105,h=.055+i%3*.018;ctx.beginPath();ctx.moveTo(x-.025,.035);ctx.lineTo(x+.025,.03);ctx.lineTo(x,.03-h);ctx.fill();}
+  ctx.restore();
+  ctx.fillStyle='#eee7d2';
+  for(let i=0;i<6;i++){const x=.02+i*.095,h=.065+i%2*.03;ctx.beginPath();ctx.moveTo(x-.026,.065);ctx.lineTo(x+.025,.06);ctx.lineTo(x+.004,.06+h);ctx.fill();}
+  // Eye is pushed forward beside the muzzle, ringed by a bruised black socket.
+  ctx.fillStyle='#211b17';ctx.beginPath();ctx.ellipse(.31,-.205,.085,.064,-.15,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#d2a638';ctx.beginPath();ctx.arc(.32,-.21,.022,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#130b08';ctx.beginPath();ctx.ellipse(.324,-.21,.007,.019,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=deep;ctx.beginPath();ctx.ellipse(.54,-.115,.032,.018,-.1,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+
+  smallArm(.43,-.74,ph+.5,light);
+  ctx.restore();
+  greatArm(.31,-.89,ph,light,true);
+  hindLeg(-.27,ph,shade(skin,-.08),true);
+}
+
+/* Reference-led Distortus: a three-quarter presentation preserves the film
+   creature's unmistakable upright hunch, broad face and six-limbed anatomy in
+   a game otherwise drawn in side profile. */
+function drawDistortusRef(ctx,d,ph){
+  const p=d.pal, skin=p.body, dark=shade(skin,-.30), deep=shade(skin,-.50);
+  const light=shade(skin,.13), nail='#29251e';
+  const step=Math.sin(ph), plant=Math.max(0,Math.cos(ph));
+  const bob=Math.abs(step)*.035;
+  const roar=(d.entranceT||0)>0?Math.min(1,Math.max(0,(3.4-d.entranceT)*1.55)):0;
+
+  function rearLeg(x,phase,color,near){
+    const sw=Math.sin(phase),lift=Math.max(0,Math.cos(phase));
+    const kx=x+sw*.14,ky=-.34-lift*.04,ax=kx-.05+sw*.08,ay=-.08-lift*.035;
+    ctx.strokeStyle=color;ctx.lineCap='round';ctx.lineJoin='round';ctx.lineWidth=near?.29:.25;
+    ctx.beginPath();ctx.moveTo(x,-.68);ctx.lineTo(kx,ky);ctx.stroke();
+    ctx.lineWidth=near?.18:.15;ctx.beginPath();ctx.moveTo(kx,ky);ctx.lineTo(ax,ay);ctx.stroke();
+    for(const toe of [{x:.23,y:.012},{x:.18,y:.052},{x:.14,y:-.028}]){
+      ctx.strokeStyle=color;ctx.lineWidth=near?.052:.044;ctx.beginPath();ctx.moveTo(ax-.02,ay);ctx.lineTo(ax+toe.x,ay+toe.y);ctx.stroke();
+      ctx.fillStyle=nail;ctx.beginPath();ctx.moveTo(ax+toe.x-.02,ay+toe.y-.018);
+      ctx.lineTo(ax+toe.x+.085,ay+toe.y+.005);ctx.lineTo(ax+toe.x-.018,ay+toe.y+.018);ctx.fill();
+    }
+  }
+  function pillarArm(sx,sy,phase,color,near){
+    const sw=Math.sin(phase)*.075;
+    const ex=sx+.27+sw,ey=sy+.38,wx=sx+.48+sw*.6,wy=-.105;
+    ctx.strokeStyle=color;ctx.lineCap='round';ctx.lineJoin='round';ctx.lineWidth=near?.25:.21;
+    ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();
+    ctx.lineWidth=near?.17:.145;ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(wx,wy);ctx.stroke();
+    ctx.fillStyle=color;ctx.beginPath();ctx.ellipse(wx+.025,wy,.13,.075,.05,0,Math.PI*2);ctx.fill();
+    for(let i=0;i<3;i++){
+      const fy=wy-.035+i*.038,len=.18-i*.018;
+      ctx.strokeStyle=color;ctx.lineWidth=near?.044:.037;ctx.beginPath();ctx.moveTo(wx+.03,fy);ctx.lineTo(wx+len,fy+.015);ctx.stroke();
+      ctx.fillStyle=nail;ctx.beginPath();ctx.moveTo(wx+len-.015,fy-.012);
+      ctx.quadraticCurveTo(wx+len+.095,fy+.005,wx+len+.075,fy+.055);
+      ctx.lineTo(wx+len-.02,fy+.022);ctx.fill();
+    }
+  }
+  function graspArm(sx,sy,phase,color,near){
+    const curl=Math.sin(phase)*.03,ex=sx+.17+curl,ey=sy+.12,hx=sx+.30+curl,hy=sy+.055;
+    ctx.strokeStyle=color;ctx.lineCap='round';ctx.lineJoin='round';ctx.lineWidth=near?.09:.075;
+    ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.lineTo(hx,hy);ctx.stroke();
+    for(let i=0;i<3;i++){ctx.strokeStyle=nail;ctx.lineWidth=.023;ctx.beginPath();ctx.moveTo(hx,hy);ctx.quadraticCurveTo(hx+.12,hy-.055+i*.045,hx+.09,hy+.01+i*.035);ctx.stroke();}
+  }
+
+  // Far half of all three limb pairs.
+  rearLeg(-.34,ph+Math.PI,deep,false);
+  pillarArm(.05,-1.00,ph+Math.PI,deep,false);
+  graspArm(.20,-.89,ph+1.4,deep,false);
+  ctx.save();ctx.translate(0,-bob);
+
+  // Short heavy tail and towering arched back.
+  ctx.fillStyle=dark;ctx.beginPath();ctx.moveTo(-.45,-.83);
+  ctx.bezierCurveTo(-.78,-.75,-1.06,-.55,-1.35,-.35+Math.sin(ph*.55)*.035);
+  ctx.quadraticCurveTo(-1.47,-.25,-1.32,-.22);
+  ctx.bezierCurveTo(-.96,-.30,-.66,-.38,-.36,-.44);ctx.fill();
+  ctx.fillStyle=skin;ctx.beginPath();ctx.moveTo(-.57,-.58);
+  ctx.bezierCurveTo(-.60,-1.02,-.30,-1.40,.06,-1.43);
+  ctx.bezierCurveTo(.42,-1.46,.65,-1.18,.62,-.81);
+  ctx.bezierCurveTo(.62,-.47,.34,-.29,-.02,-.31);
+  ctx.bezierCurveTo(-.38,-.29,-.60,-.39,-.57,-.58);ctx.fill();
+  // Ribbed lower flank and oversized rear thigh.
+  ctx.fillStyle=p.belly;ctx.beginPath();ctx.moveTo(-.42,-.59);
+  ctx.bezierCurveTo(-.18,-.36,.28,-.36,.50,-.62);
+  ctx.bezierCurveTo(.20,-.52,-.10,-.53,-.42,-.67);ctx.fill();
+  ctx.fillStyle=shade(skin,-.08);ctx.beginPath();ctx.ellipse(-.31,-.57,.31,.36,-.14,0,Math.PI*2);ctx.fill();
+
+  // Broken ridge and mottled hide follow the arch, not a decorative sail.
+  ctx.fillStyle=dark;
+  for(const [x,y,r] of [[-.40,-1.05,.12],[-.24,-1.25,.13],[-.06,-1.34,.14],[.13,-1.32,.12],[.30,-1.20,.10],[.43,-1.04,.09]]){
+    ctx.beginPath();ctx.ellipse(x,y,r,r*.63,-.18,0,Math.PI*2);ctx.fill();
+  }
+  ctx.fillStyle=p.accent;ctx.globalAlpha*=.24;
+  for(const [x,y,rx,ry] of [[-.41,-.80,.15,.05],[-.17,-.97,.17,.055],[.10,-1.10,.16,.05],[.29,-.86,.13,.05],[-.13,-.56,.12,.045]]){
+    ctx.beginPath();ctx.ellipse(x,y,rx,ry,-.15,0,Math.PI*2);ctx.fill();
+  }
+  ctx.globalAlpha/=.24;
+
+  // Almost no neck: the massive head hangs directly from the shoulder arch.
+  const hx=.39-roar*.03,hy=-1.22-roar*.10+Math.sin(ph*1.5)*.012;
+  ctx.fillStyle=skin;ctx.beginPath();ctx.moveTo(.02,-1.36);
+  ctx.bezierCurveTo(.25,-1.49,.48,-1.42,hx+.19,hy-.02);
+  ctx.lineTo(hx+.13,hy+.45);ctx.bezierCurveTo(.43,-.75,.27,-.66,.08,-.70);ctx.fill();
+  ctx.save();ctx.translate(hx,hy);ctx.rotate(-roar*.11);
+
+  let bite=0;
+  if(d.eat){const t=d.eat.t;bite=t<.18?t/.18*.46:t<.40?.46:t<.48?(1-(t-.40)/.08)*.46:t<2.1?.04+Math.abs(Math.sin((t-.48)*8.2))*.075:t<2.45?.10:0;}
+  const jaw=.085+(d.eat?0:Math.max(0,Math.sin(ph*.62))*.025)+roar*.34+bite;
+
+  // Broad three-quarter cranium: bulbous crown, pinched temples, almost no snout.
+  const skull=ctx.createRadialGradient(-.12,-.24,.03,-.05,-.20,.64);
+  skull.addColorStop(0,light);skull.addColorStop(.58,skin);skull.addColorStop(1,dark);
+  ctx.fillStyle=skull;ctx.beginPath();ctx.moveTo(-.42,.10);
+  ctx.bezierCurveTo(-.52,-.18,-.39,-.48,-.15,-.60);
+  ctx.bezierCurveTo(.12,-.70,.43,-.54,.54,-.29);
+  ctx.bezierCurveTo(.64,-.06,.52,.15,.23,.20);
+  ctx.quadraticCurveTo(-.14,.26,-.42,.10);ctx.fill();
+  // Short blunt muzzle nested under the dome.
+  ctx.fillStyle=shade(skin,-.16);ctx.beginPath();ctx.moveTo(.05,-.20);
+  ctx.bezierCurveTo(.31,-.28,.55,-.18,.59,-.03);
+  ctx.lineTo(.56,.115);ctx.quadraticCurveTo(.28,.17,.00,.105);
+  ctx.quadraticCurveTo(-.08,-.06,.05,-.20);ctx.fill();
+  // Brow furrows sweep backward across the giant forehead.
+  ctx.strokeStyle=shade(skin,-.25);ctx.lineWidth=.021;ctx.lineCap='round';ctx.beginPath();
+  ctx.moveTo(.10,-.31);ctx.quadraticCurveTo(-.12,-.41,-.34,-.32);
+  ctx.moveTo(.05,-.20);ctx.quadraticCurveTo(-.16,-.26,-.39,-.14);
+  ctx.moveTo(.02,-.10);ctx.quadraticCurveTo(-.18,-.11,-.40,.01);ctx.stroke();
+  // Heavy asymmetric brow and cheek planes stop the crown reading as a ball.
+  ctx.fillStyle=shade(skin,-.27);ctx.beginPath();
+  ctx.moveTo(-.12,-.29);ctx.quadraticCurveTo(.16,-.39,.38,-.26);
+  ctx.lineTo(.31,-.14);ctx.quadraticCurveTo(.09,-.23,-.14,-.17);ctx.fill();
+  ctx.fillStyle=shade(skin,-.16);ctx.beginPath();ctx.ellipse(.04,-.015,.20,.15,-.12,0,Math.PI*2);ctx.fill();
+
+  // Deep compact jaw opens beneath rather than projecting like a crocodile.
+  ctx.save();ctx.translate(-.01,.09);ctx.rotate(jaw);
+  ctx.fillStyle=deep;ctx.beginPath();ctx.moveTo(0,0);
+  ctx.quadraticCurveTo(.27,.055,.57,-.005);ctx.lineTo(.53,.19);
+  ctx.quadraticCurveTo(.22,.28,-.07,.15);ctx.fill();
+  ctx.fillStyle='#351b18';ctx.beginPath();ctx.moveTo(.04,.025);
+  ctx.quadraticCurveTo(.28,.085,.52,.025);ctx.lineTo(.47,.12);
+  ctx.quadraticCurveTo(.23,.17,.025,.095);ctx.fill();
+  ctx.fillStyle='#e8dfc6';
+  for(let i=0;i<5;i++){const x=.07+i*.095,h=.05+i%2*.025;ctx.beginPath();ctx.moveTo(x-.02,.035);ctx.lineTo(x+.02,.03);ctx.lineTo(x,.03-h);ctx.fill();}
+  ctx.restore();
+  ctx.fillStyle='#eee6cf';
+  for(let i=0;i<5;i++){const x=.07+i*.095,h=.06+i%2*.03;ctx.beginPath();ctx.moveTo(x-.022,.07);ctx.lineTo(x+.022,.065);ctx.lineTo(x,.065+h);ctx.fill();}
+  // Two eyes make the frontal breadth legible; near socket remains dominant.
+  ctx.fillStyle='#211916';ctx.beginPath();ctx.ellipse(.20,-.225,.074,.055,-.1,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#d4a536';ctx.beginPath();ctx.arc(.21,-.23,.019,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#120b08';ctx.beginPath();ctx.ellipse(.214,-.23,.006,.017,0,0,Math.PI*2);ctx.fill();
+  ctx.globalAlpha*=.62;ctx.fillStyle='#211916';ctx.beginPath();ctx.ellipse(-.06,-.235,.050,.038,.1,0,Math.PI*2);ctx.fill();ctx.globalAlpha/=.62;
+  ctx.fillStyle=deep;ctx.beginPath();ctx.ellipse(.50,-.08,.030,.017,0,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+
+  // Near small arm remains tucked under the face; the great arm is a pillar.
+  graspArm(.36,-.91,ph+.35,light,true);
+  ctx.restore();
+  pillarArm(.18,-1.02,ph,light,true);
+  rearLeg(-.20,ph,shade(skin,-.08),true);
+}
+
 /* ---------- AQUATIC (mosasaurus, plesiosaurus & friends) ----------
    A marine reptile cutting along the surface: low half-submerged body with
    a bow wake and ripples, sweeping tail fluke, stroking paddle-flippers.
@@ -872,7 +1350,153 @@ function drawOmegaRex(ctx, d, ph){
   roboLeg(ctx, 0.02, -0.62, 0.64, ph, steel, darker, 0.18); // near leg
 }
 
-const PAINTERS = {theropod:drawTheropod, quad:drawQuad, sauropod:drawSauropod, flyer:drawFlyer, mutant:drawMutantRex, omega:drawOmegaRex, aquatic:drawAquatic};
+/* ---------- FILM BOSS SILHOUETTES ----------
+   These bosses deliberately do not share the everyday theropod body. Their
+   profiles carry the screen-recognition work: posture, skull, arms and the
+   markings audiences remember. */
+function bossFoot(ctx,x,y,s,flip){
+  const dir=flip?-1:1,foot=Math.max(.13,s*.7);
+  // A low fleshy foot carries the weight; toes spread along the ground instead
+  // of radiating upward from a single rake-like point.
+  ctx.fillStyle=ctx.strokeStyle;ctx.beginPath();ctx.ellipse(x+dir*foot*.28,y-.018,foot*.48,Math.max(.025,s*.11),0,0,Math.PI*2);ctx.fill();
+  const toes=[{dx:1,dy:0},{dx:.83,dy:-.035},{dx:.72,dy:.03}];
+  ctx.strokeStyle=ctx.fillStyle;ctx.lineWidth=Math.max(.025,s*.13);ctx.lineCap='round';
+  for(const t of toes){const bx=x+dir*foot*.22,by=y-.018+t.dy;ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(x+dir*foot*t.dx,by);ctx.stroke();
+    ctx.fillStyle='#51483b';ctx.beginPath();ctx.moveTo(x+dir*foot*(t.dx-.08),by-.022);ctx.lineTo(x+dir*foot*(t.dx+.18),by+.004);ctx.lineTo(x+dir*foot*(t.dx-.06),by+.022);ctx.closePath();ctx.fill();}
+}
+function filmBossLeg(ctx,x,ph,c,w,raptor){
+  const sw=Math.sin(ph),lift=Math.max(0,Math.cos(ph))*.13;
+  const kx=x+sw*.16,ky=-.35-lift,fx=x+.14+sw*.24,fy=-lift*.15;
+  ctx.strokeStyle=c;ctx.lineCap='round';ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(x,-.68);ctx.lineTo(kx,ky);ctx.stroke();
+  ctx.lineWidth=w*.62;ctx.beginPath();ctx.moveTo(kx,ky);ctx.lineTo(fx,fy);ctx.stroke();bossFoot(ctx,fx,fy,w*2.2,false);
+  if(raptor){ctx.strokeStyle='#51483b';ctx.lineWidth=.032;ctx.beginPath();ctx.moveTo(fx+.015,fy-.045);ctx.quadraticCurveTo(fx-.015,fy-.14,fx+.075,fy-.12);ctx.quadraticCurveTo(fx+.11,fy-.11,fx+.07,fy-.075);ctx.stroke();}
+}
+function bossArm(ctx,x,y,ph,c,longArm){
+  const sw=Math.sin(ph)*.06,ex=x+(longArm?.26:.16)+sw,ey=y+(longArm?.25:.14),hx=ex+(longArm?.21:.12),hy=ey+(longArm?.16:.08);
+  ctx.strokeStyle=c;ctx.lineCap='round';ctx.lineWidth=longArm?.085:.06;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(ex,ey);ctx.lineTo(hx,hy);ctx.stroke();
+  ctx.fillStyle=c;ctx.beginPath();ctx.ellipse(hx,hy,.065,.045,.25,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#4b443a';ctx.lineWidth=.018;for(let i=0;i<3;i++){const sy=hy-.025+i*.028,ex2=hx+.065+i*.010,ey2=sy+.018;ctx.beginPath();ctx.moveTo(hx+.025,sy);ctx.quadraticCurveTo(ex2,sy,ex2,ey2);ctx.quadraticCurveTo(ex2+.018,ey2+.012,ex2+.010,ey2+.034);ctx.stroke();}
+}
+function bossTeeth(ctx,x0,x1,open,n){
+  // Each tooth is seated on the sloped edge of its own jaw. In particular,
+  // lower teeth rise from the lower-jaw polygon instead of floating on a
+  // horizontal line beneath it.
+  ctx.fillStyle='#e4decc';
+  for(let i=0;i<n;i++){
+    const q=(i+.5)/n,x=x0+(x1-x0)*q;
+    const upper=.050+( -.035)*q;
+    const lower=.088+(open-.050)*q;
+    const uw=.013-(q*.003),lw=.012-(q*.003);
+    ctx.beginPath();ctx.moveTo(x-uw,upper);ctx.lineTo(x+uw,upper);ctx.lineTo(x,upper+.040);ctx.closePath();ctx.fill();
+    ctx.beginPath();ctx.moveTo(x-lw,lower);ctx.lineTo(x+lw,lower);ctx.lineTo(x,lower-.034);ctx.closePath();ctx.fill();
+  }
+}
+function bossBiteOpen(d,ph,roar,maxOpen){
+  if(d.eat){const t=d.eat.t;
+    if(t<.18)return .055+(maxOpen-.055)*(t/.18);
+    if(t<.40)return maxOpen;
+    if(t<.50)return maxOpen*(1-(t-.40)/.10)+.045*((t-.40)/.10);
+    if(t<2.25)return .095+Math.max(0,Math.sin(t*12))*.035;
+    return .035;
+  }
+  return .055+Math.max(0,Math.sin(ph*.8))*.035+roar*.22;
+}
+function drawFilmBoss(ctx,d,ph,kind){
+  const p=d.pal,raptor=kind==='blue'||kind==='indoraptor',spino=kind==='spino',indo=kind==='indominus',giga=kind==='giga';
+  const roar=(d.entranceT||0)>0?Math.min(1,(2.5-d.entranceT)*2.3):0;
+  const bob=Math.abs(Math.sin(ph))*.035,slim=raptor?.75:1;
+  filmBossLeg(ctx,-.18,ph+Math.PI,shade(p.body,-.38),raptor?.105:.18,raptor);
+  ctx.save();ctx.translate(0,-bob);
+  // Long counterbalancing tail and deep, shoulder-heavy torso.
+  ctx.fillStyle=p.body;ctx.beginPath();ctx.moveTo(-.18,-.82);ctx.quadraticCurveTo(-.85,-.84,-1.60,-.60+Math.sin(ph*.8)*.08);ctx.quadraticCurveTo(-.92,-.58,-.18,-.48);ctx.closePath();ctx.fill();
+  const backY=raptor?-.96:giga?-1.18:spino?-1.04:-1.10;
+  const chestX=giga?.78:spino?.73:raptor?.61:.70,bellyY=raptor?-.50:giga?-.35:-.40;
+  ctx.beginPath();ctx.moveTo(-.28,-.87);ctx.bezierCurveTo(.02,backY,.46,backY+.02,chestX,-.76);ctx.bezierCurveTo(.50,bellyY,.02,bellyY-.01,-.32,-.51);ctx.closePath();ctx.fill();
+  ctx.fillStyle=p.belly;ctx.globalAlpha=.52;ctx.beginPath();ctx.ellipse(.12,raptor?-.57:-.52,.42*slim,raptor?.11:.14,-.08,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+  // JP3 Spinosaurus: the sail is tall, narrow and red-centered, not a hump.
+  if(spino){ctx.fillStyle=shade(p.accent,-.18);ctx.beginPath();ctx.moveTo(-.38,-.88);ctx.lineTo(-.25,-1.55);ctx.lineTo(.02,-1.72);ctx.lineTo(.36,-1.07);ctx.lineTo(.48,-.88);ctx.closePath();ctx.fill();ctx.strokeStyle=shade(p.accent,.22);ctx.lineWidth=.035;for(let i=0;i<5;i++){ctx.beginPath();ctx.moveTo(-.27+i*.14,-.94);ctx.lineTo(-.20+i*.075,-1.50-Math.sin(i/4*Math.PI)*.17);ctx.stroke();}}
+  // Hybrid/Giga dorsal scutes create the broken, armored skyline.
+  if(indo||giga||kind==='indoraptor'){
+    ctx.fillStyle=shade(p.body,-.35);const count=indo?8:6;
+    for(let i=0;i<count;i++){
+      const q=i/(count-1),t=.04+q*.78,u=1-t;
+      // Sample the exact cubic used by the torso above. Its derivative supplies
+      // a tangent, so every base bends with the hide instead of hovering on an
+      // unrelated ridge. Sink the base into the silhouette to hide any seam.
+      const x=u*u*u*-.28+3*u*u*t*.02+3*u*t*t*.46+t*t*t*chestX;
+      const y=u*u*u*-.87+3*u*u*t*backY+3*u*t*t*(backY+.02)+t*t*t*-.76;
+      const dx=3*u*u*(.02-(-.28))+6*u*t*(.46-.02)+3*t*t*(chestX-.46);
+      const dy=3*u*u*(backY-(-.87))+6*u*t*((backY+.02)-backY)+3*t*t*(-.76-(backY+.02));
+      const dl=Math.hypot(dx,dy)||1,tx=dx/dl,ty=dy/dl,nx=ty,ny=-tx;
+      const half=.047,inset=.025;
+      const h=(indo?.09:.055)+Math.sin(q*Math.PI)*.075*(i%2?.72:1);
+      ctx.beginPath();
+      ctx.moveTo(x-tx*half-nx*inset,y-ty*half-ny*inset);
+      ctx.lineTo(x+nx*h-tx*.012,y+ny*h-ty*.012);
+      ctx.lineTo(x+tx*half-nx*inset,y+ty*half-ny*inset);
+      ctx.closePath();ctx.fill();
+    }
+  }
+  // Film markings: Blue's bordered eye-to-tail slash; Indoraptor's gold flank streak.
+  if(kind==='blue'){
+    const tailTipY=-.60+Math.sin(ph*.8)*.08;
+    ctx.globalAlpha=.82;ctx.lineCap='round';
+    // Tail and torso are separate contour sections. The tail marking follows
+    // the same animated control point as the tail itself; torso sections arc
+    // over the ribcage and shoulder instead of bridging them with a ruler.
+    for(const pass of [{c:'#aaa99f',w:.098},{c:p.accent,w:.052}]){
+      ctx.strokeStyle=pass.c;ctx.lineWidth=pass.w;
+      ctx.beginPath();ctx.moveTo(-1.40,tailTipY-.015);ctx.quadraticCurveTo(-.88,-.76,-.38,-.75);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(-.34,-.76);ctx.bezierCurveTo(-.10,-.84,.18,-.87,.38,-.91);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(.40,-.92);ctx.quadraticCurveTo(.52,-.97,.60,-.99);ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+  }
+  if(kind==='indoraptor'){ctx.globalAlpha=.52;ctx.strokeStyle=p.accent;ctx.lineWidth=.038;for(const seg of [[-1.25,-.72,-.82,-.76],[-.66,-.77,-.28,-.80],[-.10,-.82,.30,-.91]]){ctx.beginPath();ctx.moveTo(seg[0],seg[1]);ctx.quadraticCurveTo((seg[0]+seg[2])*.5,seg[1]-.025,seg[2],seg[3]);ctx.stroke();}ctx.globalAlpha=1;}
+  // Muscular neck leading to deliberately different skull families.
+  const hx=raptor?.57:.52,hy=(spino?-1.04:raptor?-1.02:-1.08)-roar*.12;
+  ctx.fillStyle=p.body;ctx.beginPath();ctx.moveTo(.28,-.94);ctx.quadraticCurveTo(.48,-1.15,hx,hy);ctx.lineTo(hx+.14,hy+.32);ctx.quadraticCurveTo(.42,-.60,.25,-.52);ctx.closePath();ctx.fill();
+  ctx.save();ctx.translate(hx,hy);ctx.rotate(-roar*.28);
+  const sn=spino?.70:raptor?.42:giga?.58:indo?.55:.50,open=bossBiteOpen(d,ph,roar,spino?.30:raptor?.25:.29);
+  ctx.fillStyle=p.body;ctx.beginPath();
+  if(spino){ctx.moveTo(-.08,-.13);ctx.quadraticCurveTo(.22,-.20,sn,-.09);ctx.lineTo(sn+.06,-.015);ctx.lineTo(.16,.045);ctx.lineTo(-.10,.10);}
+  else {ctx.moveTo(-.10,-.18);ctx.quadraticCurveTo(.18,-.27,sn,-.13);ctx.lineTo(sn+.04,-.01);ctx.lineTo(.20,.055);ctx.lineTo(-.12,.10);}
+  ctx.closePath();ctx.fill();
+  // Brow horns and rugged cheek architecture.
+  if(indo||giga){ctx.fillStyle=shade(p.body,-.28);ctx.beginPath();ctx.moveTo(.05,-.19);ctx.lineTo(.12,-.34);ctx.lineTo(.20,-.18);ctx.closePath();ctx.fill();ctx.beginPath();ctx.ellipse(.12,.02,.20,.13,-.15,0,Math.PI*2);ctx.fill();}
+  ctx.fillStyle=shade(p.body,-.22);ctx.beginPath();ctx.moveTo(-.08,.055);ctx.lineTo(sn,open+.025);ctx.lineTo(sn-.02,open+.080);ctx.lineTo(-.10,.125);ctx.closePath();ctx.fill();bossTeeth(ctx,.06,sn-.02,open,spino?7:5);
+  ctx.fillStyle=kind==='indoraptor'?'#d42f24':indo?'#b14832':'#d2b04f';ctx.beginPath();ctx.ellipse(.22,-.115,.032,.022,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#110d0a';ctx.beginPath();ctx.ellipse(.226,-.115,.008,.019,0,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+  bossArm(ctx,.33,-.82,ph+.5,shade(p.body,-.1),spino||indo||raptor);
+  if(spino)bossArm(ctx,.24,-.78,ph+Math.PI,shade(p.body,-.28),true);
+  ctx.restore();filmBossLeg(ctx,.10,ph,p.body,raptor?.12:.20,raptor);
+}
+function drawBlue(ctx,d,ph){drawFilmBoss(ctx,d,ph,'blue');}
+function drawSpinosaurus(ctx,d,ph){drawFilmBoss(ctx,d,ph,'spino');}
+function drawIndominus(ctx,d,ph){drawFilmBoss(ctx,d,ph,'indominus');}
+function drawIndoraptor(ctx,d,ph){drawFilmBoss(ctx,d,ph,'indoraptor');}
+function drawGiganotosaurus(ctx,d,ph){drawFilmBoss(ctx,d,ph,'giga');}
+
+function drawWhitePteranodon(ctx,d,ph){
+  const p=d.pal,flap=Math.sin(ph*2);ctx.save();ctx.translate(0,-1.42+Math.sin(ph)*.06);
+  // Mirrored wings: each has its own shoulder, long leading finger and taut
+  // membrane. The old version accidentally stacked both wings on the left.
+  for(let side=-1;side<=1;side+=2){ctx.save();ctx.scale(side,1);if(side<0)ctx.globalAlpha=.72;ctx.fillStyle=side>0?p.body:shade(p.body,-.18);ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(.44,-.34-flap*.44);ctx.lineTo(1.38,-.54-flap*.78);ctx.lineTo(1.04,.04);ctx.lineTo(.42,.20);ctx.closePath();ctx.fill();ctx.strokeStyle=shade(p.body,-.34);ctx.lineWidth=.035;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(1.38,-.54-flap*.78);ctx.moveTo(.28,-.08);ctx.lineTo(1.04,.04);ctx.stroke();ctx.restore();}
+  ctx.fillStyle=p.body;ctx.beginPath();ctx.ellipse(.04,0,.40,.16,-.08,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle=p.body;ctx.lineWidth=.12;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(.30,-.08);ctx.lineTo(.48,-.22);ctx.stroke();ctx.beginPath();ctx.ellipse(.56,-.25,.17,.105,-.08,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=p.accent;ctx.beginPath();ctx.moveTo(.51,-.33);ctx.lineTo(-.08,-.52);ctx.lineTo(.58,-.20);ctx.closePath();ctx.fill();
+  const open=bossBiteOpen(d,ph,0,.25);ctx.fillStyle=p.body;ctx.beginPath();ctx.moveTo(.58,-.31);ctx.lineTo(1.15,-.23);ctx.lineTo(.59,-.18);ctx.closePath();ctx.fill();ctx.fillStyle=shade(p.body,-.18);ctx.beginPath();ctx.moveTo(.58,-.20);ctx.lineTo(1.10,-.20+open);ctx.lineTo(.60,-.13);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#a92521';ctx.beginPath();ctx.arc(.60,-.28,.024,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle=shade(p.body,-.35);ctx.lineWidth=.035;ctx.beginPath();ctx.moveTo(-.10,.10);ctx.lineTo(-.18,.28);ctx.moveTo(.10,.10);ctx.lineTo(.16,.28);ctx.stroke();ctx.restore();
+}
+function drawMosasaurusBoss(ctx,d,ph){
+  // The aquatic renderer already supplies the water interaction; scaling the
+  // head and adding the deep dorsal mass makes the boss read at card size too.
+  ctx.save();ctx.scale(1.16,1.16);drawAquatic(ctx,d,ph);ctx.restore();
+  ctx.fillStyle=shade(d.pal.body,-.32);for(let i=0;i<5;i++){ctx.beginPath();ctx.moveTo(-.36+i*.15,-.35);ctx.lineTo(-.30+i*.15,-.47-Math.sin(i/4*Math.PI)*.06);ctx.lineTo(-.22+i*.15,-.34);ctx.closePath();ctx.fill();}
+}
+
+const PAINTERS = {theropod:drawTheropod, trex:drawTrex, blue:drawBlue, spino:drawSpinosaurus, indominus:drawIndominus, indoraptor:drawIndoraptor, giga:drawGiganotosaurus, whiteptera:drawWhitePteranodon, mosasaurus:drawMosasaurusBoss, quad:drawQuad, sauropod:drawSauropod, flyer:drawFlyer, mutant:drawDistortusRex, omega:drawOmegaRex, aquatic:drawAquatic};
 
 /* Draws a full dinosaur at world position.
    turn: -1..1 facing (mid-values render the turn itself as a squash-flip)

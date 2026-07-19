@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.47.2';
+const VERSION = '1.48.0';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -25,34 +25,19 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
+  {v: '1.48.0', date: 'Jul 19, 2026', items: [
+    '🦖 Every boss now has a more distinctive, movie-inspired look and silhouette.',
+    '🃏 Bosses are better framed and animated on the home screen and Sticker Book cards.',
+  ]},
   {v: '1.47.2', date: 'Jul 17, 2026', items: [
-    '⏱️ The "Wave cleared!" summary at the top of the screen now lingers about 1.5 seconds longer, so you have time to read your cash and DNA rewards.',
-  ]},
-  {v: '1.47.1', date: 'Jul 17, 2026', items: [
-    '🎩 John Hammond now turns up on the home screen a bit more often, and has slightly quicker feet — so his doomed dash (and "We spared no expense!") lasts a good deal longer before the inevitable. He still never makes it.',
-  ]},
-  {v: '1.47.0', date: 'Jul 17, 2026', items: [
-    '💬 The home-screen celebrities now have something to say: Nedry taunts "Ah, Ah, Ah! You didn\'t say the magic word!" as he legs it, and Hammond insists "We spared no expense!" — comic speech bubbles that bob along above their heads.',
-  ]},
-  {v: '1.46.0', date: 'Jul 17, 2026', items: [
-    '🦖 The game has a new name: welcome to DINO DEFENSE — same game, easier to remember (and if you\'ve added it to your home screen, it\'ll go by Dino Defense there too). All your progress carries over untouched.',
-    '🔒 Fixed a bug where level-locked weapons could be bought one wave too early — a weapon that says "Wave 6" now unlocks exactly on Wave 6.',
-    '🥫 A frantic new face on the home screen: a heavyset visitor in a yellow rain slicker sprints past clutching a certain can of "shaving cream" — run, Dennis, run.',
-    '🎩 And a slower one: a distinguished old gentleman in a panama hat and cream suit, leaning on his amber-topped cane. He spared no expense… except on running shoes, and never quite makes it.',
-  ]},
-  {v: '1.45.0', date: 'Jul 17, 2026', items: [
-    '🦖 Dinosaur design cleanup: back spikes, ridges, feathers, stego plates, anky armor and the Spinosaurus sail now sit ON the body and curve around the back instead of floating on a flat line — and stripes finally stay inside the body outline on every striped dino.',
-    '😱 The chosen one now hears the wingbeats: they skid to a stop, spin round to face the pteranodon, and giant cartoon saucer eyes pop out — hands clasped to cheeks — in the heartbeat before the talons close.',
-    '💬 The fleeing visitors\' one-liners now hang in the air a second longer, so nobody misses "WHO IS DAVE??".',
-    '🏠 The home screen\'s doomed sprinters got the full makeover: every visitor the menu dinosaurs chase (and catch) is now drawn with the same detail as the in-game evacuation crew — hats, hairdos, backpacks, sunglasses and all. The ones who trip now sit frozen in saucer-eyed terror.',
-    '👟 And they all run like PEOPLE now: proper human legs — knees driving forward, heels kicking up behind — with actual shoes on every visitor (the jogger\'s trainers are white, the kid\'s sneakers are red, and the uncle radiates socks-and-sandals energy).',
+    '🦖 Welcome to DINO DEFENSE — a new name, with all your progress preserved.',
+    '🎩 Dennis Nedry and John Hammond now make special home-screen appearances, complete with comic speech bubbles.',
+    '🎨 Dinosaurs and fleeing visitors received a visual and animation polish pass.',
+    '🛠️ Minor fixes and readability improvements.',
   ]},
   {v: '1.42.0', date: 'Jul 16, 2026', items: [
-    '🏃 EVACUATION! The moment wave 1 is counted in, the park\'s last visitors sprint the path to safety — the jogger, the balloon kid, the guy losing his cap, the tourist still filming, and the hawaiian-shirt uncle bringing up the rear. They always make it out. Probably the only ones who will.',
-    '🦅 ...MOSTLY out. A vast shadow sweeps the field, birds scatter — and a giant pteranodon dives out of nowhere, plucks one unlucky visitor off the path, and carries them up and away, kicking, air-running, and reviewing the park at the top of their lungs. A single flip-flop returns to earth. Costs you nothing; costs Dave everything.',
-    '🎻 All-new soundtrack: the jungle drums are gone, replaced by a sweeping movie-style island theme — a noble horn melody over harp and strings that builds to a soaring finish.',
-    '🎼 The theme is now performed live from a real sheet-music score, so the orchestration can keep growing richer.',
-    '🎶 And richer it grew: a hushed opening, a high flute descant sparkling over the theme, rolling timpani, brass fanfares, and a soaring key-change finale.',
+    '🏃 Park visitors now evacuate as the first wave begins — though one may meet a giant pteranodon along the way.',
+    '🎻 A new cinematic orchestral theme brings the island to life.',
   ]},
   {v: '1.37.1', date: 'Jul 15, 2026', items: [
     '🐛 Fixed the map appearing to zoom in and back out mid-game: the top bar could quietly wrap to an extra line when the 🔥 streak badge or longer wave labels appeared, resizing the whole battlefield. The bar now holds a fixed height everywhere — labels shrink or tighten instead.',
@@ -226,25 +211,25 @@ const DINOS = {
                      pal:{body:'#8a8168', belly:'#ddd4b8', accent:'#57503c'}, feat:{tall:true}},
 
   /* --- BOSSES (spawned on schedule, never in random pool) --- */
-  blue:             {name:'Blue — Alpha Raptor', epithet:'THE PACK HUNTS WITH HER', painter:'theropod', hp:900,  speed:192, armor:1, bounty:120, dmg:15, size:18, boss:true, weight:0,
-                     pal:{body:'#5a6b78', belly:'#c3ccd4', accent:'#2c5f8a'}, feat:{stripes:true}},
-  trex:             {name:'Tyrannosaurus Rex',   epithet:'THE TYRANT QUEEN', painter:'theropod', hp:3000, speed:120, armor:3, bounty:300, dmg:25, size:32, boss:true, weight:0, roar:true,
-                     pal:{body:'#6e5a44', belly:'#c9b493', accent:'#3d3022'}, feat:{bigHead:true}},
-  spinosaurus:      {name:'Spinosaurus',         epithet:'THE RIVER MONSTER', painter:'theropod', hp:3600, speed:112, armor:3, bounty:340, dmg:28, size:33, boss:true, weight:0, roar:true,
+  blue:             {name:'Blue — Alpha Raptor', epithet:'THE PACK HUNTS WITH HER', painter:'blue', hp:900,  speed:192, armor:1, bounty:120, dmg:15, size:18, boss:true, weight:0,
+                     pal:{body:'#716f68', belly:'#aaa99f', accent:'#315b72'}, feat:{}},
+  trex:             {name:'Tyrannosaurus Rex',   epithet:'THE TYRANT QUEEN', painter:'trex', hp:3000, speed:120, armor:3, bounty:300, dmg:25, size:32, boss:true, weight:0, roar:true,
+                     pal:{body:'#625947', belly:'#a99b78', accent:'#282a20'}, feat:{}},
+  spinosaurus:      {name:'Spinosaurus',         epithet:'THE RIVER MONSTER', painter:'spino', hp:3600, speed:112, armor:3, bounty:340, dmg:28, size:33, boss:true, weight:0, roar:true,
                      pal:{body:'#5d7268', belly:'#c2d1c0', accent:'#b0703c'}, feat:{sail:true, longSnout:true}},
-  indominus:        {name:'Indominus Rex',       epithet:'THE UNTAMABLE', painter:'theropod', hp:5200, speed:124, armor:4, bounty:420, dmg:32, size:31, boss:true, weight:0, roar:true,
+  indominus:        {name:'Indominus Rex',       epithet:'THE UNTAMABLE', painter:'indominus', hp:5200, speed:124, armor:4, bounty:420, dmg:32, size:31, boss:true, weight:0, roar:true,
                      cloak:true, regen:0.006,
                      pal:{body:'#b9c2c4', belly:'#e9eef0', accent:'#7c8a8d'}, feat:{bigHead:true, spikes:true}},
-  indoraptor:       {name:'Indoraptor',          epithet:'THE NIGHTMARE MADE FLESH', painter:'theropod', hp:4200, speed:176, armor:3, bounty:400, dmg:30, size:24, boss:true, weight:0, roar:true,
-                     pal:{body:'#26262b', belly:'#4c4c55', accent:'#d9a531'}, feat:{stripes:true, slim:true}},
-  giganotosaurus:   {name:'Giganotosaurus',      epithet:'THE APEX OF APEX PREDATORS', painter:'theropod', hp:9000, speed:108, armor:5, bounty:800, dmg:45, size:36, boss:true, weight:0, roar:true,
+  indoraptor:       {name:'Indoraptor',          epithet:'THE NIGHTMARE MADE FLESH', painter:'indoraptor', hp:4200, speed:176, armor:3, bounty:400, dmg:30, size:24, boss:true, weight:0, roar:true,
+                     pal:{body:'#202124', belly:'#414044', accent:'#75613d'}, feat:{}},
+  giganotosaurus:   {name:'Giganotosaurus',      epithet:'THE APEX OF APEX PREDATORS', painter:'giga', hp:9000, speed:108, armor:5, bounty:800, dmg:45, size:36, boss:true, weight:0, roar:true,
                      pal:{body:'#4f4a52', belly:'#b7b0ba', accent:'#8a2f2f'}, feat:{bigHead:true, ridge:true}},
   drex:             {name:'D-Rex — Distortus Rex', epithet:'THE DEVIL YOU CREATED', painter:'mutant', hp:16000, speed:116, armor:8, bounty:2000, dmg:60, size:46, boss:true, weight:0, roar:true, regen:0.004,
-                     pal:{body:'#6f6a63', belly:'#9c968b', accent:'#b83a30'},
-                     feat:{glowEyes:true, fourArms:true}},
-  whiteptera:       {name:'The White Pteranodon', epithet:'DEATH RIDES THE WIND — AIR WEAPONS ONLY', painter:'flyer', hp:4200, speed:66, armor:2, bounty:400, dmg:30, size:40, boss:true, weight:0, roar:true, flying:true,
+                     pal:{body:'#76654b', belly:'#a18461', accent:'#40372c'},
+                     feat:{sixLimbs:true, swollenCranium:true}},
+  whiteptera:       {name:'The White Pteranodon', epithet:'DEATH RIDES THE WIND — AIR WEAPONS ONLY', painter:'whiteptera', hp:4200, speed:66, armor:2, bounty:400, dmg:30, size:40, boss:true, weight:0, roar:true, flying:true,
                      pal:{body:'#e6e3da', belly:'#fbfaf5', accent:'#c3beb2'}, feat:{crest:true, glowEyes:true}},
-  mosasaurus:       {name:'Mosasaurus',           epithet:'THE LAGOON QUEEN', painter:'aquatic', hp:5000, speed:96, armor:4, bounty:450, dmg:34, size:44, boss:true, weight:0, roar:true, water:true, burnImmune:true,
+  mosasaurus:       {name:'Mosasaurus',           epithet:'THE LAGOON QUEEN', painter:'mosasaurus', hp:5000, speed:96, armor:4, bounty:450, dmg:34, size:44, boss:true, weight:0, roar:true, water:true, burnImmune:true,
                      pal:{body:'#31505f', belly:'#cfdde2', accent:'#1b323d'}, feat:{bigJaw:true, ridge:true}},
 };
 

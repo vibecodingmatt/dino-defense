@@ -2889,17 +2889,24 @@ function buildMenuFx(){
    sometimes chasing hapless tourists (and sometimes catching them) */
 let menuDinos = [], menuTourists = [], menuPuffs = [], menuSpawnT = 1.2, menuCv = null, menuCtx = null;
 const MENU_BOSSES = ['trex', 'spinosaurus', 'indominus', 'indoraptor', 'giganotosaurus', 'drex'];
-function spawnMenuDino(w, h){
-  const def = DINOS[MENU_BOSSES[(Math.random() * MENU_BOSSES.length) | 0]];
+function spawnMenuDino(w, h, forcedKey){
+  const key = MENU_BOSSES.includes(forcedKey) ? forcedKey : MENU_BOSSES[(Math.random() * MENU_BOSSES.length) | 0];
+  const def = DINOS[key];
   const scale = clamp(w / 1280, 0.55, 1.5);
-  const size = rand(88, 138) * scale;         // bosses are BIG
+  const size = rand(88, 138) * scale * (key === 'drex' ? 1.14 : 1); // the finale brute dominates the horizon
   const dir = Math.random() < 0.5 ? 1 : -1;
-  const speed = rand(48, 78) * scale;         // a hungry, purposeful stride
+  const speed = rand(48, 78) * scale * (key === 'drex' ? 0.72 : 1); // Distortus lumbers under its own mass
   const d = {
     painter: def.painter, feat: def.feat, flying: false, size,
     // uniform misty palette (lighter than the near-black jungle) so each distinct
     // boss silhouette reads as a glowing fog-giant wherever the UI doesn't cover it
-    pal: {body: '#4c6c5a', belly: '#638672', accent: '#3b5647'},
+    pal: def.painter === 'trex'
+      ? {body: '#615e49', belly: '#80795b', accent: '#30362b'}
+      : def.painter === 'mutant'
+      ? {body: '#776344', belly: '#967653', accent: '#40352a'}
+      // Preserve each film boss's signature markings in the fog. Muting the
+      // supplied palette keeps them atmospheric without turning them generic.
+      : {body: shade(def.pal.body, -0.10), belly: shade(def.pal.belly, -0.24), accent: def.pal.accent},
     x: dir > 0 ? -size * 2.4 : w + size * 2.4,
     y: h * rand(0.40, 0.49),                    // roam a horizon in the open hero backdrop
     // leg-cycle rate matched to actual ground speed (game's speed/size gait
@@ -2954,11 +2961,23 @@ function spawnMenuDino(w, h){
   }
 }
 /* where the giant's mouth is, given its current bend (pitch about the hip) */
+const MENU_MOUTHS = {
+  blue:{x:1.02,y:-0.39}, spino:{x:1.25,y:-0.40}, indominus:{x:1.10,y:-0.44},
+  indoraptor:{x:1.02,y:-0.39}, giga:{x:1.13,y:-0.44}
+};
 function menuMouthPos(d, pitch){
-  const ux = 0.8, dy = -0.42;                 // mouth tip in body units, hip-relative
+  // Dedicated painters can extend beyond the generic theropod muzzle.
+  const filmMouth = MENU_MOUTHS[d.painter];
+  const ux = d.painter === 'trex' ? 1.26 : d.painter === 'mutant' ? 1.14 : filmMouth ? filmMouth.x : 0.8;
+  const dy = d.painter === 'trex' ? -0.48 : d.painter === 'mutant' ? -0.20
+           : filmMouth ? filmMouth.y : -0.42; // hip-relative before the shared body offset
   const c = Math.cos(pitch || 0), s = Math.sin(pitch || 0);
   return {x: d.x + d.dir * (ux * c - dy * s) * d.size,
           y: d.y + (ux * s + dy * c - 0.6) * d.size};
+}
+function menuMouthReach(d){
+  const filmMouth = MENU_MOUTHS[d.painter];
+  return d.size * (d.painter === 'mutant' ? 1.12 : d.painter === 'trex' ? 1.22 : filmMouth ? filmMouth.x : 0.9);
 }
 /* the caught tourist, clamped sideways in the jaws, legs kicking */
 function drawMenuVictim(ctx, tr, m, dir){
@@ -3080,7 +3099,7 @@ function menuScene(dt){
       d._sprint = false;
       for (const tr of menuTourists){                    // catchable prey ahead → burst of speed
         if (tr.prey === d && (tr.doomed || tr.tripped) && !tr.caught && !tr.dead){
-          const gap = (tr.x - (d.x + d.dir * d.size * 0.9)) * d.dir;
+          const gap = (tr.x - (d.x + d.dir * menuMouthReach(d))) * d.dir;
           if (gap > 0 && gap < d.size * 7){ d._sprint = true; break; }
         }
       }
@@ -3098,7 +3117,14 @@ function menuScene(dt){
                  : e.t < 2.1  ? 0.15 + Math.sin(e.t * 9) * 0.05
                  : e.t < 2.45 ? 0.15 - ((e.t - 2.1) / 0.35) * 0.5
                  : e.t < 2.95 ? -0.35 + ((e.t - 2.45) / 0.5) * 0.35 : 0;
-      if (!e.bit && e.t >= 0.45){                        // the bite lands — blood
+      // Pull prey into the opening jaws during the lunge instead of leaving it
+      // standing at the dinosaur's nose until the bite frame.
+      if (!e.bit && e.tr){
+        const mouth = menuMouthPos(d, d.eatPitch), k = clamp(e.t / 0.40, 0, 1);
+        e.tr.x += (mouth.x - e.tr.x) * k * 0.28;
+        e.tr.y += (mouth.y - e.tr.y) * k * 0.28;
+      }
+      if (!e.bit && e.t >= 0.48){                        // the bite lands — blood
         e.bit = true;
         if (e.tr) e.tr.dead = true;
         const m = menuMouthPos(d, d.eatPitch);
@@ -3136,7 +3162,7 @@ function menuScene(dt){
         }
       }
       if (chaseable && (tr.doomed || tr.tripped) && !d.eat){
-        const reach = d.x + d.dir * d.size * 0.9;        // where the lunge lands
+        const reach = d.x + d.dir * menuMouthReach(d);   // where the lunge lands
         if ((reach - tr.x) * d.dir >= 0){                // caught
           tr.caught = true;
           d.eat = {t: 0, tr};
@@ -3150,14 +3176,10 @@ function menuScene(dt){
   menuTourists = menuTourists.filter(tr => !tr.dead && tr.x > -80 && tr.x < w + 80);
   for (const d of menuDinos){
     const yy = d.y + Math.sin(d.phase) * d.size * 0.015;
-    // soft bioluminescent backlight so the giant reads as a lit silhouette on the dark jungle
+    // Soft backlight without a large new radial-gradient raster every frame.
     const cyy = yy - d.size * 0.55;
-    const rg = ctx.createRadialGradient(d.x, cyy, 0, d.x, cyy, d.size * 2.3);
-    rg.addColorStop(0, 'rgba(70,230,196,0.17)');
-    rg.addColorStop(0.45, 'rgba(232,185,58,0.08)');
-    rg.addColorStop(1, 'transparent');
-    ctx.fillStyle = rg;
-    ctx.fillRect(d.x - d.size * 2.4, cyy - d.size * 2.4, d.size * 4.8, d.size * 4.8);
+    ctx.fillStyle='rgba(70,230,196,0.055)';ctx.beginPath();ctx.ellipse(d.x,cyy,d.size*2.15,d.size*1.35,0,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(232,185,58,0.035)';ctx.beginPath();ctx.ellipse(d.x,cyy,d.size*1.25,d.size*.78,0,0,Math.PI*2);ctx.fill();
     drawDino(ctx, d, d.x, yy, d.dir, d.phase, d.alpha, d.eatPitch || 0);
     if (d.eat && d.eat.bit){
       const e = d.eat;
@@ -3171,10 +3193,17 @@ function menuScene(dt){
       } else if (e.t >= 2.45){                           // the gulp — a lump slides down the neck
         const k = clamp((e.t - 2.45) / 0.5, 0, 1);
         const ux = 0.42 - 0.4 * k, uy = -0.92 + 0.34 * k;
-        ctx.fillStyle = 'rgba(99,134,114,0.85)';
+        // Derive the stretched-skin highlight from this dinosaur's live menu
+        // palette. Dedicated/recolored bosses therefore carry their own color
+        // through the entire eating sequence instead of reverting to the old
+        // generic fog-theropod green.
+        ctx.save();
+        ctx.globalAlpha = 0.86 * d.alpha;
+        ctx.fillStyle = shade(d.pal.body, 0.16);
         ctx.beginPath();
         ctx.ellipse(d.x + d.dir * ux * d.size, d.y + uy * d.size, d.size * 0.12, d.size * 0.1, 0, 0, Math.PI * 2);
         ctx.fill();
+        ctx.restore();
       }
     }
   }
@@ -3290,7 +3319,9 @@ function buildStickers(){
   let got = 0, total = 0;
   let html = '<tr><th></th>' + wkeys.map(k =>
     `<th title="${TOWERS[k].name}">${TOWERS[k].icon}</th>`).join('') + '</tr>';
+  const bossOnly = new URLSearchParams(location.search).get('stickers') === 'bosses';
   for (const [dk, def] of Object.entries(DINOS)){
+    if (bossOnly && !def.boss) continue;
     html += `<tr><td class="spName"><span class="sw" style="background:${def.pal.body}"></span>${def.name}${def.boss ? ' 💀' : ''}</td>`;
     for (const wk of wkeys){
       if (!stickerPossible(wk, dk)){ html += '<td class="cell na" title="Not possible">—</td>'; continue; }
@@ -3332,7 +3363,7 @@ function openStickerCard(wk, dk){
               date: (save.stickerD && save.stickerD[sk]) || null};
   cardD = {key: dk, def, boss: !!def.boss, painter: def.painter, pal: def.pal, feat: def.feat,
            flying: !!def.flying,
-           size: def.painter === 'sauropod' ? 50 : def.flying ? 48 : def.boss ? 68 : 62,
+           size: def.painter === 'sauropod' ? 50 : def.flying ? 48 : def.painter === 'mutant' ? 76 : def.boss ? 68 : 62,
            phase: 0, seedE: 0.5};
   $('#cardInfo').innerHTML =
     `<h3>${def.name}</h3>` +
@@ -3398,7 +3429,10 @@ function drawStickerCard(t){
   }
   // the dinosaur itself, strutting in place
   cardD.phase = t * 3.2;
-  drawDino(c, cardD, cx, gy, 1, cardD.phase, 1, 0);
+  // The rex's long counterweight extends much farther behind its hips than its
+  // skull reaches forward, so nudge it right to center the whole silhouette.
+  const cardX = cx + (cardD.painter === 'trex' ? 18 : cardD.painter === 'mutant' ? 16 : 0);
+  drawDino(c, cardD, cardX, gy, 1, cardD.phase, 1, 0);
   // unlock confetti burst (the first moments only)
   if (t < 1.5){
     const cols = ['#ffd24a', '#8fd14f', '#7ec8ff', '#ff6b6b', '#d6a3ff'];
@@ -5722,13 +5756,19 @@ if (new URLSearchParams(location.search).has('dbg')){
 }
 
 if (new URLSearchParams(location.search).has('menudino')){ // seed roaming menu bosses on-screen for a visual check
-  const mdMode = new URLSearchParams(location.search).get('menudino');
-  for (let i = 0; i < 3; i++){ spawnMenuDino(innerWidth || 1280, innerHeight || 860); menuDinos[i].x = (innerWidth || 1280) * (0.22 + i * 0.29); }
+  const menuPreviewParams = new URLSearchParams(location.search);
+  const mdMode = menuPreviewParams.get('menudino');
+  const forcedBoss = MENU_BOSSES.includes(mdMode) ? mdMode : null;
+  for (let i = 0; i < 3; i++){ spawnMenuDino(innerWidth || 1280, innerHeight || 860, forcedBoss); menuDinos[i].x = (innerWidth || 1280) * (0.22 + i * 0.29); }
+  if (menuPreviewParams.has('menuphase')){
+    const previewPhase = parseFloat(menuPreviewParams.get('menuphase')) || 0;
+    for (const d of menuDinos){ d.phase = previewPhase; d.stride = 0; }
+  }
   // pull each dino's fleeing tourists on-screen just ahead of its jaws
   for (const tr of menuTourists){
     const d = tr.prey;
     if (d) tr.x = d.x + d.dir * d.size * (1.0 + Math.random() * 1.3);
-    if (mdMode === 'eat' && d){ tr.doomed = true; tr.fate = 'doomed'; tr.x = d.x + d.dir * d.size * 1.0; }        // imminent chomp
+    if ((mdMode === 'eat' || menuPreviewParams.has('menueat')) && d){ tr.doomed = true; tr.fate = 'doomed'; tr.x = d.x + d.dir * menuMouthReach(d); } // imminent chomp
     if (mdMode === 'trip' && d){ tr.doomed = false; tr.fate = 'trip'; tr.tripT = 0.05; tr.x = d.x + d.dir * d.size * 2.6; } // imminent stumble
   }
 }
@@ -5745,6 +5785,11 @@ if (new URLSearchParams(location.search).has('settings')){ syncSettings(); $('#s
 if (new URLSearchParams(location.search).has('ach')){ if (new URLSearchParams(location.search).get('ach') === 'some'){ save.ach = {boss_first:1, wave50:1, secure_0:1, apex:1}; } buildAchievements(); $('#achievements').classList.remove('hidden'); }
 if (new URLSearchParams(location.search).has('tips')){ buildTips(); $('#tips').classList.remove('hidden'); }
 if (new URLSearchParams(location.search).has('log')){ buildChangelog(); $('#changelog').classList.remove('hidden'); }
+if (['all','bosses'].includes(new URLSearchParams(location.search).get('stickers'))){
+  // Non-persistent art-review link: reveal every card without touching progress.
+  save.settings.allStickers = true;
+  buildStickers(); $('#stickers').classList.remove('hidden');
+}
 
 /* headless smoke-test hook: ?test=1 jumps straight into gameplay,
    &sim=SECONDS fast-forwards the simulation synchronously */
@@ -6073,6 +6118,11 @@ if (testParams.has('test')){
     const bt = parseFloat(testParams.get('boss')) || 1;
     for (let s = 0; s < bt; s += 0.05) step(0.05);
     G.paused = true;
+  }
+  if (testParams.has('card')){ // direct sticker-card preview without altering collection data
+    const cardKey = DINOS[testParams.get('card')] ? testParams.get('card') : 'trex';
+    const weaponKey = TOWERS[testParams.get('weapon')] ? testParams.get('weapon') : 'gatling';
+    openStickerCard(weaponKey, cardKey);
   }
   if (testParams.has('kill')){ // stage a boss death mid-map to check the collapse
     spawnDino('trex', 0, true);
