@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#100b0a">
+  <title>Boss Death Lab — Dino Defense</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #fff2d3;
+      --muted: #bdaea2;
+      --panel: rgba(27, 20, 17, .94);
+      --line: rgba(245, 194, 109, .19);
+      --gold: #f6c05d;
+      --red: #e54935;
+      --blood: #821e17;
+      --green: #88c85c;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { min-height: 100%; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 84% 5%, rgba(142, 38, 24, .27), transparent 35rem),
+        radial-gradient(circle at 14% 90%, rgba(121, 91, 38, .16), transparent 32rem),
+        #0e0b0a;
+    }
+
+    button, input { font: inherit; }
+    button { color: inherit; }
+
+    .shell {
+      width: min(1680px, 100%);
+      margin: 0 auto;
+      padding: clamp(16px, 2.2vw, 34px);
+    }
+
+    header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 18px;
+    }
+
+    .eyebrow {
+      margin: 0 0 5px;
+      color: var(--red);
+      font-size: .73rem;
+      font-weight: 900;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.9rem, 4vw, 3.4rem);
+      line-height: .98;
+      letter-spacing: -.045em;
+    }
+
+    .subhead {
+      max-width: 720px;
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: clamp(.9rem, 1.25vw, 1.05rem);
+    }
+
+    .real-badge {
+      flex: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 11px;
+      border: 1px solid rgba(136, 200, 92, .35);
+      border-radius: 999px;
+      color: #d9ffc2;
+      background: rgba(50, 95, 32, .22);
+      font-size: .72rem;
+      font-weight: 900;
+      letter-spacing: .08em;
+      white-space: nowrap;
+    }
+
+    .real-badge::before {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 12px var(--green);
+      content: "";
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(245px, 330px) minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--panel);
+      box-shadow: 0 20px 70px rgba(0, 0, 0, .36);
+    }
+
+    aside { padding: 16px; }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 0 0 10px;
+      color: #decdb4;
+      font-size: .73rem;
+      font-weight: 900;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    #bossCount { color: #8f7e71; }
+
+    .boss-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .boss {
+      min-height: 55px;
+      padding: 9px 10px;
+      border: 1px solid rgba(255, 255, 255, .07);
+      border-radius: 11px;
+      background: rgba(255, 255, 255, .035);
+      text-align: left;
+      cursor: pointer;
+      transition: border-color .15s, background .15s, transform .15s;
+    }
+
+    .boss:hover { border-color: rgba(246, 192, 93, .48); transform: translateY(-1px); }
+    .boss.active { border-color: var(--gold); background: linear-gradient(135deg, rgba(136, 53, 30, .48), rgba(246, 192, 93, .11)); }
+    .boss strong { display: block; font-size: .86rem; line-height: 1.1; }
+    .boss span { display: block; margin-top: 4px; color: #99897d; font-size: .67rem; }
+
+    .side-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 13px;
+    }
+
+    .side-actions .wide { grid-column: 1 / -1; }
+
+    .action {
+      min-height: 39px;
+      padding: 8px 11px;
+      border: 1px solid rgba(255, 255, 255, .1);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, .045);
+      font-size: .79rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .action:hover { border-color: rgba(246, 192, 93, .56); }
+    .action.primary { border-color: #e46b3a; background: linear-gradient(180deg, #9d3523, #6f241c); }
+    .action.final { border-color: #efb342; color: #fff1c1; background: linear-gradient(180deg, #694015, #3e2412); }
+
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: .8rem;
+      cursor: pointer;
+    }
+
+    .check input { accent-color: var(--red); }
+
+    main { min-width: 0; overflow: hidden; }
+
+    .stage-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px 15px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    #currentName { font-size: .97rem; font-weight: 900; }
+    #status { color: var(--muted); font-size: .76rem; }
+
+    .stage-wrap {
+      position: relative;
+      overflow: hidden;
+      aspect-ratio: 16 / 9;
+      background: #050505;
+    }
+
+    iframe {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #050505;
+    }
+
+    .timeline { padding: 15px; }
+
+    .time-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    #scrubber { width: 100%; accent-color: var(--red); cursor: ew-resize; }
+
+    #timeReadout {
+      width: 86px;
+      color: var(--gold);
+      font: 800 .82rem ui-monospace, SFMono-Regular, Consolas, monospace;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 10px;
+    }
+
+    .preset {
+      padding: 6px 10px;
+      border: 1px solid rgba(255, 255, 255, .09);
+      border-radius: 999px;
+      color: #d1c2b5;
+      background: rgba(255, 255, 255, .035);
+      font-size: .7rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .preset:hover { border-color: var(--gold); color: var(--ink); }
+
+    .hint {
+      margin: 11px 0 0;
+      color: #85776e;
+      font-size: .7rem;
+    }
+
+    kbd {
+      padding: 1px 5px;
+      border: 1px solid rgba(255, 255, 255, .12);
+      border-radius: 4px;
+      color: #bdaea2;
+      background: rgba(255, 255, 255, .04);
+      font: inherit;
+    }
+
+    @media (max-width: 900px) {
+      header { align-items: flex-start; }
+      .workspace { grid-template-columns: 1fr; }
+      aside { order: 2; }
+      main { order: 1; }
+      .boss-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 560px) {
+      .shell { padding: 12px; }
+      header { display: block; }
+      .real-badge { margin-top: 12px; }
+      .boss-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .stage-head { align-items: flex-start; flex-direction: column; gap: 3px; }
+      .hint { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div>
+        <p class="eyebrow">Dino Defense · Visual QA</p>
+        <h1>Boss Death Lab</h1>
+        <p class="subhead">Replay every boss kill, inspect the important beats, and scrub directly to any frame.</p>
+      </div>
+      <span class="real-badge">Real game renderer</span>
+    </header>
+
+    <div class="workspace">
+      <aside class="panel">
+        <p class="section-title">Choose a boss <span id="bossCount">1 / 9</span></p>
+        <div class="boss-grid" id="bossGrid"></div>
+
+        <div class="side-actions">
+          <button class="action" id="prevBoss" type="button">← Previous</button>
+          <button class="action" id="nextBoss" type="button">Next →</button>
+          <button class="action primary wide" id="play" type="button">▶ Play full animation</button>
+          <button class="action final wide" id="finalDrex" type="button">☠ Play final-wave D-Rex</button>
+          <button class="action wide" id="openView" type="button">↗ Open current view in new tab</button>
+        </div>
+
+        <label class="check"><input id="loop" type="checkbox"> Loop the selected kill</label>
+      </aside>
+
+      <main class="panel">
+        <div class="stage-head">
+          <span id="currentName">T-Rex · Tyrant's Last Roar</span>
+          <span id="status" aria-live="polite">Impact frame</span>
+        </div>
+        <div class="stage-wrap">
+          <iframe id="gameFrame" title="Dino Defense boss death preview" allow="autoplay"></iframe>
+        </div>
+        <div class="timeline">
+          <div class="time-row">
+            <input id="scrubber" type="range" min="0" max="4" step="0.05" value="1">
+            <output id="timeReadout" for="scrubber">1.00 / 4.00s</output>
+          </div>
+          <div class="presets">
+            <button class="preset" data-preset="kill" type="button">Kill</button>
+            <button class="preset" data-preset="impact" type="button">Main impact</button>
+            <button class="preset" data-preset="aftermath" type="button">Aftermath</button>
+            <button class="preset" data-preset="settle" type="button">Final pose</button>
+          </div>
+          <p class="hint"><kbd>Space</kbd> replay · <kbd>←</kbd> / <kbd>→</kbd> change boss · dragging reloads an exact deterministic frame</p>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    'use strict';
+
+    const BOSSES = [
+      {key:'blue', name:'Blue', title:'Raptor Last Stand', impact:.92, dur:2.9},
+      {key:'trex', name:'T-Rex', title:"Tyrant's Last Roar", impact:1.08, dur:3.7},
+      {key:'spinosaurus', name:'Spinosaurus', title:'Sail-Split Collapse', impact:1.14, dur:3.8},
+      {key:'indominus', name:'Indominus Rex', title:'Camouflage Rupture', impact:1.46, dur:4},
+      {key:'indoraptor', name:'Indoraptor', title:'Blackout Convulsion', impact:1.06, dur:3.2},
+      {key:'giganotosaurus', name:'Giganotosaurus', title:'Earthbreaker', impact:1.76, dur:4.2},
+      {key:'drex', name:'D-Rex', title:'Extinction Event', impact:1.75, dur:6.6},
+      {key:'whiteptera', name:'White Pteranodon', title:'Wing-Shatter Crash', impact:1.55, dur:3.7},
+      {key:'mosasaurus', name:'Mosasaurus', title:'Abyssal Death Roll', impact:1.34, dur:3.9}
+    ];
+
+    const $ = (selector) => document.querySelector(selector);
+    const grid = $('#bossGrid');
+    const frame = $('#gameFrame');
+    const scrubber = $('#scrubber');
+    const readout = $('#timeReadout');
+    const status = $('#status');
+    const query = new URLSearchParams(location.search);
+    let selected = Math.max(0, BOSSES.findIndex((boss) => boss.key === query.get('boss')));
+    let currentUrl = '';
+    let loopTimer = 0;
+    let scrubTimer = 0;
+    let progressFrame = 0;
+    let finalMode = false;
+
+    function boss() { return BOSSES[selected]; }
+
+    function previewUrl(time, play, final) {
+      const url = new URL('index.html', location.href);
+      url.searchParams.set('test', '1');
+      url.searchParams.set('kill', Math.max(0, time).toFixed(2));
+      url.searchParams.set('bosskey', boss().key);
+      url.searchParams.set('deathphase', '.7');
+      if (play) url.searchParams.set('killplay', '1');
+      if (final) url.searchParams.set('final', '1');
+      return url.href;
+    }
+
+    function updateReadout() {
+      readout.value = `${Number(scrubber.value).toFixed(2)} / ${boss().dur.toFixed(2)}s`;
+    }
+
+    function trackPlayback(final) {
+      const started = performance.now();
+      const duration = boss().dur;
+      const tick = (now) => {
+        const elapsed = Math.min(duration, (now - started) / 1000);
+        scrubber.value = String(elapsed);
+        updateReadout();
+        if (elapsed < duration) {
+          progressFrame = requestAnimationFrame(tick);
+        } else {
+          status.textContent = final ? 'Finale complete · victory reveal' : 'Replay complete';
+        }
+      };
+      progressFrame = requestAnimationFrame(tick);
+      if ($('#loop').checked) {
+        const padding = final ? 6 : .7;
+        loopTimer = window.setTimeout(() => playSelected(final), (duration + padding) * 1000);
+      }
+    }
+
+    function load(time, play = false, final = false) {
+      window.clearTimeout(loopTimer);
+      cancelAnimationFrame(progressFrame);
+      finalMode = final;
+      currentUrl = previewUrl(time, play, final);
+      const requestedUrl = currentUrl;
+      frame.onload = () => {
+        if (play && requestedUrl === currentUrl) trackPlayback(final);
+      };
+      frame.src = currentUrl;
+      scrubber.value = String(Math.min(time, boss().dur));
+      updateReadout();
+
+      if (play) {
+        status.textContent = final ? 'Live · full wave-100 finish' : 'Live replay';
+      } else {
+        status.textContent = `Frozen frame · ${Number(time).toFixed(2)}s`;
+      }
+    }
+
+    function showFrame(time) { load(Math.max(0, Math.min(time, boss().dur))); }
+
+    function playSelected(final = false) {
+      if (final && boss().key !== 'drex') selectBoss(BOSSES.findIndex((item) => item.key === 'drex'), false);
+      load(0, true, final);
+    }
+
+    function presetTime(name) {
+      const b = boss();
+      if (name === 'kill') return .08;
+      if (name === 'impact') return Math.min(b.dur, b.impact + .08);
+      if (name === 'aftermath') return Math.min(b.dur - .35, b.impact + 1.15);
+      return Math.max(0, b.dur - .8);
+    }
+
+    function showPreset(name) {
+      showFrame(presetTime(name));
+      status.textContent = `${name === 'impact' ? 'Main impact' : name[0].toUpperCase() + name.slice(1)} frame`;
+    }
+
+    function selectBoss(index, inspect = true) {
+      selected = (index + BOSSES.length) % BOSSES.length;
+      finalMode = false;
+      const b = boss();
+      document.querySelectorAll('.boss').forEach((button, i) => button.classList.toggle('active', i === selected));
+      $('#bossCount').textContent = `${selected + 1} / ${BOSSES.length}`;
+      $('#currentName').textContent = `${b.name} · ${b.title}`;
+      scrubber.max = String(b.dur);
+      if (inspect) showPreset('impact');
+    }
+
+    BOSSES.forEach((b, index) => {
+      const button = document.createElement('button');
+      button.className = 'boss';
+      button.type = 'button';
+      button.innerHTML = `<strong>${b.name}</strong><span>${b.title}</span>`;
+      button.addEventListener('click', () => selectBoss(index));
+      grid.append(button);
+    });
+
+    $('#prevBoss').addEventListener('click', () => selectBoss(selected - 1));
+    $('#nextBoss').addEventListener('click', () => selectBoss(selected + 1));
+    $('#play').addEventListener('click', () => playSelected(false));
+    $('#finalDrex').addEventListener('click', () => playSelected(true));
+    $('#openView').addEventListener('click', () => window.open(currentUrl, '_blank', 'noopener'));
+    $('#loop').addEventListener('change', () => { if ($('#loop').checked) playSelected(finalMode); else window.clearTimeout(loopTimer); });
+
+    document.querySelectorAll('[data-preset]').forEach((button) => {
+      button.addEventListener('click', () => showPreset(button.dataset.preset));
+    });
+
+    scrubber.addEventListener('input', () => {
+      updateReadout();
+      status.textContent = `Seeking · ${Number(scrubber.value).toFixed(2)}s`;
+      window.clearTimeout(scrubTimer);
+      scrubTimer = window.setTimeout(() => showFrame(Number(scrubber.value)), 90);
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.target.matches('input')) return;
+      if (event.code === 'Space') { event.preventDefault(); playSelected(false); }
+      if (event.code === 'ArrowLeft') selectBoss(selected - 1);
+      if (event.code === 'ArrowRight') selectBoss(selected + 1);
+    });
+
+    selectBoss(selected, false);
+    if (query.has('play')) playSelected(query.has('final'));
+    else showPreset('impact');
+  </script>
+</body>
+</html>

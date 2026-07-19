@@ -308,7 +308,7 @@ function drawTheropod(ctx, d, ph){
    stay bold enough to read at game scale while giving the island's star
    predator a distinctly cinematic presence. */
 function drawTrex(ctx, d, ph){
-  const p = d.pal;
+  const p = d.pal, deathMask = d.deathMask || {};
   const step = Math.sin(ph), lift = Math.max(0, Math.cos(ph));
   const bob = Math.abs(step) * 0.045;
   const roar = (d.entranceT || 0) > 0 ? Math.min(1, Math.max(0, (2.2 - d.entranceT) * 2.5)) : 0;
@@ -354,20 +354,22 @@ function drawTrex(ctx, d, ph){
   }
 
   // Far leg first, largely hidden by the enormous hip.
-  rexLeg(-0.17, -0.63, ph + Math.PI, shade(p.body, -0.38), false);
+  if (!deathMask.farLeg) rexLeg(-0.17, -0.63, ph + Math.PI, shade(p.body, -0.38), false);
 
   ctx.save();
   ctx.translate(0, -bob);
 
   // Long, thick counterbalance with a slight living sway.
   const tailSway = Math.sin(ph * 0.82) * 0.055;
-  ctx.fillStyle = shade(p.body, -0.04);
-  ctx.beginPath();
-  ctx.moveTo(-0.26, -0.96);
-  ctx.bezierCurveTo(-0.73, -0.98, -1.16, -0.83 + tailSway, -1.75, -0.73 + tailSway);
-  ctx.quadraticCurveTo(-1.91, -0.68 + tailSway, -1.74, -0.62 + tailSway);
-  ctx.bezierCurveTo(-1.15, -0.61 + tailSway, -0.70, -0.51, -0.22, -0.46);
-  ctx.closePath(); ctx.fill();
+  if (!deathMask.tail){
+    ctx.fillStyle = shade(p.body, -0.04);
+    ctx.beginPath();
+    ctx.moveTo(-0.26, -0.96);
+    ctx.bezierCurveTo(-0.73, -0.98, -1.16, -0.83 + tailSway, -1.75, -0.73 + tailSway);
+    ctx.quadraticCurveTo(-1.91, -0.68 + tailSway, -1.74, -0.62 + tailSway);
+    ctx.bezierCurveTo(-1.15, -0.61 + tailSway, -0.70, -0.51, -0.22, -0.46);
+    ctx.closePath(); ctx.fill();
+  }
 
   // Barrel chest and huge pelvic mass form the classic heavy rex profile.
   ctx.fillStyle = p.body;
@@ -414,6 +416,7 @@ function drawTrex(ctx, d, ph){
   ctx.lineTo(hx+.15,hy+.31); ctx.bezierCurveTo(.58,-.71,.47,-.55,.28,-.49); ctx.closePath(); ctx.fill();
 
   // Skull and jaws rotate together during the entrance roar.
+  if (!deathMask.head){
   ctx.save(); ctx.translate(hx, hy); ctx.rotate(-roar * 0.30);
   // Home-screen catches have their own readable mouth performance: open on
   // the lunge, snap shut at contact, then work the jaws while holding prey.
@@ -447,6 +450,7 @@ function drawTrex(ctx, d, ph){
   ctx.beginPath(); ctx.moveTo(0.02,-0.245); ctx.quadraticCurveTo(.28,-.25,.53,-.15); ctx.stroke();
 
   // Deep lower jaw with a muscular hinge.
+  if (!deathMask.lowerJaw){
   ctx.save(); ctx.translate(-0.10, 0.06); ctx.rotate(jawOpen);
   ctx.fillStyle = shade(p.body, -0.20);
   ctx.beginPath();
@@ -462,6 +466,7 @@ function drawTrex(ctx, d, ph){
     ctx.beginPath(); ctx.moveTo(x-.022,.018); ctx.lineTo(x+.022,.014); ctx.lineTo(x,.014-h); ctx.fill();
   }
   ctx.restore();
+  }
 
   // Irregular, interlocking upper teeth.
   ctx.fillStyle = '#eee7d3';
@@ -479,6 +484,7 @@ function drawTrex(ctx, d, ph){
   ctx.strokeStyle = shade(p.body, 0.20); ctx.lineWidth=.014;
   ctx.beginPath(); ctx.moveTo(.12,-.11); ctx.lineTo(.18,-.06); ctx.moveTo(.15,-.13); ctx.lineTo(.21,-.08); ctx.stroke();
   ctx.restore();
+  }
 
   // Characteristically tiny two-finger arms, tucked high against the chest.
   const armSwing = Math.sin(ph + Math.PI) * 0.025;
@@ -489,12 +495,12 @@ function drawTrex(ctx, d, ph){
     ctx.beginPath(); ctx.moveTo(.43+armSwing,-.57+dy); ctx.lineTo(.50+armSwing,-.525+dy);
     ctx.moveTo(.43+armSwing,-.57+dy); ctx.lineTo(.47+armSwing,-.50+dy); ctx.stroke();
   };
-  rexArm(-.025,shade(p.body,-.38),.052);
-  rexArm(.02,shade(p.body,-.12),.064);
+  if (!deathMask.farArm) rexArm(-.025,shade(p.body,-.38),.052);
+  if (!deathMask.nearArm) rexArm(.02,shade(p.body,-.12),.064);
   ctx.restore();
 
   // Near leg last for depth.
-  rexLeg(-0.08, -0.61, ph, shade(p.body, -0.10), true);
+  if (!deathMask.nearLeg) rexLeg(-0.08, -0.61, ph, shade(p.body, -0.10), true);
 }
 
 /* ---------- QUADRUPED (stego, trike, anky, para) ---------- */
@@ -1118,7 +1124,7 @@ function drawDistortusRef(ctx,d,ph){
    feat.longNeck = plesiosaur swan-neck; feat.bigJaw = mosasaur-style maw;
    feat.ridge = spine ridge fins. */
 function drawAquatic(ctx, d, ph){
-  const p = d.pal, f = d.feat || {};
+  const p = d.pal, f = d.feat || {}, deathMask = d.deathMask || {};
   const sw = Math.sin(ph);                    // swimming undulation
   const roar = (d.entranceT || 0) > 0 ? Math.min(1, (2.2 - d.entranceT) * 2.5) : 0;
 
@@ -1135,13 +1141,15 @@ function drawAquatic(ctx, d, ph){
   ctx.globalAlpha = 1;
 
   // sweeping tail + fluke
-  ctx.fillStyle = shade(p.body, -0.12);
-  ctx.beginPath();
-  ctx.moveTo(-0.32, -0.2);
-  ctx.quadraticCurveTo(-0.78, -0.18 + sw * 0.08, -1.02, -0.08 + sw * 0.15);
-  ctx.quadraticCurveTo(-1.18, -0.02 + sw * 0.18, -1.08, 0.08 + sw * 0.12);  // fluke tip
-  ctx.quadraticCurveTo(-0.72, 0.04 + sw * 0.05, -0.32, 0.02);
-  ctx.closePath(); ctx.fill();
+  if (!deathMask.tail){
+    ctx.fillStyle = shade(p.body, -0.12);
+    ctx.beginPath();
+    ctx.moveTo(-0.32, -0.2);
+    ctx.quadraticCurveTo(-0.78, -0.18 + sw * 0.08, -1.02, -0.08 + sw * 0.15);
+    ctx.quadraticCurveTo(-1.18, -0.02 + sw * 0.18, -1.08, 0.08 + sw * 0.12);  // fluke tip
+    ctx.quadraticCurveTo(-0.72, 0.04 + sw * 0.05, -0.32, 0.02);
+    ctx.closePath(); ctx.fill();
+  }
 
   // low body hump breaking the surface
   ctx.fillStyle = p.body;
@@ -1161,11 +1169,13 @@ function drawAquatic(ctx, d, ph){
     }
   }
   // paddle flipper stroking the water
-  ctx.save();
-  ctx.translate(0.14, -0.06); ctx.rotate(0.65 + sw * 0.45);
-  ctx.fillStyle = shade(p.body, -0.28);
-  ctx.beginPath(); ctx.ellipse(0.12, 0.05, 0.17, 0.07, 0.35, 0, Math.PI*2); ctx.fill();
-  ctx.restore();
+  if (!deathMask.flipper){
+    ctx.save();
+    ctx.translate(0.14, -0.06); ctx.rotate(0.65 + sw * 0.45);
+    ctx.fillStyle = shade(p.body, -0.28);
+    ctx.beginPath(); ctx.ellipse(0.12, 0.05, 0.17, 0.07, 0.35, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
 
   if (f.longNeck){
     // plesiosaur: graceful swan neck up out of the water, small head
@@ -1430,7 +1440,7 @@ function bossBiteOpen(d,ph,roar,maxOpen){
   return .055+Math.max(0,Math.sin(ph*.8))*.035+roar*.22;
 }
 function drawFilmBoss(ctx,d,ph,kind){
-  const p=d.pal,raptor=kind==='blue'||kind==='indoraptor',spino=kind==='spino',indo=kind==='indominus',giga=kind==='giga';
+  const p=d.pal,deathMask=d.deathMask||{},raptor=kind==='blue'||kind==='indoraptor',spino=kind==='spino',indo=kind==='indominus',giga=kind==='giga';
   const roar=(d.entranceT||0)>0?Math.min(1,(2.5-d.entranceT)*2.3):0;
   const bob=Math.abs(Math.sin(ph))*.035,slim=raptor?.75:1;
   // Species-specific depth: the near-black separation belongs on the black
@@ -1438,10 +1448,10 @@ function drawFilmBoss(ctx,d,ph,kind){
   const farDepth=kind==='indoraptor'?-.38:spino?0:indo?-.12:giga?-.25:kind==='blue'?-.22:-.20;
   const ridgeDepth=kind==='indoraptor'?-.35:indo?-.14:-.25;
   const jawDepth=kind==='indoraptor'?-.22:spino?0:indo?-.10:-.18;
-  filmBossLeg(ctx,-.18,ph+Math.PI,shade(p.body,farDepth),raptor?.105:.18,raptor,spino);
+  if(!deathMask.farLeg)filmBossLeg(ctx,-.18,ph+Math.PI,shade(p.body,farDepth),raptor?.105:.18,raptor,spino);
   ctx.save();ctx.translate(0,-bob);
   // Long counterbalancing tail and deep, shoulder-heavy torso.
-  ctx.fillStyle=p.body;ctx.beginPath();ctx.moveTo(-.18,-.82);ctx.quadraticCurveTo(-.85,-.84,-1.60,-.60+Math.sin(ph*.8)*.08);ctx.quadraticCurveTo(-.92,-.58,-.18,-.48);ctx.closePath();ctx.fill();
+  if(!deathMask.tail){ctx.fillStyle=p.body;ctx.beginPath();ctx.moveTo(-.18,-.82);ctx.quadraticCurveTo(-.85,-.84,-1.60,-.60+Math.sin(ph*.8)*.08);ctx.quadraticCurveTo(-.92,-.58,-.18,-.48);ctx.closePath();ctx.fill();}
   const backY=raptor?-.96:giga?-1.18:spino?-1.04:-1.10;
   const chestX=giga?.78:spino?.73:raptor?.61:.70,bellyY=raptor?-.50:giga?-.35:-.40;
   const bossBack=t=>{
@@ -1459,7 +1469,7 @@ function drawFilmBoss(ctx,d,ph,kind){
   // contour. The base is tucked into the hide and every rib fans from its
   // local back angle, so the sail wraps around the animal instead of reading
   // as a flat triangle pasted behind it.
-  if(spino&&!d.hideSail){
+  if(spino&&!d.hideSail&&!deathMask.sail){
     const N=10,t0=.015,t1=.70,sail=[];
     for(let i=0;i<=N;i++){
       const q=i/N,e=bossBack(t0+(t1-t0)*q);
@@ -1477,7 +1487,7 @@ function drawFilmBoss(ctx,d,ph,kind){
     for(let i=1;i<N;i+=2){const {e,h}=sail[i];ctx.beginPath();ctx.moveTo(e.x-e.nx*.018,e.y-e.ny*.018);ctx.lineTo(e.x+e.nx*h*.96,e.y+e.ny*h*.96);ctx.stroke();}
   }
   // Hybrid/Giga dorsal scutes create the broken, armored skyline.
-  if(indo||giga||kind==='indoraptor'){
+  if((indo||giga||kind==='indoraptor')&&!deathMask.ridge){
     ctx.fillStyle=shade(p.body,ridgeDepth);const count=indo?8:6;
     for(let i=0;i<count;i++){
       const q=i/(count-1),t=.04+q*.78,u=1-t;
@@ -1515,6 +1525,7 @@ function drawFilmBoss(ctx,d,ph,kind){
   }
   if(kind==='indoraptor'){ctx.globalAlpha=.52;ctx.strokeStyle=p.accent;ctx.lineWidth=.038;for(const seg of [[-1.25,-.72,-.82,-.76],[-.66,-.77,-.28,-.80],[-.10,-.82,.30,-.91]]){ctx.beginPath();ctx.moveTo(seg[0],seg[1]);ctx.quadraticCurveTo((seg[0]+seg[2])*.5,seg[1]-.025,seg[2],seg[3]);ctx.stroke();}ctx.globalAlpha=1;}
   // Muscular neck leading to deliberately different skull families.
+  if(!deathMask.head){
   const hx=raptor?.57:.52,hy=(spino?-1.04:raptor?-1.02:-1.08)-roar*.12;
   ctx.fillStyle=p.body;ctx.beginPath();ctx.moveTo(.28,-.94);ctx.quadraticCurveTo(.48,-1.15,hx,hy);ctx.lineTo(hx+.14,hy+.32);ctx.quadraticCurveTo(.42,-.60,.25,-.52);ctx.closePath();ctx.fill();
   ctx.save();ctx.translate(hx,hy);ctx.rotate(-roar*.28);
@@ -1528,9 +1539,10 @@ function drawFilmBoss(ctx,d,ph,kind){
   ctx.fillStyle=spino?p.body:shade(p.body,jawDepth);ctx.beginPath();ctx.moveTo(-.08,.055);ctx.lineTo(sn,open+.025);ctx.lineTo(sn-.02,open+.080);ctx.lineTo(-.10,.125);ctx.closePath();ctx.fill();bossTeeth(ctx,.06,sn-.02,open,kind);
   ctx.fillStyle=kind==='indoraptor'?'#d42f24':indo?'#b14832':'#d2b04f';ctx.beginPath();ctx.ellipse(.22,-.115,.032,.022,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#110d0a';ctx.beginPath();ctx.ellipse(.226,-.115,.008,.019,0,0,Math.PI*2);ctx.fill();
   ctx.restore();
-  bossArm(ctx,.33,-.82,ph+.5,spino?p.body:shade(p.body,-.1),spino||indo||raptor);
-  if(spino)bossArm(ctx,.24,-.78,ph+Math.PI,p.body,true);
-  ctx.restore();filmBossLeg(ctx,.10,ph,p.body,raptor?.12:.20,raptor,spino);
+  }
+  if(!deathMask.nearArm)bossArm(ctx,.33,-.82,ph+.5,spino?p.body:shade(p.body,-.1),spino||indo||raptor);
+  if(spino&&!deathMask.farArm)bossArm(ctx,.24,-.78,ph+Math.PI,p.body,true);
+  ctx.restore();if(!deathMask.nearLeg)filmBossLeg(ctx,.10,ph,p.body,raptor?.12:.20,raptor,spino);
 }
 function drawBlue(ctx,d,ph){drawFilmBoss(ctx,d,ph,'blue');}
 function drawSpinosaurus(ctx,d,ph){drawFilmBoss(ctx,d,ph,'spino');}
@@ -1539,10 +1551,10 @@ function drawIndoraptor(ctx,d,ph){drawFilmBoss(ctx,d,ph,'indoraptor');}
 function drawGiganotosaurus(ctx,d,ph){drawFilmBoss(ctx,d,ph,'giga');}
 
 function drawWhitePteranodon(ctx,d,ph){
-  const p=d.pal,flap=Math.sin(ph*2);ctx.save();ctx.translate(0,-1.42+Math.sin(ph)*.06);
+  const p=d.pal,deathMask=d.deathMask||{},flap=Math.sin(ph*2);ctx.save();ctx.translate(0,-1.42+Math.sin(ph)*.06);
   // Mirrored wings: each has its own shoulder, long leading finger and taut
   // membrane. The old version accidentally stacked both wings on the left.
-  for(let side=-1;side<=1;side+=2){ctx.save();ctx.scale(side,1);if(side<0)ctx.globalAlpha=.72;ctx.fillStyle=side>0?p.body:shade(p.body,-.18);ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(.44,-.34-flap*.44);ctx.lineTo(1.38,-.54-flap*.78);ctx.lineTo(1.04,.04);ctx.lineTo(.42,.20);ctx.closePath();ctx.fill();ctx.strokeStyle=shade(p.body,-.34);ctx.lineWidth=.035;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(1.38,-.54-flap*.78);ctx.moveTo(.28,-.08);ctx.lineTo(1.04,.04);ctx.stroke();ctx.restore();}
+  for(let side=-1;side<=1;side+=2){if((side<0&&deathMask.wingFar)||(side>0&&deathMask.wingNear))continue;ctx.save();ctx.scale(side,1);if(side<0)ctx.globalAlpha=.72;ctx.fillStyle=side>0?p.body:shade(p.body,-.18);ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(.44,-.34-flap*.44);ctx.lineTo(1.38,-.54-flap*.78);ctx.lineTo(1.04,.04);ctx.lineTo(.42,.20);ctx.closePath();ctx.fill();ctx.strokeStyle=shade(p.body,-.34);ctx.lineWidth=.035;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(1.38,-.54-flap*.78);ctx.moveTo(.28,-.08);ctx.lineTo(1.04,.04);ctx.stroke();ctx.restore();}
   ctx.fillStyle=p.body;ctx.beginPath();ctx.ellipse(.04,0,.40,.16,-.08,0,Math.PI*2);ctx.fill();
   ctx.strokeStyle=p.body;ctx.lineWidth=.12;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(.30,-.08);ctx.lineTo(.48,-.22);ctx.stroke();ctx.beginPath();ctx.ellipse(.56,-.25,.17,.105,-.08,0,Math.PI*2);ctx.fill();
   ctx.fillStyle=p.accent;ctx.beginPath();ctx.moveTo(.51,-.33);ctx.lineTo(-.08,-.52);ctx.lineTo(.58,-.20);ctx.closePath();ctx.fill();

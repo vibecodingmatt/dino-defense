@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.50.1';
+const VERSION = '1.52.0';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -25,8 +25,9 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.50.1', date: 'Jul 19, 2026', items: [
-    '🎬 Every boss now has its own cinematic defeat animation, final pose, and battle-ending callout.',
+  {v: '1.52.0', date: 'Jul 19, 2026', items: [
+    '🎬 Every boss now goes down differently, with torn limbs, shattered sails, severed wings, brutal impacts, and anatomy that stays gone.',
+    '🧬 Wave 100 now holds the victory celebration until the D-Rex completes its grand finale.',
     '🦖 Every boss now has a more distinctive, movie-inspired look and silhouette.',
     '🦷 Sharper teeth, a sculpted Spinosaurus sail, and smoother home-screen animation complete the boss polish.',
     '🗺️ Every map now features its own cinematic landmarks, environmental stories, and hidden park relics.',
