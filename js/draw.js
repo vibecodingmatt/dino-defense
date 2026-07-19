@@ -7,11 +7,26 @@
    ========================================================= */
 
 const shadeCache = new Map();
+const BOSS_TOOTH_UPPER=[.78,1.18,.66,1.36,.88,1.12,.70,1.28,.82];
+const BOSS_TOOTH_LOWER=[1.10,.72,1.28,.84,1.18,.68,1.34,.90];
+const DREX_TOOTH_LOWER=[.082,.118,.071,.132,.092,.108];
+const DREX_TOOTH_UPPER=[.096,.137,.078,.124,.105,.083];
+const MOSA_TOOTH_UPPER=[.052,.078,.061,.088,.057,.073,.049];
+const MOSA_TOOTH_LOWER=[.056,.081,.063,.074,.052,.086];
 function shade(hex, f){ // lighten (f>0) / darken (f<0) a #rrggbb color
   const key = hex + ':' + f;
   if (shadeCache.has(key)) return shadeCache.get(key);
-  const n = parseInt(hex.slice(1), 16);
-  let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  // Menu dinosaurs already receive a muted rgb(...) palette. Accept both that
+  // and the hex colors from DINOS so shading a color twice never collapses to
+  // black because parseInt was handed the letters in "rgb".
+  let r,g,b;
+  if (/^#[0-9a-f]{6}$/i.test(hex)){
+    const n=parseInt(hex.slice(1),16);r=(n>>16)&255;g=(n>>8)&255;b=n&255;
+  } else {
+    const m=String(hex).match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
+    if(!m)return hex;
+    r=+m[1];g=+m[2];b=+m[3];
+  }
   if (f >= 0){ r += (255-r)*f; g += (255-g)*f; b += (255-b)*f; }
   else { r *= 1+f; g *= 1+f; b *= 1+f; }
   const out = `rgb(${r|0},${g|0},${b|0})`;
@@ -940,10 +955,10 @@ function drawDistortusRex(ctx, d, ph){
   ctx.fillStyle='#351b19';ctx.beginPath();ctx.moveTo(.045,.025);ctx.quadraticCurveTo(.34,.08,.67,.025);
   ctx.lineTo(.62,.115);ctx.quadraticCurveTo(.30,.17,.03,.10);ctx.fill();
   ctx.fillStyle='#e7dfca';
-  for(let i=0;i<6;i++){const x=.08+i*.105,h=.055+i%3*.018;ctx.beginPath();ctx.moveTo(x-.025,.035);ctx.lineTo(x+.025,.03);ctx.lineTo(x,.03-h);ctx.fill();}
+  for(let i=0;i<6;i++){const x=.08+i*.105,h=DREX_TOOTH_LOWER[i],lean=((i%3)-1)*.012;ctx.beginPath();ctx.moveTo(x-.027,.038);ctx.lineTo(x+.026,.029);ctx.quadraticCurveTo(x+lean+.006,.03-h*.62,x+lean,.03-h);ctx.closePath();ctx.fill();}
   ctx.restore();
   ctx.fillStyle='#eee7d2';
-  for(let i=0;i<6;i++){const x=.02+i*.095,h=.065+i%2*.03;ctx.beginPath();ctx.moveTo(x-.026,.065);ctx.lineTo(x+.025,.06);ctx.lineTo(x+.004,.06+h);ctx.fill();}
+  for(let i=0;i<6;i++){const x=.02+i*.095,h=DREX_TOOTH_UPPER[i],lean=((i%3)-1)*.014;ctx.beginPath();ctx.moveTo(x-.028,.065);ctx.lineTo(x+.027,.058);ctx.quadraticCurveTo(x+lean+.006,.06+h*.64,x+lean,.06+h);ctx.closePath();ctx.fill();}
   // Eye is pushed forward beside the muzzle, ringed by a bruised black socket.
   ctx.fillStyle='#211b17';ctx.beginPath();ctx.ellipse(.31,-.205,.085,.064,-.15,0,Math.PI*2);ctx.fill();
   ctx.fillStyle='#d2a638';ctx.beginPath();ctx.arc(.32,-.21,.022,0,Math.PI*2);ctx.fill();
@@ -1179,11 +1194,16 @@ function drawAquatic(ctx, d, ph){
     ctx.moveTo(-0.02, 0.04);
     ctx.lineTo(0.38 * big, 0.03 + jawOpen); ctx.lineTo(0.38 * big, 0.08 + jawOpen);
     ctx.lineTo(-0.02, 0.1); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#f4f2e4';                 // interlocking fangs
-    for (let i = 0; i < 4; i++){
-      const tx = 0.08 + i * 0.085 * big;
-      ctx.beginPath(); ctx.moveTo(tx - 0.017, 0.015); ctx.lineTo(tx + 0.017, 0.015); ctx.lineTo(tx + 0.002, 0.055); ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(tx + 0.028, 0.035 + jawOpen); ctx.lineTo(tx + 0.058, 0.035 + jawOpen); ctx.lineTo(tx + 0.045, 0.008 + jawOpen); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#f4f2e4';                 // irregular interlocking fangs
+    for (let i = 0; i < 7; i++){
+      const tx=0.045+i*.058*big,w=.012+(i%3)*.002,lean=((i%3)-1)*.007;
+      ctx.beginPath();ctx.moveTo(tx-w,.012);ctx.lineTo(tx+w,.014);
+      ctx.quadraticCurveTo(tx+lean+.004,.014+MOSA_TOOTH_UPPER[i]*.62,tx+lean,.014+MOSA_TOOTH_UPPER[i]);ctx.closePath();ctx.fill();
+    }
+    for(let i=0;i<6;i++){
+      const tx=.075+i*.064*big,w=.012+(i%2)*.002,root=.047+jawOpen,lean=((i%3)-1)*.006;
+      ctx.beginPath();ctx.moveTo(tx-w,root+.004);ctx.lineTo(tx+w,root);
+      ctx.quadraticCurveTo(tx+lean+.003,root-MOSA_TOOTH_LOWER[i]*.62,tx+lean,root-MOSA_TOOTH_LOWER[i]);ctx.closePath();ctx.fill();
     }
     ctx.fillStyle = '#1a1a12';                 // eye
     ctx.beginPath(); ctx.arc(0.05, -0.08 * big, 0.028, 0, Math.PI*2); ctx.fill();
@@ -1354,7 +1374,7 @@ function drawOmegaRex(ctx, d, ph){
    These bosses deliberately do not share the everyday theropod body. Their
    profiles carry the screen-recognition work: posture, skull, arms and the
    markings audiences remember. */
-function bossFoot(ctx,x,y,s,flip){
+function bossFoot(ctx,x,y,s,flip,clawColor){
   const dir=flip?-1:1,foot=Math.max(.13,s*.7);
   // A low fleshy foot carries the weight; toes spread along the ground instead
   // of radiating upward from a single rake-like point.
@@ -1362,13 +1382,13 @@ function bossFoot(ctx,x,y,s,flip){
   const toes=[{dx:1,dy:0},{dx:.83,dy:-.035},{dx:.72,dy:.03}];
   ctx.strokeStyle=ctx.fillStyle;ctx.lineWidth=Math.max(.025,s*.13);ctx.lineCap='round';
   for(const t of toes){const bx=x+dir*foot*.22,by=y-.018+t.dy;ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(x+dir*foot*t.dx,by);ctx.stroke();
-    ctx.fillStyle='#51483b';ctx.beginPath();ctx.moveTo(x+dir*foot*(t.dx-.08),by-.022);ctx.lineTo(x+dir*foot*(t.dx+.18),by+.004);ctx.lineTo(x+dir*foot*(t.dx-.06),by+.022);ctx.closePath();ctx.fill();}
+    ctx.fillStyle=clawColor||'#51483b';ctx.beginPath();ctx.moveTo(x+dir*foot*(t.dx-.08),by-.022);ctx.lineTo(x+dir*foot*(t.dx+.18),by+.004);ctx.lineTo(x+dir*foot*(t.dx-.06),by+.022);ctx.closePath();ctx.fill();}
 }
-function filmBossLeg(ctx,x,ph,c,w,raptor){
+function filmBossLeg(ctx,x,ph,c,w,raptor,plainFoot){
   const sw=Math.sin(ph),lift=Math.max(0,Math.cos(ph))*.13;
   const kx=x+sw*.16,ky=-.35-lift,fx=x+.14+sw*.24,fy=-lift*.15;
   ctx.strokeStyle=c;ctx.lineCap='round';ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(x,-.68);ctx.lineTo(kx,ky);ctx.stroke();
-  ctx.lineWidth=w*.62;ctx.beginPath();ctx.moveTo(kx,ky);ctx.lineTo(fx,fy);ctx.stroke();bossFoot(ctx,fx,fy,w*2.2,false);
+  ctx.lineWidth=w*.62;ctx.beginPath();ctx.moveTo(kx,ky);ctx.lineTo(fx,fy);ctx.stroke();bossFoot(ctx,fx,fy,w*2.2,false,plainFoot?c:null);
   if(raptor){ctx.strokeStyle='#51483b';ctx.lineWidth=.032;ctx.beginPath();ctx.moveTo(fx+.015,fy-.045);ctx.quadraticCurveTo(fx-.015,fy-.14,fx+.075,fy-.12);ctx.quadraticCurveTo(fx+.11,fy-.11,fx+.07,fy-.075);ctx.stroke();}
 }
 function bossArm(ctx,x,y,ph,c,longArm){
@@ -1377,18 +1397,26 @@ function bossArm(ctx,x,y,ph,c,longArm){
   ctx.fillStyle=c;ctx.beginPath();ctx.ellipse(hx,hy,.065,.045,.25,0,Math.PI*2);ctx.fill();
   ctx.strokeStyle='#4b443a';ctx.lineWidth=.018;for(let i=0;i<3;i++){const sy=hy-.025+i*.028,ex2=hx+.065+i*.010,ey2=sy+.018;ctx.beginPath();ctx.moveTo(hx+.025,sy);ctx.quadraticCurveTo(ex2,sy,ex2,ey2);ctx.quadraticCurveTo(ex2+.018,ey2+.012,ex2+.010,ey2+.034);ctx.stroke();}
 }
-function bossTeeth(ctx,x0,x1,open,n){
-  // Each tooth is seated on the sloped edge of its own jaw. In particular,
-  // lower teeth rise from the lower-jaw polygon instead of floating on a
-  // horizontal line beneath it.
-  ctx.fillStyle='#e4decc';
+function bossTeeth(ctx,x0,x1,open,kind){
+  // Crooked, interlocking fangs rooted in the actual sloping jaw edges. Fixed
+  // patterns keep the silhouette lively without random frame-to-frame flicker.
+  const spino=kind==='spino',small=kind==='blue'||kind==='indoraptor';
+  const n=spino?9:small?6:7;
+  ctx.fillStyle='#eee7d3';
   for(let i=0;i<n;i++){
-    const q=(i+.5)/n,x=x0+(x1-x0)*q;
-    const upper=.050+( -.035)*q;
-    const lower=.088+(open-.050)*q;
-    const uw=.013-(q*.003),lw=.012-(q*.003);
-    ctx.beginPath();ctx.moveTo(x-uw,upper);ctx.lineTo(x+uw,upper);ctx.lineTo(x,upper+.040);ctx.closePath();ctx.fill();
-    ctx.beginPath();ctx.moveTo(x-lw,lower);ctx.lineTo(x+lw,lower);ctx.lineTo(x,lower-.034);ctx.closePath();ctx.fill();
+    const q=(i+.48)/n,x=x0+(x1-x0)*q;
+    const root=.050-.035*q,w=(spino?.012:.016)+(i%3)*.002;
+    const h=(spino?.072:small?.078:.092)*BOSS_TOOTH_UPPER[i],lean=((i%3)-1)*(spino?.006:.010);
+    ctx.beginPath();ctx.moveTo(x-w,root-.006);ctx.lineTo(x+w,root-.002);
+    ctx.quadraticCurveTo(x+lean+w*.25,root+h*.64,x+lean,root+h);ctx.closePath();ctx.fill();
+  }
+  ctx.fillStyle='#e4decc';
+  for(let i=0;i<n-1;i++){
+    const q=(i+1.02)/n,x=x0+(x1-x0)*q;
+    const root=.088+(open-.050)*q,w=(spino?.011:.014)+(i%2)*.002;
+    const h=(spino?.058:small?.064:.076)*BOSS_TOOTH_LOWER[i],lean=((i%3)-1)*(spino?.005:.008);
+    ctx.beginPath();ctx.moveTo(x-w,root+.005);ctx.lineTo(x+w,root+.002);
+    ctx.quadraticCurveTo(x+lean+w*.2,root-h*.66,x+lean,root-h);ctx.closePath();ctx.fill();
   }
 }
 function bossBiteOpen(d,ph,roar,maxOpen){
@@ -1405,19 +1433,52 @@ function drawFilmBoss(ctx,d,ph,kind){
   const p=d.pal,raptor=kind==='blue'||kind==='indoraptor',spino=kind==='spino',indo=kind==='indominus',giga=kind==='giga';
   const roar=(d.entranceT||0)>0?Math.min(1,(2.5-d.entranceT)*2.3):0;
   const bob=Math.abs(Math.sin(ph))*.035,slim=raptor?.75:1;
-  filmBossLeg(ctx,-.18,ph+Math.PI,shade(p.body,-.38),raptor?.105:.18,raptor);
+  // Species-specific depth: the near-black separation belongs on the black
+  // Indoraptor, while lighter hides keep their far limbs visibly connected.
+  const farDepth=kind==='indoraptor'?-.38:spino?0:indo?-.12:giga?-.25:kind==='blue'?-.22:-.20;
+  const ridgeDepth=kind==='indoraptor'?-.35:indo?-.14:-.25;
+  const jawDepth=kind==='indoraptor'?-.22:spino?0:indo?-.10:-.18;
+  filmBossLeg(ctx,-.18,ph+Math.PI,shade(p.body,farDepth),raptor?.105:.18,raptor,spino);
   ctx.save();ctx.translate(0,-bob);
   // Long counterbalancing tail and deep, shoulder-heavy torso.
   ctx.fillStyle=p.body;ctx.beginPath();ctx.moveTo(-.18,-.82);ctx.quadraticCurveTo(-.85,-.84,-1.60,-.60+Math.sin(ph*.8)*.08);ctx.quadraticCurveTo(-.92,-.58,-.18,-.48);ctx.closePath();ctx.fill();
   const backY=raptor?-.96:giga?-1.18:spino?-1.04:-1.10;
   const chestX=giga?.78:spino?.73:raptor?.61:.70,bellyY=raptor?-.50:giga?-.35:-.40;
+  const bossBack=t=>{
+    const u=1-t;
+    const x=u*u*u*-.28+3*u*u*t*.02+3*u*t*t*.46+t*t*t*chestX;
+    const y=u*u*u*-.87+3*u*u*t*backY+3*u*t*t*(backY+.02)+t*t*t*-.76;
+    const dx=3*u*u*(.02-(-.28))+6*u*t*(.46-.02)+3*t*t*(chestX-.46);
+    const dy=3*u*u*(backY-(-.87))+6*u*t*((backY+.02)-backY)+3*t*t*(-.76-(backY+.02));
+    const dl=Math.hypot(dx,dy)||1;
+    return{x,y,tx:dx/dl,ty:dy/dl,nx:dy/dl,ny:-dx/dl};
+  };
   ctx.beginPath();ctx.moveTo(-.28,-.87);ctx.bezierCurveTo(.02,backY,.46,backY+.02,chestX,-.76);ctx.bezierCurveTo(.50,bellyY,.02,bellyY-.01,-.32,-.51);ctx.closePath();ctx.fill();
   ctx.fillStyle=p.belly;ctx.globalAlpha=.52;ctx.beginPath();ctx.ellipse(.12,raptor?-.57:-.52,.42*slim,raptor?.11:.14,-.08,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
-  // JP3 Spinosaurus: the sail is tall, narrow and red-centered, not a hump.
-  if(spino){ctx.fillStyle=shade(p.accent,-.18);ctx.beginPath();ctx.moveTo(-.38,-.88);ctx.lineTo(-.25,-1.55);ctx.lineTo(.02,-1.72);ctx.lineTo(.36,-1.07);ctx.lineTo(.48,-.88);ctx.closePath();ctx.fill();ctx.strokeStyle=shade(p.accent,.22);ctx.lineWidth=.035;for(let i=0;i<5;i++){ctx.beginPath();ctx.moveTo(-.27+i*.14,-.94);ctx.lineTo(-.20+i*.075,-1.50-Math.sin(i/4*Math.PI)*.17);ctx.stroke();}}
+  // JP3 Spinosaurus: a tall, narrow sail whose base follows the exact torso
+  // contour. The base is tucked into the hide and every rib fans from its
+  // local back angle, so the sail wraps around the animal instead of reading
+  // as a flat triangle pasted behind it.
+  if(spino){
+    const N=10,t0=.015,t1=.70,sail=[];
+    for(let i=0;i<=N;i++){
+      const q=i/N,e=bossBack(t0+(t1-t0)*q);
+      const h=.025+Math.pow(Math.sin(q*Math.PI),.72)*.61;
+      sail.push({e,h,q});
+    }
+    ctx.fillStyle=shade(p.accent,-.18);ctx.beginPath();
+    for(let i=0;i<=N;i++){
+      const {e,h}=sail[i],ox=e.x+e.nx*h,oy=e.y+e.ny*h;
+      if(i===0)ctx.moveTo(ox,oy);else ctx.lineTo(ox,oy);
+    }
+    for(let i=N;i>=0;i--){const e=sail[i].e;ctx.lineTo(e.x-e.nx*.035,e.y-e.ny*.035);}
+    ctx.closePath();ctx.fill();
+    ctx.strokeStyle=shade(p.accent,.22);ctx.lineWidth=.026;ctx.lineCap='round';
+    for(let i=1;i<N;i+=2){const {e,h}=sail[i];ctx.beginPath();ctx.moveTo(e.x-e.nx*.018,e.y-e.ny*.018);ctx.lineTo(e.x+e.nx*h*.96,e.y+e.ny*h*.96);ctx.stroke();}
+  }
   // Hybrid/Giga dorsal scutes create the broken, armored skyline.
   if(indo||giga||kind==='indoraptor'){
-    ctx.fillStyle=shade(p.body,-.35);const count=indo?8:6;
+    ctx.fillStyle=shade(p.body,ridgeDepth);const count=indo?8:6;
     for(let i=0;i<count;i++){
       const q=i/(count-1),t=.04+q*.78,u=1-t;
       // Sample the exact cubic used by the torso above. Its derivative supplies
@@ -1463,13 +1524,13 @@ function drawFilmBoss(ctx,d,ph,kind){
   else {ctx.moveTo(-.10,-.18);ctx.quadraticCurveTo(.18,-.27,sn,-.13);ctx.lineTo(sn+.04,-.01);ctx.lineTo(.20,.055);ctx.lineTo(-.12,.10);}
   ctx.closePath();ctx.fill();
   // Brow horns and rugged cheek architecture.
-  if(indo||giga){ctx.fillStyle=shade(p.body,-.28);ctx.beginPath();ctx.moveTo(.05,-.19);ctx.lineTo(.12,-.34);ctx.lineTo(.20,-.18);ctx.closePath();ctx.fill();ctx.beginPath();ctx.ellipse(.12,.02,.20,.13,-.15,0,Math.PI*2);ctx.fill();}
-  ctx.fillStyle=shade(p.body,-.22);ctx.beginPath();ctx.moveTo(-.08,.055);ctx.lineTo(sn,open+.025);ctx.lineTo(sn-.02,open+.080);ctx.lineTo(-.10,.125);ctx.closePath();ctx.fill();bossTeeth(ctx,.06,sn-.02,open,spino?7:5);
+  if(indo||giga){ctx.fillStyle=shade(p.body,indo?-.12:-.28);ctx.beginPath();ctx.moveTo(.05,-.19);ctx.lineTo(.12,-.34);ctx.lineTo(.20,-.18);ctx.closePath();ctx.fill();ctx.beginPath();ctx.ellipse(.12,.02,.20,.13,-.15,0,Math.PI*2);ctx.fill();}
+  ctx.fillStyle=spino?p.body:shade(p.body,jawDepth);ctx.beginPath();ctx.moveTo(-.08,.055);ctx.lineTo(sn,open+.025);ctx.lineTo(sn-.02,open+.080);ctx.lineTo(-.10,.125);ctx.closePath();ctx.fill();bossTeeth(ctx,.06,sn-.02,open,kind);
   ctx.fillStyle=kind==='indoraptor'?'#d42f24':indo?'#b14832':'#d2b04f';ctx.beginPath();ctx.ellipse(.22,-.115,.032,.022,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#110d0a';ctx.beginPath();ctx.ellipse(.226,-.115,.008,.019,0,0,Math.PI*2);ctx.fill();
   ctx.restore();
-  bossArm(ctx,.33,-.82,ph+.5,shade(p.body,-.1),spino||indo||raptor);
-  if(spino)bossArm(ctx,.24,-.78,ph+Math.PI,shade(p.body,-.28),true);
-  ctx.restore();filmBossLeg(ctx,.10,ph,p.body,raptor?.12:.20,raptor);
+  bossArm(ctx,.33,-.82,ph+.5,spino?p.body:shade(p.body,-.1),spino||indo||raptor);
+  if(spino)bossArm(ctx,.24,-.78,ph+Math.PI,p.body,true);
+  ctx.restore();filmBossLeg(ctx,.10,ph,p.body,raptor?.12:.20,raptor,spino);
 }
 function drawBlue(ctx,d,ph){drawFilmBoss(ctx,d,ph,'blue');}
 function drawSpinosaurus(ctx,d,ph){drawFilmBoss(ctx,d,ph,'spino');}

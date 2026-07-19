@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.48.0';
+const VERSION = '1.48.1';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -25,9 +25,9 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.48.0', date: 'Jul 19, 2026', items: [
+  {v: '1.48.1', date: 'Jul 19, 2026', items: [
     '🦖 Every boss now has a more distinctive, movie-inspired look and silhouette.',
-    '🃏 Bosses are better framed and animated on the home screen and Sticker Book cards.',
+    '🦷 Sharper teeth, a sculpted Spinosaurus sail, and smoother home-screen animation complete the boss polish.',
   ]},
   {v: '1.47.2', date: 'Jul 17, 2026', items: [
     '🦖 Welcome to DINO DEFENSE — a new name, with all your progress preserved.',

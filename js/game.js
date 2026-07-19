@@ -3085,7 +3085,7 @@ function menuScene(dt){
   if (!ctx) return;
   const w = cv.clientWidth, h = cv.clientHeight;
   if (!w || !h || !isFinite(w) || !isFinite(h)) return;
-  // cap the backing buffer so it can never approach a browser's canvas-size limit
+  // Cap the backing buffer so it can never approach a browser's canvas-size limit.
   const scale = Math.min(1.5, window.devicePixelRatio || 1, 1600 / w, 1600 / h);
   const bw = Math.max(1, Math.round(w * scale)), bh = Math.max(1, Math.round(h * scale));
   if (cv.width !== bw || cv.height !== bh){ cv.width = bw; cv.height = bh; }
@@ -3176,10 +3176,6 @@ function menuScene(dt){
   menuTourists = menuTourists.filter(tr => !tr.dead && tr.x > -80 && tr.x < w + 80);
   for (const d of menuDinos){
     const yy = d.y + Math.sin(d.phase) * d.size * 0.015;
-    // Soft backlight without a large new radial-gradient raster every frame.
-    const cyy = yy - d.size * 0.55;
-    ctx.fillStyle='rgba(70,230,196,0.055)';ctx.beginPath();ctx.ellipse(d.x,cyy,d.size*2.15,d.size*1.35,0,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='rgba(232,185,58,0.035)';ctx.beginPath();ctx.ellipse(d.x,cyy,d.size*1.25,d.size*.78,0,0,Math.PI*2);ctx.fill();
     drawDino(ctx, d, d.x, yy, d.dir, d.phase, d.alpha, d.eatPitch || 0);
     if (d.eat && d.eat.bit){
       const e = d.eat;

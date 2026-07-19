@@ -254,28 +254,23 @@ canvas#game {
     transparent 0deg, #e8b93a14 12deg, transparent 30deg,
     #46e6c40f 60deg, transparent 84deg, #e8b93a12 120deg, transparent 150deg,
     transparent 210deg, #46e6c40d 250deg, transparent 285deg, #e8b93a10 320deg, transparent 350deg);
-  filter: blur(6px); opacity: 0.9; animation: rayspin 60s linear infinite;
+  opacity: 0.72;
 }
-@keyframes rayspin { to { transform: rotate(360deg); } }
 /* floodlight bloom behind the crest */
 .mb-glow {
   background: radial-gradient(46% 42% at 50% 26%, #e8b93a2e 0%, #46e6c412 34%, transparent 62%);
-  animation: breathe 7s ease-in-out infinite;
 }
 #menu[data-scene="day"] .mb-glow { background: radial-gradient(50% 46% at 50% 24%, #ffe6a840 0%, transparent 62%); }
-@keyframes breathe { 0%,100% { opacity: 0.75; } 50% { opacity: 1; } }
 /* drifting fog bands */
-.mb-fog { background: radial-gradient(60% 100% at 50% 100%, #35543733 0%, transparent 70%); filter: blur(8px); }
-.mb-fog1 { animation: fogdrift 34s ease-in-out infinite; opacity: 0.7; }
-.mb-fog2 { animation: fogdrift 48s ease-in-out infinite reverse; opacity: 0.5; }
-@keyframes fogdrift { 0%,100% { transform: translateX(-6%); } 50% { transform: translateX(6%); } }
+.mb-fog { background: radial-gradient(60% 100% at 50% 100%, #35543733 0%, transparent 70%); }
+.mb-fog1 { transform: translateX(-4%); opacity: 0.55; }
+.mb-fog2 { transform: translateX(4%); opacity: 0.35; }
 /* parallax treeline */
 .mb-trees { top: auto; bottom: 0; height: 42vh; width: 100%; min-height: 220px; }
 .mb-trees .tree { transform-box: view-box; }
-.tree-far  { fill: #16281a; opacity: 0.85; animation: sway 13s ease-in-out infinite; transform-origin: 50% 100%; }
-.tree-mid  { fill: #102015; animation: sway 9s ease-in-out infinite reverse; transform-origin: 40% 100%; }
+.tree-far  { fill: #16281a; opacity: 0.85; }
+.tree-mid  { fill: #102015; }
 .tree-near { fill: #0a1510; }
-@keyframes sway { 0%,100% { transform: translateX(-0.8%) skewX(0deg); } 50% { transform: translateX(0.8%) skewX(-0.5deg); } }
 /* fireflies / spores (filled by JS) */
 .mb-spores .spore {
   position: absolute; width: 4px; height: 4px; border-radius: 50%;
