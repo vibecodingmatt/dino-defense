@@ -3007,6 +3007,172 @@ function bakeLog(c, x, y, s, th, rng){ // fallen mossy trunk
   c.restore();
 }
 
+/* ---------- MAP-SPECIFIC CINEMATIC LANDMARKS ----------
+   These are baked once with the terrain, so the maps can carry dense visual
+   storytelling without adding any work to the gameplay render loop. */
+function bakeFacilityLabel(c,x,y,w,title,sub){
+  c.save();c.translate(x,y);
+  c.fillStyle='rgba(8,12,10,.72)';c.fillRect(-w/2,-12,w,24);
+  c.strokeStyle='#d8b84a';c.lineWidth=1.2;c.strokeRect(-w/2,-12,w,24);
+  c.fillStyle='#f0d778';c.font='bold 9px system-ui,sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(title,0,-2);
+  if(sub){c.fillStyle='#c9cfbd';c.font='6px system-ui,sans-serif';c.fillText(sub,0,7);}
+  c.restore();
+}
+function bakeFenceSpan(c,x1,y1,x2,y2,n,hot){
+  const dx=x2-x1,dy=y2-y1,L=Math.hypot(dx,dy)||1,px=-dy/L,py=dx/L;
+  c.strokeStyle=hot?'rgba(150,220,245,.68)':'rgba(170,180,176,.55)';c.lineWidth=1;
+  for(const off of [-3,0,3]){c.beginPath();c.moveTo(x1+px*off,y1+py*off);c.lineTo(x2+px*off,y2+py*off);c.stroke();}
+  for(let i=0;i<=n;i++){
+    const t=i/n,x=x1+dx*t,y=y1+dy*t;
+    c.strokeStyle='#66716d';c.lineWidth=3;c.beginPath();c.moveTo(x-px*7,y-py*7);c.lineTo(x+px*7,y+py*7);c.stroke();
+    c.fillStyle='#aab2ad';c.beginPath();c.arc(x-px*7,y-py*7,2.2,0,Math.PI*2);c.fill();
+    if(hot&&i>0&&i<n&&i%4===0){
+      c.fillStyle='#e0b93f';c.beginPath();c.moveTo(x-5,y-5);c.lineTo(x+5,y-5);c.lineTo(x,y+5);c.closePath();c.fill();
+      c.fillStyle='#202018';c.font='bold 7px sans-serif';c.textAlign='center';c.fillText('!',x,y+1.5);
+    }
+  }
+}
+function bakeRaptorPaddock(c,x,y){
+  c.save();c.translate(x,y);
+  c.fillStyle='rgba(12,15,12,.32)';c.fillRect(-92,-58,184,116);
+  c.fillStyle='#504a37';c.globalAlpha=.55;c.fillRect(-86,-52,172,104);c.globalAlpha=1;
+  for(const yy of [-51,51])bakeFenceSpan(c,-86,yy,86,yy,10,true);
+  for(const xx of [-86,86])bakeFenceSpan(c,xx,-51,xx,51,6,true);
+  // sliding steel transfer cage, door hanging open
+  c.fillStyle='#303936';c.fillRect(-34,-24,68,48);c.strokeStyle='#83918c';c.lineWidth=3;c.strokeRect(-34,-24,68,48);
+  c.lineWidth=1;for(let xx=-28;xx<=28;xx+=8){c.beginPath();c.moveTo(xx,-24);c.lineTo(xx,24);c.stroke();}
+  c.save();c.translate(36,0);c.rotate(-.42);c.strokeStyle='#98a49f';c.lineWidth=3;c.strokeRect(0,-23,38,46);c.restore();
+  // feeder crane and a conspicuously empty tether
+  c.strokeStyle='#a79c78';c.lineWidth=5;c.beginPath();c.moveTo(-62,31);c.lineTo(-62,-23);c.lineTo(-20,-23);c.stroke();
+  c.strokeStyle='#4d4635';c.lineWidth=1.5;c.beginPath();c.moveTo(-21,-23);c.lineTo(-21,3);c.stroke();
+  c.fillStyle='#ddd7c5';c.beginPath();c.ellipse(-20,7,7,4,.2,0,Math.PI*2);c.fill();
+  c.restore();
+  bakeFacilityLabel(c,x,y-73,116,'RAPTOR PADDOCK','AUTHORIZED FEED CREW ONLY');
+}
+function bakeVisitorComplex(c,x,y){
+  c.save();c.translate(x,y);
+  c.fillStyle='rgba(0,0,0,.3)';c.beginPath();c.ellipse(7,12,150,72,0,0,Math.PI*2);c.fill();
+  // long low museum wings and red-tile roof
+  const roof=c.createLinearGradient(0,-70,0,55);roof.addColorStop(0,'#9b5a37');roof.addColorStop(1,'#583b2c');
+  c.fillStyle=roof;c.beginPath();c.moveTo(-142,-35);c.lineTo(-86,-66);c.lineTo(86,-66);c.lineTo(142,-35);c.lineTo(126,44);c.lineTo(-126,44);c.closePath();c.fill();
+  c.strokeStyle='#c38958';c.lineWidth=2;c.stroke();
+  // iconic circular rotunda and broken skylight
+  c.fillStyle='#70503a';c.beginPath();c.arc(0,-4,59,0,Math.PI*2);c.fill();
+  c.fillStyle='rgba(127,190,185,.36)';c.beginPath();c.arc(0,-4,44,0,Math.PI*2);c.fill();
+  c.strokeStyle='#d2c497';c.lineWidth=3;
+  for(let i=0;i<10;i++){const a=i/10*Math.PI*2;c.beginPath();c.moveTo(0,-4);c.lineTo(Math.cos(a)*44,-4+Math.sin(a)*44);c.stroke();}
+  c.fillStyle='rgba(18,24,22,.72)';c.beginPath();c.moveTo(4,-8);c.lineTo(32,-30);c.lineTo(39,-5);c.lineTo(17,5);c.closePath();c.fill();
+  // broad entrance steps and shattered doors
+  c.fillStyle='#aaa387';for(let i=0;i<4;i++)c.fillRect(-48-i*5,45+i*5,96+i*10,4);
+  c.fillStyle='#1c2624';c.fillRect(-20,31,15,19);c.fillRect(6,31,15,19);
+  c.restore();
+  bakeFacilityLabel(c,x,y+83,150,'VISITOR CENTER','ISLA NUBLAR');
+  // fallen grand-opening banner
+  c.save();c.translate(x+15,y+104);c.rotate(-.08);c.fillStyle='#7e3328';c.fillRect(-88,-8,176,16);
+  c.fillStyle='#ead9a2';c.font='bold 9px Georgia,serif';c.textAlign='center';c.textBaseline='middle';c.fillText('WHEN DINOSAURS RULED',0,0);c.restore();
+}
+function bakeAviaryDome(c,W,H){
+  c.save();
+  c.fillStyle='rgba(140,205,210,.045)';c.beginPath();c.ellipse(W/2,H/2,W*.48,H*.45,0,0,Math.PI*2);c.fill();
+  c.strokeStyle='rgba(186,224,224,.14)';c.lineWidth=2.2;
+  for(let i=-3;i<=3;i++){c.beginPath();c.ellipse(W/2,H/2,W*(.17+Math.abs(i)*.09),H*.45,0,0,Math.PI*2);c.stroke();}
+  for(let i=0;i<5;i++){const yy=H*.18+i*H*.15;c.beginPath();c.ellipse(W/2,yy,W*(.45-i*.025),H*.065,0,0,Math.PI*2);c.stroke();}
+  // torn-open crown with bent ribs and glass shards
+  const bx=W*.79,by=H*.14;c.fillStyle='rgba(10,18,17,.44)';c.beginPath();
+  c.moveTo(bx-68,by-26);c.lineTo(bx-25,by-55);c.lineTo(bx+8,by-29);c.lineTo(bx+54,by-48);c.lineTo(bx+72,by+8);c.lineTo(bx+22,by+31);c.lineTo(bx-35,by+20);c.closePath();c.fill();
+  c.strokeStyle='#899b98';c.lineWidth=4;for(const [ex,ey] of [[-84,-55],[-32,-78],[31,-72],[80,-35]]){c.beginPath();c.moveTo(bx,by);c.lineTo(bx+ex,by+ey);c.stroke();}
+  c.fillStyle='rgba(205,239,239,.42)';for(const [sx,sy] of [[-95,15],[-65,48],[50,46],[91,20]]){c.beginPath();c.moveTo(bx+sx,by+sy);c.lineTo(bx+sx+13,by+sy+4);c.lineTo(bx+sx+4,by+sy+18);c.closePath();c.fill();}
+  c.restore();
+  bakeFacilityLabel(c,W*.78,H*.09,126,'AVIARY 01','STRUCTURAL BREACH');
+  // two abandoned nests with oversized eggs
+  for(const [nx,ny] of [[120,H-105],[W-175,H-98]]){
+    c.strokeStyle='#78694a';c.lineWidth=5;for(let i=0;i<12;i++){const a=i/12*Math.PI*2;c.beginPath();c.arc(nx,ny,25+i%3*3,a,a+.9);c.stroke();}
+    for(const [ox,oy] of [[-9,1],[8,-3],[1,8]]){c.fillStyle='#d8d7c2';c.beginPath();c.ellipse(nx+ox,ny+oy,7,10,.25,0,Math.PI*2);c.fill();c.fillStyle='#8d927c';c.beginPath();c.arc(nx+ox-2,ny+oy-2,1.2,0,Math.PI*2);c.fill();}
+  }
+}
+function bakeSiteB(c,W,H){
+  // faded operations helipad
+  const hx=W*.72,hy=H*.59;c.fillStyle='rgba(70,72,58,.48)';c.beginPath();c.arc(hx,hy,68,0,Math.PI*2);c.fill();
+  c.strokeStyle='rgba(218,210,156,.5)';c.lineWidth=5;c.beginPath();c.arc(hx,hy,59,0,Math.PI*2);c.stroke();
+  c.fillStyle='rgba(224,216,160,.58)';c.font='bold 70px system-ui,sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText('H',hx,hy+3);
+  // reclaimed worker village roofs
+  for(let i=0;i<3;i++){
+    const x=350+i*112,y=190+(i%2)*18;c.fillStyle='rgba(0,0,0,.28)';c.fillRect(x-35,y-20,78,54);
+    c.fillStyle=i===1?'#6f4a37':'#59604b';c.fillRect(x-38,y-28,76,48);c.fillStyle='#333a31';c.beginPath();c.moveTo(x-45,y-28);c.lineTo(x,y-50);c.lineTo(x+45,y-28);c.closePath();c.fill();
+    c.fillStyle='#141b18';c.fillRect(x-12,y-8,24,28);c.fillStyle='rgba(231,194,100,.42)';c.fillRect(x-28,y-17,11,8);
+  }
+  // rusting water tower
+  c.strokeStyle='#5c5545';c.lineWidth=4;c.beginPath();c.moveTo(250,210);c.lineTo(225,274);c.moveTo(250,210);c.lineTo(275,274);c.moveTo(232,252);c.lineTo(268,252);c.stroke();
+  c.fillStyle='#776b55';c.beginPath();c.ellipse(250,198,31,20,0,0,Math.PI*2);c.fill();c.fillStyle='#b6a36d';c.font='bold 8px sans-serif';c.textAlign='center';c.fillText('SITE B',250,201);
+  // overturned mobile field lab with torn awning
+  c.save();c.translate(W-190,H*.58);c.rotate(-.18);c.fillStyle='rgba(0,0,0,.3)';c.fillRect(-62,17,130,20);c.fillStyle='#d4d0b6';c.fillRect(-64,-18,128,42);c.strokeStyle='#70766d';c.lineWidth=3;c.strokeRect(-64,-18,128,42);
+  c.fillStyle='#28433b';for(let i=0;i<4;i++)c.fillRect(-50+i*28,-10,18,13);c.fillStyle='#a2392d';c.fillRect(-64,12,128,6);c.restore();
+  bakeFacilityLabel(c,455,126,130,'IN GEN — SITE B','OPERATIONS VILLAGE');
+}
+function bakeLockwoodEstate(c,W,H){
+  // Keep the manor beside the converging roads rather than covering their long
+  // shared eastbound stretch. A compact footprint leaves an unmistakable ring
+  // of buildable lawn between the house and both approach roads.
+  const x=W*.36,y=95;c.save();c.translate(x,y);c.scale(.76,.76);
+  // formal hedges frame the manor approach
+  c.fillStyle='#172419';for(const yy of [35,55]){for(const i of [-5,-4,-3,3,4,5]){c.beginPath();c.arc(i*34,yy,17,0,Math.PI*2);c.fill();}}
+  c.fillStyle='rgba(0,0,0,.4)';c.fillRect(-210,-54,430,116);
+  c.fillStyle='#494a48';c.fillRect(-200,-66,400,112);
+  c.fillStyle='#242a2d';c.beginPath();c.moveTo(-220,-66);c.lineTo(-148,-118);c.lineTo(-72,-66);c.lineTo(0,-126);c.lineTo(72,-66);c.lineTo(148,-118);c.lineTo(220,-66);c.closePath();c.fill();
+  // central glass gallery and warm windows
+  c.fillStyle='#30383a';c.beginPath();c.arc(0,-56,62,Math.PI,0);c.lineTo(62,45);c.lineTo(-62,45);c.closePath();c.fill();
+  for(const wx of [-166,-126,-86,-38,0,38,86,126,166]){c.fillStyle='rgba(244,190,95,.68)';c.fillRect(wx-9,-45,18,27);c.strokeStyle='#171b1c';c.lineWidth=2;c.strokeRect(wx-9,-45,18,27);c.beginPath();c.moveTo(wx,-45);c.lineTo(wx,-18);c.stroke();}
+  c.fillStyle='#171b1d';c.fillRect(-18,8,36,38);c.restore();
+  bakeFacilityLabel(c,x,y+43,124,'LOCKWOOD ESTATE','PRIVATE COLLECTION');
+  // circular fossil fountain in the courtyard
+  const fx=W*.65,fy=H*.41;c.fillStyle='rgba(8,12,14,.38)';c.beginPath();c.arc(fx,fy,50,0,Math.PI*2);c.fill();c.strokeStyle='#6f7773';c.lineWidth=8;c.beginPath();c.arc(fx,fy,43,0,Math.PI*2);c.stroke();
+  c.strokeStyle='#c9c5aa';c.lineWidth=4;c.beginPath();c.moveTo(fx-26,fy+10);c.quadraticCurveTo(fx,fy-27,fx+28,fy+6);c.stroke();for(let i=0;i<5;i++){const xx=fx-20+i*10;c.beginPath();c.moveTo(xx,fy-4-Math.sin(i/4*Math.PI)*12);c.lineTo(xx-4,fy+13);c.stroke();}
+  // auction transport crates tucked at the service wing
+  for(let i=0;i<4;i++){const bx=W-180+(i%2)*54,by=H-105+Math.floor(i/2)*42;c.fillStyle='#66513a';c.fillRect(bx-22,by-16,44,32);c.strokeStyle='#a68a5e';c.strokeRect(bx-22,by-16,44,32);c.beginPath();c.moveTo(bx-22,by-16);c.lineTo(bx+22,by+16);c.moveTo(bx+22,by-16);c.lineTo(bx-22,by+16);c.stroke();}
+}
+function bakeProvingGrounds(c,W,H){
+  // concrete containment walls and four observation towers
+  c.fillStyle='#686c5f';c.fillRect(0,18,W,18);c.fillRect(0,H-36,W,18);
+  c.fillStyle='#343a34';for(let x=24;x<W;x+=72){c.fillRect(x,15,6,24);c.fillRect(x,H-39,6,24);}
+  for(const [x,y] of [[70,78],[W-70,78],[70,H-78],[W-70,H-78]]){
+    c.fillStyle='rgba(0,0,0,.28)';c.beginPath();c.ellipse(x+4,y+11,35,14,0,0,Math.PI*2);c.fill();c.fillStyle='#555d58';c.fillRect(x-24,y-24,48,42);c.fillStyle='#19211f';c.fillRect(x-17,y-16,34,10);c.strokeStyle='#858d86';c.lineWidth=4;c.beginPath();c.moveTo(x-19,y+18);c.lineTo(x-31,y+52);c.moveTo(x+19,y+18);c.lineTo(x+31,y+52);c.stroke();
+  }
+  // giant weathered paddock stencil and scoring rings
+  c.save();c.globalAlpha=.14;c.fillStyle='#e7d58b';c.font='bold 76px system-ui,sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText('PADDOCK 9',W/2,H/2+10);
+  c.strokeStyle='#e7d58b';c.lineWidth=4;for(const r of [90,150,220]){c.beginPath();c.arc(W/2,H/2,r,0,Math.PI*2);c.stroke();}c.restore();
+  bakeFacilityLabel(c,W/2,74,154,'PROVING GROUNDS','LIVE CONTAINMENT TEST');
+  // battered red tracking container
+  c.fillStyle='rgba(0,0,0,.28)';c.fillRect(W*.38-54,H-112,120,48);c.fillStyle='#79372e';c.fillRect(W*.38-60,H-124,120,48);c.strokeStyle='#bc725e';c.lineWidth=2;c.strokeRect(W*.38-60,H-124,120,48);for(let x=-48;x<60;x+=18){c.beginPath();c.moveTo(W*.38+x,H-122);c.lineTo(W*.38+x,H-78);c.stroke();}
+}
+function bakeLagoonArena(c,W,H){
+  // spectator deck and empty tiered seating above the water channel
+  const dx=W*.36,dy=H-56;c.fillStyle='rgba(0,0,0,.32)';c.fillRect(dx-160,dy-42,330,52);
+  for(let i=0;i<4;i++){c.fillStyle=i%2?'#72766d':'#8b8c7e';c.fillRect(dx-150+i*12,dy-48-i*10,300-i*24,9);}
+  c.fillStyle='#27302f';c.fillRect(dx-158,dy-10,316,12);bakeFacilityLabel(c,dx,dy-82,138,'MOSASAUR LAGOON','FEEDING GALLERY');
+  // feeding crane, cable and suspended shark silhouette over the channel
+  const cx=W*.72,cy=H*.57;c.strokeStyle='#59635e';c.lineWidth=11;c.beginPath();c.moveTo(cx,cy+70);c.lineTo(cx,cy-72);c.lineTo(cx-150,cy-72);c.stroke();
+  c.strokeStyle='#9ba49d';c.lineWidth=3;c.beginPath();c.moveTo(cx,cy-68);c.lineTo(cx-146,cy-68);c.moveTo(cx-146,cy-68);c.lineTo(cx-146,cy+2);c.stroke();
+  c.fillStyle='#394a50';c.save();c.translate(cx-146,cy+12);c.beginPath();c.moveTo(-34,0);c.quadraticCurveTo(-8,-17,26,-5);c.lineTo(43,-17);c.lineTo(39,1);c.lineTo(45,18);c.lineTo(24,7);c.quadraticCurveTo(-8,18,-34,0);c.fill();c.beginPath();c.moveTo(-3,-9);c.lineTo(8,-25);c.lineTo(16,-6);c.fill();c.restore();
+  // red safety buoys trace the lagoon edge
+  for(const [bx,by] of [[165,H-155],[630,H-225],[1030,H-143],[1175,H-192]]){c.fillStyle='#b34332';c.beginPath();c.arc(bx,by,7,0,Math.PI*2);c.fill();c.fillStyle='#eee0b3';c.fillRect(bx-7,by-1,14,3);}
+}
+function bakeMapLandmarks(c,level,W,H){
+  switch(LEVELS.indexOf(level)){
+    case 0:
+      bakeFenceSpan(c,24,48,W-24,48,18,true);bakeFenceSpan(c,24,H-42,W-24,H-42,18,true);
+      bakeRaptorPaddock(c,W*.40,H*.37);
+      c.fillStyle='#3f493e';c.fillRect(55,H-150,115,72);c.fillStyle='#202924';c.beginPath();c.moveTo(47,H-150);c.lineTo(112,H-185);c.lineTo(178,H-150);c.closePath();c.fill();
+      bakeFacilityLabel(c,112,H-116,92,'SECTOR 7','AUX POWER');
+      break;
+    case 1:bakeVisitorComplex(c,W*.57,H*.28);break;
+    case 2:bakeAviaryDome(c,W,H);break;
+    case 3:bakeSiteB(c,W,H);break;
+    case 4:bakeLockwoodEstate(c,W,H);break;
+    case 5:bakeProvingGrounds(c,W,H);break;
+    case 6:bakeLagoonArena(c,W,H);break;
+  }
+}
+
 /* The iconic park gate: two stone pillars + arch + torch bowls.
    Returns the torch flame anchor points for runtime animation. */
 function bakeGate(c, x, y, ang){
@@ -3399,6 +3565,10 @@ function renderBackground(level, W, H){
     c.globalAlpha = 1;
   }
 
+  // Large, map-defining set pieces sit above the roads but below loose
+  // vegetation, letting the jungle reclaim their edges naturally.
+  bakeMapLandmarks(c,level,W,H);
+
   /* --- props --- */
   for (let i = 0; i < 26; i++){ // ferns everywhere
     const x = rng()*W, y = rng()*H;
@@ -3431,21 +3601,21 @@ function renderBackground(level, W, H){
       bakeLog(c, x, y, 11 + rng()*6, th, rng); break;
     }
   }
-  { // one abandoned STAFF JEEP 29 per map
+  if ([0,3,5].includes(LEVELS.indexOf(level))){ // operations maps only
     for (let tries = 0; tries < 40; tries++){
       const x = 100 + rng()*(W-200), y = 90 + rng()*(H-180);
       if (nearPath(x, y, 64)) continue;
       bakeJeep(c, x, y); break;
     }
   }
-  { // one wrecked gyrosphere per map — shattered, bloodied, story told
+  if ([1,6].includes(LEVELS.indexOf(level))){ // resort attractions only
     for (let tries = 0; tries < 40; tries++){
       const x = 110 + rng()*(W-220), y = 110 + rng()*(H-200);
       if (nearPath(x, y, 72)) continue;
       bakeGyro(c, x, y, 24); break;
     }
   }
-  { // easter egg: the shaving-cream can that started it all, lost in the mud
+  if (LEVELS.indexOf(level) === 0){ // a singular easter egg, not cloned scenery
     for (let tries = 0; tries < 30; tries++){
       const x = 50 + rng()*(W-100), y = 50 + rng()*(H-100);
       if (nearPath(x, y, 40)) continue;
