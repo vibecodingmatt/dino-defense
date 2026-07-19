@@ -1159,6 +1159,22 @@ function mazeSteer(x, y){                     // world-space point to walk towar
   return {x: (n % F.cols) * F.cs + F.cs / 2, y: ((n / F.cols) | 0) * F.cs + F.cs / 2};
 }
 
+// Every boss leaves the battle in its own way. These are intentionally normal
+// world effects rather than a cutscene: towers, dinosaurs and the next wave can
+// all keep moving while the defeated boss finishes its exit.
+const BOSS_DEATHS = {
+  blue:           {dur:2.9, impact:.92, label:'ALPHA DOWN',              color:'#75c6ef'},
+  trex:           {dur:3.7, impact:1.08,label:'THE TYRANT FALLS',        color:'#e6c47f'},
+  spinosaurus:    {dur:3.8, impact:1.14,label:'SAILBREAKER',             color:'#e79a5c'},
+  indominus:      {dur:4.0, impact:1.46,label:'CAMOUFLAGE BROKEN',       color:'#dffaff'},
+  indoraptor:     {dur:3.2, impact:1.06,label:'NIGHTMARE ENDED',         color:'#d4af5e'},
+  giganotosaurus: {dur:4.2, impact:1.76,label:'APEX SHATTERED',          color:'#ef776e'},
+  drex:           {dur:4.5, impact:1.58,label:'ABOMINATION ERADICATED',  color:'#ff5a42'},
+  whiteptera:     {dur:3.7, impact:1.55,label:'SKY TYRANT GROUNDED',     color:'#f7f2df'},
+  mosasaurus:     {dur:3.9, impact:1.34,label:'THE LAGOON FALLS SILENT', color:'#70d9ef'},
+};
+const bossDeathSpec = key => BOSS_DEATHS[key] || {dur:3, impact:.7, label:'BOSS DEFEATED', color:'#ffd24a'};
+
 function damage(d, amt, pierce, src){
   if (d.dead || d.leaked) return;
   // camouflaged Indominus is invulnerable unless a Sonic Emitter has revealed it
@@ -1221,16 +1237,18 @@ function damage(d, amt, pierce, src){
       }
     }
     if (d.boss){
-      // cinematic collapse: the corpse tips over, thuds, and fades
+      const death = bossDeathSpec(d.key);
       G.corpses.push({pal: d.pal, feat: d.feat, painter: d.painter, size: d.size,
-                      flying: d.flying, boss: true, pathI: d.pathI,
+                      key: d.key, flying: d.flying, boss: true, pathI: d.pathI,
                       x: p.x, y: p.y, dir: Math.cos(p.ang) >= 0 ? 1 : -1,
-                      phase: d.phase, t: 0, thudded: false});
+                      phase: d.phase, t: 0, dur: death.dur, impact: death.impact,
+                      seed: Math.random() * 999, thudded: false});
       G.shake = Math.max(G.shake, 10);
       SFX.bossDie();
       addFx('ring', p.x, p.y, 24);
       addFx('blood', p.x, p.y + 3, d.size * 0.7);
       for (let i = 0; i < 5; i++) addFx('spark', p.x + rand(-d.size, d.size), p.y - rand(0, d.size), 6);
+      addText(p.x, p.y - d.size * 1.65, death.label, death.color, d.key === 'drex' ? 28 : 23, 2.5);
       unlockAch('boss_first');
       if (d.key === 'drex') unlockAch('apex');
     } else {
@@ -2965,15 +2983,25 @@ const MENU_MOUTHS = {
   blue:{x:1.02,y:-0.39}, spino:{x:1.25,y:-0.40}, indominus:{x:1.10,y:-0.44},
   indoraptor:{x:1.02,y:-0.39}, giga:{x:1.13,y:-0.44}
 };
-function menuMouthPos(d, pitch){
+function menuMouthOffset(d){
   // Dedicated painters can extend beyond the generic theropod muzzle.
   const filmMouth = MENU_MOUTHS[d.painter];
   const ux = d.painter === 'trex' ? 1.26 : d.painter === 'mutant' ? 1.14 : filmMouth ? filmMouth.x : 0.8;
   const dy = d.painter === 'trex' ? -0.48 : d.painter === 'mutant' ? -0.20
            : filmMouth ? filmMouth.y : -0.42; // hip-relative before the shared body offset
+  return {x:ux,y:dy};
+}
+function menuMouthPos(d, pitch){
+  const mouth=menuMouthOffset(d),ux=mouth.x,dy=mouth.y;
   const c = Math.cos(pitch || 0), s = Math.sin(pitch || 0);
   return {x: d.x + d.dir * (ux * c - dy * s) * d.size,
           y: d.y + (ux * s + dy * c - 0.6) * d.size};
+}
+function menuBitePitch(d){
+  const mouth=menuMouthOffset(d),r=Math.hypot(mouth.x,mouth.y)||1;
+  // Solve the hip rotation for a mouth height near the tourist's torso.
+  // Different neck and muzzle lengths therefore bend down by different amounts.
+  return clamp(Math.asin(clamp(.48/r,-1,1))-Math.atan2(mouth.y,mouth.x),.52,1.02);
 }
 function menuMouthReach(d){
   const filmMouth = MENU_MOUTHS[d.painter];
@@ -3111,18 +3139,18 @@ function menuScene(dt){
       // the meal: bend down → CHOMP → raise, victim thrashing in the jaws for
       // a good long while → toss the head back → gulp it down
       const e = d.eat; e.t += dt;
-      d.eatPitch = e.t < 0.45 ? (e.t / 0.45) * 0.7
-                 : e.t < 0.8  ? 0.7
-                 : e.t < 1.1  ? 0.7 - ((e.t - 0.8) / 0.3) * 0.55
+      const bitePitch=menuBitePitch(d);
+      d.eatPitch = e.t < 0.45 ? (e.t / 0.45) * bitePitch
+                 : e.t < 0.8  ? bitePitch
+                 : e.t < 1.1  ? bitePitch - ((e.t - 0.8) / 0.3) * (bitePitch-.15)
                  : e.t < 2.1  ? 0.15 + Math.sin(e.t * 9) * 0.05
                  : e.t < 2.45 ? 0.15 - ((e.t - 2.1) / 0.35) * 0.5
                  : e.t < 2.95 ? -0.35 + ((e.t - 2.45) / 0.5) * 0.35 : 0;
-      // Pull prey into the opening jaws during the lunge instead of leaving it
-      // standing at the dinosaur's nose until the bite frame.
+      // Close only the horizontal gap. The tourist stays planted while the
+      // dinosaur brings its mouth down to make contact.
       if (!e.bit && e.tr){
         const mouth = menuMouthPos(d, d.eatPitch), k = clamp(e.t / 0.40, 0, 1);
         e.tr.x += (mouth.x - e.tr.x) * k * 0.28;
-        e.tr.y += (mouth.y - e.tr.y) * k * 0.28;
       }
       if (!e.bit && e.t >= 0.48){                        // the bite lands — blood
         e.bit = true;
@@ -3748,18 +3776,32 @@ function step(dt){
   updateStrikes(dt);
   updateClouds(dt);
   updateOmega(dt);
-  // boss corpses: fall, hit the ground, fade out
+  // Boss finales run beside normal combat. Only their one decisive impact is
+  // stateful; all of the flourishes in drawBossDeath are deterministic art.
   for (const c of G.corpses){
     c.t += dt;
-    if (!c.thudded && c.t >= 0.55){
+    if (!c.thudded && c.t >= c.impact){
       c.thudded = true;
-      SFX.thud();
-      G.shake = Math.max(G.shake, 7);
-      addFx('dust', c.x + c.dir * c.size * 0.8, c.y, c.size);
-      addFx('dust', c.x + c.dir * c.size * 1.4, c.y + 4, c.size * 0.7);
+      if (c.key === 'drex' || c.key === 'mosasaurus') SFX.boom();
+      else if (c.key === 'spinosaurus' || c.key === 'indominus') SFX.shatter();
+      else SFX.thud();
+      G.shake = Math.max(G.shake, c.key === 'drex' ? 14 : c.key === 'giganotosaurus' || c.key === 'trex' ? 10 : 7);
+      if (c.key === 'mosasaurus'){
+        addFx('ring', c.x, c.y, c.size * 1.5);
+        addFx('ring', c.x + c.dir * c.size * .8, c.y, c.size);
+      } else if (c.key === 'drex'){
+        addFx('shock', c.x, c.y, c.size * 2.2);
+        addFx('boom', c.x, c.y - c.size * .3, c.size * 1.2);
+        for (let i = 0; i < 9; i++) addFx('spark', c.x + rand(-c.size, c.size), c.y - rand(0, c.size), 8);
+      } else {
+        addFx('dust', c.x + c.dir * c.size * .65, c.y, c.size * 1.15);
+        addFx('dust', c.x + c.dir * c.size * 1.25, c.y + 4, c.size * .8);
+        if (c.key === 'spinosaurus' || c.key === 'indominus')
+          for (let i = 0; i < 5; i++) addFx('spark', c.x + rand(-c.size, c.size), c.y - rand(0, c.size * 1.3), 7);
+      }
     }
   }
-  G.corpses = G.corpses.filter(c => c.t < 2.4);
+  G.corpses = G.corpses.filter(c => c.t < c.dur);
   for (const f of G.fx) f.t += dt;
   G.fx = G.fx.filter(f => f.t < f.dur);
   for (const f of G.decals) f.t += dt;
@@ -3769,6 +3811,156 @@ function step(dt){
   for (const tx of G.texts) tx.t += dt;
   G.texts = G.texts.filter(tx => tx.t < (tx.dur || 1.4));
   if (G.banner){ G.banner.t -= dt; if (G.banner.t <= 0) G.banner = null; }
+}
+
+function bossDeathRand(c, i){
+  const n = Math.sin(c.seed * 12.9898 + i * 78.233) * 43758.5453;
+  return n - Math.floor(n);
+}
+function bossDeathPaint(gc, c, o){
+  o = o || {};
+  const alpha = o.alpha === undefined ? 1 : o.alpha;
+  if (alpha <= 0) return;
+  gc.save();
+  gc.globalAlpha = alpha;
+  gc.translate(o.x === undefined ? c.x : o.x, o.y === undefined ? c.y : o.y);
+  if (c.dir < 0) gc.scale(-1, 1);
+  gc.rotate(o.rot || 0);
+  gc.scale(c.size * (o.sx === undefined ? 1 : o.sx), c.size * (o.sy === undefined ? 1 : o.sy));
+  const hadHideSail = Object.prototype.hasOwnProperty.call(c, 'hideSail'), oldHideSail = c.hideSail;
+  c.hideSail = !!o.hideSail;
+  PAINTERS[c.painter](gc, c, o.phase === undefined ? c.phase : o.phase);
+  if (hadHideSail) c.hideSail = oldHideSail; else delete c.hideSail;
+  gc.restore();
+}
+function bossDeathShadow(gc, c, x, rx, alpha){
+  gc.save(); gc.globalAlpha = alpha; gc.fillStyle = '#050403';
+  gc.beginPath(); gc.ellipse(x, c.y + 3, rx, c.size * .22, 0, 0, Math.PI * 2); gc.fill(); gc.restore();
+}
+function bossDeathCracks(gc, c, grow, alpha){
+  gc.save(); gc.globalAlpha = alpha; gc.strokeStyle = '#241915'; gc.lineWidth = Math.max(2, c.size * .045); gc.lineCap = 'round';
+  for (let i = 0; i < 7; i++){
+    const a = -.15 + i * Math.PI / 6, len = c.size * grow * (.65 + bossDeathRand(c, i) * .9);
+    const x0 = c.x + c.dir * c.size * .55, y0 = c.y + 2, x1 = x0 + Math.cos(a) * len, y1 = y0 + Math.sin(a) * len * .3;
+    gc.beginPath(); gc.moveTo(x0, y0); gc.lineTo(x0 + (x1 - x0) * .55, y0 + (y1 - y0) * .55);
+    gc.lineTo(x1, y1); gc.lineTo(x1 + Math.cos(a + .8) * len * .18, y1 + Math.sin(a + .8) * len * .08); gc.stroke();
+  }
+  gc.restore();
+}
+function drawBossDeath(gc, c){
+  const t = c.t, s = c.size, dir = c.dir;
+  const fade = clamp((c.dur - t) / .72, 0, 1);
+
+  if (c.key !== 'mosasaurus' && c.key !== 'drex'){
+    const sx = c.key === 'whiteptera' ? c.x + dir * s * 1.15 : c.x + dir * s * .45;
+    bossDeathShadow(gc, c, sx, s * (c.key === 'blue' || c.key === 'indoraptor' ? 1.15 : 1.5), .3 * fade);
+  }
+
+  if (c.key === 'blue'){
+    const k = clamp(t / c.impact, 0, 1), e = 1 - Math.pow(1 - k, 3);
+    const x = c.x + dir * s * .92 * e, y = c.y - Math.sin(k * Math.PI) * s * .72;
+    const rot = k * (Math.PI * 2 + 1.18);
+    if (k < 1) for (let i = 3; i >= 1; i--){
+      const q = clamp(k - i * .07, 0, 1), qe = 1 - Math.pow(1 - q, 3);
+      bossDeathPaint(gc, c, {x:c.x + dir*s*.92*qe, y:c.y - Math.sin(q*Math.PI)*s*.72,
+        rot:q*(Math.PI*2+1.18), alpha:.11*fade*(4-i), phase:c.phase+q*7});
+    }
+    if (t > c.impact){
+      const q = clamp((t - c.impact) / 1.1, 0, 1);
+      gc.save(); gc.globalAlpha = (1-q) * .65 * fade; gc.strokeStyle = '#21353d'; gc.lineWidth = 2;
+      for (let i=0;i<4;i++){gc.beginPath();gc.moveTo(x-dir*s*(.45+i*.3)*q,c.y+3+i*2);gc.lineTo(x-dir*s*(1.45+i*.25),c.y+3+i*2);gc.stroke();} gc.restore();
+    }
+    bossDeathPaint(gc, c, {x,y,rot,alpha:fade,phase:c.phase+t*8});
+    return;
+  }
+
+  if (c.key === 'trex'){
+    const rear = t < .38 ? Math.sin(t / .38 * Math.PI) : 0;
+    const k = clamp((t - .32) / (c.impact - .32), 0, 1), e = k*k*(3-2*k);
+    const x = c.x + dir*s*.42*e, rot = -rear*.24 + e*1.48;
+    if (t > c.impact) bossDeathCracks(gc,c,clamp((t-c.impact)/.42,0,1),.72*fade);
+    bossDeathPaint(gc, c, {x,y:c.y-rear*s*.08,rot,alpha:fade,phase:c.phase+t*.55});
+    return;
+  }
+
+  if (c.key === 'spinosaurus'){
+    const tear = clamp((t - .28) / 1.28, 0, 1);
+    if (tear > 0) for (let i=0;i<10;i++){
+      const r=bossDeathRand(c,i), a=(-1.65+i*.34)+(r-.5)*.35, d=s*tear*(.55+r*.85);
+      const x=c.x+dir*(s*(-.26+i*.085)+Math.cos(a)*d), y=c.y-s*(1.16+Math.sin(i/9*Math.PI)*.47)+Math.sin(a)*d*.8+s*tear*tear*.75;
+      gc.save();gc.translate(x,y);gc.rotate(a+tear*5*(r-.5));gc.globalAlpha=(1-tear*.7)*fade;gc.fillStyle=i%2?c.pal.accent:'#d6a060';
+      gc.beginPath();gc.moveTo(-s*.09,0);gc.lineTo(s*.08,-s*(.16+r*.16));gc.lineTo(s*.11,s*.06);gc.closePath();gc.fill();gc.restore();
+    }
+    const shiver = t < .5 ? Math.sin(t*54)*(1-t/.5) : 0;
+    const k=clamp((t-.46)/(c.impact-.46),0,1),e=1-Math.pow(1-k,3);
+    bossDeathPaint(gc,c,{x:c.x+dir*s*.48*e,y:c.y,rot:shiver*.035+e*1.4,alpha:fade,
+      phase:c.phase+shiver*.7,hideSail:t>.34});
+    return;
+  }
+
+  if (c.key === 'indominus'){
+    const glitch=clamp(1-t/1.18,0,1), k=clamp((t-.86)/(c.impact-.86),0,1),e=k*k*(3-2*k);
+    if (glitch>0){
+      bossDeathPaint(gc,c,{x:c.x-dir*s*.18,y:c.y-s*.05,rot:e*1.42,alpha:.13*glitch*fade,sx:1.03,sy:.97,phase:c.phase+t*6});
+      bossDeathPaint(gc,c,{x:c.x+dir*s*.16,y:c.y+s*.04,rot:e*1.42,alpha:.17*glitch*fade,sx:.98,sy:1.04,phase:c.phase-t*5});
+      gc.save();gc.globalAlpha=.55*glitch*fade;for(let i=0;i<7;i++){const r=bossDeathRand(c,i+20),yy=c.y-s*(.15+r*1.05);gc.fillStyle=i%2?'#b9ffff':'#e6d7ff';gc.fillRect(c.x-dir*s*(.7+r*.7),yy,dir*s*(.35+r*.65),2+r*3);}gc.restore();
+    }
+    const flicker=glitch>0&&Math.floor(t*18)%4===0?.28:1;
+    bossDeathPaint(gc,c,{x:c.x+dir*s*.45*e,y:c.y,rot:e*1.42,alpha:fade*flicker,phase:c.phase+t*1.8});
+    return;
+  }
+
+  if (c.key === 'indoraptor'){
+    const k=clamp(t/c.impact,0,1),x=c.x+dir*s*.98*k,y=c.y-Math.sin(k*Math.PI)*s*1.18,rot=-k*(Math.PI*2+1.32);
+    if (k<1){gc.save();gc.strokeStyle='#c9a955';gc.lineWidth=3;gc.globalAlpha=.55*(1-k)*fade;for(let i=0;i<5;i++){const q=clamp(k-i*.06,0,1);gc.beginPath();gc.moveTo(c.x+dir*s*(q*.98-.55),c.y-Math.sin(q*Math.PI)*s*1.18-s*(i-.7)*.12);gc.lineTo(c.x+dir*s*q*.98,c.y-Math.sin(q*Math.PI)*s*1.18);gc.stroke();}gc.restore();}
+    bossDeathPaint(gc,c,{x,y,rot,alpha:fade,phase:c.phase+t*11});
+    return;
+  }
+
+  if (c.key === 'giganotosaurus'){
+    const stagger=clamp(t/1.22,0,1), fall=clamp((t-1.18)/(c.impact-1.18),0,1),e=1-Math.pow(1-fall,3);
+    const step=Math.floor(Math.min(t,1.15)/.23), x=c.x+dir*s*(step*.075+e*.46);
+    const reel=(1-stagger)*Math.sin(t*17)*.075-stagger*.10+e*1.56;
+    if(t>c.impact)bossDeathCracks(gc,c,clamp((t-c.impact)/.34,0,1),.9*fade);
+    bossDeathPaint(gc,c,{x,y:c.y-Math.abs(Math.sin(t*13))*(1-e)*s*.035,rot:reel,alpha:fade,phase:c.phase+step*Math.PI});
+    return;
+  }
+
+  if (c.key === 'drex'){
+    const implode=clamp((t-1.08)/(c.impact-1.08),0,1), burst=clamp((t-c.impact)/1.25,0,1);
+    gc.save();gc.globalAlpha=.34*fade;gc.fillStyle='#100807';gc.beginPath();gc.ellipse(c.x,c.y+4,s*(.65+burst*1.35),s*(.15+burst*.22),0,0,Math.PI*2);gc.fill();
+    gc.globalAlpha=.28*(1-burst)*fade;gc.fillStyle='#b51f18';gc.beginPath();gc.ellipse(c.x,c.y,s*(.45+burst*1.6),s*(.18+burst*.9),0,0,Math.PI*2);gc.fill();gc.restore();
+    if(t<c.impact){
+      const conv=(1-implode)*Math.sin(t*31),sc=1-implode*.82;
+      bossDeathPaint(gc,c,{x:c.x+conv*s*.045,y:c.y-conv*s*.025,rot:conv*.035,alpha:fade*(1-implode*.2),sx:sc*(1+Math.sin(t*19)*.035),sy:sc*(1-Math.sin(t*19)*.035),phase:c.phase+t*9});
+    }
+    if(t>.75){
+      const power=t<c.impact?clamp((t-.75)/.8,0,1):1-burst;
+      gc.save();gc.lineCap='round';for(let i=0;i<12;i++){const a=i*Math.PI/6+bossDeathRand(c,i+40)*.22,len=s*power*(.55+(i%4)*.27+burst*1.2);gc.strokeStyle=i%3?'#461816':'#e1452f';gc.lineWidth=Math.max(2,s*(.055-burst*.025));gc.globalAlpha=.75*power*fade;gc.beginPath();gc.moveTo(c.x,c.y-s*.35);gc.lineTo(c.x+Math.cos(a)*len*.45,c.y-s*.35+Math.sin(a)*len*.35);gc.lineTo(c.x+Math.cos(a+.12)*len,c.y-s*.35+Math.sin(a+.12)*len*.62);gc.stroke();}gc.restore();
+    }
+    return;
+  }
+
+  if (c.key === 'whiteptera'){
+    const k=clamp(t/c.impact,0,1),x=c.x+dir*s*1.55*k,y=c.y+s*1.36*k-Math.sin(k*Math.PI)*s*.28,rot=k*(Math.PI*4+.34);
+    gc.save();for(let i=0;i<11;i++){const q=clamp((t-i*.055)/c.impact,0,1),r=bossDeathRand(c,i+60);gc.globalAlpha=(1-q)*.68*fade;gc.fillStyle=i%3?'#eeeae0':'#bbb7ae';gc.translate(0,0);const fx=c.x+dir*s*(q*1.5+(r-.5)*.7),fy=c.y-s*(1.35-q*1.6)+Math.sin(q*9+i)*s*.18;gc.beginPath();gc.ellipse(fx,fy,s*.055,s*.17,q*5+r,0,Math.PI*2);gc.fill();}gc.restore();
+    bossDeathPaint(gc,c,{x,y,rot,alpha:fade,phase:c.phase+t*10});
+    return;
+  }
+
+  if (c.key === 'mosasaurus'){
+    const k=clamp(t/c.impact,0,1),sink=clamp((t-c.impact)/1.5,0,1);
+    const x=c.x+dir*s*.7*k,y=c.y-Math.sin(k*Math.PI)*s*1.38+sink*s*.48,rot=-.38+k*.82+sink*.18;
+    gc.save();
+    if(t>c.impact){const q=clamp((t-c.impact)/1.2,0,1);gc.strokeStyle='#c9f5ff';gc.lineWidth=Math.max(2,s*.055*(1-q));gc.globalAlpha=(1-q)*.8*fade;for(let i=0;i<3;i++){gc.beginPath();gc.ellipse(x,c.y+2,s*(.45+q*(1.2+i*.55)),s*(.08+q*.12),0,0,Math.PI*2);gc.stroke();}
+      for(let i=0;i<14;i++){const r=bossDeathRand(c,i+80),a=-Math.PI+r*Math.PI,d=s*q*(.4+r*1.2);gc.fillStyle=i%2?'#dffaff':'#66cbe4';gc.beginPath();gc.arc(x+Math.cos(a)*d,c.y-Math.sin(a)*d+s*q*q*.65,s*(.035+r*.055),0,Math.PI*2);gc.fill();}}
+    gc.restore();
+    bossDeathPaint(gc,c,{x,y,rot,alpha:fade*(1-sink*.72),phase:c.phase+t*3});
+    return;
+  }
+
+  const k=clamp(t/c.impact,0,1),e=1-Math.pow(1-k,3);
+  bossDeathPaint(gc,c,{x:c.x+dir*s*.5*e,y:c.y,rot:e*1.35,alpha:fade});
 }
 
 function render(dt){
@@ -3849,25 +4041,8 @@ function render(dt){
     }
   }
 
-  // boss corpses tipping over (under the living)
-  for (const c of G.corpses){
-    const k = Math.min(1, c.t / 0.55);
-    const ease = 1 - Math.pow(1 - k, 3);            // accelerating fall, abrupt stop
-    const fade = clamp((2.4 - c.t) / 0.7, 0, 1);
-    ctx.save();
-    ctx.globalAlpha = 0.32 * fade;
-    ctx.fillStyle = '#000';                          // spreading shadow
-    ctx.beginPath(); ctx.ellipse(c.x + c.dir*ease*c.size*0.5, c.y + 2, c.size * (0.85 + ease*0.5), c.size * 0.22, 0, 0, Math.PI*2); ctx.fill();
-    ctx.restore();
-    ctx.save();
-    ctx.globalAlpha = fade;
-    ctx.translate(c.x, c.y);
-    if (c.dir < 0) ctx.scale(-1, 1);
-    ctx.rotate(ease * 1.35);                         // tip over nose-first
-    ctx.scale(c.size, c.size);
-    PAINTERS[c.painter](ctx, c, c.phase);
-    ctx.restore();
-  }
+  // Bespoke boss finales sit under live actors and never interrupt the fight.
+  for (const c of G.corpses) drawBossDeath(ctx, c);
 
   // ground entities are y-sorted together (towers AND dinos) so a big
   // dino walking below a turret correctly passes in front of it
@@ -6120,12 +6295,23 @@ if (testParams.has('test')){
     const weaponKey = TOWERS[testParams.get('weapon')] ? testParams.get('weapon') : 'gatling';
     openStickerCard(weaponKey, cardKey);
   }
-  if (testParams.has('kill')){ // stage a boss death mid-map to check the collapse
-    spawnDino('trex', 0, true);
+  if (testParams.has('kill')){ // stage any boss finale at an exact inspection frame
+    const bossK = BOSS_DEATHS[testParams.get('bosskey')] ? testParams.get('bosskey') : 'trex';
+    const pathI = pathForKey(bossK);
+    // Keep visual-review captures focused on the finale rather than first-time
+    // achievement UI. This is deliberately not persisted.
+    save.ach = save.ach || {};
+    save.ach.boss_first = save.ach.boss_first || 1;
+    save.ach.apex = save.ach.apex || 1;
+    spawnDino(bossK, pathI, true);
     const b = G.dinos[G.dinos.length - 1];
-    b.dist = G.paths[0].len * 0.45;
+    b.dist = G.paths[pathI].len * 0.45;
     damage(b, 1e9, true);
+    G.banner = null; G.cinT = 0;
     const ft = parseFloat(testParams.get('kill')) || 0.4;
     for (let s = 0; s < ft; s += 0.05) step(0.05);
+    // A zero simulation speed freezes the exact frame without render() adding
+    // the normal in-game pause veil over the artwork.
+    G.speed = 0;
   }
 }

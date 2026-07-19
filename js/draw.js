@@ -1459,7 +1459,7 @@ function drawFilmBoss(ctx,d,ph,kind){
   // contour. The base is tucked into the hide and every rib fans from its
   // local back angle, so the sail wraps around the animal instead of reading
   // as a flat triangle pasted behind it.
-  if(spino){
+  if(spino&&!d.hideSail){
     const N=10,t0=.015,t1=.70,sail=[];
     for(let i=0;i<=N;i++){
       const q=i/N,e=bossBack(t0+(t1-t0)*q);

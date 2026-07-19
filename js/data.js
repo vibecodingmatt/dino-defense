@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.49.0';
+const VERSION = '1.50.0';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -25,7 +25,8 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.49.0', date: 'Jul 19, 2026', items: [
+  {v: '1.50.0', date: 'Jul 19, 2026', items: [
+    '🎬 Every boss now has its own cinematic defeat animation and battle-ending callout.',
     '🦖 Every boss now has a more distinctive, movie-inspired look and silhouette.',
     '🦷 Sharper teeth, a sculpted Spinosaurus sail, and smoother home-screen animation complete the boss polish.',
     '🗺️ Every map now features its own cinematic landmarks, environmental stories, and hidden park relics.',
