@@ -3829,7 +3829,10 @@ function bossDeathPaint(gc, c, o){
   gc.scale(c.size * (o.sx === undefined ? 1 : o.sx), c.size * (o.sy === undefined ? 1 : o.sy));
   const hadHideSail = Object.prototype.hasOwnProperty.call(c, 'hideSail'), oldHideSail = c.hideSail;
   c.hideSail = !!o.hideSail;
-  PAINTERS[c.painter](gc, c, o.phase === undefined ? c.phase : o.phase);
+  // Freeze the gait/flap/swim cycle on the exact death-blow pose. Every finale
+  // supplies its own whole-body motion; advancing the painter phase here makes
+  // fallen legs keep walking and grounded wings keep flapping.
+  PAINTERS[c.painter](gc, c, c.phase);
   if (hadHideSail) c.hideSail = oldHideSail; else delete c.hideSail;
   gc.restore();
 }
@@ -3863,14 +3866,14 @@ function drawBossDeath(gc, c){
     if (k < 1) for (let i = 3; i >= 1; i--){
       const q = clamp(k - i * .07, 0, 1), qe = 1 - Math.pow(1 - q, 3);
       bossDeathPaint(gc, c, {x:c.x + dir*s*.92*qe, y:c.y - Math.sin(q*Math.PI)*s*.72,
-        rot:q*(Math.PI*2+1.18), alpha:.11*fade*(4-i), phase:c.phase+q*7});
+        rot:q*(Math.PI*2+1.18), alpha:.11*fade*(4-i)});
     }
     if (t > c.impact){
       const q = clamp((t - c.impact) / 1.1, 0, 1);
       gc.save(); gc.globalAlpha = (1-q) * .65 * fade; gc.strokeStyle = '#21353d'; gc.lineWidth = 2;
       for (let i=0;i<4;i++){gc.beginPath();gc.moveTo(x-dir*s*(.45+i*.3)*q,c.y+3+i*2);gc.lineTo(x-dir*s*(1.45+i*.25),c.y+3+i*2);gc.stroke();} gc.restore();
     }
-    bossDeathPaint(gc, c, {x,y,rot,alpha:fade,phase:c.phase+t*8});
+    bossDeathPaint(gc, c, {x,y,rot,alpha:fade});
     return;
   }
 
@@ -3879,7 +3882,7 @@ function drawBossDeath(gc, c){
     const k = clamp((t - .32) / (c.impact - .32), 0, 1), e = k*k*(3-2*k);
     const x = c.x + dir*s*.42*e, rot = -rear*.24 + e*1.48;
     if (t > c.impact) bossDeathCracks(gc,c,clamp((t-c.impact)/.42,0,1),.72*fade);
-    bossDeathPaint(gc, c, {x,y:c.y-rear*s*.08,rot,alpha:fade,phase:c.phase+t*.55});
+    bossDeathPaint(gc, c, {x,y:c.y-rear*s*.08,rot,alpha:fade});
     return;
   }
 
@@ -3893,27 +3896,26 @@ function drawBossDeath(gc, c){
     }
     const shiver = t < .5 ? Math.sin(t*54)*(1-t/.5) : 0;
     const k=clamp((t-.46)/(c.impact-.46),0,1),e=1-Math.pow(1-k,3);
-    bossDeathPaint(gc,c,{x:c.x+dir*s*.48*e,y:c.y,rot:shiver*.035+e*1.4,alpha:fade,
-      phase:c.phase+shiver*.7,hideSail:t>.34});
+    bossDeathPaint(gc,c,{x:c.x+dir*s*.48*e,y:c.y,rot:shiver*.035+e*1.4,alpha:fade,hideSail:t>.34});
     return;
   }
 
   if (c.key === 'indominus'){
     const glitch=clamp(1-t/1.18,0,1), k=clamp((t-.86)/(c.impact-.86),0,1),e=k*k*(3-2*k);
     if (glitch>0){
-      bossDeathPaint(gc,c,{x:c.x-dir*s*.18,y:c.y-s*.05,rot:e*1.42,alpha:.13*glitch*fade,sx:1.03,sy:.97,phase:c.phase+t*6});
-      bossDeathPaint(gc,c,{x:c.x+dir*s*.16,y:c.y+s*.04,rot:e*1.42,alpha:.17*glitch*fade,sx:.98,sy:1.04,phase:c.phase-t*5});
+      bossDeathPaint(gc,c,{x:c.x-dir*s*.18,y:c.y-s*.05,rot:e*1.42,alpha:.13*glitch*fade,sx:1.03,sy:.97});
+      bossDeathPaint(gc,c,{x:c.x+dir*s*.16,y:c.y+s*.04,rot:e*1.42,alpha:.17*glitch*fade,sx:.98,sy:1.04});
       gc.save();gc.globalAlpha=.55*glitch*fade;for(let i=0;i<7;i++){const r=bossDeathRand(c,i+20),yy=c.y-s*(.15+r*1.05);gc.fillStyle=i%2?'#b9ffff':'#e6d7ff';gc.fillRect(c.x-dir*s*(.7+r*.7),yy,dir*s*(.35+r*.65),2+r*3);}gc.restore();
     }
     const flicker=glitch>0&&Math.floor(t*18)%4===0?.28:1;
-    bossDeathPaint(gc,c,{x:c.x+dir*s*.45*e,y:c.y,rot:e*1.42,alpha:fade*flicker,phase:c.phase+t*1.8});
+    bossDeathPaint(gc,c,{x:c.x+dir*s*.45*e,y:c.y,rot:e*1.42,alpha:fade*flicker});
     return;
   }
 
   if (c.key === 'indoraptor'){
     const k=clamp(t/c.impact,0,1),x=c.x+dir*s*.98*k,y=c.y-Math.sin(k*Math.PI)*s*1.18,rot=-k*(Math.PI*2+1.32);
     if (k<1){gc.save();gc.strokeStyle='#c9a955';gc.lineWidth=3;gc.globalAlpha=.55*(1-k)*fade;for(let i=0;i<5;i++){const q=clamp(k-i*.06,0,1);gc.beginPath();gc.moveTo(c.x+dir*s*(q*.98-.55),c.y-Math.sin(q*Math.PI)*s*1.18-s*(i-.7)*.12);gc.lineTo(c.x+dir*s*q*.98,c.y-Math.sin(q*Math.PI)*s*1.18);gc.stroke();}gc.restore();}
-    bossDeathPaint(gc,c,{x,y,rot,alpha:fade,phase:c.phase+t*11});
+    bossDeathPaint(gc,c,{x,y,rot,alpha:fade});
     return;
   }
 
@@ -3922,7 +3924,7 @@ function drawBossDeath(gc, c){
     const step=Math.floor(Math.min(t,1.15)/.23), x=c.x+dir*s*(step*.075+e*.46);
     const reel=(1-stagger)*Math.sin(t*17)*.075-stagger*.10+e*1.56;
     if(t>c.impact)bossDeathCracks(gc,c,clamp((t-c.impact)/.34,0,1),.9*fade);
-    bossDeathPaint(gc,c,{x,y:c.y-Math.abs(Math.sin(t*13))*(1-e)*s*.035,rot:reel,alpha:fade,phase:c.phase+step*Math.PI});
+    bossDeathPaint(gc,c,{x,y:c.y-Math.abs(Math.sin(t*13))*(1-e)*s*.035,rot:reel,alpha:fade});
     return;
   }
 
@@ -3932,7 +3934,7 @@ function drawBossDeath(gc, c){
     gc.globalAlpha=.28*(1-burst)*fade;gc.fillStyle='#b51f18';gc.beginPath();gc.ellipse(c.x,c.y,s*(.45+burst*1.6),s*(.18+burst*.9),0,0,Math.PI*2);gc.fill();gc.restore();
     if(t<c.impact){
       const conv=(1-implode)*Math.sin(t*31),sc=1-implode*.82;
-      bossDeathPaint(gc,c,{x:c.x+conv*s*.045,y:c.y-conv*s*.025,rot:conv*.035,alpha:fade*(1-implode*.2),sx:sc*(1+Math.sin(t*19)*.035),sy:sc*(1-Math.sin(t*19)*.035),phase:c.phase+t*9});
+      bossDeathPaint(gc,c,{x:c.x+conv*s*.045,y:c.y-conv*s*.025,rot:conv*.035,alpha:fade*(1-implode*.2),sx:sc*(1+Math.sin(t*19)*.035),sy:sc*(1-Math.sin(t*19)*.035)});
     }
     if(t>.75){
       const power=t<c.impact?clamp((t-.75)/.8,0,1):1-burst;
@@ -3944,7 +3946,7 @@ function drawBossDeath(gc, c){
   if (c.key === 'whiteptera'){
     const k=clamp(t/c.impact,0,1),x=c.x+dir*s*1.55*k,y=c.y+s*1.36*k-Math.sin(k*Math.PI)*s*.28,rot=k*(Math.PI*4+.34);
     gc.save();for(let i=0;i<11;i++){const q=clamp((t-i*.055)/c.impact,0,1),r=bossDeathRand(c,i+60);gc.globalAlpha=(1-q)*.68*fade;gc.fillStyle=i%3?'#eeeae0':'#bbb7ae';gc.translate(0,0);const fx=c.x+dir*s*(q*1.5+(r-.5)*.7),fy=c.y-s*(1.35-q*1.6)+Math.sin(q*9+i)*s*.18;gc.beginPath();gc.ellipse(fx,fy,s*.055,s*.17,q*5+r,0,Math.PI*2);gc.fill();}gc.restore();
-    bossDeathPaint(gc,c,{x,y,rot,alpha:fade,phase:c.phase+t*10});
+    bossDeathPaint(gc,c,{x,y,rot,alpha:fade});
     return;
   }
 
@@ -3955,7 +3957,7 @@ function drawBossDeath(gc, c){
     if(t>c.impact){const q=clamp((t-c.impact)/1.2,0,1);gc.strokeStyle='#c9f5ff';gc.lineWidth=Math.max(2,s*.055*(1-q));gc.globalAlpha=(1-q)*.8*fade;for(let i=0;i<3;i++){gc.beginPath();gc.ellipse(x,c.y+2,s*(.45+q*(1.2+i*.55)),s*(.08+q*.12),0,0,Math.PI*2);gc.stroke();}
       for(let i=0;i<14;i++){const r=bossDeathRand(c,i+80),a=-Math.PI+r*Math.PI,d=s*q*(.4+r*1.2);gc.fillStyle=i%2?'#dffaff':'#66cbe4';gc.beginPath();gc.arc(x+Math.cos(a)*d,c.y-Math.sin(a)*d+s*q*q*.65,s*(.035+r*.055),0,Math.PI*2);gc.fill();}}
     gc.restore();
-    bossDeathPaint(gc,c,{x,y,rot,alpha:fade*(1-sink*.72),phase:c.phase+t*3});
+    bossDeathPaint(gc,c,{x,y,rot,alpha:fade*(1-sink*.72)});
     return;
   }
 
@@ -6306,6 +6308,8 @@ if (testParams.has('test')){
     spawnDino(bossK, pathI, true);
     const b = G.dinos[G.dinos.length - 1];
     b.dist = G.paths[pathI].len * 0.45;
+    const deathPhase = parseFloat(testParams.get('deathphase'));
+    b.phase = Number.isFinite(deathPhase) ? deathPhase : .7;
     damage(b, 1e9, true);
     G.banner = null; G.cinT = 0;
     const ft = parseFloat(testParams.get('kill')) || 0.4;
