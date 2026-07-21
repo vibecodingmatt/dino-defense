@@ -2225,12 +2225,24 @@ function startLevel(idx, mode, diff){
   track(mode === 'resume' ? 'run_resume' : 'run_start', {map_name: G.level.name, difficulty: G.difficulty});
 }
 
-/* ambient particles: fireflies at night, spores in mist, drifting leaves by day */
+/* restrained per-map atmosphere: rain, ash, feathers, dust, or lagoon spray */
 function initAmbient(){
   G.amb = [];
-  const n = G.level.night ? 34 : G.level.mist ? 24 : 14;
+  const counts = {perimeter:38, visitor:28, aviary:28, delta:34, lockwood:40, proving:24, lagoon:26};
+  const n = counts[G.level.art] || 18;
+  // Atmosphere is cosmetic: keep it deterministic and off the gameplay RNG stream.
+  let seed = 2166136261;
+  for (const ch of (G.level.art || G.level.name)) seed = Math.imul(seed ^ ch.charCodeAt(0), 16777619);
+  const visualRand = (a, b) => {
+    seed += 0x6d2b79f5;
+    let t = seed;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return a + (((t ^ t >>> 14) >>> 0) / 4294967296) * (b - a);
+  };
   for (let i = 0; i < n; i++){
-    G.amb.push({x: rand(0, W), y: rand(0, H), p: rand(0, 6.28), v: rand(5, 12)});
+    G.amb.push({x: visualRand(0, W), y: visualRand(0, H), p: visualRand(0, 6.28),
+                v: visualRand(5, 12), r: visualRand(0.6, 1.8)});
   }
 }
 
@@ -2877,6 +2889,10 @@ function setDiff(v, writeField){
 }
 /* draw a small live preview of a zone (its biome colours + the actual path) */
 function drawMiniMap(cv, lv){
+  if (typeof drawThemedMiniMap === 'function'){
+    drawThemedMiniMap(cv, lv);
+    return;
+  }
   if (!cv) return;
   const c = cv.getContext('2d'); if (!c) return;
   const W = cv.width, H = cv.height, sx = W / 1280, sy = H / 720, t = lv.theme;
@@ -4309,14 +4325,7 @@ function render(dt){
   if (G.level.maze && G.flow){
     const rp = mazeRoutePts();
     if (rp){
-      ctx.save();
-      ctx.strokeStyle = 'rgba(232,185,58,0.22)';
-      ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      ctx.setLineDash([10, 12]); ctx.lineDashOffset = -G.time * 26;   // crawls toward the exit
-      ctx.beginPath();
-      rp.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
-      ctx.stroke();
-      ctx.restore();
+      drawMazeRouteGuide(ctx, rp, G.time);
     }
   }
 
@@ -5611,44 +5620,20 @@ function render(dt){
   }
   ctx.globalAlpha = 1;
 
-  // night overlay + tower lights
-  if (G.level.night){
-    ctx.fillStyle = 'rgba(10,14,40,0.42)';
-    ctx.fillRect(-20, -20, W + 40, H + 40);
+  // Warm pools around defenses survive Lockwood's blue-black night grade.
+  if (G.level.art === 'lockwood'){
     ctx.globalCompositeOperation = 'lighter';
     for (const t of G.towers){
-      const g = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, 90);
-      g.addColorStop(0, 'rgba(255,230,150,0.16)'); g.addColorStop(1, 'rgba(255,230,150,0)');
+      const g = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, 78);
+      g.addColorStop(0, 'rgba(255,210,125,0.13)'); g.addColorStop(1, 'rgba(255,210,125,0)');
       ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(t.x, t.y, 90, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(t.x, t.y, 78, 0, Math.PI*2); ctx.fill();
     }
     ctx.globalCompositeOperation = 'source-over';
   }
-  if (G.level.mist){
-    ctx.fillStyle = 'rgba(180,200,190,0.07)';
-    ctx.fillRect(-20, -20, W + 40, H + 40);
-  }
 
   // ambient particles (fireflies / spores / leaves) — above the light grading
-  for (const a of G.amb){
-    a.p += dt;
-    a.x += Math.sin(a.p * 0.7) * 0.4 - a.v * dt * (G.level.night ? 0.35 : 0.9);
-    a.y += Math.cos(a.p * 0.5) * 0.3 + (G.level.night ? 0 : a.v * dt * 0.35);
-    if (a.x < -12) a.x = W + 10; if (a.x > W + 12) a.x = -10;
-    if (a.y > H + 12) a.y = -10; if (a.y < -12) a.y = H + 10;
-    if (G.level.night){
-      const tw = (Math.sin(a.p * 3) + 1) / 2;
-      ctx.fillStyle = `rgba(255,240,140,${0.12 + 0.45 * tw})`;
-      ctx.beginPath(); ctx.arc(a.x, a.y, 1.4 + tw * 1.2, 0, Math.PI*2); ctx.fill();
-    } else if (G.level.mist){
-      ctx.fillStyle = 'rgba(222,235,226,0.16)';
-      ctx.beginPath(); ctx.arc(a.x, a.y, 2.4, 0, Math.PI*2); ctx.fill();
-    } else {
-      ctx.save(); ctx.translate(a.x, a.y); ctx.rotate(a.p);
-      ctx.fillStyle = 'rgba(130,170,75,0.45)'; ctx.fillRect(-2.6, -1.2, 5.2, 2.4);
-      ctx.restore();
-    }
-  }
+  drawMapAtmosphere(ctx, G.level, G.amb, G.time, dt, W, H);
 
   // ---- end world camera; the HUD below is drawn in fixed screen space ----
   ctx.restore();
