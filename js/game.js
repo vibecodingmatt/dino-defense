@@ -184,12 +184,15 @@ function showNextToast(){
    Everything routes through a compressor + a generated convolution
    reverb, so sounds are layered and roomy instead of raw beeps. */
 let AC = null, master = null, verb = null, musicGain = null;
+let musicVerb = null, musicVerbReturn = null, musicImpulse = null;
+const musicSources = new Set();
+let audioGestureSeen = false, audioUnlockListening = false;
 const DIST_CURVE = (() => { // soft-clip curve for growls / gritty hits
   const c = new Float32Array(257);
   for (let i = 0; i < 257; i++) c[i] = Math.tanh((i/128 - 1) * 3);
   return c;
 })();
-function audio(){
+function audio(tryResume = true){
   if (save.settings.mute) return null;
   if (!AC){
     try {
@@ -210,18 +213,67 @@ function audio(){
       verb.buffer = buf;
       const vg = AC.createGain(); vg.gain.value = 0.4;
       verb.connect(vg); vg.connect(master);
+
+      // Music gets its own longer hall. Both its dry signal and reverb return
+      // feed musicGain, so the Music toggle controls the complete score rather
+      // than leaving a disconnected wet tail ringing through the SFX reverb.
+      const mdur = 2.65, mn = (AC.sampleRate * mdur) | 0;
+      const mbuf = AC.createBuffer(2, mn, AC.sampleRate);
+      let seed = 0x4d494449; // local deterministic noise; never advances gameplay RNG
+      const noise = () => {
+        seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5;
+        return ((seed >>> 0) / 0xffffffff) * 2 - 1;
+      };
+      for (let ch = 0; ch < 2; ch++){
+        const md = mbuf.getChannelData(ch);
+        for (let i = 0; i < mn; i++) md[i] = noise() * Math.pow(1 - i/mn, 3.15);
+      }
+      musicImpulse = mbuf;
       musicGain = AC.createGain(); musicGain.gain.value = 0.8;
       musicGain.connect(master);
+      resetMusicHall();
+      AC.addEventListener('statechange', () => {
+        if (!AC) return;
+        if (AC.state === 'running') ensureMusic();
+        else if (AC.state === 'suspended' || AC.state === 'interrupted') armAudioUnlock();
+      });
     } catch(e){ AC = null; return null; }
   }
-  if (AC.state === 'suspended') AC.resume();
+  if (tryResume && (AC.state === 'suspended' || AC.state === 'interrupted')){
+    try {
+      const resumed = AC.resume();
+      if (resumed && resumed.catch) resumed.catch(() => armAudioUnlock());
+    } catch(e){ armAudioUnlock(); }
+  }
   return AC;
 }
-function routeOut(node, wet, bus){
-  node.connect(bus || master);
+function resetMusicHall(){
+  if (!AC || !musicGain || !musicImpulse) return;
+  // A fresh convolver prevents a quick restart from reviving the previous
+  // performance's disconnected 2.65-second tail.
+  try { if (musicVerb) musicVerb.disconnect(); } catch(e){}
+  try { if (musicVerbReturn) musicVerbReturn.disconnect(); } catch(e){}
+  musicVerb = AC.createConvolver(); musicVerb.buffer = musicImpulse;
+  musicVerbReturn = AC.createGain(); musicVerbReturn.gain.value = 0.5;
+  musicVerb.connect(musicVerbReturn); musicVerbReturn.connect(musicGain);
+}
+function trackMusicSource(node){
+  musicSources.add(node);
+  node.addEventListener('ended', () => musicSources.delete(node), {once:true});
+  return node;
+}
+function routeOut(node, wet, bus, pan){
+  let head = node;
+  if (pan !== undefined && AC.createStereoPanner){
+    const panner = AC.createStereoPanner();
+    panner.pan.value = clamp(pan, -1, 1);
+    node.connect(panner); head = panner;
+  }
+  head.connect(bus || master);
   if (wet > 0){
     const g = AC.createGain(); g.gain.value = wet;
-    node.connect(g); g.connect(verb);
+    head.connect(g);
+    g.connect(bus === musicGain && musicVerb ? musicVerb : verb);
   }
 }
 function envGain(t0, peak, a, dur){
@@ -241,13 +293,14 @@ function sfxNoise(o){
   const d = buf.getChannelData(0);
   for (let i = 0; i < n; i++) d[i] = Math.random()*2 - 1;
   const src = ac.createBufferSource(); src.buffer = buf;
+  if (o.bus === musicGain) trackMusicSource(src);
   const fl = ac.createBiquadFilter();
   fl.type = o.type || 'lowpass';
   fl.frequency.setValueAtTime(o.f0 || 1000, t0);
   if (o.f1) fl.frequency.exponentialRampToValueAtTime(Math.max(30, o.f1), t0 + dur);
   if (o.Q) fl.Q.value = o.Q;
   const g = envGain(t0, o.peak, o.a || 0.003, dur);
-  src.connect(fl); fl.connect(g); routeOut(g, o.wet || 0, o.bus);
+  src.connect(fl); fl.connect(g); routeOut(g, o.wet || 0, o.bus, o.pan);
   src.start(t0); src.stop(t0 + dur + 0.05);
 }
 /* pitched tone with optional distortion + tremolo (growl texture) */
@@ -256,6 +309,7 @@ function sfxTone(o){
   const t0 = ac.currentTime + (o.delay || 0);
   const dur = o.dur;
   const osc = ac.createOscillator();
+  if (o.bus === musicGain) trackMusicSource(osc);
   osc.type = o.type || 'sine';
   osc.frequency.setValueAtTime(o.f0, t0);
   if (o.f1) osc.frequency.exponentialRampToValueAtTime(Math.max(20, o.f1), t0 + dur);
@@ -273,12 +327,13 @@ function sfxTone(o){
   head.connect(g);
   if (o.tremF){ // amplitude wobble — the "growl"
     const lfo = ac.createOscillator(); lfo.frequency.setValueAtTime(o.tremF, t0);
+    if (o.bus === musicGain) trackMusicSource(lfo);
     if (o.tremF1) lfo.frequency.linearRampToValueAtTime(o.tremF1, t0 + dur);
     const lg = ac.createGain(); lg.gain.value = o.peak * (o.tremD || 0.4);
     lfo.connect(lg); lg.connect(g.gain);
     lfo.start(t0); lfo.stop(t0 + dur + 0.1);
   }
-  routeOut(g, o.wet || 0, o.bus);
+  routeOut(g, o.wet || 0, o.bus, o.pan);
   osc.start(t0); osc.stop(t0 + dur + 0.1);
 }
 /* ---------------- background score (synthesized loop) ----------------
@@ -330,11 +385,11 @@ const MUS = {
     [15, 0, 466.16, 3],
   ],
 };
-let musicTimer = null, musicNextBar = 0, musicBarIdx = 0;
+let musicTimer = null, musicHallResetTimer = null, musicNextBar = 0, musicBarIdx = 0;
 /* French-horn-ish lead: two detuned saws through a lowpass, with a slow
    vibrato that blooms after the attack. The soft onset + long release
    keep the phrases legato instead of beepy. */
-function hornTone(f, dur, delay, peak){
+function hornTone(f, dur, delay, peak, pan){
   const ac = audio(); if (!ac) return;
   const t0 = ac.currentTime + delay;
   const g = ac.createGain();
@@ -346,23 +401,25 @@ function hornTone(f, dur, delay, peak){
   fl.type = 'lowpass'; fl.frequency.value = 1100; fl.Q.value = 0.4;
   fl.connect(g);
   const vib = ac.createOscillator(); vib.frequency.value = 4.7;
+  trackMusicSource(vib);
   const vg = ac.createGain();
   vg.gain.setValueAtTime(0, t0);
   vg.gain.linearRampToValueAtTime(f * 0.005, t0 + 0.4);
   vib.connect(vg);
   for (const det of [-4, 4]){
     const o = ac.createOscillator();
+    trackMusicSource(o);
     o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = det;
     vg.connect(o.frequency);
     o.connect(fl);
     o.start(t0); o.stop(t0 + dur + 0.5);
   }
   vib.start(t0); vib.stop(t0 + dur + 0.5);
-  routeOut(g, 0.6, musicGain);
+  routeOut(g, 0.6, musicGain, pan);
 }
 /* flute-ish descant: a pure triangle with airy vibrato, lighter and
    quicker-speaking than the horn — carries high countermelodies. */
-function fluteTone(f, dur, delay, peak){
+function fluteTone(f, dur, delay, peak, pan){
   const ac = audio(); if (!ac) return;
   const t0 = ac.currentTime + delay;
   const g = ac.createGain();
@@ -373,8 +430,10 @@ function fluteTone(f, dur, delay, peak){
   const fl = ac.createBiquadFilter();
   fl.type = 'lowpass'; fl.frequency.value = 2400; fl.Q.value = 0.3;
   const o = ac.createOscillator();
+  trackMusicSource(o);
   o.type = 'triangle'; o.frequency.value = f;
   const vib = ac.createOscillator(); vib.frequency.value = 5.2;
+  trackMusicSource(vib);
   const vg = ac.createGain();
   vg.gain.setValueAtTime(0, t0);
   vg.gain.linearRampToValueAtTime(f * 0.006, t0 + 0.45);
@@ -382,7 +441,7 @@ function fluteTone(f, dur, delay, peak){
   o.connect(fl); fl.connect(g);
   o.start(t0); o.stop(t0 + dur + 0.3);
   vib.start(t0); vib.stop(t0 + dur + 0.3);
-  routeOut(g, 0.65, musicGain);
+  routeOut(g, 0.65, musicGain, pan);
 }
 function scheduleBar(bar, t0){
   const beat = MUS.barDur / 3;
@@ -409,8 +468,8 @@ function scheduleBar(bar, t0){
       sfxTone({type: 'sine', f0: f * 2, dur: 0.9, peak: 0.01, a: 0.003, wet: 0.6, bus: musicGain, delay: at(b)});
   }
 }
-/* ---------------- MIDI score (assets/theme.mid) ----------------
-   The theme ships as a Standard MIDI File so the music can be composed
+/* ---------------- MIDI score (assets/Jurassic2.mid) ----------------
+   The score ships as a Standard MIDI File so the music can be composed
    in any notation app (MuseScore, GarageBand, …), dropped into assets/,
    and performed live through the synth voices above. Parsed here into a
    flat note list (tempo map, running status, program changes). The
@@ -418,7 +477,13 @@ function scheduleBar(bar, t0){
    load (file:// play, offline first-run, bad export).
    ?midi=<name> loads assets/<name> instead — for local A/B listening. */
 let MIDI_THEME = null, midiIdx = 0, midiBase = 0;
-function parseMidi(buf){
+let midiVoiceEnds = [], midiRuntimeDrops = 0;
+const MIDI_POLYPHONY_CAP = 44;
+const MIDI_STAGE_PAN = Object.freeze({
+  0: -0.16, 32: 0.1, 43: 0.16, 46: -0.34, 47: 0.2,
+  48: -0.2, 60: -0.28, 61: 0.3, 73: 0.24
+});
+function parseMidi(buf, loopBreath = 1.6){
   const d = new DataView(buf);
   let p = 0;
   const u8 = () => d.getUint8(p++);
@@ -427,39 +492,89 @@ function parseMidi(buf){
   const varlen = () => { let v = 0, b; do { b = u8(); v = (v << 7) | (b & 0x7f); } while (b & 0x80); return v; };
   const tag = () => String.fromCharCode(u8(), u8(), u8(), u8());
   if (tag() !== 'MThd') throw new Error('not a midi file');
-  const hlen = u32(); u16(); // format (1 assumed; 0 parses fine too)
+  const hlen = u32(), format = u16();
   const ntrk = u16(), div = u16();
   p += hlen - 6;
+  if (format > 1) throw new Error('format 2 midi unsupported');
   if (div & 0x8000) throw new Error('smpte timing unsupported');
   const tempos = []; // [tick, µs per quarter note], across all tracks
   const raw = [];    // completed notes in ticks
+  let unmatchedOff = 0, danglingOn = 0, resetOffs = 0;
   for (let t = 0; t < ntrk; t++){
     if (tag() !== 'MTrk') throw new Error('bad track header');
     const end = u32() + p;
-    let tick = 0, status = 0;
+    let tick = 0, running = 0;
     const prog = new Array(16).fill(0);
-    const open = {}; // chn*128+pitch -> stack of pending note-ons
+    const volume = new Array(16).fill(100);
+    const expression = new Array(16).fill(127);
+    // Null means the file did not author CC10, so the renderer can place that
+    // section naturally on its virtual stage. An explicit MIDI centre stays 0.
+    const channelPan = new Array(16).fill(null);
+    const open = {};      // chn*128+pitch -> stack of pending note-ons
+    const earlyOff = {};  // same-tick reset markers emitted by some notation apps
     while (p < end){
       tick += varlen();
-      if (d.getUint8(p) & 0x80) status = u8(); // else: running status
+      let status;
+      if (d.getUint8(p) & 0x80){
+        status = u8();
+        running = status < 0xf0 ? status : 0;
+      } else {
+        if (!running) throw new Error('running status without channel event');
+        status = running;
+      }
       if (status === 0xff){
         const type = u8(), len = varlen();
-        if (type === 0x51) tempos.push([tick, (d.getUint8(p) << 16) | (d.getUint8(p + 1) << 8) | d.getUint8(p + 2)]);
+        if (type === 0x51 && len === 3)
+          tempos.push([tick, (d.getUint8(p) << 16) | (d.getUint8(p + 1) << 8) | d.getUint8(p + 2)]);
         p += len;
-      } else if (status >= 0xf0){ p += varlen(); } // sysex
+      } else if (status === 0xf0 || status === 0xf7){ // sysex
+        const len = varlen(); p += len;
+      }
+      else if (status >= 0xf0){ throw new Error('unsupported system event'); }
       else {
         const hi = status & 0xf0, chn = status & 15, d1 = u8();
         if (hi === 0xc0){ prog[chn] = d1; continue; }
         if (hi === 0xd0) continue; // channel pressure: one data byte
         const d2 = u8(), key = chn * 128 + d1;
-        if (hi === 0x90 && d2 > 0)
-          (open[key] = open[key] || []).push({t0: tick, vel: d2, prog: prog[chn]});
+        if (hi === 0xb0){
+          if (d1 === 7) volume[chn] = d2;
+          else if (d1 === 10) channelPan[chn] = d2;
+          else if (d1 === 11) expression[chn] = d2;
+          continue;
+        }
+        if (hi === 0x90 && d2 > 0){
+          const rawPan = channelPan[chn];
+          const pan = rawPan === null ? undefined : rawPan === 64 ? 0 :
+            (rawPan - 64) / (rawPan < 64 ? 64 : 63);
+          const resets = earlyOff[key];
+          const resetIdx = resets ? resets.findIndex(o => o.tick === tick) : -1;
+          if (resetIdx >= 0){ resets.splice(resetIdx, 1); resetOffs++; }
+          (open[key] = open[key] || []).push({
+            t0: tick, vel: d2, prog: prog[chn],
+            mix: volume[chn] / 127 * expression[chn] / 127,
+            pan: pan === undefined ? undefined : clamp(pan, -1, 1)
+          });
+        }
         else if (hi === 0x80 || hi === 0x90){
-          const o = open[key] && open[key].shift();
-          if (o) raw.push({t0: o.t0, t1: tick, p: d1, vel: o.vel, chn, prog: o.prog});
+          // Pair a release with the newest retrigger. Co-started unison notes
+          // share that release; this preserves notation-app duplicate voices
+          // without letting an older overlap become a minutes-long drone.
+          const stack = open[key], o = stack && stack.pop();
+          if (o){
+            const released = [o];
+            while (stack.length && stack[stack.length - 1].t0 === o.t0)
+              released.push(stack.pop());
+            for (const r of released)
+              raw.push({t0: r.t0, t1: tick, p: d1, vel: r.vel, chn,
+                        prog: r.prog, mix: r.mix, pan: r.pan});
+          } else {
+            (earlyOff[key] = earlyOff[key] || []).push({tick, vel: d2});
+          }
         }
       }
     }
+    for (const stack of Object.values(open)) danglingOn += stack.length;
+    for (const markers of Object.values(earlyOff)) unmatchedOff += markers.length;
     p = end;
   }
   tempos.sort((a, b) => a[0] - b[0]);
@@ -473,63 +588,211 @@ function parseMidi(buf){
     return sec + (tick - last) / div * uspq / 1e6;
   };
   const notes = raw
-    .map(n => ({t: toSec(n.t0), dur: Math.max(0.08, toSec(n.t1) - toSec(n.t0)),
-                p: n.p, vel: n.vel, chn: n.chn, prog: n.prog}))
+    .map(n => ({t: toSec(n.t0), dur: Math.max(0.02, toSec(n.t1) - toSec(n.t0)),
+                p: n.p, vel: n.vel, chn: n.chn, prog: n.prog,
+                mix: n.mix, pan: n.pan}))
     .sort((a, b) => a.t - b.t);
   if (!notes.length) throw new Error('no notes');
-  const dur = notes.reduce((m, n) => Math.max(m, n.t + n.dur), 0) + 1.6; // breath before the loop repeats
-  return {dur, notes};
+  const dur = notes.reduce((m, n) => Math.max(m, n.t + n.dur), 0) + loopBreath;
+  const events = [];
+  for (const n of notes){ events.push([n.t, 1], [n.t + n.dur, -1]); }
+  events.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  let sounding = 0, maxPolyphony = 0;
+  for (const e of events){ sounding += e[1]; maxPolyphony = Math.max(maxPolyphony, sounding); }
+  const programs = [...new Set(notes.filter(n => n.chn !== 9).map(n => n.prog))].sort((a, b) => a - b);
+  return {
+    dur, notes,
+    diagnostics: {
+      format, tracks: ntrk, division: div, notes: notes.length,
+      tempos: tempos.length || 1, programs,
+      maxNoteDuration: notes.reduce((m, n) => Math.max(m, n.dur), 0),
+      maxPolyphony, unmatchedOff, danglingOn, resetOffs,
+      dropped: unmatchedOff + danglingOn
+    }
+  };
 }
 /* Perform one parsed note on the closest-matching synth voice.
    Routing is by General MIDI program, with a duration heuristic for
    anything unrecognised. Velocity scales each voice's mix level. */
+/* Compact orchestral voices whose releases start at the actual MIDI note-off.
+   Timbre comes from partial balance and filtering, not long minimum durations
+   that turn staccato writing into a smear. */
+function midiSynthVoice(o){
+  const ac = audio(); if (!ac) return;
+  const t0 = ac.currentTime + o.delay;
+  const dur = Math.max(0.02, o.dur), off = t0 + dur;
+  const attack = Math.min(o.attack, dur * 0.45);
+  const release = Math.max(0.025, o.release);
+  const peak = Math.max(0.0002, o.peak);
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(peak, t0 + attack);
+  if (o.decay) g.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak * o.decay), off);
+  else g.gain.setValueAtTime(peak, off);
+  g.gain.exponentialRampToValueAtTime(0.0001, off + release);
+
+  let head = g;
+  if (o.lp){
+    const fl = ac.createBiquadFilter();
+    fl.type = 'lowpass'; fl.frequency.value = o.lp; fl.Q.value = o.Q || 0.45;
+    fl.connect(g); head = fl;
+  }
+  const oscillators = [];
+  for (const part of o.parts){
+    const osc = trackMusicSource(ac.createOscillator());
+    osc.type = part.type;
+    osc.frequency.setValueAtTime(o.f * (part.ratio || 1), t0);
+    if (o.pitchEnd)
+      osc.frequency.exponentialRampToValueAtTime(o.f * (part.ratio || 1) * o.pitchEnd,
+        Math.min(off, t0 + 0.55));
+    osc.detune.value = part.detune || 0;
+    const pg = ac.createGain(); pg.gain.value = part.gain;
+    osc.connect(pg); pg.connect(head);
+    oscillators.push(osc);
+  }
+  if (o.vibrato){
+    const vib = trackMusicSource(ac.createOscillator());
+    const vg = ac.createGain();
+    vib.frequency.value = o.vibrato.rate;
+    vg.gain.setValueAtTime(0, t0);
+    vg.gain.linearRampToValueAtTime(o.vibrato.cents, t0 + Math.min(0.4, dur * 0.55));
+    vib.connect(vg);
+    for (const osc of oscillators) vg.connect(osc.detune);
+    vib.start(t0); vib.stop(off + release + 0.02);
+  }
+  routeOut(g, o.wet, musicGain, o.pan);
+  for (const osc of oscillators){ osc.start(t0); osc.stop(off + release + 0.02); }
+}
+function claimMidiVoice(n, delay){
+  const start = AC.currentTime + delay;
+  midiVoiceEnds = midiVoiceEnds.filter(t => t > start);
+  if (midiVoiceEnds.length >= MIDI_POLYPHONY_CAP){ midiRuntimeDrops++; return false; }
+  midiVoiceEnds.push(start + Math.max(0.02, n.dur) + 0.65);
+  return true;
+}
 function playMidiNote(n, delay){
+  if (!claimMidiVoice(n, delay)) return;
   const f = 440 * Math.pow(2, (n.p - 69) / 12);
-  const v = n.vel / 127;
+  const v = n.vel / 127 * (n.mix === undefined ? 1 : n.mix);
+  const pan = n.pan === undefined ? (MIDI_STAGE_PAN[n.prog] || 0) : n.pan;
   if (n.chn === 9){ // GM percussion: kicks & toms → timpani, rest → soft brush
     if ([35, 36, 41, 43, 45, 47].includes(n.p))
-      sfxTone({type: 'sine', f0: 30 + n.p, f1: 42, dur: 0.5, peak: 0.1 * v, wet: 0.4, bus: musicGain, delay});
+      sfxTone({type: 'sine', f0: 30 + n.p, f1: 42, dur: Math.min(0.5, n.dur + 0.18),
+               peak: 0.1 * v, wet: 0.4, bus: musicGain, delay, pan});
     else
-      sfxNoise({dur: 0.08, peak: 0.016 * v, type: 'highpass', f0: 5000, wet: 0.4, bus: musicGain, delay});
+      sfxNoise({dur: Math.min(0.12, Math.max(0.035, n.dur)), peak: 0.016 * v,
+                type: 'highpass', f0: 5000, wet: 0.4, bus: musicGain, delay, pan});
     return;
   }
   const g = n.prog;
-  if (g >= 72 && g <= 79) // pipes & flutes → airy descant voice
-    fluteTone(f, Math.max(0.25, n.dur), delay, 0.045 * v);
-  else if ((g >= 56 && g <= 71) || (g >= 80 && g <= 87)) // brass, winds, leads → horn
-    hornTone(f, Math.max(0.3, n.dur), delay, 0.05 * v);
-  else if ((g >= 32 && g <= 39) || (g <= 7 && f < 116)) // basses + piano low end
-    sfxTone({type: 'triangle', f0: f, dur: n.dur * 1.02, peak: 0.055 * v, a: 0.05, lp: 600, wet: 0.3, bus: musicGain, delay});
-  else if (g === 47) // GM orchestral timpani
-    sfxTone({type: 'sine', f0: f, f1: f * 0.75, dur: 0.6, peak: 0.1 * v, wet: 0.4, bus: musicGain, delay});
-  else if (((g >= 40 && g <= 45) || (g >= 48 && g <= 54) || g === 89 || g === 91) && n.dur > 0.45) // strings, choir, pads
-    sfxTone({type: 'sawtooth', f0: f, dur: n.dur * 1.05, peak: 0.014 * v, a: Math.min(0.9, n.dur * 0.35), lp: 850, wet: 0.5, bus: musicGain, delay});
-  else if (n.dur > 0.8 && f < 700) // unknown but sustained → mellow horn
-    hornTone(f, n.dur, delay, 0.035 * v);
-  else // piano, harp, guitar, mallets, anything short → pluck
-    sfxTone({type: 'triangle', f0: f, dur: Math.min(0.9, Math.max(0.3, n.dur * 1.2)), peak: 0.03 * v, a: 0.003, lp: 3200, wet: 0.5, bus: musicGain, delay});
+  const base = {f, dur:n.dur, delay, pan};
+  if (g === 0) // acoustic grand: warm hammer and a quiet octave partial
+    midiSynthVoice({...base, peak:0.045*v, attack:0.004, release:0.18, decay:0.12, lp:4200, wet:0.34,
+      parts:[{type:'triangle', gain:1}, {type:'sine', ratio:2, gain:0.22}]});
+  else if (g === 32) // acoustic bass: woody fundamental with finger definition
+    midiSynthVoice({...base, peak:0.058*v, attack:0.012, release:0.12, decay:0.42, lp:720, wet:0.2,
+      parts:[{type:'triangle', gain:1}, {type:'sine', ratio:2, gain:0.16}]});
+  else if (g === 43) // contrabass: bowed and darker than the bass guitar
+    midiSynthVoice({...base, peak:0.04*v, attack:0.055, release:0.22, lp:620, wet:0.38,
+      parts:[{type:'triangle', gain:0.9}, {type:'sawtooth', gain:0.1, detune:-3}],
+      vibrato:{rate:4.1, cents:3}});
+  else if (g === 46) // orchestral harp: bright transient and short resonance
+    midiSynthVoice({...base, peak:0.042*v, attack:0.002, release:0.22, decay:0.08, lp:5200, wet:0.55,
+      parts:[{type:'triangle', gain:1}, {type:'sine', ratio:2, gain:0.3}]});
+  else if (g === 47) // timpani: struck membrane with its characteristic pitch fall
+    midiSynthVoice({...base, peak:0.095*v, attack:0.003, release:0.2, decay:0.12, lp:900, wet:0.42,
+      pitchEnd:0.74, parts:[{type:'sine', gain:1}, {type:'triangle', ratio:1.5, gain:0.11}]});
+  else if (g === 48) // string ensemble: wide, restrained bowed pair
+    midiSynthVoice({...base, peak:0.017*v, attack:0.11, release:0.3, lp:1150, wet:0.54,
+      parts:[{type:'sawtooth', gain:0.52, detune:-5}, {type:'sawtooth', gain:0.48, detune:5}],
+      vibrato:{rate:4.5, cents:4}});
+  else if (g === 60) // French horn: rounded saw pair and restrained vibrato
+    midiSynthVoice({...base, peak:0.045*v, attack:0.055, release:0.2, lp:1250, wet:0.55,
+      parts:[{type:'sawtooth', gain:0.5, detune:-4}, {type:'sawtooth', gain:0.5, detune:4}],
+      vibrato:{rate:4.7, cents:5}});
+  else if (g === 61) // brass section: brighter front edge than the solo horn
+    midiSynthVoice({...base, peak:0.036*v, attack:0.025, release:0.16, lp:1900, wet:0.46,
+      parts:[{type:'sawtooth', gain:0.82}, {type:'square', gain:0.18, detune:3}],
+      vibrato:{rate:5, cents:3}});
+  else if (g === 73) // flute: mostly pure breath-column tone
+    midiSynthVoice({...base, peak:0.041*v, attack:0.035, release:0.16, lp:3600, wet:0.58,
+      parts:[{type:'triangle', gain:0.94}, {type:'sine', ratio:2, gain:0.06}],
+      vibrato:{rate:5.2, cents:7}});
+  else if (g >= 72 && g <= 79)
+    midiSynthVoice({...base, peak:0.038*v, attack:0.035, release:0.15, lp:3200, wet:0.55,
+      parts:[{type:'triangle', gain:1}], vibrato:{rate:5.1, cents:6}});
+  else if ((g >= 56 && g <= 71) || (g >= 80 && g <= 87))
+    midiSynthVoice({...base, peak:0.038*v, attack:0.04, release:0.18, lp:1500, wet:0.48,
+      parts:[{type:'sawtooth', gain:0.85}, {type:'triangle', gain:0.15}]});
+  else if ((g >= 32 && g <= 39) || (g <= 7 && f < 116))
+    midiSynthVoice({...base, peak:0.05*v, attack:0.015, release:0.14, decay:0.38, lp:680, wet:0.25,
+      parts:[{type:'triangle', gain:1}]});
+  else if ((g >= 40 && g <= 54) || g === 89 || g === 91)
+    midiSynthVoice({...base, peak:0.015*v, attack:0.09, release:0.28, lp:1050, wet:0.52,
+      parts:[{type:'sawtooth', gain:0.55, detune:-4}, {type:'sawtooth', gain:0.45, detune:4}]});
+  else
+    midiSynthVoice({...base, peak:0.032*v, attack:0.003, release:0.16, decay:0.12, lp:3400, wet:0.45,
+      parts:[{type:'triangle', gain:1}, {type:'sine', ratio:2, gain:0.12}]});
 }
 (function loadMidiTheme(){
-  let name = 'theme.mid';
-  try { name = new URLSearchParams(location.search).get('midi') || name; } catch(e){}
-  fetch('assets/' + name)
+  const defaultName = 'Jurassic2.mid';
+  let name = defaultName, check = false, custom = false;
+  try {
+    const q = new URLSearchParams(location.search);
+    custom = q.has('midi');
+    name = q.get('midi') || name;
+    check = q.get('midicheck') === '1';
+  } catch(e){}
+  const report = (scoreName, theme, error) => {
+    if (!check) return;
+    const d = theme && theme.diagnostics;
+    const message = error ? `MIDI ${scoreName}: LOAD FAILED (${error.message || error})` :
+      `MIDI ${scoreName}: notes=${d.notes} programs=[${d.programs.join(',')}] ` +
+      `duration=${theme.dur.toFixed(2)}s maxNote=${d.maxNoteDuration.toFixed(2)}s ` +
+      `polyphony=${d.maxPolyphony} dropped/unmatched=${d.dropped} ` +
+      `(off=${d.unmatchedOff}, on=${d.danglingOn}, repaired=${d.resetOffs})`;
+    if (error) console.warn(message); else console.info(message, d);
+    const el = $('#errbox');
+    if (el){ el.classList.remove('hidden'); el.textContent = message; }
+  };
+  const loadScore = scoreName => fetch('assets/' + scoreName)
     .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
     .then(b => {
-      MIDI_THEME = parseMidi(b);
-      if (musicTimer){ stopMusic(); ensureMusic(); } // switch over if the fallback already started
+      // The compact original fallback gets a bar-aligned cadence breath;
+      // the full production score retains its own natural opening and ending.
+      MIDI_THEME = parseMidi(b, scoreName === 'theme.mid' ? 3.103448 : 1.6);
+      report(scoreName, MIDI_THEME, null);
+      if (musicTimer){
+        stopMusic();
+        setTimeout(ensureMusic, 170);
+      }
     })
-    .catch(() => {}); // procedural loop stays in charge
+    .catch(e => {
+      // A production fetch failure still gets the compact original MIDI;
+      // explicit ?midi= A/B requests report their own failure unchanged.
+      if (!custom && scoreName === defaultName) return loadScore('theme.mid');
+      report(scoreName, null, e); // procedural loop stays in charge
+    });
+  loadScore(name);
 })();
 function ensureMusic(){
   if (!save.settings.music || save.settings.mute){ stopMusic(); return; }
+  // Wait for real user input instead of creating a permanently suspended
+  // AudioContext during page load.
+  if (!AC && !audioGestureSeen) return;
   const ac = audio();
-  if (!ac || ac.state !== 'running') return; // waits for the first user gesture
+  if (!ac || ac.state !== 'running'){ armAudioUnlock(); return; }
   if (musicTimer) return;
+  if (musicHallResetTimer){
+    clearTimeout(musicHallResetTimer); musicHallResetTimer = null;
+    resetMusicHall(); // never revive the previous performance's wet tail
+  }
   musicGain.gain.cancelScheduledValues(ac.currentTime);
   musicGain.gain.setValueAtTime(0.8, ac.currentTime);
+  midiRuntimeDrops = 0; midiVoiceEnds = [];
   if (MIDI_THEME){ // perform the score, a lookahead window at a time
     midiIdx = 0; midiBase = ac.currentTime + 0.2;
-    musicTimer = setInterval(() => {
+    const scheduleMidiWindow = () => {
       if (!AC || AC.state !== 'running') return;
       const horizon = AC.currentTime + 0.9;
       while (true){
@@ -540,28 +803,71 @@ function ensureMusic(){
         if (t > AC.currentTime - 0.03) playMidiNote(n, Math.max(0, t - AC.currentTime));
         midiIdx++;
       }
-    }, 200);
+    };
+    musicTimer = setInterval(scheduleMidiWindow, 200);
+    scheduleMidiWindow();
     return;
   }
   musicNextBar = ac.currentTime + 0.15;
   musicBarIdx = 0;
-  musicTimer = setInterval(() => {
+  const scheduleProceduralWindow = () => {
     if (!AC || AC.state !== 'running') return;
     while (musicNextBar < AC.currentTime + 0.6){
       scheduleBar(musicBarIdx % MUS.bars.length, musicNextBar);
       musicBarIdx++;
       musicNextBar += MUS.barDur;
     }
-  }, 200);
+  };
+  musicTimer = setInterval(scheduleProceduralWindow, 200);
+  scheduleProceduralWindow();
 }
 function stopMusic(){
+  const wasActive = !!musicTimer || musicSources.size > 0;
   if (musicTimer){ clearInterval(musicTimer); musicTimer = null; }
-  if (musicGain && AC){ // fade out whatever is already scheduled
-    musicGain.gain.cancelScheduledValues(AC.currentTime);
-    musicGain.gain.setValueAtTime(musicGain.gain.value, AC.currentTime);
-    musicGain.gain.linearRampToValueAtTime(0.0001, AC.currentTime + 0.5);
+  midiVoiceEnds = [];
+  if (wasActive && musicGain && AC){ // fade dry+wet, then retire this performance's hall
+    const now = AC.currentTime;
+    const cut = AC.state === 'running' ? now + 0.12 : now;
+    musicGain.gain.cancelScheduledValues(now);
+    musicGain.gain.setValueAtTime(Math.max(0.0001, musicGain.gain.value), now);
+    musicGain.gain.linearRampToValueAtTime(0.0001, cut);
+    for (const source of musicSources){
+      try { source.stop(cut); } catch(e){}
+    }
+    musicSources.clear();
+    if (musicHallResetTimer) clearTimeout(musicHallResetTimer);
+    musicHallResetTimer = setTimeout(() => {
+      musicHallResetTimer = null;
+      resetMusicHall();
+    }, AC.state === 'running' ? 130 : 0);
   }
 }
+
+function disarmAudioUnlock(){
+  if (!audioUnlockListening) return;
+  audioUnlockListening = false;
+  window.removeEventListener('pointerdown', unlockAudio, true);
+  window.removeEventListener('keydown', unlockAudio, true);
+}
+async function unlockAudio(e){
+  if (e && e.type === 'keydown' && e.repeat) return;
+  audioGestureSeen = true;
+  disarmAudioUnlock();
+  if (save.settings.mute || !save.settings.music) return;
+  const ac = audio(false); if (!ac) return;
+  try {
+    if (ac.state === 'suspended' || ac.state === 'interrupted') await ac.resume();
+  } catch(e2){ armAudioUnlock(); return; }
+  if (ac.state === 'running') ensureMusic();
+  else armAudioUnlock();
+}
+function armAudioUnlock(){
+  if (audioUnlockListening) return;
+  audioUnlockListening = true;
+  window.addEventListener('pointerdown', unlockAudio, {capture:true, passive:true});
+  window.addEventListener('keydown', unlockAudio, true);
+}
+armAudioUnlock();
 setInterval(ensureMusic, 600);
 
 /* Rate limiter: rapid gunfire (especially at 4x with many towers) must not
@@ -6012,6 +6318,7 @@ function toggleMute(){
   persist();
   if ($('#optMute')) $('#optMute').checked = save.settings.mute;
   updateHUD();
+  ensureMusic();
 }
 $('#btnMute').onclick = toggleMute;
 $$('#speedBtns button').forEach(b => b.onclick = () => { G.speed = +b.dataset.s; G.paused = false; updateHUD(); });

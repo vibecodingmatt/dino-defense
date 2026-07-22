@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.53.0';
+const VERSION = '1.54.0';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -25,6 +25,12 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
+  {v: '1.54.0', date: 'Jul 21, 2026', items: [
+    '🎼 Background music is now a full-length cinematic orchestral suite, preserving its authored tempo changes, dynamics, parts, and phrasing.',
+    '🎻 A rebuilt browser orchestra gives flute, French horn, brass, strings, contrabass, and piano their own voices instead of generic synth tones.',
+    '🎚️ Section balancing, stereo placement, articulation, and concert-hall reverb give the score a wider, more expressive performance.',
+    '🔇 Music starts reliably on the first interaction and stops cleanly — including scheduled notes and its reverb tail — when switched off.',
+  ]},
   {v: '1.53.0', date: 'Jul 20, 2026', items: [
     '🗺️ All seven maps have been rebuilt from the ground up with bold new art direction from edge to edge.',
     '🛣️ Every zone now has its own route materials, scenery, props, lighting, and atmosphere.',
