@@ -410,12 +410,17 @@ function feed(){
   const v = VISITORS.find(x => x.id === state.visitor); if (!v) return;
   const size = state.scale * 0.30;
   const look = v.make(size * 0.58);
-  state.victim = {look, x: W*0.5 + state.scale * 2.6, phase: 0, tripped: false, caught: false,
+  /* They sprint for their lives exactly as they do on the home screen —
+     legs, arms, nervous glances back. The one difference is the outcome:
+     here the visitor is always slower than the boss, so the lab has a 100%
+     death rate and you never wait on a chase that gets away. */
+  state.victim = {look, x: W*0.5 + state.scale * 1.5, phase: rnd(0, 6.28),
+                  vx: state.scale * 0.62, tripped: false, caught: false,
                   dead: false, hero: v.id, say: 0};
   state.eat = null;
   // Blue and Muldoon run their set piece: stalk → "Clever girl!" → pounce
   state.hunt = (state.boss === 'blue' && v.id === 'muldoon') ? {stage:'approach', t:0} : {stage:'approach', t:0, plain:true};
-  state.bossX = W*0.5 - state.scale * 1.4;
+  state.bossX = W*0.5 - state.scale * 1.8;
 }
 function stepScene(dt){
   time += dt;
@@ -423,14 +428,30 @@ function stepScene(dt){
   if (state.entranceT > 0) state.entranceT = Math.max(0, state.entranceT - dt);
   const size = state.scale, V = state.victim;
 
+  /* Visitor animation, mirroring menuScene(): running legs while they flee,
+     flailing once they're in the jaws, and the nervous glance back that the
+     home screen gives anyone whose fate isn't 'safe' — which here is
+     everyone. Muldoon standing his ground is the sole exception. */
+  if (V && !V.dead){
+    if (V.caught){
+      V.phase += dt * 16;                                   // flailing on the spot
+    } else if (V.tripped || V.turned){
+      V.look.lookT = 0;                                     // already looking right at it
+    } else {
+      V.x += V.vx * dt;
+      V.phase += dt * 11;
+      V.look.lookT = Math.sin(time * 2.4 + V.look.phase * 3) > 0.45 ? 0.3 : 0;
+    }
+  }
+
   if (V && state.hunt){
     const Hn = state.hunt; Hn.t += dt;
     if (Hn.stage === 'approach'){
-      state.bossX += size * 1.15 * dt;
+      state.bossX += size * 1.7 * dt;
       const gap = V.x - state.bossX;
       if (Hn.plain ? gap < size * mouthOffset().x : gap < size * 2.9){
         if (Hn.plain){ Hn.stage = 'bite'; state.eat = {t:0}; state.hunt = null; V.caught = true; }
-        else { Hn.stage = 'stalk'; Hn.t = 0; V.say = 2.4; V.turned = true; }
+        else { Hn.stage = 'stalk'; Hn.t = 0; V.say = 2.4; V.turned = true; V.vx = 0; }
       }
     } else if (Hn.stage === 'stalk'){
       state.bossX += size * 0.3 * dt;
