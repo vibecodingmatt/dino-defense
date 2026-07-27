@@ -149,6 +149,83 @@
       <button id="btnSettings"><span class="fIco">⚙️</span><span class="fName">Settings</span><span class="fSub">sound · options</span></button>
     </nav>
 
+    <!-- ===================== TEMP: FILE/CAMERA PICKER TEST =====================
+         THROWAWAY. Not part of the game — delete this whole block (and the
+         matching one-line style/script inside it) when the phone testing is
+         done. Nothing else references it.
+
+         The thing being tested: on Android, `capture` does NOT mean "offer the
+         camera as one option" — it means "skip the chooser and go straight to
+         the camera". To get BOTH camera and file/gallery you must OMIT capture
+         and let accept="image/*" raise the system chooser. Each button below
+         is one variant so the real device can settle it.
+         ====================================================================== -->
+    <section id="tempPickTest">
+      <style>
+        #tempPickTest{margin:14px auto 4px;max-width:760px;padding:12px 14px;
+          border:1px dashed rgba(246,192,93,.5);border-radius:12px;
+          background:rgba(20,15,12,.55);color:#f4e7cf;font-size:13px;text-align:left}
+        #tempPickTest h3{margin:0 0 2px;font-size:14px;letter-spacing:.04em;color:#f6c05d}
+        #tempPickTest .tpNote{margin:0 0 10px;opacity:.75;font-size:12px;line-height:1.45}
+        #tempPickTest .tpRow{display:flex;flex-wrap:wrap;gap:8px}
+        #tempPickTest label{flex:1 1 210px;display:block;cursor:pointer;
+          padding:11px 12px;border-radius:10px;border:1px solid rgba(246,192,93,.35);
+          background:rgba(246,192,93,.10);line-height:1.35;-webkit-tap-highlight-color:transparent}
+        #tempPickTest label:active{background:rgba(246,192,93,.24)}
+        #tempPickTest label b{display:block;font-size:13px;color:#ffe2ae}
+        #tempPickTest label code{font-size:11px;opacity:.8;word-break:break-word}
+        #tempPickTest input[type=file]{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+        #tpOut{margin-top:10px;padding:9px 10px;border-radius:9px;background:rgba(0,0,0,.42);
+          font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;white-space:pre-wrap;word-break:break-word}
+        #tpOut img{display:block;max-width:150px;max-height:150px;margin-top:8px;border-radius:6px}
+      </style>
+      <h3>🧪 TEMP — Android file / camera picker test</h3>
+      <p class="tpNote">Tap each one and note which chooser Android shows.
+        <b>A</b> is the variant that should offer camera <i>and</i> files;
+        <b>B</b> adds <code>capture</code>, which is expected to jump straight to the camera.</p>
+      <div class="tpRow">
+        <label><b>A · accept=image/*, no capture</b><code>&lt;input type=file accept="image/*"&gt;</code>
+          <input type="file" accept="image/*" data-tp="A"></label>
+        <label><b>B · + capture=environment</b><code>accept="image/*" capture="environment"</code>
+          <input type="file" accept="image/*" capture="environment" data-tp="B"></label>
+        <label><b>C · images + video</b><code>accept="image/*,video/*"</code>
+          <input type="file" accept="image/*,video/*" data-tp="C"></label>
+        <label><b>D · anything at all</b><code>&lt;input type=file&gt;</code> (no accept)
+          <input type="file" data-tp="D"></label>
+        <label><b>E · images, multiple</b><code>accept="image/*" multiple</code>
+          <input type="file" accept="image/*" multiple data-tp="E"></label>
+        <label><b>F · photos + PDFs</b><code>accept="image/*,application/pdf"</code>
+          <input type="file" accept="image/*,application/pdf" data-tp="F"></label>
+      </div>
+      <div id="tpOut">No file picked yet.</div>
+      <script>
+        (function(){
+          var out = document.getElementById('tpOut');
+          out.textContent = 'UA: ' + navigator.userAgent + '\n\nNo file picked yet.';
+          document.querySelectorAll('#tempPickTest input[type=file]').forEach(function(inp){
+            inp.addEventListener('change', function(){
+              var fs = Array.prototype.slice.call(inp.files || []);
+              if (!fs.length){ out.textContent = 'Variant ' + inp.dataset.tp + ': cancelled / no file.'; return; }
+              out.textContent = 'Variant ' + inp.dataset.tp + ' — ' + fs.length + ' file(s):\n' +
+                fs.map(function(f){
+                  return '• ' + f.name + '\n  type=' + (f.type || '(none)') +
+                         '  size=' + Math.round(f.size / 1024) + 'KB' +
+                         '  modified=' + new Date(f.lastModified).toLocaleString();
+                }).join('\n');
+              if (/^image\//.test(fs[0].type)){          // proof the bytes really arrived
+                var img = new Image();
+                img.src = URL.createObjectURL(fs[0]);
+                img.onload = function(){ URL.revokeObjectURL(img.src); };
+                out.appendChild(img);
+              }
+              inp.value = '';                            // so re-picking the same file still fires
+            });
+          });
+        })();
+      </script>
+    </section>
+    <!-- =================== END TEMP FILE/CAMERA PICKER TEST =================== -->
+
     <!-- COMMAND DECK -->
     <section class="deck">
       <div id="diffPick">

@@ -1084,6 +1084,7 @@ const G = {
   dinos: [], towers: [], projs: [], fx: [], bolts: [], texts: [], corpses: [], decals: [],
   tourists: [],             // fleeing visitors — pure theatre ahead of wave 1
   snatch: null,             // the pteranodon abduction set piece (also theatre)
+  clever: null,             // Blue's wave-10 entrance: the warden and "Clever girl!"
   zapQ: [], links: [],      // pending tesla chain hops + residual dino-to-dino arcs
   spawnQ: [], spawnT: 0,
   speed: 1, paused: false,
@@ -1304,12 +1305,16 @@ function spawnDino(key, pathI, isBoss){
     addFx('dust', p.x - d.size * 0.6, p.y + 4, d.size * 0.8);
     addFx('dust', p.x + d.size * 0.6, p.y + 4, d.size * 0.8);
     addFx('birds', p.x, p.y, 60);
+    // Blue's wave-10 arrival is a scene, not a spawn: the warden is already
+    // out there ahead of her, and it ends the way it always ends
+    if (key === 'blue' && w === 10) beginCleverGirl(d);
   }
 }
 
 /* ---------------- combat ---------------- */
 function targetable(d, def){
   if (d.dead || d.leaked) return false;
+  if (d.noHurt) return false;             // mid set piece — don't waste the guns on her
   if (d.flying && !def.air) return false;
   if (d.cloaked && d.revealT <= 0 && !def.reveal) return false;
   return true;
@@ -1495,6 +1500,8 @@ function damage(d, amt, pierce, src){
   if (d.dead || d.leaked) return;
   // camouflaged Indominus is invulnerable unless a Sonic Emitter has revealed it
   if (d.cloaked && d.revealT <= 0) return;
+  // Blue is untouchable for the few seconds her "Clever girl!" scene runs
+  if (d.noHurt) return;
   const eff = pierce ? amt : Math.max(1, amt - d.armor);
   d.hp -= eff;
   if (eff >= 70){ // only truly big hits pop a damage number
@@ -2293,6 +2300,217 @@ function drawSnatch(ctx){
   drawSnatcher(ctx, s);
 }
 
+/* ---------------- "CLEVER GIRL." ----------------
+   Blue's wave-10 entrance, played as the scene everyone remembers instead of
+   a stat block walking in: the warden breaks cover ahead of her and runs, she
+   runs him down, he turns, drops to one knee and puts the sights on her for
+   one last line — and she takes him anyway. The home screen runs the same
+   beats (see beginCleverGirl → drawMenuTourist); this is the world-space
+   version, on the map, in front of the player's guns.
+
+   She cannot be shot while it plays. That is the point: the scene is hers,
+   the towers do not get to end it early, and she walks out of it at full
+   health to be fought properly. Costs no lives and kills nothing that counts
+   — the warden was never on the payroll. */
+const CLEVER_STALK = 1.15, CLEVER_POUNCE = 0.6, CLEVER_MEAL = 2.95;
+function beginCleverGirl(d){
+  const path = G.paths[d.pathI];
+  if (!path || G.clever) return;
+  const size = clamp(d.size * 0.42, 11, 19);      // a man, next to a raptor
+  const u = muldoonLook(size);
+  // Road maps put him on the road like any other visitor; the open-world map
+  // has no road at all, so there he simply runs the way the herd flows.
+  const free = !!(G.level.maze && d.mx !== undefined);
+  const start = dinoPos(d);
+  Object.assign(u, {
+    free, pathI: d.pathI, dist: d.dist + d.size * 5.2,
+    px: start.x + d.dirT * d.size * 5.2, py: start.y,
+    turn: d.dirT, dirT: d.dirT, pitch: 0, speed: 76,
+    lookT: 0, kneel: false, tripped: false, gone: false,
+  });
+  G.clever = {stage: 'flee', t: 0, d, u, spd0: d.speed, stride0: d.stride};
+  d.clever = true;
+  d.noHurt = true;                                 // untouchable until it's done
+  // say so plainly, once — the cold blue aura carries it from here
+  addText(start.x, start.y - d.size * 1.9, '🛡 UNTOUCHABLE — she has business first', '#a8e4ff', 13, 3);
+}
+/* Walk the boss forward `px` pixels along whatever she is actually following —
+   the road on a path map, her own heading on the open-world one. Every beat
+   below moves her through this, so the chase, the creep and the pounce all
+   track the route instead of sliding across it. */
+function cleverPush(d, px){
+  if (G.level.maze && d.mx !== undefined){
+    const a = d.mang || 0;
+    d.mx += Math.cos(a) * px; d.my += Math.sin(a) * px; d.dist = d.mx;
+  } else d.dist += px;
+}
+function endCleverGirl(){
+  const c = G.clever;
+  if (!c) return;
+  const d = c.d;
+  d.speed = c.spd0; d.stride = c.stride0;
+  d.clever = false; d.noHurt = false;
+  d.hopY = 0; d.pouncePitch = 0; d.eatPitch = 0;
+  G.clever = null;
+}
+function updateCleverGirl(dt){
+  const c = G.clever;
+  if (!c) return;
+  const d = c.d, u = c.u;
+  // she died to something outside the rules, leaked, or the run reset —
+  // strike the set rather than leaving a man kneeling at nothing
+  if (d.dead || d.leaked || !G.dinos.includes(d)){ endCleverGirl(); return; }
+  c.t += dt;
+  const p = dinoPos(d);
+  const gap = hyp(p.x, p.y, u.px, u.py);
+
+  if (c.stage === 'flee'){
+    /* FAILSAFE. Her invulnerability lasts exactly as long as the scene, so the
+       scene must always end: if she is slowed to a crawl or he somehow makes
+       the treeline, call it off and let the wave be a wave. He escapes; she
+       becomes shootable on the spot. */
+    if (c.t > 9 || u.px < -90 || u.px > W + 90){ endCleverGirl(); return; }
+    u.dist += u.speed * dt;
+    if (u.free){
+      u.px += u.dirT * u.speed * dt;
+      // no road out here: he keeps to the line she is actually running, so her
+      // leap lands on him rather than beside him
+      u.py += clamp(p.y - u.py, -dt * 70, dt * 70);
+    }
+    u.phase += dt * 11;                            // frantic little legs
+    u.lookT = Math.sin(G.time * 2.7 + u.phase * 0.4) > 0.4 ? 0.32 : 0;  // glances back
+    // she is on him: he turns, goes down on one knee, and gets his line out
+    if (d.entranceT <= 0 && gap < d.size * 3.1){
+      c.stage = 'stalk'; c.t = 0;
+      u.kneel = true; u.speed = 0; u.lookT = 0;
+      d.speed = 0; d.stride = c.stride0 * 0.42;    // she creeps the last few feet
+      addText(u.px, u.py - u.size * 2.4, 'CLEVER GIRL!', '#ffe2ae', 15, 2.6);
+      SFX.snarl();
+    }
+  } else if (c.stage === 'stalk'){
+    cleverPush(d, c.spd0 * 0.2 * dt);
+    if (c.t >= CLEVER_STALK){
+      c.stage = 'pounce'; c.t = 0;
+      c.travel = Math.max(0, gap - d.size * 0.45); // where the leap has to land
+      c.moved = 0;
+      d.stride = c.stride0 * 0.5;                  // legs tucked, not sprinting
+    }
+  } else if (c.stage === 'pounce'){
+    const k = clamp(c.t / CLEVER_POUNCE, 0, 1);
+    cleverPush(d, c.travel * k - c.moved);         // the leap, as a forward push
+    c.moved = c.travel * k;
+    d.hopY = -Math.sin(k * Math.PI) * d.size * 1.25;         // the arc
+    d.pouncePitch = -0.42 * Math.sin(k * Math.PI * 0.85);    // rocks back, drives down
+    if (k >= 1){
+      d.hopY = 0; d.pouncePitch = 0;
+      c.stage = 'meal'; c.t = 0;
+      u.kneel = false; u.tripped = true;           // off his feet, onto his back
+      u.shock = true; u.shockT = 0;
+      d.stride = 0;
+      G.shake = Math.max(G.shake, 7);
+      SFX.thud();
+      addFx('dust', u.px, u.py + 2, u.size * 1.6);
+      addFx('dust', u.px - d.dirT * 10, u.py + 2, u.size * 1.2);
+      // the rifle leaves his hands on impact — thrown forward, the way he was
+      // already running and clear of the animal now standing over him
+      if (u.holdItem === 'rifle'){
+        u.holdItem = null; u.arms = 'clutch';
+        G.fx.push({kind: 'rifle', x: u.px, y: u.py - u.size * 0.9, gy: u.py + 2,
+                   vx: d.dirT * rand(85, 135), s: u.size * 1.35,
+                   t: 0, dur: 7, seed: rand(0, 6)});
+      }
+    }
+  } else {                                          // the meal
+    const bp = menuBitePitch(d);
+    const t = c.t;
+    // bend down → CHOMP → raise, thrashing → toss the head back → gulp
+    d.eatPitch = t < 0.45 ? (t / 0.45) * bp
+               : t < 0.8  ? bp
+               : t < 1.1  ? bp - ((t - 0.8) / 0.3) * (bp - 0.15)
+               : t < 2.1  ? 0.15 + Math.sin(t * 9) * 0.05
+               : t < 2.45 ? 0.15 - ((t - 2.1) / 0.35) * 0.5
+               : t < CLEVER_MEAL ? -0.35 + ((t - 2.45) / 0.5) * 0.35 : 0;
+    if (!c.bit){
+      // SHE closes the last hand's breadth, not him — dragging the man into
+      // the mouth reads as the victim feeding himself to her
+      if (c.reach === undefined){ c.reach = Math.max(0, gap - menuMouthReach(d) * 0.72); c.closed = 0; }
+      const k = clamp(t / 0.42, 0, 1), e = 1 - Math.pow(1 - k, 3);
+      cleverPush(d, c.reach * e - c.closed);
+      c.closed = c.reach * e;
+      if (t >= 0.48){                               // the jaws land
+        c.bit = true;
+        u.gone = true;                              // he is in the mouth now
+        const m = cleverMouth(d, p);
+        addFx('blood', m.x, m.y, u.size * 1.5);
+        addFx('blood', m.x - d.dirT * 6, m.y + 4, u.size);
+        SFX.snarl();
+        G.shake = Math.max(G.shake, 4);
+      }
+    }
+    if (c.bit && t > 1.1 && t < 2.45 && Math.random() < 0.25){ // slung off the jaws
+      const m = cleverMouth(d, p);
+      addFx('blood', m.x + rand(-9, 9), m.y + rand(-6, 10), u.size * 0.7);
+    }
+    if (t >= CLEVER_MEAL){ endCleverGirl(); return; }
+  }
+
+  // resolve the warden's position and facing — on the road for road maps,
+  // straight ahead on the open-world one. He stops moving once he's kneeling.
+  if (!u.gone && !u.free){
+    const path = G.paths[u.pathI];
+    let pp;
+    if (u.dist <= path.len) pp = samplePath(path, u.dist);
+    else {
+      const sg = path.segs[path.segs.length - 1];
+      pp = {x: sg.b.x + Math.cos(sg.ang) * (u.dist - path.len),
+            y: sg.b.y + Math.sin(sg.ang) * (u.dist - path.len), ang: sg.ang};
+    }
+    const cosA = Math.cos(pp.ang);
+    if (Math.abs(cosA) > 0.15) u.dirT = cosA > 0 ? 1 : -1;
+    u.turn += clamp(u.dirT - u.turn, -dt * 9, dt * 9);
+    let pitchT = u.dirT > 0 ? pp.ang : Math.PI - pp.ang;
+    while (pitchT > Math.PI) pitchT -= Math.PI * 2;
+    while (pitchT < -Math.PI) pitchT += Math.PI * 2;
+    u.pitch += clamp(pitchT - u.pitch, -dt * 4, dt * 4);
+    u.px = pp.x; u.py = pp.y;
+  }
+  if (u.tripped) u.shockT += dt;                    // the eyes keep quivering
+}
+/* Where her jaws are right now, in world space. Same geometry the home screen
+   uses, fed this dinosaur's live body pitch so it stays right through the
+   bite, the thrashing and the toss. */
+function cleverMouth(d, p){
+  return menuMouthPos({painter: d.painter, size: d.size, phase: d.phase,
+                       x: p.x, y: p.y, dir: d.dirT},
+                      d.pitch + (d.eatPitch || 0));
+}
+/* the warden himself — fleeing, kneeling, or flat on his back */
+function drawCleverMan(ctx, u){
+  if (u.gone) return;
+  if (u.tripped){ drawTouristSitting(ctx, u, u.px, u.py, -u.dirT, G.time, 1); return; }
+  if (u.kneel){ drawTouristKneelAim(ctx, u, u.px, u.py, -u.dirT, G.time, 1); return; }
+  drawTourist(ctx, u, u.px, u.py, u.turn, u.phase, 1, u.pitch);
+}
+/* what's left of him, sideways in her jaws — then the lump going down */
+function drawCleverMeal(ctx, d, p, pitch){
+  const c = G.clever;
+  if (!c || !c.bit) return;
+  if (c.t < 2.45){
+    const m = cleverMouth(d, p);
+    drawMenuVictim(ctx, {look: c.u, shirt: c.u.shirt}, m, d.dirT);
+  } else {                                          // the lump sliding down the neck
+    const k = clamp((c.t - 2.45) / 0.5, 0, 1);
+    const ux = 0.42 - 0.4 * k, uy = -0.92 + 0.34 * k;
+    ctx.save();
+    ctx.globalAlpha = 0.86;
+    ctx.fillStyle = shade(d.pal.body, 0.16);
+    ctx.beginPath();
+    ctx.ellipse(p.x + d.dirT * ux * d.size, p.y + uy * d.size, d.size * 0.12, d.size * 0.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
 /* ---------------- wave flow ---------------- */
 /* rush bonus: calling the next wave early (manually) pays out the seconds you
    didn't wait — the countdown starts the moment the previous wave clears */
@@ -2425,7 +2643,7 @@ function startLevel(idx, mode, diff){
   G.hurtT = 0; G.flashT = 0; G.waveTotal = 0; G.cinT = 0;
   initAmbient();
   G.dinos = []; G.projs = []; G.fx = []; G.bolts = []; G.texts = []; G.spawnQ = []; G.corpses = []; G.decals = [];
-  G.tourists = []; G.snatch = null;
+  G.tourists = []; G.snatch = null; G.clever = null;
   G.zapQ = []; G.links = []; G.thunderT = 0;
   G.selected = null; G.placing = null; G.targeting = null; G.strikes = []; G.clouds = []; G.omega = null;
   G.celebration = null; G.fw = []; G.victoryPending = false;
@@ -4231,6 +4449,7 @@ function step(dt){
   for (const t of G.towers) fireTower(t, dt);
   runZapQ(dt);
   updateDinos(dt);
+  updateCleverGirl(dt);   // after the herd moves: this beat owns Blue's position
   updateTourists(dt);
   updateSnatch(dt);
   updateProjs(dt);
@@ -4914,11 +5133,14 @@ function render(dt){
 
   const drawOne = d => {
     const p = dinoPos(d);
+    if (d.hopY) p.y += d.hopY;                   // mid-pounce, off the ground
     const hidden = d.cloaked && d.revealT <= 0;  // camouflaged & not currently revealed
     const alpha = hidden ? 0.08 : 1;
-    // rearing back during the entrance roar
-    const pitch = d.pitch - (d.entranceT > 0 ? Math.min(0.22, (2.2 - d.entranceT) * 0.6) : 0);
+    // rearing back during the entrance roar, plus the set-piece leap and bite
+    const pitch = d.pitch - (d.entranceT > 0 ? Math.min(0.22, (2.2 - d.entranceT) * 0.6) : 0)
+                + (d.pouncePitch || 0) + (d.eatPitch || 0);
     drawDino(ctx, d, p.x, p.y, d.turn, d.phase, alpha, pitch);
+    if (d.clever) drawCleverMeal(ctx, d, p, pitch);   // the warden, in her jaws
     // while cloaked, draw nothing else — no health bar, boss aura, or status
     // tints that would betray its position (a Sonic Emitter must reveal it)
     if (hidden) return;
@@ -5090,9 +5312,19 @@ function render(dt){
       ctx.fillStyle = '#ffe9a8'; ctx.fillText('⭐ ' + d.custom, p.x, y0);
     }
     if (d.boss){
-      ctx.strokeStyle = 'rgba(255,80,60,' + (0.4 + 0.3*Math.sin(d.phase)) + ')';
+      // the aura goes cold shield-blue while she can't be touched, so nobody
+      // spends an air strike wondering why nothing is landing
+      ctx.strokeStyle = d.noHurt
+        ? 'rgba(150,225,255,' + (0.55 + 0.35 * Math.sin(G.time * 5)) + ')'
+        : 'rgba(255,80,60,' + (0.4 + 0.3*Math.sin(d.phase)) + ')';
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(p.x, p.y, d.size * 1.1, 0, Math.PI*2); ctx.stroke();
+      if (d.noHurt){
+        ctx.strokeStyle = 'rgba(150,225,255,0.28)';
+        ctx.setLineDash([6, 7]); ctx.lineDashOffset = -G.time * 26;
+        ctx.beginPath(); ctx.arc(p.x, p.y, d.size * 1.42, 0, Math.PI*2); ctx.stroke();
+        ctx.setLineDash([]); ctx.lineDashOffset = 0;
+      }
       // embers drifting off the apex predator (the D-Rex smolders harder)
       const emberN = d.key === 'drex' ? 9 : 4;
       for (let i = 0; i < emberN; i++){
@@ -5110,6 +5342,7 @@ function render(dt){
   for (const t of G.towers) depth.push({y: t.y + 12, t});
   for (const d of ground) depth.push({y: dinoPos(d).y, d});
   for (const u of G.tourists) if (u.dist > -1) depth.push({y: u.py, u});
+  if (G.clever && !G.clever.u.gone) depth.push({y: G.clever.u.py, cg: G.clever.u});
   depth.sort((a, b) => a.y - b.y);
   for (const it of depth){
     if (it.t){
@@ -5135,6 +5368,8 @@ function render(dt){
       }
     } else if (it.d){
       drawOne(it.d);
+    } else if (it.cg){ // the warden, running out of road
+      drawCleverMan(ctx, it.cg);
     } else { // a fleeing visitor (fades out as they clear the map edge)
       const u = it.u, over = u.dist - G.paths[u.pathI].len;
       drawTourist(ctx, u, u.px, u.py, u.turn, u.phase, clamp(1 - Math.max(0, over - 30) / 50, 0, 1), u.pitch);
@@ -5979,6 +6214,22 @@ function render(dt){
         ctx.fillStyle = f.color;
         ctx.beginPath(); ctx.arc(0, 0, hr, Math.PI, Math.PI * 2); ctx.fill();
         ctx.fillRect(-hr * 1.7, -hr * 0.16, hr * 1.7, hr * 0.32);
+        ctx.restore(); break;
+      }
+      case 'rifle': { // the warden's rifle, thrown clear and left lying there
+        const landT = Math.sqrt(Math.max(0.05, (f.gy - f.y) / 380));
+        let xx = f.x + f.vx * Math.min(f.t, landT), yy, rot;
+        if (f.t < landT){ yy = f.y + 380 * f.t * f.t; rot = f.seed + f.t * 8; }
+        else {
+          const bt = f.t - landT;
+          xx += f.vx * 0.25 * Math.min(bt, 0.35);          // skids a little on landing
+          yy = f.gy - Math.max(0, Math.sin(Math.min(bt * 7, Math.PI)) * 6 * Math.max(0, 1 - bt * 1.8));
+          rot = 1.62;                                       // flat on the ground
+        }
+        ctx.save();
+        ctx.globalAlpha = clamp((1 - k) * 3, 0, 1);
+        ctx.translate(xx, yy); ctx.rotate(rot); ctx.scale(f.s, f.s);
+        touristRifle(ctx);
         ctx.restore(); break;
       }
       case 'shoe': { // a lone flip-flop, returned to earth from a great height
@@ -6878,6 +7129,38 @@ if (testParams.has('test')){
     const idx = clamp(parseInt(testParams.get('snatch'), 10) || 0, 0, G.tourists.length - 1);
     const mk = G.tourists[idx].kid ? G.tourists[2] : G.tourists[idx];
     mk.snatchAt = 0.12;
+  }
+  if (testParams.has('clever')){ // stage Blue's wave-10 set piece: ?clever=SECONDS in
+    G.wave = 10;
+    spawnDino('blue', 0, true);
+    const bz = G.dinos[G.dinos.length - 1];
+    bz.entranceT = 0; G.cinT = 0; G.banner = null;   // skip the hold; get to the chase
+    for (let s = 0; s < (parseFloat(testParams.get('clever')) || 0); s += 0.05) step(0.05);
+    G.paused = true;
+  }
+  if (testParams.has('clevertest')){ // the set piece must hand the boss back intact
+    G.towers = []; G.wave = 10;
+    spawnDino('blue', 0, true);
+    const bz = G.dinos.find(d => d.boss);
+    const spd = bz.speed;
+    bz.entranceT = 0; G.cinT = 0; G.banner = null;
+    let sawScene = false, hurtDuring = false;
+    for (let s = 0; s < 12; s += 0.05){
+      step(0.05);
+      if (G.clever){
+        sawScene = true;
+        const before = bz.hp;
+        damage(bz, 1e9, true);                       // guns must do nothing mid-scene
+        if (bz.hp !== before) hurtDuring = true;
+      }
+    }
+    const hpBefore = bz.hp;
+    damage(bz, 500, true);                           // ...and everything after
+    const el = $('#errbox'); el.classList.remove('hidden');
+    el.textContent = `CLEVER scene-ran=${sawScene} · hurt-during=${hurtDuring} (want false) · cleared=${G.clever === null}`
+      + ` · alive=${!bz.dead} · speed-restored=${bz.speed === spd}`
+      + ` · hurt-after=${bz.hp < hpBefore} (n/a once leaked=${!!bz.leaked})`;
+    G.paused = true;
   }
   if (testParams.has('ghost')){ // preview the range indicator that follows a placement drag
     G.placing = testParams.get('ghost') !== '1' ? testParams.get('ghost') : 'missile';
