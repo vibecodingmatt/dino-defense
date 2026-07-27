@@ -3378,6 +3378,14 @@ function drawMenuTourist(ctx, tr){
     drawTouristSitting(ctx, lk, tr.x, tr.y, -tr.dir, G.time, tr.alpha);
     return;
   }
+  if (tr.kneel){
+    // Muldoon: down on one knee with the sights up, holding the line he is
+    // about to become famous for. Same -tr.dir as the sitting pose — he has
+    // turned to face what is behind him.
+    lk.lookT = 0;                                  // he is looking right at her
+    drawTouristKneelAim(ctx, lk, tr.x, tr.y, -tr.dir, G.time, tr.alpha);
+    return;
+  }
   // sprinting for their lives — nervous glances back at the thing behind.
   // `turned` is Muldoon standing his ground: he faces AGAINST his travel
   // direction. It's a separate flag rather than flipping tr.dir, because the
@@ -3410,7 +3418,8 @@ function drawMenuBubble(ctx, tr, w){
   for (const l of lines) tw = Math.max(tw, ctx.measureText(l).width);
   const bw = tw + padX * 2, bh = lines.length * lh + padY * 2;
   const bob = Math.sin(G.time * 3 + tr.phase) * 1.8;
-  const tipX = tr.x, tipY = tr.y - hs * 1.9 + bob;           // just above the head
+  // just above the head — which is a good deal lower once he's on one knee
+  const tipX = tr.x, tipY = tr.y - hs * (tr.kneel ? 1.35 : 1.9) + bob;
   const bx = clamp(tipX - bw / 2, 4, w - bw - 4), by = tipY - 9 - bh;
   const tailX = clamp(tipX, bx + 14, bx + bw - 14);
   ctx.globalAlpha = tr.alpha;
@@ -3477,7 +3486,7 @@ function menuScene(dt){
         d.phase += dt * 1.1;                                  // legs tucked, not sprinting
         if (k >= 1){
           d.pounceY = 0; d.pouncePitch = 0; d.hunt = null;
-          tr.tripped = true; tr.vx = 0; tr.stand = false; tr.sayT = 0;
+          tr.tripped = true; tr.vx = 0; tr.stand = false; tr.kneel = false; tr.sayT = 0;
           tr.look.shock = true; tr.look.shockT = 0;
           tr.caught = true;
           d.eat = {t: 0, tr};
@@ -3517,7 +3526,9 @@ function menuScene(dt){
           if (tr.prey !== d || tr.hero !== 'muldoon' || tr.caught || tr.dead) continue;
           if ((tr.x - d.x) * d.dir < d.size * 4.4){
             d.hunt = {stage: 'stalk', t: 0, tr};
-            tr.vx = 0; tr.stand = true; tr.turned = true; // he stops and faces her
+            // he drops to a knee and puts the rifle on her, rather than simply
+            // standing there — the line lands over the sights
+            tr.vx = 0; tr.stand = true; tr.turned = true; tr.kneel = true;
             tr.sayT = 2.4;                                // "Clever girl!"
           }
           break;
@@ -6777,7 +6788,7 @@ if (new URLSearchParams(location.search).has('menudino')){ // seed roaming menu 
     const d = menuDinos.find(x => x.key === 'blue');
     const tr = d && menuTourists.find(x => x.prey === d && x.hero === 'muldoon');
     if (d && tr){
-      tr.vx = 0; tr.stand = true; tr.turned = true; tr.sayT = Math.max(0.01, 2.4 - ht);
+      tr.vx = 0; tr.stand = true; tr.turned = true; tr.kneel = true; tr.sayT = Math.max(0.01, 2.4 - ht);
       // Only the stage and clock are seeded — the pose itself is derived from
       // H.t by the real code on the next frame, so this previews the shipping
       // animation rather than a reimplementation of it.

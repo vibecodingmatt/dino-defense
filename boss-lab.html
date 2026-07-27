@@ -451,7 +451,7 @@ function stepScene(dt){
       const gap = V.x - state.bossX;
       if (Hn.plain ? gap < size * mouthOffset().x : gap < size * 2.9){
         if (Hn.plain){ Hn.stage = 'bite'; state.eat = {t:0}; state.hunt = null; V.caught = true; }
-        else { Hn.stage = 'stalk'; Hn.t = 0; V.say = 2.4; V.turned = true; V.vx = 0; }
+        else { Hn.stage = 'stalk'; Hn.t = 0; V.say = 2.4; V.turned = true; V.kneel = true; V.vx = 0; }
       }
     } else if (Hn.stage === 'stalk'){
       state.bossX += size * 0.3 * dt;
@@ -463,7 +463,7 @@ function stepScene(dt){
       state.pouncePitch = -0.42 * Math.sin(k * Math.PI * 0.85);
       if (k >= 1){
         state.pounceY = 0; state.pouncePitch = 0; state.hunt = null;
-        V.tripped = true; V.caught = true; V.say = 0; state.eat = {t:0};
+        V.tripped = true; V.kneel = false; V.caught = true; V.say = 0; state.eat = {t:0};
         for (let i=0;i<12;i++) state.puffs.push({x:V.x+rnd(-14,14), y:GY-rnd(0,7),
           vx:rnd(-52,52), vy:rnd(-44,-6), t:0, dur:rnd(.35,.75), r:rnd(2.5,6), c:'154,143,118'});
         // thrown forward, away from the thing that hit him from behind —
@@ -582,6 +582,7 @@ function draw(){
   }
   if (V && !V.dead){
     if (V.tripped) drawTouristSitting(ctx, V.look, V.x, GY, -1, time, 1);
+    else if (V.kneel) drawTouristKneelAim(ctx, V.look, V.x, GY, -1, time, 1);   // sights on her
     else drawTourist(ctx, V.look, V.x, GY, V.turned ? -1 : 1, V.phase, 1, 0);
   }
   drawBoss(bx, size, (state.eatPitch || 0) + (state.pouncePitch || 0));
@@ -599,7 +600,7 @@ function draw(){
      for the whole chase, Muldoon's lands on cue when he turns and sees her. */
   if (V && !V.dead && MENU_LINES[V.hero]){
     const timed = V.hero === 'muldoon';
-    if (!timed ? !V.caught : V.say > 0) bubble(V.x, GY - V.look.size * 1.9, MENU_LINES[V.hero]);
+    if (!timed ? !V.caught : V.say > 0) bubble(V.x, GY - V.look.size * (V.kneel ? 1.35 : 1.9), MENU_LINES[V.hero]);
   }
 }
 

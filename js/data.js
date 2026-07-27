@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.56.4';
+const VERSION = '1.56.5';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -25,10 +25,10 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.56.4', date: 'Jul 27, 2026', items: [
+  {v: '1.56.5', date: 'Jul 27, 2026', items: [
     '🦖 Blue now prowls the home screen — and she never hunts alone.',
     '🎩 Robert Muldoon joins the cameos in full safari kit, rifle in hand. It goes exactly as well for him as you remember.',
-    '🌿 She stalks him down, he turns to face her with one last "Clever girl!", and she takes him off his feet — the rifle goes flying.',
+    '🌿 She stalks him down, he drops to one knee and puts the sights on her for one last "Clever girl!", and she takes him off his feet — the rifle goes flying.',
   ]},
   {v: '1.55.0', date: 'Jul 26, 2026', items: [
     '🦖 The D-Rex has been completely redrawn from the film reference — a hulking knuckle-walker with a swollen skull fused straight into its shoulders, four arms, and a mouth that never quite closes.',

@@ -1752,6 +1752,131 @@ function drawTouristSitting(ctx, u, x, y, dir, time, alpha){
   ctx.restore();
 }
 
+/* A visitor down on one knee with the rifle up and the sights on whatever is
+   coming — the warden's last professional act, and the pose he holds while he
+   gets his line out. Faces +x (at the threat), origin at the ground under the
+   hips, like every other tourist pose; pass dir=-travel so he's turned to face
+   the thing behind him. `t` only drives the aim's small live tremble: he is
+   otherwise holding very still. */
+function drawTouristKneelAim(ctx, u, x, y, dir, t, alpha){
+  if (alpha <= 0) return;
+  const s = u.size, bw = u.build, tl = u.tall, skin = u.skin;
+  ctx.save();                                     // ground shadow, wider than standing
+  ctx.globalAlpha = 0.26 * alpha;
+  ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.ellipse(x - s * 0.08, y + 1.5, s * 0.62, s * 0.15, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(x, y);
+  ctx.scale(dir * s, s);
+  ctx.lineCap = 'round';
+  // the whole man breathes into the stock — a slow settle, not a run cycle
+  const br = Math.sin(t * 2.3) * 0.012;
+  const thC = u.bottomType === 'skirt' ? skin : u.bottom;
+  const shC = u.bottomType === 'pants' ? u.bottom : skin;
+  const shoe = u.shoeC || '#2e2e34';
+  const hipX = -0.02, hipY = -0.50 * tl + br * 0.4;
+
+  // TRAILING LEG: knee planted in the dirt, shin and boot laid back flat
+  ctx.strokeStyle = shade(thC, -0.3); ctx.lineWidth = 0.135 * bw;
+  ctx.beginPath(); ctx.moveTo(hipX - 0.03, hipY); ctx.lineTo(-0.27, -0.07); ctx.stroke();
+  ctx.strokeStyle = shade(shC, -0.3); ctx.lineWidth = 0.105 * bw;
+  ctx.beginPath(); ctx.moveTo(-0.27, -0.07); ctx.lineTo(-0.56, -0.05); ctx.stroke();
+  ctx.save();
+  ctx.translate(-0.58, -0.04); ctx.rotate(Math.PI - 0.12);   // boot lying on its toe, heel up
+  ctx.fillStyle = shade(shoe, -0.3);
+  ctx.beginPath(); ctx.ellipse(0.05, 0, 0.085, 0.042, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  // LEADING LEG: thigh out level, shin vertical, boot flat — the firing knee
+  ctx.strokeStyle = thC; ctx.lineWidth = 0.15 * bw;
+  ctx.beginPath(); ctx.moveTo(hipX + 0.02, hipY); ctx.lineTo(0.30, -0.47 + br); ctx.stroke();
+  ctx.strokeStyle = shC; ctx.lineWidth = 0.117 * bw;
+  ctx.beginPath(); ctx.moveTo(0.30, -0.47 + br); ctx.lineTo(0.34, -0.06); ctx.stroke();
+  ctx.fillStyle = shoe;
+  ctx.beginPath(); ctx.ellipse(0.39, -0.035, 0.088, 0.044, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.beginPath(); ctx.ellipse(0.39, -0.012, 0.082, 0.014, 0, 0, Math.PI * 2); ctx.fill();
+
+  // bottoms over the hips
+  if (u.bottomType === 'skirt'){
+    ctx.fillStyle = u.bottom;
+    ctx.beginPath();
+    ctx.moveTo(hipX - 0.17 * bw, hipY - 0.08); ctx.lineTo(hipX + 0.17 * bw, hipY - 0.08);
+    ctx.lineTo(hipX + 0.26 * bw, hipY + 0.22); ctx.lineTo(hipX - 0.26 * bw, hipY + 0.2);
+    ctx.closePath(); ctx.fill();
+  } else if (u.bottomType === 'shorts'){
+    ctx.fillStyle = u.bottom;
+    ctx.beginPath(); ctx.ellipse(hipX - 0.02, hipY + 0.05, 0.2 * bw, 0.16, -0.12, 0, Math.PI * 2); ctx.fill();
+  }
+
+  /* Upper body, hips to head, tipped forward into the stock. Everything above
+     the waist lives in this frame so the torso, head and both arms lean as one
+     piece — and the rifle rides with the shoulder rather than floating. */
+  const lean = 0.30 + br * 0.5;
+  ctx.save();
+  ctx.translate(hipX, hipY);
+  ctx.rotate(lean);
+  const shY = -0.50 * tl, headY = -0.80 * tl, headX = 0.06;
+  const gripX = 0.40, gripY = -0.60 * tl;             // trigger hand, high at the shoulder
+  const rifleA = -0.10;                                // a hair of muzzle-up: she's taller kneeling
+  const cs = Math.cos(rifleA), sn = Math.sin(rifleA);
+  const foreX = gripX + 0.22 * cs - (-0.02) * sn;      // support hand out on the fore-end
+  const foreY = gripY + 0.22 * sn + (-0.02) * cs;
+
+  // FAR ARM first: it reaches under to the fore-end, elbow braced on the knee
+  ctx.strokeStyle = shade(u.shirt, -0.28); ctx.lineWidth = 0.1 * bw;
+  ctx.beginPath(); ctx.moveTo(0.02, shY); ctx.lineTo(0.26, shY + 0.20); ctx.stroke();
+  ctx.strokeStyle = shade(skin, -0.2); ctx.lineWidth = 0.08 * bw;
+  ctx.beginPath(); ctx.moveTo(0.26, shY + 0.20); ctx.lineTo(foreX, foreY); ctx.stroke();
+  ctx.fillStyle = shade(skin, -0.2);
+  ctx.beginPath(); ctx.arc(foreX, foreY, 0.052, 0, Math.PI * 2); ctx.fill();
+
+  // torso
+  ctx.fillStyle = skin;
+  ctx.fillRect(headX + 0.05, headY + 0.19, 0.11, 0.16);        // neck, craned toward the sights
+  ctx.fillStyle = u.shirt;
+  ctx.beginPath();
+  ctx.ellipse(0, shY / 2, 0.17 * bw, -shY / 2 + 0.07, 0, 0, Math.PI * 2);
+  ctx.fill();
+  if (u.belly){
+    ctx.fillStyle = shade(u.shirt, -0.07);
+    ctx.beginPath(); ctx.ellipse(0.09 * bw, -0.14, 0.12 * bw, 0.15, 0.2, 0, Math.PI * 2); ctx.fill();
+  }
+  if (u.pack === 'backpack'){
+    ctx.fillStyle = u.packC;
+    ctx.beginPath(); ctx.ellipse(-0.23 * bw, shY * 0.6, 0.13, 0.2, 0.1, 0, Math.PI * 2); ctx.fill();
+  } else if (u.pack === 'fanny'){
+    ctx.fillStyle = u.packC;
+    ctx.beginPath(); ctx.ellipse(0.17 * bw, -0.02, 0.1, 0.075, -0.2, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // head, cheek down on the comb of the stock, eye behind the scope
+  ctx.save();
+  ctx.translate(headX + 0.11, headY + 0.10);
+  ctx.rotate(0.22);
+  touristHead(ctx, u, t * 3, 0, 0, 1);
+  ctx.restore();
+
+  // THE RIFLE, shouldered — butt in the pocket, barrel out over the knee
+  ctx.save();
+  ctx.translate(gripX, gripY);
+  ctx.rotate(rifleA);
+  touristRifle(ctx);
+  ctx.restore();
+
+  // NEAR ARM last, over the weapon: elbow up and out, finger on the trigger
+  ctx.strokeStyle = u.shirt; ctx.lineWidth = 0.1 * bw;
+  ctx.beginPath(); ctx.moveTo(0.02, shY); ctx.lineTo(0.14, shY + 0.24); ctx.stroke();
+  ctx.strokeStyle = skin; ctx.lineWidth = 0.08 * bw;
+  ctx.beginPath(); ctx.moveTo(0.14, shY + 0.24); ctx.lineTo(gripX - 0.03, gripY + 0.09); ctx.stroke();
+  ctx.fillStyle = skin;
+  ctx.beginPath(); ctx.arc(gripX - 0.03, gripY + 0.09, 0.055, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  ctx.restore();
+}
+
 /* ---------- THE PTERANODON (abduction set piece) ----------
    A huge dark pterosaur for the wave-1 evacuation gag. Drawn in world
    space at (o.x, o.y) — its BODY position — facing o.dir. `spread`
