@@ -1475,7 +1475,7 @@ const BOSS_DEATHS = {
   indominus:      {dur:4.0, impact:1.46,label:'CAMOUFLAGE BROKEN',       color:'#dffaff'},
   indoraptor:     {dur:3.2, impact:1.06,label:'NIGHTMARE ENDED',         color:'#d4af5e'},
   giganotosaurus: {dur:4.2, impact:1.76,label:'APEX SHATTERED',          color:'#ef776e'},
-  drex:           {dur:6.6, impact:1.75,label:'ABOMINATION ERADICATED',  color:'#ff5a42'},
+  drex:           {dur:7.6, impact:2.0, label:'ABOMINATION ERADICATED',  color:'#ff5a42'},
   whiteptera:     {dur:3.7, impact:1.55,label:'SKY TYRANT GROUNDED',     color:'#f7f2df'},
   mosasaurus:     {dur:3.9, impact:1.34,label:'THE LAGOON FALLS SILENT', color:'#70d9ef'},
 };
@@ -3333,9 +3333,15 @@ const MENU_MOUTHS = {
 };
 function menuMouthOffset(d){
   // Dedicated painters can extend beyond the generic theropod muzzle.
+  // The D-Rex reports its own jaws: its skull hinges at the rear and the
+  // body pitches with the gait, so a constant offset can't describe it.
+  if (d.painter === 'mutant' && typeof drexMouth === 'function'){
+    const m = drexMouth(d.phase || 0, 0);
+    return {x: m.x, y: m.y + 0.6};             // undo the shared body offset
+  }
   const filmMouth = MENU_MOUTHS[d.painter];
-  const ux = d.painter === 'trex' ? 1.26 : d.painter === 'mutant' ? 1.14 : filmMouth ? filmMouth.x : 0.8;
-  const dy = d.painter === 'trex' ? -0.48 : d.painter === 'mutant' ? -0.20
+  const ux = d.painter === 'trex' ? 1.26 : filmMouth ? filmMouth.x : 0.8;
+  const dy = d.painter === 'trex' ? -0.48
            : filmMouth ? filmMouth.y : -0.42; // hip-relative before the shared body offset
   return {x:ux,y:dy};
 }
@@ -3353,11 +3359,24 @@ function menuBitePitch(d){
 }
 function menuMouthReach(d){
   const filmMouth = MENU_MOUTHS[d.painter];
-  return d.size * (d.painter === 'mutant' ? 1.12 : d.painter === 'trex' ? 1.22 : filmMouth ? filmMouth.x : 0.9);
+  if (d.painter === 'mutant') return d.size * menuMouthOffset(d).x;
+  return d.size * (d.painter === 'trex' ? 1.22 : filmMouth ? filmMouth.x : 0.9);
 }
 /* the caught tourist, clamped sideways in the jaws, legs kicking */
+/* The victim's drawing units are NOT the standing tourist's: this body spans
+   about 0.83 of a unit end to end, while a standing tourist is ~1.75 units
+   tall. Passing the same `s` to both shrank a person to roughly 43% the
+   instant the jaws closed. Deriving `s` from their real standing height means
+   a visitor held sideways is exactly as long as they were tall — and it
+   self-corrects for kids, who carry their own height multiplier. */
+function menuVictimScale(tr){
+  const lk = tr.look || {};
+  const base = lk.size || tr.size;
+  const headR = 0.17 * (lk.kid ? 1.25 : 1);
+  return ((1.58 * (lk.tall || 1) + headR) * base) / 0.83;
+}
 function drawMenuVictim(ctx, tr, m, dir){
-  const s = tr.size * 0.9, lk = tr.look || {};
+  const s = menuVictimScale(tr), lk = tr.look || {};
   const skin = lk.skin || '#e8c49a';
   const legCol = lk.bottomType === 'pants' ? lk.bottom : skin;
   ctx.save();
@@ -3494,20 +3513,46 @@ function menuScene(dt){
                  : e.t < 2.1  ? 0.15 + Math.sin(e.t * 9) * 0.05
                  : e.t < 2.45 ? 0.15 - ((e.t - 2.1) / 0.35) * 0.5
                  : e.t < 2.95 ? -0.35 + ((e.t - 2.45) / 0.5) * 0.35 : 0;
-      // Close only the horizontal gap. The tourist stays planted while the
-      // dinosaur brings its mouth down to make contact.
+      // The DINOSAUR closes the gap, not the meal. Dragging the tourist
+      // toward the mouth read as the victim sliding into the animal just
+      // before being eaten; easing the dinosaur onto its prey instead keeps
+      // the visitor planted (flailing on the spot) the whole way in.
       if (!e.bit && e.tr){
-        const mouth = menuMouthPos(d, d.eatPitch), k = clamp(e.t / 0.40, 0, 1);
-        e.tr.x += (mouth.x - e.tr.x) * k * 0.28;
+        if (e.standX === undefined){
+          const off = menuMouthOffset(d), bp = menuBitePitch(d);
+          const co = Math.cos(bp), si = Math.sin(bp);
+          e.x0 = d.x;
+          e.standX = e.tr.x - d.dir * (off.x * co - off.y * si) * d.size;
+        }
+        const k = clamp(e.t / 0.42, 0, 1);
+        d.x = e.x0 + (e.standX - e.x0) * (1 - Math.pow(1 - k, 3));
       }
       if (!e.bit && e.t >= 0.48){                        // the bite lands — blood
         e.bit = true;
         if (e.tr) e.tr.dead = true;
         const m = menuMouthPos(d, d.eatPitch);
-        for (let i = 0; i < 10; i++){
-          menuPuffs.push({x: m.x + rand(-6, 6), y: m.y + rand(-6, 6),
-                          vx: rand(-35, 35), vy: rand(-60, 5),
-                          t: 0, dur: rand(0.4, 0.8), r: rand(2, 5)});
+        // A proper burst: a fast arterial spray thrown forward off the jaws,
+        // plus heavier gouts that arc and fall.
+        for (let i = 0; i < 26; i++){
+          const a = rand(-2.5, 0.5);
+          const sp = rand(45, 190);
+          menuPuffs.push({x: m.x + rand(-7, 7), y: m.y + rand(-7, 7),
+                          vx: Math.cos(a) * sp * d.dir, vy: Math.sin(a) * sp - rand(0, 40),
+                          t: 0, dur: rand(0.45, 1.15), r: rand(2, 6.5)});
+        }
+        for (let i = 0; i < 8; i++){                     // fat gouts, slower, lower, darker
+          menuPuffs.push({x: m.x + rand(-5, 5), y: m.y + rand(-2, 8),
+                          vx: rand(-24, 24), vy: rand(-18, 30),
+                          t: 0, dur: rand(0.8, 1.5), r: rand(4, 8), c: '112,16,12'});
+        }
+      }
+      if (e.bit && e.t >= 2.42 && !e.gulpSpurt){         // squeezed out as it goes down
+        e.gulpSpurt = true;
+        const m = menuMouthPos(d, d.eatPitch);
+        for (let i = 0; i < 12; i++){
+          menuPuffs.push({x: m.x + rand(-6, 6), y: m.y + rand(-4, 6),
+                          vx: rand(-30, 30), vy: rand(-10, 55),
+                          t: 0, dur: rand(0.5, 1.0), r: rand(2, 5)});
         }
       }
       if (e.t >= 2.95) d.eat = null;                     // burp. carry on.
@@ -3555,14 +3600,28 @@ function menuScene(dt){
     drawDino(ctx, d, d.x, yy, d.dir, d.phase, d.alpha, d.eatPitch || 0);
     if (d.eat && d.eat.bit){
       const e = d.eat;
+      // The victim shows ONLY until the gulp starts: from 2.45 the bulge
+      // travelling down the throat IS this tourist, and drawing both puts the
+      // same person in two places at once.
       if (e.t < 2.45 && e.tr){                           // victim in the jaws, thrashing
         const m = menuMouthPos(d, d.eatPitch);
         drawMenuVictim(ctx, e.tr, m, d.dir);
-        if (Math.random() < 0.25){                       // dripping
-          menuPuffs.push({x: m.x + rand(-4, 4), y: m.y + 4, vx: rand(-8, 8), vy: rand(10, 40),
-                          t: 0, dur: rand(0.35, 0.6), r: rand(1.5, 3)});
+        if (Math.random() < 0.65){                       // running down the jaws
+          menuPuffs.push({x: m.x + rand(-7, 7), y: m.y + rand(0, 7), vx: rand(-16, 16), vy: rand(12, 52),
+                          t: 0, dur: rand(0.35, 0.75), r: rand(1.8, 4.4)});
         }
-      } else if (e.t >= 2.45){                           // the gulp — a lump slides down the neck
+        // each shake of the head slings a fresh arc of it
+        if (e.t > 1.1 && e.t < 2.1 && Math.sin(e.t * 9) > 0.86 && Math.random() < 0.6){
+          for (let i = 0; i < 4; i++){
+            menuPuffs.push({x: m.x, y: m.y + rand(-4, 4),
+                            vx: rand(-90, 90), vy: rand(-70, 10),
+                            t: 0, dur: rand(0.4, 0.85), r: rand(2, 5)});
+          }
+        }
+      } else if (e.t >= 2.45 && d.painter !== 'mutant'){  // the gulp — a lump slides down the neck
+        // The D-Rex draws its own gulp inside its painter: this generic lump
+        // is a hardcoded offset tuned to the old theropod neck, and on that
+        // body it would surface in mid-air well clear of the throat.
         const k = clamp((e.t - 2.45) / 0.5, 0, 1);
         const ux = 0.42 - 0.4 * k, uy = -0.92 + 0.34 * k;
         // Derive the stretched-skin highlight from this dinosaur's live menu
@@ -4159,15 +4218,15 @@ function step(dt){
           for (let i = 0; i < 5; i++) addFx('spark', ix + rand(-c.size, c.size), c.y - rand(0, c.size * 1.3), 7);
       }
     }
-    if(c.key==='drex'&&c.thudded&&!c.burst2&&c.t>=c.impact+.34){
-      c.burst2=true;SFX.boom();G.shake=Math.max(G.shake,13);
-      addFx('shock',c.x-c.dir*c.size*.45,c.y-c.size*.25,c.size*2.6);
-      addFx('boom',c.x-c.dir*c.size*.35,c.y-c.size*.55,c.size*1.25);
+    if(c.key==='drex'&&c.thudded&&!c.burst2&&c.t>=c.impact+.35){
+      c.burst2=true;SFX.boom();G.shake=Math.max(G.shake,15);
+      addFx('shock',c.x-c.dir*c.size*.45,c.y-c.size*.25,c.size*2.9);
+      addFx('boom',c.x-c.dir*c.size*.35,c.y-c.size*.55,c.size*1.35);
     }
-    if(c.key==='drex'&&c.thudded&&!c.burst3&&c.t>=c.impact+.82){
-      c.burst3=true;SFX.boom();G.shake=Math.max(G.shake,9);
-      addFx('shock',c.x+c.dir*c.size*.55,c.y,c.size*2.1);
-      addFx('boom',c.x+c.dir*c.size*.65,c.y-c.size*.18,c.size*.9);
+    if(c.key==='drex'&&c.thudded&&!c.burst3&&c.t>=c.impact+.85){
+      c.burst3=true;SFX.boom();G.shake=Math.max(G.shake,10);
+      addFx('shock',c.x+c.dir*c.size*.55,c.y,c.size*2.4);
+      addFx('boom',c.x+c.dir*c.size*.65,c.y-c.size*.18,c.size*1.0);
     }
   }
   G.corpses = G.corpses.filter(c => c.t < c.dur);
@@ -4308,6 +4367,42 @@ function bossDeathFragments(gc,c,start,o){
 // All detachable anatomy uses the exact same transform as its corpse painter.
 // A local joint coordinate therefore stays glued to a tumbling body instead of
 // spraying from the stale kill point left behind on the path.
+/* ---- D-Rex blast anatomy -------------------------------------------
+   Every launched piece is the REAL painter with a deathMask hiding
+   everything except that part, so the melon skull, the tail and each limb
+   stay individually recognisable as they tumble and land — rather than the
+   anonymous chunks bossDeathFragments() produces. `piv` is the part's
+   centroid in painter unit space; the paint origin is back-solved from it
+   so the piece spins about itself instead of about the hips. */
+const DREX_BLAST_MASK = {torso:1, head:1, tail:1, farArm:1, nearArm:1, farLeg:1, nearLeg:1};
+const DREX_BLAST_PIECES = [
+  ['head',    [ .95, -1.28],  3.40, -5.10,  5.2],
+  ['tail',    [-1.05,  -.95], -4.10, -4.05, -4.4],
+  ['nearArm', [ .50,   -.70],  2.60, -4.75,  8.0],
+  ['farArm',  [ .42,   -.70],  1.05, -5.45, -7.2],
+  ['nearLeg', [-.30,   -.55], -2.35, -5.45,  6.4],
+  ['farLeg',  [-.42,   -.55], -1.10, -4.85, -5.6],
+];
+function drexBlastAnatomy(gc, c, start){
+  const u = c.t - start; if (u < 0) return;
+  const s = c.size, ground = c.y + 4, fade = clamp((c.dur - c.t) / .8, 0, 1);
+  const sgn = c.dir < 0 ? -1 : 1;
+  for (const [key, piv, vx0, vy0, spin] of DREX_BLAST_PIECES){
+    const mask = Object.assign({}, DREX_BLAST_MASK); mask[key] = 0;
+    const ox = c.x + c.dir * piv[0] * s * .45, oy = c.y + piv[1] * s * .75;
+    const vx = c.dir * vx0 * s * .85, vy = vy0 * s * .85, grav = s * 9.6;
+    const tg = (-vy + Math.sqrt(Math.max(0, vy * vy + 2 * grav * (ground - oy)))) / grav;
+    let px, py, rot;
+    if (u <= tg){ px = ox + vx * u; py = oy + vy * u + grav * u * u * .5; rot = spin * u; }
+    else {                                    // skids a little, then rests
+      const bt = Math.min(u - tg, .4);
+      px = ox + vx * tg + vx * .16 * bt; py = ground; rot = spin * (tg + bt * .28);
+    }
+    const co = Math.cos(rot), si = Math.sin(rot);
+    const rx = piv[0] * co - piv[1] * si, ry = piv[0] * si + piv[1] * co;
+    bossDeathPaint(gc, c, {x: px - sgn * rx * s, y: py - ry * s, rot, alpha: fade, mask});
+  }
+}
 function bossDeathPose(c, at){
   const t=Math.max(0,at),s=c.size,dir=c.dir;
   if(c.key==='blue'){
@@ -4547,27 +4642,102 @@ function drawBossDeath(gc, c){
   }
 
   if (c.key === 'drex'){
-    const implode=clamp((t-1.08)/(c.impact-1.08),0,1), burst=clamp((t-c.impact)/1.25,0,1);
-    bossDeathBloodPool(gc,c,c.impact,1.85,.82);
-    gc.save();gc.globalAlpha=.34*fade;gc.fillStyle='#100807';gc.beginPath();gc.ellipse(c.x,c.y+4,s*(.65+burst*1.35),s*(.15+burst*.22),0,0,Math.PI*2);gc.fill();
-    gc.globalAlpha=.28*(1-burst)*fade;gc.fillStyle='#b51f18';gc.beginPath();gc.ellipse(c.x,c.y,s*(.45+burst*1.6),s*(.18+burst*.9),0,0,Math.PI*2);gc.fill();gc.restore();
-    if(t<c.impact){
-      const conv=(1-implode)*Math.sin(t*31),sc=1-implode*.82;
-      bossDeathPaint(gc,c,{x:c.x+conv*s*.045,y:c.y-conv*s*.025,rot:conv*.035,alpha:fade*(1-implode*.2),sx:sc*(1+Math.sin(t*19)*.035),sy:sc*(1-Math.sin(t*19)*.035)});
+    /* EXTINCTION EVENT. Staged: stagger and a last roar → the forelimbs
+       buckling one at a time → the body swelling and convulsing while light
+       leaks out through splitting hide → detonation → two aftershocks →
+       real anatomy settling in a smouldering crater.
+
+       Nothing is masked during the collapse. Hiding the forelimbs to
+       "buckle" them just blinks them out of existence — a mask is binary.
+       The buckle is carried entirely by the body pitching and sinking. */
+    const u = t - c.impact, blown = t >= c.impact;
+    const burst = clamp(u / 1.25, 0, 1);
+    bossDeathBloodPool(gc, c, c.impact, 1.95, .85);
+    gc.save();
+    gc.globalAlpha = .34 * fade; gc.fillStyle = '#100807';
+    gc.beginPath(); gc.ellipse(c.x, c.y + 4, s * (.65 + burst * 1.5), s * (.15 + burst * .24), 0, 0, Math.PI * 2); gc.fill();
+    gc.globalAlpha = .28 * (1 - burst) * fade; gc.fillStyle = '#b51f18';
+    gc.beginPath(); gc.ellipse(c.x, c.y, s * (.45 + burst * 1.7), s * (.18 + burst * .95), 0, 0, Math.PI * 2); gc.fill();
+    gc.restore();
+
+    if (!blown){
+      let pitch = 0, sx = 1, sy = 1, dy = 0, roarT = 0;
+      if (t < .55){                                  // reels back, one last roar
+        roarT = 2.6;
+        pitch = -.12 * Math.sin(t / .55 * Math.PI);
+      } else if (t < 1.30){                          // forelimbs give way under the weight
+        const k = (t - .55) / .75, e = 1 - Math.pow(1 - k, 2);
+        const hitch = (t > .62 ? Math.exp(-(t - .62) * 14) * .05 : 0)
+                    + (t > .98 ? Math.exp(-(t - .98) * 14) * .05 : 0);
+        pitch = .10 + e * .32 + hitch; dy = e * s * .17;
+      } else {                                       // swelling, convulsing, splitting
+        const k = (t - 1.30) / (c.impact - 1.30), vib = Math.sin(t * 47) * .038 * k;
+        pitch = .42 + Math.sin(t * 18) * .03; dy = s * .17;
+        sx = 1 + k * .17 + vib; sy = 1 + k * .17 - vib;
+      }
+      // bossDeathPaint rotates about the corpse origin; the staging above is
+      // authored about hip height, so back-solve the origin that matches.
+      const ox = c.x - c.dir * .6 * s * Math.sin(pitch);
+      const oy = c.y + dy + .6 * s * Math.cos(pitch) - .6 * s;
+      const hadRoar = Object.prototype.hasOwnProperty.call(c, 'entranceT'), oldRoar = c.entranceT;
+      if (roarT) c.entranceT = roarT;
+      bossDeathPaint(gc, c, {x: ox, y: oy, rot: pitch, sx, sy, alpha: fade});
+      if (hadRoar) c.entranceT = oldRoar; else delete c.entranceT;
+
+      if (t > 1.12){                                 // light leaking out from inside
+        const p = clamp((t - 1.12) / (c.impact - 1.12), 0, 1);
+        gc.save(); gc.lineCap = 'round';
+        for (let i = 0; i < 13; i++){
+          const a = i * Math.PI / 6.5 + bossDeathRand(c, i + 40) * .3, len = s * p * (.42 + (i % 4) * .22);
+          gc.strokeStyle = i % 3 ? '#8c2a1c' : '#ffb35a';
+          gc.lineWidth = Math.max(2, s * .05 * p);
+          gc.globalAlpha = (.35 + .45 * Math.abs(Math.sin(t * 12 + i))) * p * fade;
+          gc.beginPath(); gc.moveTo(c.x, c.y - s * .95);
+          gc.lineTo(c.x + Math.cos(a) * len * .5, c.y - s * .95 + Math.sin(a) * len * .38);
+          gc.lineTo(c.x + Math.cos(a + .16) * len, c.y - s * .95 + Math.sin(a + .16) * len * .66);
+          gc.stroke();
+        }
+        const gl = gc.createRadialGradient(c.x, c.y - s * .95, 0, c.x, c.y - s * .95, s * 1.1 * p);
+        gl.addColorStop(0, `rgba(255,190,110,${.30 * p})`); gl.addColorStop(1, 'rgba(255,120,40,0)');
+        gc.globalAlpha = fade; gc.fillStyle = gl;
+        gc.beginPath(); gc.arc(c.x, c.y - s * .95, s * 1.1 * p, 0, Math.PI * 2); gc.fill();
+        gc.restore();
+      }
+      return;
     }
-    if(t>.75){
-      const power=t<c.impact?clamp((t-.75)/.8,0,1):1-burst;
-      gc.save();gc.lineCap='round';for(let i=0;i<12;i++){const a=i*Math.PI/6+bossDeathRand(c,i+40)*.22,len=s*power*(.55+(i%4)*.27+burst*1.2);gc.strokeStyle=i%3?'#461816':'#e1452f';gc.lineWidth=Math.max(2,s*(.055-burst*.025));gc.globalAlpha=.75*power*fade;gc.beginPath();gc.moveTo(c.x,c.y-s*.35);gc.lineTo(c.x+Math.cos(a)*len*.45,c.y-s*.35+Math.sin(a)*len*.35);gc.lineTo(c.x+Math.cos(a+.12)*len,c.y-s*.35+Math.sin(a+.12)*len*.62);gc.stroke();}gc.restore();
+
+    bossDeathCracks(gc, c, clamp(u / .45, 0, 1) * 1.8, .95 * fade);
+    if (u < .26){                                     // the flash
+      gc.save(); gc.globalAlpha = (1 - u / .26) * .82;
+      const flash = gc.createRadialGradient(c.x, c.y - s * .9, 0, c.x, c.y - s * .9, s * 3.0);
+      flash.addColorStop(0, '#fff6da'); flash.addColorStop(.2, '#ff7a3c'); flash.addColorStop(1, 'rgba(120,10,12,0)');
+      gc.fillStyle = flash; gc.fillRect(c.x - s * 3.2, c.y - s * 3.4, s * 6.4, s * 5.6); gc.restore();
     }
-    if(t>=c.impact){
-      const u=t-c.impact;
-      bossDeathCracks(gc,c,clamp(u/.42,0,1)*1.7,.95*fade);
-      gc.save();gc.lineWidth=Math.max(2,s*.055);for(let i=0;i<4;i++){const q=clamp((u-i*.16)/(1.25+i*.15),0,1);if(q<=0)continue;gc.globalAlpha=(1-q)*(.82-i*.11)*fade;gc.strokeStyle=i%2?'#ffb04a':'#b51f28';gc.beginPath();gc.ellipse(c.x,c.y-s*.28,s*q*(1.4+i*.62),s*q*(.42+i*.12),0,0,Math.PI*2);gc.stroke();}gc.restore();
-      if(u<.22){gc.save();gc.globalAlpha=(1-u/.22)*.72;const flash=gc.createRadialGradient(c.x,c.y-s*.35,0,c.x,c.y-s*.35,s*2.8);flash.addColorStop(0,'#fff2c7');flash.addColorStop(.18,'#ff6a35');flash.addColorStop(1,'rgba(125,8,12,0)');gc.fillStyle=flash;gc.fillRect(c.x-s*3,c.y-s*3.2,s*6,s*5.5);gc.restore();}
-      for(let i=0;i<9;i++){const r=bossDeathRand(c,i+460),q=clamp(u/(2.4+r),0,1),px=c.x+(r-.5)*s*2.1+Math.sin(u*(1.2+r)+i)*s*.16,py=c.y-s*(.3+r*.65)-q*s*(.75+r*.65);gc.save();gc.globalAlpha=(1-q)*.22*fade;gc.fillStyle=i%2?'#2b1715':'#571512';gc.beginPath();gc.arc(px,py,s*(.22+r*.24)*(1+q*.65),0,Math.PI*2);gc.fill();gc.restore();}
+    gc.save(); gc.lineWidth = Math.max(2, s * .055);   // shock rings, staged with the aftershocks
+    for (let i = 0; i < 4; i++){
+      const q = clamp((u - i * .35) / (1.4 + i * .12), 0, 1); if (q <= 0) continue;
+      gc.globalAlpha = (1 - q) * (.82 - i * .1) * fade;
+      gc.strokeStyle = i % 2 ? '#ffb04a' : '#b51f28';
+      gc.beginPath(); gc.ellipse(c.x, c.y - s * .28, s * q * (1.5 + i * .68), s * q * (.44 + i * .12), 0, 0, Math.PI * 2); gc.stroke();
     }
-    bossDeathBloodBurst(gc,c,c.impact,{count:36,power:5.4,spread:2.15,oy:.92,life:4.1});
-    bossDeathFragments(gc,c,c.impact,{count:18,limbs:6,special:'jaw',power:4.15,scale:1.05,spread:2.1,oy:.88,life:4.5});
+    gc.restore();
+    for (let i = 0; i < 11; i++){                     // smoke rolling off the crater
+      const r = bossDeathRand(c, i + 460), q = clamp(u / (2.6 + r), 0, 1);
+      const px = c.x + (r - .5) * s * 2.4 + Math.sin(u * (1.2 + r) + i) * s * .18;
+      const py = c.y - s * (.3 + r * .65) - q * s * (.85 + r * .7);
+      gc.save(); gc.globalAlpha = (1 - q) * .22 * fade; gc.fillStyle = i % 2 ? '#2b1715' : '#571512';
+      gc.beginPath(); gc.arc(px, py, s * (.22 + r * .24) * (1 + q * .7), 0, Math.PI * 2); gc.fill(); gc.restore();
+    }
+    for (let i = 0; i < 14; i++){                     // embers drifting up out of it
+      const r = bossDeathRand(c, i + 520), q = clamp((u - r * .5) / (1.8 + r * 1.6), 0, 1);
+      if (q <= 0) continue;
+      const px = c.x + (r - .5) * s * 3.0 + Math.sin(u * 2 + i) * s * .1, py = c.y - q * s * (1.3 + r);
+      gc.save(); gc.globalAlpha = (1 - q) * .85 * fade; gc.fillStyle = q < .5 ? '#ffd08a' : '#e2601f';
+      gc.beginPath(); gc.arc(px, py, Math.max(1, s * .028 * (1 - q * .5)), 0, Math.PI * 2); gc.fill(); gc.restore();
+    }
+    bossDeathBloodBurst(gc, c, c.impact, {count:44, power:6.6, spread:2.6, oy:.92, life:4.1});
+    bossDeathFragments(gc, c, c.impact, {count:22, limbs:0, power:5.6, scale:1.0, spread:2.7, oy:.88, life:5.2});
+    drexBlastAnatomy(gc, c, c.impact);
     return;
   }
 
@@ -6550,6 +6720,19 @@ if (new URLSearchParams(location.search).has('menudino')){ // seed roaming menu 
   if (menuPreviewParams.has('menuphase')){
     const previewPhase = parseFloat(menuPreviewParams.get('menuphase')) || 0;
     for (const d of menuDinos){ d.phase = previewPhase; d.stride = 0; }
+  }
+  if (menuPreviewParams.has('menueat')){ // stage the meal: bend/chomp/thrash/toss/gulp on demand
+    const eatT = parseFloat(menuPreviewParams.get('menueat')) || 0;
+    const d = menuDinos[1] || menuDinos[0];
+    const victim = menuTourists.find(tr => tr.prey === d && !tr.caught)
+      || menuTourists.find(tr => !tr.caught);
+    if (d && victim){
+      victim.prey = d; victim.fate = 'doomed'; victim.doomed = true; victim.vx = 0;
+      victim.x = d.x + d.dir * menuMouthReach(d);
+      victim.caught = true;
+      d.eat = {t: eatT, tr: victim};
+      if (eatT >= 0.48){ d.eat.bit = true; victim.dead = true; }
+    }
   }
   // pull each dino's fleeing tourists on-screen just ahead of its jaws
   for (const tr of menuTourists){

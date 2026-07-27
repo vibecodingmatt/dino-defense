@@ -1,0 +1,10 @@
+# Reference material dropped in assets/ref while designing is kept out of the
+# repo unless the game or a lab page actually loads it. The D-Rex reference
+# stills ARE committed (drex-lab.html displays them); scratch audio is not —
+# a single uncompressed take runs to tens of megabytes and would live in the
+# history forever for no benefit.
+assets/ref/*.wav
+assets/ref/*.aif
+assets/ref/*.aiff
+assets/ref/*.mp4
+assets/ref/*.mov

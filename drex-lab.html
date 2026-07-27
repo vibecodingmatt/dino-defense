@@ -1,0 +1,1113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#100b0a">
+  <title>D-Rex Design Lab — Dino Defense</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #fff2d3;
+      --muted: #bdaea2;
+      --panel: rgba(27, 20, 17, .94);
+      --line: rgba(245, 194, 109, .19);
+      --gold: #f6c05d;
+      --red: #e54935;
+      --green: #88c85c;
+    }
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 84% 5%, rgba(142, 38, 24, .27), transparent 35rem),
+        radial-gradient(circle at 14% 90%, rgba(121, 91, 38, .16), transparent 32rem),
+        #0e0b0a;
+    }
+    button, input, select { font: inherit; }
+    button { color: inherit; }
+
+    .shell { width: min(1720px, 100%); margin: 0 auto; padding: clamp(16px, 2.2vw, 34px); }
+
+    header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 18px; flex-wrap: wrap; }
+    .eyebrow { margin: 0 0 5px; color: var(--red); font-size: .73rem; font-weight: 900; letter-spacing: .2em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(1.9rem, 4vw, 3.2rem); line-height: .98; letter-spacing: -.045em; }
+    .subhead { max-width: 780px; margin: 10px 0 0; color: var(--muted); font-size: clamp(.9rem, 1.25vw, 1.02rem); }
+    .badge {
+      flex: none; display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px;
+      border: 1px solid rgba(136, 200, 92, .35); border-radius: 999px; color: #d9ffc2;
+      background: rgba(50, 95, 32, .22); font-size: .72rem; font-weight: 900; letter-spacing: .08em; white-space: nowrap;
+    }
+    .badge::before { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px var(--green); content: ""; }
+
+    .workspace { display: grid; grid-template-columns: minmax(250px, 320px) minmax(0, 1fr); gap: 18px; align-items: start; }
+    @media (max-width: 1000px) { .workspace { grid-template-columns: 1fr; } }
+
+    .panel { border: 1px solid var(--line); border-radius: 18px; background: var(--panel); box-shadow: 0 20px 70px rgba(0,0,0,.36); }
+    aside { padding: 16px; position: sticky; top: 14px; }
+    .section-title { margin: 0 0 10px; font-size: .70rem; font-weight: 900; letter-spacing: .19em; text-transform: uppercase; color: var(--gold); }
+    .group { margin-bottom: 18px; }
+    .group:last-child { margin-bottom: 0; }
+
+    label.row { display: block; margin-bottom: 11px; font-size: .82rem; color: var(--muted); }
+    label.row span.val { float: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+    input[type=range] { width: 100%; margin-top: 6px; accent-color: var(--gold); }
+    select { width: 100%; margin-top: 6px; padding: 7px 9px; border-radius: 9px; border: 1px solid var(--line); background: rgba(255,255,255,.05); color: var(--ink); }
+
+    .btnrow { display: flex; flex-wrap: wrap; gap: 8px; }
+    .btn {
+      flex: 1 1 auto; padding: 9px 12px; border-radius: 10px; cursor: pointer;
+      border: 1px solid var(--line); background: rgba(255,255,255,.05);
+      font-size: .82rem; font-weight: 700; transition: background .15s, border-color .15s;
+    }
+    .btn:hover { background: rgba(246,192,93,.14); border-color: rgba(246,192,93,.4); }
+    .btn.on { background: rgba(246,192,93,.2); border-color: var(--gold); color: #fff; }
+    .btn.primary { background: rgba(229,73,53,.22); border-color: rgba(229,73,53,.5); }
+    .btn.primary:hover { background: rgba(229,73,53,.35); }
+
+    .toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    .stage { padding: 14px; }
+    .stage h2 { margin: 0 0 4px; font-size: .78rem; letter-spacing: .16em; text-transform: uppercase; color: var(--gold); }
+    .stage p.note { margin: 0 0 10px; font-size: .78rem; color: var(--muted); }
+    canvas { display: block; width: 100%; height: auto; border-radius: 12px; background: #11100d; }
+
+    .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 18px; }
+    @media (max-width: 1180px) { .compare { grid-template-columns: 1fr; } }
+
+    .refstrip { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-top: 12px; }
+    .refstrip figure { margin: 0; }
+    .refstrip img { width: 100%; border-radius: 10px; background: #1a1512; display: block; }
+    .refstrip figcaption { margin-top: 6px; font-size: .72rem; color: var(--muted); }
+
+    .notes { margin-top: 18px; padding: 16px 18px; }
+    .notes h3 { margin: 0 0 10px; font-size: .72rem; letter-spacing: .18em; text-transform: uppercase; color: var(--gold); }
+    .notes ol { margin: 0; padding-left: 20px; color: var(--muted); font-size: .87rem; line-height: 1.62; }
+    .notes ol b { color: var(--ink); }
+    .warn { margin-top: 12px; font-size: .8rem; color: #ffd9a8; }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <div>
+      <p class="eyebrow">Shipped · design harness</p>
+      <h1>D-Rex Design Lab</h1>
+      <p class="subhead">
+        Design harness for the <b>Distortus Rex</b> wave-100 boss, drawn against the
+        <i>Jurassic World: Rebirth</i> reference art in <code>assets/ref</code>. This painter is now live in
+        the game (<code>js/drex.js</code> → <code>PAINTERS.mutant</code>); the page stays as the place to
+        iterate on the gait, the feeding sequence and the death finale in isolation.
+      </p>
+    </div>
+    <span class="badge">Live in game</span>
+  </header>
+
+  <div class="workspace">
+    <aside class="panel">
+      <div class="group">
+        <p class="section-title">Playback</p>
+        <div class="btnrow">
+          <button class="btn on" id="btnPlay">⏸ Pause</button>
+          <button class="btn primary" id="btnRoar">🗣 Roar</button>
+        </div>
+        <div class="btnrow" style="margin-top:8px">
+          <button class="btn" id="btnBite">🦷 Bite</button>
+          <button class="btn" id="btnShot">⬇ PNG</button>
+        </div>
+        <label class="row" style="margin-top:12px">Gait speed <span class="val" id="vSpeed">1.00×</span>
+          <input type="range" id="rSpeed" min="0" max="3" step="0.01" value="1">
+        </label>
+        <label class="row">Walk phase <span class="val" id="vPhase">0.00</span>
+          <input type="range" id="rPhase" min="0" max="6.2832" step="0.001" value="0">
+        </label>
+      </div>
+
+      <div class="group">
+        <p class="section-title">Presentation</p>
+        <label class="row">Scale <span class="val" id="vScale">150</span>
+          <input type="range" id="rScale" min="60" max="260" step="1" value="150">
+        </label>
+        <label class="row">Palette
+          <select id="selPal">
+            <option value="film">Film Rust — matched to the two renders</option>
+            <option value="filmDark">Film Rust, deeper — for bright maps</option>
+            <option value="current">Current (shipping DINOS palette)</option>
+            <option value="ash">Ash Grey — night-map variant</option>
+          </select>
+        </label>
+        <label class="row">Backdrop
+          <select id="selBg">
+            <option value="arena">Arena dirt</option>
+            <option value="dark">Dark void</option>
+            <option value="light">Light box</option>
+            <option value="grid">Blueprint grid</option>
+          </select>
+        </label>
+        <div class="toggles" style="margin-top:10px">
+          <button class="btn" id="btnSil">◼ Silhouette</button>
+          <button class="btn" id="btnGround">▁ Ground</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <p class="section-title">Comparison</p>
+        <div class="btnrow">
+          <button class="btn on" id="btnCmp">Show gameplay-size view</button>
+        </div>
+        <p class="note" style="margin-top:10px;font-size:.76rem;color:var(--muted)">
+          Silhouette mode is the honest test: if the new read is clearer as a solid black shape, the
+          redesign is doing its job at gameplay scale.
+        </p>
+      </div>
+    </aside>
+
+    <div>
+      <section class="panel stage">
+        <h2>New design — Distortus Rex v2</h2>
+        <p class="note">Rendered through the same transform the game uses (unit space, facing +x, origin at ground under the hips).</p>
+        <canvas id="cvMain" width="1180" height="700"></canvas>
+      </section>
+
+      <section class="panel stage" style="margin-top:18px">
+        <h2>Home-screen preview — the chase</h2>
+        <p class="note">
+          Tourists sprint for their lives and the D-Rex runs them down, using the real menu
+          eat timeline from <code>game.js</code> (bend → chomp → thrash → toss → gulp) and the
+          game's own tourist artwork. Victims are placed with <code>drexMouth()</code>, which
+          tracks the jaws through the gait rather than assuming a fixed offset.
+        </p>
+        <canvas id="cvScene" width="1180" height="430"></canvas>
+        <div class="btnrow" style="margin-top:10px">
+          <button class="btn" id="btnFeed">🍖 Send one in now</button>
+          <button class="btn primary" id="btnDeath">☠ Death finale</button>
+          <button class="btn on" id="btnScene">⏸ Pause scene</button>
+        </div>
+        <p class="note" style="margin:10px 0 0">
+          <b>Death finale</b> — stagger &amp; last roar → forelimbs buckle → the body swells and
+          convulses with light leaking through splitting hide → detonation → two aftershocks →
+          fragments settle in a smouldering crater. Every launched piece is the real artwork,
+          drawn through the painter with a <code>deathMask</code>, so the skull, jaw, tail and
+          each limb are individually recognisable in the air. Deep-link a beat with
+          <code>?death=2.1</code>.
+        </p>
+      </section>
+
+      <div class="compare">
+        <section class="panel stage" id="cmpPanel">
+          <h2>At gameplay size</h2>
+          <p class="note">The same frame at roughly the size it occupies on the map — the scale that decides whether detail reads or muddies.</p>
+          <canvas id="cvOld" width="720" height="520"></canvas>
+        </section>
+        <section class="panel stage">
+          <h2>Reference</h2>
+          <p class="note">assets/ref — the art the redesign is measured against.</p>
+          <div class="refstrip">
+            <figure><img src="assets/ref/drexref1.png" alt="D-Rex hero render"><figcaption>Hero render — melon skull, four arms, pale claws, olive-over-rust hide</figcaption></figure>
+            <figure><img src="assets/ref/drexref2.jpg" alt="D-Rex side view"><figcaption>Side view — flat topline, upright stance, no spines anywhere</figcaption></figure>
+          </div>
+        </section>
+      </div>
+
+      <section class="panel notes">
+        <h3>Latest revision — three fixes</h3>
+        <ol>
+          <li><b>Victims no longer shrink when picked up.</b> The victim artwork is drawn in different units from a standing tourist: its whole body spans about 0.83 of a unit, while a standing tourist is ~1.75 units <i>tall</i>. The game passes the same <code>s</code> to both, so a person lost ~57% of their size the instant the jaws closed. <code>s</code> is now derived from that tourist's actual standing height, so held sideways they're exactly as long as they were tall — and it self-corrects for kids, who carry a different height multiplier.</li>
+          <li><b>The gulp passes behind the near limbs.</b> It was drawn last, so the lump floated over the arm and leg. Moved inside the body group ahead of the near-side limbs — it now slides down the throat, disappears behind the foreleg, and re-emerges in the belly.</li>
+          <li><b>Forelimbs stop vanishing in the death.</b> They were being hidden by <code>deathMask</code> at 0.62s and 0.98s to "buckle" them, but a mask is binary — they just blinked out. Nothing is masked during the collapse now; the buckle is carried by the body pitching and sinking onto them, with a damped hitch on each arm so it still lands in two stages. Every limb stays on screen right up to the blast.</li>
+          <li><b>Bigger blast.</b> Fragment velocities roughly doubled and gravity eased (1450 → 1080), so pieces clear most of the frame instead of heaping under the crater. Also more chunks and a wider blood spray.</li>
+        </ol>
+        <h3 style="margin-top:18px">Previous revision — feeding and the finale</h3>
+        <ol>
+          <li><b>The prey no longer slides into the dinosaur.</b> The game closes the gap by dragging the tourist toward the mouth (<code>e.tr.x += (mouth.x - e.tr.x) * k</code>), which is what read as the victim being sucked in. Inverted: the scene now solves for where the rex must <i>stand</i> for its jaws to reach a tourist at full bite pitch, and eases the <b>rex</b> into that spot over the bend-down. The tourist stays planted and just flails. Commit range is derived from that solve too, so there's never a lunge to cover.</li>
+          <li><b>Gulp bulge added</b>, on the same 2.45s beat the other menu dinosaurs use — a tourist-sized lump distending the hide as it travels the throat → chest → belly, with a shadow under it and a stretched-skin highlight. It lives in the <i>painter</i>, not the menu code, because the menu's generic version is a hardcoded offset tuned to the old skull and would surface in the wrong place on this body. Timed 2.45→2.90 so it completes inside the game's 2.95s meal rather than being cut off.</li>
+          <li><b>Death finale, staged to beat the current one.</b> The shipping D-Rex death convulses then bursts with rings and anonymous fragments over 6.6s. This runs 7.6s: a last roar and stagger → the forelimbs buckling one at a time → the body swelling and convulsing while light leaks out through splitting hide → detonation with flash, shock rings, crater and ground cracks → two aftershocks → fragments settling in a smouldering crater with drifting embers and smoke.</li>
+          <li><b>The fragments are the real artwork.</b> Rather than generic chunks, each launched piece is a painter call with a <code>deathMask</code> hiding everything except that part — so the melon skull, the tail and every limb stay individually recognisable as they tumble and land. This needed a new <code>deathMask.torso</code> key to drop the body shell.</li>
+        </ol>
+        <h3 style="margin-top:18px">Previous revision — the dip in motion, and the clipped mouth</h3>
+        <ol>
+          <li><b>The skull no longer has its own bob.</b> This was the mid-stride "m". It rode a separate <code>sin(ph&nbsp;×&nbsp;1.6)</code> wobble that drifted out of phase with the body's pitch and heave, so on the beats where the head dipped and the body didn't, the melon's rear fell back under the shoulder plateau and the valley reopened. It sits inside the pitched group and already rises and settles with the body — making that rigid means the two cannot separate at any phase. Life now comes from the jaw, which doesn't touch the topline.</li>
+          <li><b>The skull hinges at its rear, not its centre.</b> Rotating about the centre swung the rear down out of the shoulder during a roar, tearing the join open exactly when the head is most visible. Hinged where it meets the body — which is also where a real skull articulates — the rear stays seated and only the muzzle swings.</li>
+          <li><b>Chest pulled back off the jaw.</b> Carrying it forward to <code>x&nbsp;=&nbsp;0.84</code> for the fusion had pushed it over the mouth corner, and because the head draws underneath, the body was clipping the back of his own mouth. The chest now tucks back below the jaw line and clears the corner by 0.09 units.</li>
+          <li><b>Rear height solved, not eyeballed.</b> Re-pivoting dropped the melon's rear enough to reintroduce a 0.007 dip at the handoff, so I swept candidate heights and measured each. -0.46/-0.51 sits mid-band rather than balanced on an edge, so it stays monotonic under small drift.</li>
+          <li><b>Verified across the whole cycle now</b>, not one pose: 48 phases × three roar states, sampling the composite outline every 0.02. Worst dip 0.0010 — invisible. The static check I ran last round is exactly why the moving dip survived it.</li>
+        </ol>
+        <h3 style="margin-top:18px">Previous revision — killing the static "m"</h3>
+        <ol>
+          <li><b>The composite topline was made monotonic</b> from the hips to the crown. The dip you were tracing wasn't a rendering limit — it was arithmetic. The shoulder crested at y&nbsp;=&nbsp;-1.62 around x&nbsp;=&nbsp;0.25 while the skull's rear only reached -1.50 at x&nbsp;=&nbsp;0.37, so the union of the two shapes sagged about 0.08 between them. Two peaks with a valley: a lowercase m. Fixed by flattening the shoulder from a crest into a shallow plateau (-1.60) <i>and</i> raising the melon's rear so it takes over above that line. Sampled every 0.05 across the whole span, the topline now only ever rises — worst backslide 0.002, which is invisible. One curved line from back to skull, no wedge underneath.</li>
+          <li><b>Where the handoff happens:</b> torso owns the outline out to x&nbsp;=&nbsp;0.40, head from x&nbsp;=&nbsp;0.45 on, and they cross within 0.002 of each other — so there is no corner to see at the transition.</li>
+        </ol>
+        <h3 style="margin-top:18px">Previous revision — head/body fusion</h3>
+        <ol>
+          <li><b>The head is drawn <i>under</i> the torso, not over it.</b> That was the actual root cause. Reshaping the skull could never finish the job while the head painted on top of the body, because its rear <i>outline</i> was being stroked across the shoulder — and that edge, not the shape, was what kept reading as a join. Rendered underneath, the skull has no rear edge at all: the body simply covers it until the melon rises out from beneath the shoulder around <code>x&nbsp;≈&nbsp;0.5</code>. There is physically nowhere for a neck to be.</li>
+          <li><b>The topline carries forward into the skull.</b> The crest used to peak at <code>x&nbsp;=&nbsp;0.30</code> and fall away, leaving the melon's rear floating above the shoulder with real daylight between them. The back now runs level to <code>x&nbsp;=&nbsp;0.40</code> and on to <code>0.76</code>, so body and head overlap solidly at every height.</li>
+          <li><b>Soft occlusion at the emergence point</b>, spilling forward out of the shoulder onto the skull, so the shoulder appears to roll over into the head instead of butt-joining it. Feathered hard and kept weak — any crisp edge here and the seam comes straight back.</li>
+        </ol>
+        <h3 style="margin-top:18px">Previous revision</h3>
+        <ol>
+          <li><b>Head fusion, first attempt.</b> Two separate things were making it read as a ball on a stick. The skull path closed off at the back, giving the silhouette a discrete circular edge where the reference has none — there, skull, neck and shoulder are one unbroken mass and you genuinely can't say where the head ends. It now runs back to <code>x&nbsp;=&nbsp;-0.60</code>, deep inside the torso, stretched along the body axis rather than domed like a sphere. Separately, its radial gradient darkened toward the rear while the torso behind it was light, so even overlapping perfectly there was a value step betraying the join; the fill is now the same dorsal-to-ventral ramp the torso uses. The separate neck shape is gone — it only reintroduced the seam.</li>
+          <li><b>Round bumps replaced with lines and blotches.</b> All circular knots deleted. The hide is now long creases running down and back off the spine, stretched blotches at roughly 4:1, and short broken nicks. Lengths, spacing and opacity are all deliberately uneven, and only the two deepest folds get a highlight — pairing every dark line with a light one is exactly what manufactures a banded-shell look.</li>
+          <li><b>Grasping arms scaled down</b> about 30% in reach and limb width, with proportionally smaller claws.</li>
+          <li><b>More upright again</b> — resting nose-up pitch more than doubled (0.05 → 0.115 rad), so the chest and skull carry higher through the whole cycle rather than only at the top of the arm push.</li>
+        </ol>
+        <h3 style="margin-top:18px">Previous revision</h3>
+        <ol>
+          <li><b>The hand is a closed fist before it lands.</b> The fold was previously driven by ground load, which is zero at the instant of touchdown — so it landed claws-first and rolled onto the knuckles afterward. It's now phase-led: fully curled by touchdown, held through stance, opening again only after lift-off. Scrub to phase ≈4.3 vs ≈5.5 to see the near hand pre-contact and mid-stance.</li>
+          <li><b>All spines and osteoderms removed</b> — back and tail are smooth now, with only soft tumorous knots inside the outline. Both surviving references show wrinkled, pebbled hide and no protruding hardware.</li>
+          <li><b>Colour rebuilt from the two remaining renders.</b> They're two-tone in <i>hue</i>, not brightness: olive-khaki over the back and shoulders grading into rust down the flanks, with lower limbs cooling to grey-olive. A single shade ramp off one hue can't express that, so there's now an olive dorsal wash, a rust flank wash, and limbs blended toward cool grey. The overall value range was also pulled darker — the previous pass washed out to a uniform milky tan.</li>
+          <li><b>Beluga melon.</b> The skull is now a tall smooth dome that bulges up <i>and forward</i> and throws a shelf over the face, with the muzzle tucked underneath and the eye sitting in its shadow. The earlier version only made the braincase tall; the forward bulge and overhang are what actually sell it. Kept deliberately smooth — lumps break the one clean form the head has.</li>
+          <li><b>More upright.</b> A flatter, longer topline replaces the hard crest, and the body now pitches nose-up about the hip — deepening as an arm takes support, so the chest and head visibly ride up and settle with each step instead of staying folded over. Hind legs are unaffected because the hip is the pivot; the arms' shoulder anchors run through the same rotation.</li>
+          <li><b>Maw clamped to the jaw.</b> Its lower edge is now derived from the actual jaw transform instead of scaled off the gape angle. This mattered: the menu tourist-eating sequence stacks base gape + roar + bite past a full radian, far wider than the walk cycle, and the approximated edge overshot the jawline there and hung a red wedge in open air. Hit <b>Bite</b> — or Roar and Bite together for the worst case — to check it.</li>
+        </ol>
+        <h3 style="margin-top:18px">Design foundations</h3>
+        <ol>
+          <li><b>Top-heavy hunch.</b> The shoulder hump is now the tallest point of the animal and sits clearly above the skull. The old version's back and head were nearly level, which read as a generic theropod.</li>
+          <li><b>The head juts past the hands.</b> The muzzle — not the chest — is the leading edge of the silhouette, and the skull hangs off the hump with essentially no neck, exactly as in the reference.</li>
+          <li><b>Swollen, snoutless skull.</b> Bulbous cranium with a heavy overhanging brow, a stubby blunt muzzle, cranial tumours breaking the dome, and a tiny beady eye sunk in a bruised socket.</li>
+          <li><b>Teeth that never close.</b> Irregular yellowed uppers are drawn last so they hang <i>outside</i> the lower jaw — the signature "can't shut its mouth" look.</li>
+          <li><b>Two arm pairs with different jobs.</b> Long weight-bearing arms that plant like knuckles with load-based contact shadows, plus spindly long-fingered graspers curled under the chin. The old version drew four near-identical arms.</li>
+          <li><b>Pale keratin claws</b> drawn as filled sickles rather than strokes, matching the hero render where the claws are the brightest thing on the creature.</li>
+          <li><b>Hide that holds up close.</b> Dorsal-to-ventral lighting gradient, a rim light along the back contour, mottled dappling, tumorous knots with lit crowns, flank wrinkles, and ambient occlusion where the skull jams into the shoulders — all clipped to the body outline.</li>
+          <li><b>Broken osteoderm ridge</b> running skull → tail, taken from the concept sheet.</li>
+        </ol>
+        <p class="warn">
+          ⚠ The new silhouette is wider (snout reaches ~1.6 units vs ~1.15). If you approve it, the menu
+          mouth offsets in <code>MENU_MOUTHS</code>/<code>menuMouthOffset()</code> want re-tuning so the
+          menu bite animation still lands in the jaws.
+        </p>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/draw.js"></script>
+<script src="js/drex.js"></script>
+<script>
+'use strict';
+
+/* The painter lays an olive dorsal wash and a rust flank wash over these,
+   so `body` is the mid-flank base rather than the colour you see on top. */
+const PALETTES = {
+  film:     {body:'#8d6238', belly:'#9d8767', accent:'#57492f'},
+  filmDark: {body:'#75512e', belly:'#8a7458', accent:'#463b27'},
+  current:  (typeof DINOS !== 'undefined' && DINOS.drex) ? DINOS.drex.pal : {body:'#76654b', belly:'#a18461', accent:'#40372c'},
+  ash:      {body:'#6b6560', belly:'#9a938c', accent:'#3a3632'},
+};
+
+const $ = (s) => document.querySelector(s);
+const cvMain = $('#cvMain'), cvOld = $('#cvOld');
+const ctxMain = cvMain.getContext('2d'), ctxOld = cvOld.getContext('2d');
+
+const state = {
+  playing: true,
+  speed: 1,
+  phase: 0,
+  scale: 150,
+  pal: 'film',
+  bg: 'arena',
+  silhouette: false,
+  ground: true,
+  compare: true,
+  entranceT: 0,
+  eat: null,
+};
+
+// offscreen buffer for silhouette flattening
+const off = document.createElement('canvas');
+const offCtx = off.getContext('2d');
+
+function dino(){
+  return {
+    size: 1,
+    pal: PALETTES[state.pal],
+    feat: {sixLimbs: true, swollenCranium: true},
+    entranceT: state.entranceT,
+    eat: state.eat,
+  };
+}
+
+function paintBackdrop(ctx, w, h){
+  if (state.bg === 'light'){
+    ctx.fillStyle = '#e8e4da'; ctx.fillRect(0, 0, w, h); return;
+  }
+  if (state.bg === 'dark'){
+    ctx.fillStyle = '#0b0a09'; ctx.fillRect(0, 0, w, h); return;
+  }
+  if (state.bg === 'grid'){
+    ctx.fillStyle = '#0d1420'; ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(120,180,255,.14)'; ctx.lineWidth = 1;
+    for (let x = 0; x < w; x += 40){ ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+    for (let y = 0; y < h; y += 40){ ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+    return;
+  }
+  // arena dirt
+  const g = ctx.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, '#20211a'); g.addColorStop(.62, '#2b2a20'); g.addColorStop(1, '#3a3225');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+}
+
+function paintGround(ctx, w, groundY){
+  if (!state.ground) return;
+  ctx.strokeStyle = 'rgba(246,192,93,.30)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, groundY + .5); ctx.lineTo(w, groundY + .5); ctx.stroke();
+}
+
+/* Mirrors drawDino()'s transform: translate to the ground point, scale by
+   size, hand the painter unit space. Shadow included so weight reads. */
+function render(ctx, painter, w, h, size, groundY){
+  const d = dino();
+  ctx.save();
+  ctx.globalAlpha = .30;
+  ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.ellipse(w * .5, groundY + 3, size * .95, size * .20, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(w * .5, groundY);
+  ctx.scale(size, size);
+  try { painter(ctx, d, state.phase); }
+  catch (err) { console.error(err); }
+  ctx.restore();
+}
+
+function renderSil(ctx, painter, w, h, size, groundY){
+  off.width = w; off.height = h;
+  offCtx.setTransform(1, 0, 0, 1, 0, 0);
+  offCtx.clearRect(0, 0, w, h);
+  const d = dino();
+  offCtx.save();
+  offCtx.translate(w * .5, groundY);
+  offCtx.scale(size, size);
+  try { painter(offCtx, d, state.phase); }
+  catch (err) { console.error(err); }
+  offCtx.restore();
+  offCtx.globalCompositeOperation = 'source-in';
+  offCtx.fillStyle = '#000';
+  offCtx.fillRect(0, 0, w, h);
+  offCtx.globalCompositeOperation = 'source-over';
+  ctx.drawImage(off, 0, 0);
+}
+
+function frame(ctx, cv, painter, sizeMul){
+  const w = cv.width, h = cv.height;
+  const groundY = h * .88;
+  const size = state.scale * sizeMul;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  paintBackdrop(ctx, w, h);
+  paintGround(ctx, w, groundY);
+  if (state.silhouette) renderSil(ctx, painter, w, h, size, groundY);
+  else render(ctx, painter, w, h, size, groundY);
+}
+
+let last = performance.now();
+function loop(now){
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  if (state.playing){
+    state.phase = (state.phase + dt * 3.1 * state.speed) % (Math.PI * 2);
+    $('#rPhase').value = String(state.phase);
+    $('#vPhase').textContent = state.phase.toFixed(2);
+  }
+  if (state.entranceT > 0){
+    state.entranceT = Math.max(0, state.entranceT - dt);
+  }
+  if (state.eat){
+    state.eat.t += dt;
+    if (state.eat.t > 2.95) state.eat = null;   // full game-length meal, gulp included
+  }
+  frame(ctxMain, cvMain, drawDistortusRex, 1);
+  if (state.compare) frame(ctxOld, cvOld, drawDistortusRex, .78);
+  requestAnimationFrame(loop);
+}
+
+/* ---- controls ---- */
+$('#btnPlay').addEventListener('click', (e) => {
+  state.playing = !state.playing;
+  e.currentTarget.textContent = state.playing ? '⏸ Pause' : '▶ Play';
+  e.currentTarget.classList.toggle('on', state.playing);
+});
+$('#btnRoar').addEventListener('click', () => { state.entranceT = 3.4; });
+// same shape the menu tourist-eating sequence passes in (game.js sets
+// d.eat = {t, tr} and runs it to ~2.95), so this exercises the real gape
+$('#btnBite').addEventListener('click', () => { state.eat = {t: 0}; });
+$('#btnShot').addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.download = 'drex.png';
+  a.href = cvMain.toDataURL('image/png');
+  a.click();
+});
+$('#rSpeed').addEventListener('input', (e) => {
+  state.speed = +e.target.value;
+  $('#vSpeed').textContent = state.speed.toFixed(2) + '×';
+});
+$('#rPhase').addEventListener('input', (e) => {
+  state.phase = +e.target.value;
+  $('#vPhase').textContent = state.phase.toFixed(2);
+  state.playing = false;
+  $('#btnPlay').textContent = '▶ Play';
+  $('#btnPlay').classList.remove('on');
+});
+$('#rScale').addEventListener('input', (e) => {
+  state.scale = +e.target.value;
+  $('#vScale').textContent = state.scale;
+});
+$('#selPal').addEventListener('change', (e) => { state.pal = e.target.value; });
+$('#selBg').addEventListener('change', (e) => { state.bg = e.target.value; });
+$('#btnSil').addEventListener('click', (e) => {
+  state.silhouette = !state.silhouette;
+  e.currentTarget.classList.toggle('on', state.silhouette);
+});
+$('#btnGround').addEventListener('click', (e) => {
+  state.ground = !state.ground;
+  e.currentTarget.classList.toggle('on', state.ground);
+});
+$('#btnCmp').addEventListener('click', (e) => {
+  state.compare = !state.compare;
+  e.currentTarget.classList.toggle('on', state.compare);
+  $('#cmpPanel').style.display = state.compare ? '' : 'none';
+});
+
+$('#btnGround').classList.add('on');
+requestAnimationFrame(loop);
+
+/* ==================================================================
+   HOME-SCREEN PREVIEW
+   A faithful-enough restaging of the menu chase. The tourist artwork
+   and the eat timeline are the game's own — TOURIST_LOOKS and
+   randomTouristLook are copied from game.js (which we can't load here
+   without booting the whole game), while drawTourist /
+   drawTouristSitting come from draw.js, already loaded above.
+   ================================================================== */
+const rnd = (a, b) => a + Math.random() * (b - a);
+const clamp01 = (v, a, b) => Math.max(a, Math.min(b, v));
+
+const TOURIST_LOOKS = {
+  skins: ['#f2cba2', '#eab58a', '#cf9563', '#a9714b', '#7c4f31', '#5b3a24'],
+  shirts: ['#f2a63b', '#3f9e63', '#4a83c4', '#8e5fc9', '#efe6d3', '#e86fa4', '#54c8c0', '#d8d84a'],
+  bottoms: ['#3a4a63', '#5d6b52', '#8a6f4a', '#474747', '#7a4a5f', '#b8b09a'],
+  hairs: ['#241a10', '#4a2f1a', '#7a4a22', '#b98a3f', '#ddcda6', '#8b8b8b', '#b04a2a'],
+  hats: ['#efe6cd', '#c4433b', '#3f6fae', '#7a6a4f', '#4a8a52'],
+  shoes: ['#2e2e34', '#efe9dc', '#7a4a2a', '#c4433b', '#3d5f9e'],
+};
+function randomTouristLook(size, noKid){
+  const P = TOURIST_LOOKS, pick = a => a[(Math.random() * a.length) | 0];
+  const kid = !noKid && Math.random() < 0.14;
+  const u = {
+    size: kid ? size * 0.72 : size, kid,
+    tall: kid ? rnd(0.85, 0.95) : rnd(0.94, 1.08),
+    build: kid ? rnd(0.9, 1) : rnd(0.85, 1.25),
+    lean: rnd(0.1, 0.2), phase: rnd(0, 6.3), lookT: 0, shockT: 0,
+    skin: pick(P.skins), shirt: pick(P.shirts), bottom: pick(P.bottoms),
+    bottomType: pick(['shorts', 'shorts', 'pants', 'skirt']),
+    hairStyle: kid ? 'pig' : pick(['short', 'bob', 'pony', 'long', 'bun', 'curls', 'bald']),
+    hairC: pick(P.hairs),
+    hat: Math.random() < 0.45 ? pick(['cap', 'sun', 'safari', 'visor']) : null, hatC: pick(P.hats),
+    shoeC: pick(P.shoes),
+    arms: pick(['flail', 'flail', 'pump', 'clutch']),
+    glasses: Math.random() < 0.2, camera: Math.random() < 0.2,
+    pack: Math.random() < 0.18 ? 'backpack' : Math.random() < 0.16 ? 'fanny' : null,
+    packC: pick(P.shirts),
+    belly: Math.random() < 0.22, floral: Math.random() < 0.15,
+    balloon: kid && Math.random() < 0.6, balloonC: '#e33b3b',
+  };
+  if (u.belly) u.build = Math.max(u.build, 1.15);
+  if (u.floral) u.shirt = '#e8574f';
+  return u;
+}
+
+/* The victim clamped sideways in the jaws — ported from game.js
+   drawMenuVictim, with the scale corrected.
+
+   The original uses `s = tr.size * 0.9`, but the victim's drawing units are
+   not the standing tourist's: its whole body spans about 0.83 of one unit
+   (legs at -0.35s, head front at +0.48s) whereas a standing tourist is
+   about 1.75 units TALL. At the same `s` the person therefore shrinks to
+   roughly 43% the instant they're picked up. Here `s` is derived from the
+   tourist's real standing height, so a person held sideways is exactly as
+   long as they were tall. */
+function victimScale(tr){
+  const lk = tr.look || {};
+  const base = lk.size || tr.size;
+  const headR = 0.17 * (lk.kid ? 1.25 : 1);
+  const standH = (1.58 * (lk.tall || 1) + headR) * base;   // feet → crown
+  return standH / 0.83;                                    // victim span, in its own units
+}
+function drawVictim(ctx, tr, m, dir, time){
+  const s = victimScale(tr), lk = tr.look || {};
+  const skin = lk.skin || '#e8c49a';
+  const legCol = lk.bottomType === 'pants' ? lk.bottom : skin;
+  ctx.save();
+  ctx.translate(m.x, m.y);
+  ctx.scale(dir, 1);
+  ctx.rotate(1.2 + Math.sin(time * 16) * 0.1);
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = lk.shirt; ctx.lineWidth = s * 0.2;
+  ctx.beginPath(); ctx.moveTo(-s * 0.1, 0); ctx.lineTo(s * 0.25, 0); ctx.stroke();
+  ctx.strokeStyle = legCol; ctx.lineWidth = s * 0.1;
+  for (const off of [0, Math.PI]){
+    const k = Math.sin(time * 22 + off) * 0.7;
+    ctx.beginPath(); ctx.moveTo(-s * 0.1, 0); ctx.lineTo(-s * 0.35, -s * 0.2 * k); ctx.stroke();
+  }
+  ctx.strokeStyle = skin; ctx.lineWidth = s * 0.08;
+  for (const off of [0.6, Math.PI + 0.9]){
+    const a = Math.sin(time * 19 + off) * 0.9;
+    ctx.beginPath(); ctx.moveTo(s * 0.22, 0);
+    ctx.lineTo(s * 0.22 + Math.cos(a) * s * 0.3, -Math.abs(Math.sin(a)) * s * 0.28 - s * 0.06);
+    ctx.stroke();
+  }
+  ctx.fillStyle = skin;
+  ctx.beginPath(); ctx.arc(s * 0.36, 0, s * 0.12, 0, Math.PI * 2); ctx.fill();
+  if (lk.hairC && lk.hairStyle !== 'bald'){
+    ctx.fillStyle = lk.hairC;
+    ctx.beginPath(); ctx.arc(s * 0.37, -s * 0.02, s * 0.115, Math.PI * 0.9, Math.PI * 2.05); ctx.fill();
+  }
+  ctx.fillStyle = 'rgba(150,25,18,0.8)';
+  ctx.beginPath(); ctx.arc(s * 0.05, s * 0.04, s * 0.09, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+const cvS = $('#cvScene'), ctxS = cvS.getContext('2d');
+const SW = cvS.width, SH = cvS.height, GY = SH * 0.86;
+
+const scene = {
+  running: true, time: 0, spawn: 0.35, shake: 0, death: null,
+  rex: {x: 210, size: 112, phase: 0, speed: 62, eat: null, eatPitch: 0},
+  tourists: [], puffs: [],
+};
+
+/* ---- DEATH FINALE ---------------------------------------------------
+   Staged to beat the shipping D-Rex death, which convulses then bursts
+   with rings and generic fragments over 6.6s. This runs 7.6s and adds:
+   a last roar, the forelimbs buckling one at a time, light leaking out
+   through splitting hide before the blast, and — the part that matters —
+   fragments that are the REAL ARTWORK rather than anonymous chunks. Each
+   piece is a painter call with a deathMask that hides everything except
+   that part, so the melon skull, the tail and each limb stay identifiable
+   as they tumble. */
+const DEATH_DUR = 7.6, DEATH_IMPACT = 2.0;
+const ALLMASK = {torso: 1, head: 1, tail: 1, farArm: 1, nearArm: 1, farLeg: 1, nearLeg: 1};
+
+function startDeath(){
+  const rex = scene.rex;
+  rex.eat = null; rex.eatPitch = 0;
+  scene.death = {t: 0, x: rex.x, phase: rex.phase, frags: [], rings: [],
+                 blood: [], embers: [], smoke: [], detonated: false, b2: false, b3: false};
+}
+
+function spawnFragments(D, s){
+  // named pieces: real anatomy, launched on distinct arcs
+  /* Thrown hard and wide. Horizontal velocities are roughly doubled over the
+     first pass and gravity eased, so pieces clear most of the frame instead
+     of piling up under the crater — a blast this size shouldn't leave a neat
+     heap where the animal was standing. */
+  const named = [
+    [{...ALLMASK, head: 0},    [ 0.95, -1.28],  3.40, -5.10,  5.2],
+    [{...ALLMASK, tail: 0},    [-1.05, -0.95], -4.10, -4.05, -4.4],
+    [{...ALLMASK, nearArm: 0}, [ 0.50, -0.70],  2.60, -4.75,  8.0],
+    [{...ALLMASK, farArm: 0},  [ 0.42, -0.70],  1.05, -5.45, -7.2],
+    [{...ALLMASK, nearLeg: 0}, [-0.30, -0.55], -2.35, -5.45,  6.4],
+    [{...ALLMASK, farLeg: 0},  [-0.42, -0.55], -1.10, -4.85, -5.6],
+  ];
+  for (const [mask, piv, vx, vy, spin] of named){
+    D.frags.push({kind: 'part', mask, piv, s,
+      x: D.x + piv[0] * s * 0.45, y: GY + piv[1] * s * 0.75,
+      vx: vx * s * 0.85, vy: vy * s * 0.85, grav: 1080, spin, rot: 0, bounce: 0.34});
+  }
+  for (let i = 0; i < 22; i++){          // shredded bulk between them
+    const a = rnd(-Math.PI * 0.96, -Math.PI * 0.04), sp = rnd(2.6, 7.2) * s * 0.8;
+    D.frags.push({kind: 'chunk', r: rnd(s * 0.04, s * 0.16),
+      x: D.x + rnd(-s * 0.6, s * 0.6), y: GY - rnd(s * 0.2, s * 1.3),
+      vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, grav: 1080,
+      spin: rnd(-12, 12), rot: rnd(0, 6.3), bounce: 0.36});
+  }
+}
+
+function stepDeath(dt){
+  const D = scene.death, s = scene.rex.size;
+  D.t += dt;
+  if (!D.detonated && D.t >= DEATH_IMPACT){
+    D.detonated = true;
+    scene.shake = 27;
+    spawnFragments(D, s);
+    D.rings.push({t: 0, dur: 1.55, r1: 3.7, c: '255,208,138', w: 5});
+    D.rings.push({t: -0.05, dur: 1.75, r1: 2.8, c: '255,106,53', w: 8});
+    for (let i = 0; i < 54; i++){
+      const a = Math.random() * Math.PI * 2, sp = rnd(160, 860);
+      D.blood.push({x: D.x, y: GY - s * 0.85, vx: Math.cos(a) * sp,
+                    vy: Math.sin(a) * sp - 230, t: 0, dur: rnd(1.6, 4.0), r: rnd(2, 6)});
+    }
+    for (let i = 0; i < 26; i++){
+      D.smoke.push({x: D.x + rnd(-s, s), y: GY - rnd(0, s * 0.6), vx: rnd(-24, 24),
+                    vy: rnd(-72, -22), t: 0, dur: rnd(2.2, 4.8), r: rnd(10, 30)});
+    }
+  }
+  if (D.detonated && !D.b2 && D.t >= DEATH_IMPACT + 0.35){
+    D.b2 = true; scene.shake = Math.max(scene.shake, 17);
+    D.rings.push({t: 0, dur: 1.35, r1: 2.7, c: '255,176,74', w: 5});
+  }
+  if (D.detonated && !D.b3 && D.t >= DEATH_IMPACT + 0.85){
+    D.b3 = true; scene.shake = Math.max(scene.shake, 11);
+    D.rings.push({t: 0, dur: 1.25, r1: 2.2, c: '225,69,47', w: 4});
+  }
+  if (D.detonated && Math.random() < dt * 40){
+    D.embers.push({x: D.x + rnd(-s * 1.5, s * 1.5), y: GY - rnd(0, s * 0.4),
+                   vx: rnd(-15, 15), vy: rnd(-72, -26), t: 0, dur: rnd(1.4, 3.4), r: rnd(1, 2.6)});
+  }
+  for (const f of D.frags){
+    if (f.rest) continue;
+    f.vy += f.grav * dt; f.x += f.vx * dt; f.y += f.vy * dt; f.rot += f.spin * dt;
+    if (f.y >= GY){
+      f.y = GY; f.vy *= -f.bounce; f.vx *= 0.60; f.spin *= 0.48;
+      if (Math.abs(f.vy) < 34){ f.vy = 0; f.vx = 0; f.spin = 0; f.rest = true; }
+    }
+  }
+  for (const r of D.rings) r.t += dt;
+  D.rings = D.rings.filter(r => r.t < r.dur);
+  for (const p of D.blood){ p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 540 * dt;
+    if (p.y > GY){ p.y = GY; p.vx *= 0.3; p.vy = 0; } }
+  D.blood = D.blood.filter(p => p.t < p.dur);
+  for (const e of D.embers){ e.t += dt; e.x += e.vx * dt; e.y += e.vy * dt; e.vy += 12 * dt; }
+  D.embers = D.embers.filter(e => e.t < e.dur);
+  for (const m of D.smoke){ m.t += dt; m.x += m.vx * dt; m.y += m.vy * dt; m.vy *= 0.985; m.r += 15 * dt; }
+  D.smoke = D.smoke.filter(m => m.t < m.dur);
+  if (D.t >= DEATH_DUR){ scene.death = null; scene.rex.x = -220; scene.tourists.length = 0; }
+}
+
+function drawDeath(){
+  const D = scene.death, s = scene.rex.size, pal = PALETTES[state.pal];
+  const t = D.t, fade = clamp01((DEATH_DUR - t) / 1.0, 0, 1);
+
+  // scorch + blood pool spreading under it
+  const soak = clamp01((t - DEATH_IMPACT) / 1.6, 0, 1);
+  if (t > DEATH_IMPACT){
+    ctxS.save();
+    ctxS.globalAlpha = 0.42 * fade; ctxS.fillStyle = '#0f0706';
+    ctxS.beginPath(); ctxS.ellipse(D.x, GY + 4, s * (0.7 + soak * 1.5), s * (0.16 + soak * 0.22), 0, 0, Math.PI * 2); ctxS.fill();
+    ctxS.globalAlpha = 0.34 * fade; ctxS.fillStyle = '#8e1710';
+    ctxS.beginPath(); ctxS.ellipse(D.x, GY + 2, s * (0.5 + soak * 1.2), s * (0.11 + soak * 0.15), 0, 0, Math.PI * 2); ctxS.fill();
+    ctxS.restore();
+  }
+
+  if (!D.detonated){
+    /* Nothing is masked off during the collapse. An earlier pass hid the
+       forelimbs at 0.62s and 0.98s to "buckle" them, but a mask is binary —
+       they simply blinked out of existence mid-shot. The buckle is carried
+       entirely by the body pitching forward and sinking onto them, so every
+       limb stays on screen right up to the detonation. */
+    let pitch = 0, sx = 1, sy = 1, dy = 0, roarT = 0;
+    if (t < 0.55){                                   // reels back, one last roar
+      roarT = 2.6;
+      pitch = -0.12 * Math.sin(t / 0.55 * Math.PI);
+    } else if (t < 1.30){                            // forelimbs give way under the weight
+      const k = (t - 0.55) / 0.75;
+      const e = 1 - Math.pow(1 - k, 2);
+      // a stumble on each arm, so the collapse lands in two stages
+      const hitch = (t > 0.62 ? Math.exp(-(t - 0.62) * 14) * 0.05 : 0)
+                  + (t > 0.98 ? Math.exp(-(t - 0.98) * 14) * 0.05 : 0);
+      pitch = 0.10 + e * 0.32 + hitch;
+      dy = e * s * 0.17;
+    } else {                                         // swelling, convulsing, splitting
+      const k = (t - 1.30) / (DEATH_IMPACT - 1.30);
+      const vib = Math.sin(t * 47) * 0.038 * k;
+      pitch = 0.42 + Math.sin(t * 18) * 0.03;
+      dy = s * 0.17;
+      sx = 1 + k * 0.17 + vib; sy = 1 + k * 0.17 - vib;
+    }
+    const d = {size: 1, pal, feat: {sixLimbs: true}, entranceT: roarT, eat: null};
+    ctxS.save();
+    ctxS.globalAlpha = 0.3;
+    ctxS.fillStyle = '#000';
+    ctxS.beginPath(); ctxS.ellipse(D.x, GY + 3, s * 0.95, s * 0.2, 0, 0, Math.PI * 2); ctxS.fill();
+    ctxS.restore();
+    ctxS.save();
+    ctxS.translate(D.x, GY + dy);
+    if (pitch){ ctxS.translate(0, -s * 0.6); ctxS.rotate(pitch); ctxS.translate(0, s * 0.6); }
+    ctxS.scale(s * sx, s * sy);
+    try { drawDistortusRex(ctxS, d, D.phase); } catch (err) { console.error(err); }
+    ctxS.restore();
+
+    // light leaking out through hide that is coming apart from the inside
+    if (t > 1.12){
+      const p = clamp01((t - 1.12) / (DEATH_IMPACT - 1.12), 0, 1);
+      ctxS.save(); ctxS.lineCap = 'round';
+      for (let i = 0; i < 13; i++){
+        const a = i * Math.PI / 6.5 + Math.sin(i * 7.7) * 0.3;
+        const len = s * p * (0.42 + (i % 4) * 0.22);
+        ctxS.strokeStyle = i % 3 ? '#8c2a1c' : '#ffb35a';
+        ctxS.lineWidth = Math.max(1.6, s * 0.05 * p);
+        ctxS.globalAlpha = (0.35 + 0.45 * Math.abs(Math.sin(t * 12 + i))) * p;
+        ctxS.beginPath();
+        ctxS.moveTo(D.x, GY - s * 0.95);
+        ctxS.lineTo(D.x + Math.cos(a) * len * 0.5, GY - s * 0.95 + Math.sin(a) * len * 0.38);
+        ctxS.lineTo(D.x + Math.cos(a + 0.16) * len, GY - s * 0.95 + Math.sin(a + 0.16) * len * 0.66);
+        ctxS.stroke();
+      }
+      // core glow building under the skin
+      const gl = ctxS.createRadialGradient(D.x, GY - s * 0.95, 0, D.x, GY - s * 0.95, s * 1.1 * p);
+      gl.addColorStop(0, `rgba(255,190,110,${0.30 * p})`);
+      gl.addColorStop(1, 'rgba(255,120,40,0)');
+      ctxS.globalAlpha = 1; ctxS.fillStyle = gl;
+      ctxS.beginPath(); ctxS.arc(D.x, GY - s * 0.95, s * 1.1 * p, 0, Math.PI * 2); ctxS.fill();
+      ctxS.restore();
+    }
+    return;
+  }
+
+  const u = t - DEATH_IMPACT;
+  // ground cracks radiating from the crater
+  const ck = clamp01(u / 0.45, 0, 1);
+  ctxS.save(); ctxS.globalAlpha = 0.7 * fade; ctxS.strokeStyle = '#120b09'; ctxS.lineWidth = 2.4;
+  for (let i = 0; i < 11; i++){
+    const a = i * (Math.PI * 2 / 11) + 0.3, L = s * ck * (1.1 + (i % 3) * 0.45);
+    ctxS.beginPath(); ctxS.moveTo(D.x, GY + 2);
+    ctxS.lineTo(D.x + Math.cos(a) * L * 0.55, GY + 2 + Math.sin(a) * L * 0.16);
+    ctxS.lineTo(D.x + Math.cos(a + 0.18) * L, GY + 2 + Math.sin(a + 0.18) * L * 0.24);
+    ctxS.stroke();
+  }
+  ctxS.restore();
+
+  // the flash
+  if (u < 0.26){
+    const k = 1 - u / 0.26;
+    ctxS.save(); ctxS.globalAlpha = k * 0.85;
+    const fl = ctxS.createRadialGradient(D.x, GY - s * 0.9, 0, D.x, GY - s * 0.9, s * 3.0);
+    fl.addColorStop(0, '#fff6da'); fl.addColorStop(0.2, '#ff7a3c'); fl.addColorStop(1, 'rgba(120,10,12,0)');
+    ctxS.fillStyle = fl; ctxS.fillRect(D.x - s * 3.2, GY - s * 3.4, s * 6.4, s * 5.6);
+    ctxS.restore();
+  }
+
+  // shock rings
+  for (const r of D.rings){
+    if (r.t < 0) continue;
+    const k = clamp01(r.t / r.dur, 0, 1);
+    ctxS.save();
+    ctxS.globalAlpha = (1 - k) * 0.8 * fade;
+    ctxS.strokeStyle = `rgba(${r.c},1)`; ctxS.lineWidth = Math.max(1.5, r.w * (1 - k));
+    ctxS.beginPath(); ctxS.ellipse(D.x, GY - s * 0.25, s * k * r.r1, s * k * r.r1 * 0.3, 0, 0, Math.PI * 2); ctxS.stroke();
+    ctxS.restore();
+  }
+
+  // smoke behind the debris
+  for (const m of D.smoke){
+    const k = m.t / m.dur;
+    ctxS.save(); ctxS.globalAlpha = (1 - k) * 0.30 * fade; ctxS.fillStyle = '#2a211c';
+    ctxS.beginPath(); ctxS.arc(m.x, m.y, m.r, 0, Math.PI * 2); ctxS.fill(); ctxS.restore();
+  }
+
+  // fragments — real anatomy, drawn through the painter
+  for (const f of D.frags){
+    ctxS.save();
+    ctxS.globalAlpha = fade;
+    ctxS.translate(f.x, f.y);
+    ctxS.rotate(f.rot);
+    if (f.kind === 'part'){
+      ctxS.scale(f.s, f.s);
+      ctxS.translate(-f.piv[0], -f.piv[1]);
+      const d = {size: 1, pal, feat: {sixLimbs: true}, entranceT: 0, eat: null, deathMask: f.mask};
+      try { drawDistortusRex(ctxS, d, D.phase); } catch (err) { console.error(err); }
+    } else {
+      ctxS.fillStyle = shade(pal.body, -0.16);
+      ctxS.beginPath(); ctxS.ellipse(0, 0, f.r, f.r * 0.74, 0, 0, Math.PI * 2); ctxS.fill();
+      ctxS.fillStyle = '#4a1712';
+      ctxS.beginPath(); ctxS.ellipse(f.r * 0.2, f.r * 0.18, f.r * 0.44, f.r * 0.3, 0.4, 0, Math.PI * 2); ctxS.fill();
+    }
+    ctxS.restore();
+  }
+
+  for (const p of D.blood){
+    const k = p.t / p.dur;
+    ctxS.globalAlpha = (1 - k) * 0.85 * fade; ctxS.fillStyle = '#8e1f16';
+    ctxS.beginPath(); ctxS.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctxS.fill();
+  }
+  for (const e of D.embers){
+    const k = e.t / e.dur;
+    ctxS.globalAlpha = (1 - k) * 0.9 * fade;
+    ctxS.fillStyle = k < 0.5 ? '#ffd08a' : '#e2601f';
+    ctxS.beginPath(); ctxS.arc(e.x, e.y, e.r, 0, Math.PI * 2); ctxS.fill();
+  }
+  ctxS.globalAlpha = 1;
+}
+
+// Hip-relative mouth offset, in the same convention menuMouthOffset() uses
+// (y measured before the shared -0.6 body offset) — these are the numbers
+// game.js would need if this painter ships.
+const MOUTH0 = drexMouth(0, 0);
+const MOUTH_UX = MOUTH0.x, MOUTH_DY = MOUTH0.y + 0.6;
+function bitePitch(){
+  const r = Math.hypot(MOUTH_UX, MOUTH_DY) || 1;
+  return clamp01(Math.asin(clamp01(0.48 / r, -1, 1)) - Math.atan2(MOUTH_DY, MOUTH_UX), 0.52, 1.02);
+}
+// mouth position in canvas space, through drawDino's pitch-about-hip transform
+function mouthAt(rex, pitch){
+  const m = drexMouth(rex.phase, 0);
+  const dy = m.y + 0.6, c = Math.cos(pitch), s = Math.sin(pitch);
+  const rx = m.x * c - dy * s, ry = m.x * s + dy * c;
+  return {x: rex.x + rx * rex.size, y: GY + (ry - 0.6) * rex.size};
+}
+function mouthReach(rex){ return rex.size * MOUTH_UX; }
+/* Where must the rex stand for its jaws to close on a tourist at x, at full
+   bite pitch? Inverts mouthAt() for rex.x. Phase is frozen during a meal, so
+   this stays valid for the whole approach. */
+function standXFor(rex, tx){
+  const m = drexMouth(rex.phase, 0), bp = bitePitch();
+  const dy = m.y + 0.6, c = Math.cos(bp), s = Math.sin(bp);
+  return tx - (m.x * c - dy * s) * rex.size;
+}
+
+function spawnTourist(){
+  const size = rnd(30, 40);
+  const t = {
+    x: scene.rex.x + rnd(520, 900), size, dir: 1,
+    look: randomTouristLook(size), phase: rnd(0, 6.3),
+    speed: rnd(48, 86), doomed: Math.random() < 0.55,
+    tripped: false, caught: false, dead: false, alpha: 1,
+  };
+  if (t.doomed) t.speed *= 0.62;          // the slow ones are the meal
+  scene.tourists.push(t);
+}
+
+function stepScene(dt){
+  scene.time += dt;
+  scene.shake *= Math.pow(0.0016, dt);           // decays fast
+  if (scene.shake < 0.4) scene.shake = 0;
+  if (scene.death){ stepDeath(dt); return; }     // nothing else moves during the finale
+  const rex = scene.rex;
+
+  if (!rex.eat){
+    // burst of speed when catchable prey is just ahead
+    let sprint = 1;
+    for (const t of scene.tourists){
+      if ((t.doomed || t.tripped) && !t.caught && !t.dead){
+        const gap = t.x - (rex.x + mouthReach(rex));
+        if (gap > 0 && gap < rex.size * 7){ sprint = 1.55; break; }
+      }
+    }
+    rex.x += rex.speed * sprint * dt;
+    rex.phase += dt * 2.5 * sprint;
+    rex.eatPitch = 0;
+    /* Close enough to bite? Rather than testing a fudge distance, solve for
+       where the rex must STAND for its jaws to reach this tourist at full
+       bite pitch. If that spot is just ahead, commit — and the rex then
+       walks itself there while the tourist stays planted. The game moves
+       the tourist into the mouth instead, which is what read as the victim
+       sliding into the dinosaur just before being eaten. */
+    for (const t of scene.tourists){
+      if (t.caught || t.dead) continue;
+      if (!(t.doomed || t.tripped)) continue;
+      const need = standXFor(rex, t.x) - rex.x;
+      if (need > -rex.size * 0.15 && need < rex.size * 0.85){
+        t.caught = true;
+        rex.eat = {t: 0, tr: t, x0: rex.x, targetX: standXFor(rex, t.x)};
+        break;
+      }
+    }
+  } else {
+    const e = rex.eat; e.t += dt;
+    const bp = bitePitch();
+    rex.eatPitch = e.t < 0.45 ? (e.t / 0.45) * bp
+                 : e.t < 0.8  ? bp
+                 : e.t < 1.1  ? bp - ((e.t - 0.8) / 0.3) * (bp - 0.15)
+                 : e.t < 2.1  ? 0.15 + Math.sin(e.t * 9) * 0.05
+                 : e.t < 2.45 ? 0.15 - ((e.t - 2.1) / 0.35) * 0.5
+                 : e.t < 2.95 ? -0.35 + ((e.t - 2.45) / 0.5) * 0.35 : 0;
+    // The REX closes the gap, easing into the spot solved for at commit —
+    // the prey stays where it is, which is the whole point.
+    if (e.targetX != null && e.t < 0.45){
+      const k = clamp01(e.t / 0.45, 0, 1);
+      rex.x = e.x0 + (e.targetX - e.x0) * (1 - Math.pow(1 - k, 3));
+    }
+    if (!e.bit && e.t >= 0.48){
+      e.bit = true;
+      if (e.tr) e.tr.dead = true;
+      const m = mouthAt(rex, rex.eatPitch);
+      for (let i = 0; i < 26; i++){          // arterial spray thrown off the jaws
+        const a = rnd(-2.5, 0.5), sp = rnd(45, 190);
+        scene.puffs.push({x: m.x + rnd(-7, 7), y: m.y + rnd(-7, 7),
+                          vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - rnd(0, 40),
+                          t: 0, dur: rnd(0.45, 1.15), r: rnd(2, 6.5)});
+      }
+      for (let i = 0; i < 8; i++){           // fat gouts, slower, lower, darker
+        scene.puffs.push({x: m.x + rnd(-5, 5), y: m.y + rnd(-2, 8),
+                          vx: rnd(-24, 24), vy: rnd(-18, 30),
+                          t: 0, dur: rnd(0.8, 1.5), r: rnd(4, 8), c: '112,16,12'});
+      }
+    }
+    if (e.bit && e.t >= 2.42 && !e.gulpSpurt){   // squeezed out as it goes down
+      e.gulpSpurt = true;
+      const m = mouthAt(rex, rex.eatPitch);
+      for (let i = 0; i < 12; i++){
+        scene.puffs.push({x: m.x + rnd(-6, 6), y: m.y + rnd(-4, 6),
+                          vx: rnd(-30, 30), vy: rnd(-10, 55),
+                          t: 0, dur: rnd(0.5, 1.0), r: rnd(2, 5)});
+      }
+    }
+    // each shake of the head slings a fresh arc of it
+    if (e.bit && e.t > 1.1 && e.t < 2.1 && Math.sin(e.t * 9) > 0.86 && Math.random() < 0.6){
+      const m = mouthAt(rex, rex.eatPitch);
+      for (let i = 0; i < 4; i++){
+        scene.puffs.push({x: m.x, y: m.y + rnd(-4, 4),
+                          vx: rnd(-90, 90), vy: rnd(-70, 10),
+                          t: 0, dur: rnd(0.4, 0.85), r: rnd(2, 5)});
+      }
+    }
+    if (e.t >= 2.95){
+      if (e.tr) scene.tourists = scene.tourists.filter(t => t !== e.tr);
+      rex.eat = null;
+    }
+  }
+
+  for (const t of scene.tourists){
+    if (t.dead) continue;
+    // Caught but not yet bitten: flail on the spot. They must keep existing
+    // through this window — the eat branch is dragging them to the mouth,
+    // and the bite (and the victim-in-jaws artwork) is still 0.48s away.
+    if (t.caught){ t.phase += dt * 16; continue; }
+    // the doomed trip and go down when it gets close
+    if (t.doomed && !t.tripped && t.x - rex.x < rex.size * 3.2 && Math.random() < dt * 2.2) t.tripped = true;
+    if (t.tripped){
+      t.x += (10 + Math.max(0, Math.sin(scene.time * 7)) * 26) * dt;
+      t.look.shockT += dt;
+    } else {
+      t.x += t.speed * dt;
+      t.phase += dt * 11;
+    }
+  }
+  scene.tourists = scene.tourists.filter(t => t.x < SW + 260 || t.caught);
+
+  for (const p of scene.puffs){ p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 120 * dt; }
+  scene.puffs = scene.puffs.filter(p => p.t < p.dur);
+
+  scene.spawn -= dt;
+  if (scene.spawn <= 0 && scene.tourists.length < 6){ spawnTourist(); scene.spawn = rnd(0.9, 2.2); }
+  if (rex.x > SW + 320){                       // lap the scene
+    rex.x = -220;
+    scene.tourists.length = 0;
+  }
+}
+
+function drawScene(){
+  ctxS.setTransform(1, 0, 0, 1, 0, 0);
+  const g = ctxS.createLinearGradient(0, 0, 0, SH);
+  g.addColorStop(0, '#1a1c16'); g.addColorStop(0.62, '#26261d'); g.addColorStop(1, '#38311f');
+  ctxS.fillStyle = g; ctxS.fillRect(0, 0, SW, SH);
+  // screen shake — applied after the backdrop so the world jolts, not the frame
+  if (scene.shake > 0){
+    ctxS.translate(rnd(-scene.shake, scene.shake), rnd(-scene.shake, scene.shake) * 0.6);
+  }
+  ctxS.strokeStyle = 'rgba(246,192,93,.18)'; ctxS.lineWidth = 1;
+  ctxS.beginPath(); ctxS.moveTo(-40, GY + 0.5); ctxS.lineTo(SW + 40, GY + 0.5); ctxS.stroke();
+
+  if (scene.death){ drawDeath(); ctxS.setTransform(1, 0, 0, 1, 0, 0); return; }
+
+  const rex = scene.rex;
+  // Tourists under the dino, so a catch overlaps correctly. Gated on `dead`,
+  // NOT `caught` — dead is set the instant the bite lands, which is exactly
+  // when drawVictim() takes over. Gating on caught instead opens a 0.48s hole
+  // where neither draws them and the tourist blinks out before being eaten.
+  for (const t of scene.tourists){
+    if (t.dead) continue;
+    if (t.tripped) drawTouristSitting(ctxS, t.look, t.x, GY, -t.dir, scene.time, t.alpha);
+    else {
+      t.look.lookT = Math.sin(scene.time * 2.4 + t.look.phase * 3) > 0.45 ? 0.3 : 0;
+      drawTourist(ctxS, t.look, t.x, GY, t.dir, t.phase, t.alpha, 0);
+    }
+  }
+
+  const d = {size: 1, pal: PALETTES[state.pal], feat: {sixLimbs: true}, entranceT: 0,
+             eat: rex.eat ? {t: rex.eat.t} : null};
+  ctxS.save();
+  ctxS.globalAlpha = 0.3;
+  ctxS.fillStyle = '#000';
+  ctxS.beginPath(); ctxS.ellipse(rex.x, GY + 3, rex.size * 0.95, rex.size * 0.2, 0, 0, Math.PI * 2); ctxS.fill();
+  ctxS.restore();
+  ctxS.save();
+  ctxS.translate(rex.x, GY);
+  if (rex.eatPitch){                       // same pivot drawDino uses
+    ctxS.translate(0, -rex.size * 0.6);
+    ctxS.rotate(rex.eatPitch);
+    ctxS.translate(0, rex.size * 0.6);
+  }
+  ctxS.scale(rex.size, rex.size);
+  try { drawDistortusRex(ctxS, d, rex.phase); } catch (err) { console.error(err); }
+  ctxS.restore();
+
+  // Victim in the jaws — but ONLY until the gulp starts at 2.45. The bulge
+  // sliding down the throat IS this tourist, so drawing both at once shows
+  // the same person in two places. (game.js gates this the same way.)
+  if (rex.eat && rex.eat.bit && rex.eat.tr && rex.eat.t < 2.45){
+    const m = mouthAt(rex, rex.eatPitch);
+    drawVictim(ctxS, rex.eat.tr, m, 1, scene.time);
+    if (Math.random() < 0.6){                       // dripping from the jaws
+      scene.puffs.push({x: m.x + rnd(-6, 6), y: m.y + 4, vx: rnd(-14, 14), vy: rnd(10, 46),
+                        t: 0, dur: rnd(0.35, 0.7), r: rnd(1.8, 4.2)});
+    }
+  }
+  for (const p of scene.puffs){
+    const k = p.t / p.dur;
+    ctxS.globalAlpha = Math.max(0, 1 - k) * 0.85;
+    ctxS.fillStyle = `rgb(${p.c || '150,25,18'})`;
+    ctxS.beginPath(); ctxS.arc(p.x, p.y, p.r * (1 - k * 0.4), 0, Math.PI * 2); ctxS.fill();
+  }
+  ctxS.globalAlpha = 1;
+  ctxS.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+/* ?scene=N fast-forwards the chase N seconds at a fixed step before the
+   first paint, after planting a guaranteed victim — so a specific beat of
+   the eat timeline (the chomp lands at ~0.5s, the thrash runs 1.1–2.1s)
+   can be linked to or screenshotted directly instead of waited for. */
+const qs = new URLSearchParams(location.search);
+const ffSecs = parseFloat(qs.get('scene'));
+if (isFinite(ffSecs) && ffSecs > 0){
+  scene.tourists.push({
+    x: scene.rex.x + scene.rex.size * 2.4, size: 36, dir: 1,
+    look: randomTouristLook(36), phase: 0, speed: 26,
+    doomed: true, tripped: false, caught: false, dead: false, alpha: 1,
+  });
+  for (let i = 0, n = Math.min(3000, ffSecs / 0.016); i < n; i++) stepScene(0.016);
+}
+// ?death=N jumps straight to a beat of the finale
+const ffDeath = parseFloat(qs.get('death'));
+if (isFinite(ffDeath) && ffDeath >= 0){
+  scene.rex.x = SW * 0.42; startDeath();
+  for (let i = 0, n = Math.min(3000, ffDeath / 0.016); i < n; i++) stepScene(0.016);
+}
+// A deep-linked beat holds on that frame instead of playing straight past it.
+if ((isFinite(ffSecs) && ffSecs > 0) || (isFinite(ffDeath) && ffDeath >= 0)){
+  scene.running = false;
+  scene.shake = 0;
+  const b = $('#btnScene');
+  b.textContent = '▶ Play scene'; b.classList.remove('on');
+}
+
+let sceneLast = performance.now();
+function sceneLoop(now){
+  const dt = Math.min(0.05, (now - sceneLast) / 1000); sceneLast = now;
+  if (scene.running) stepScene(dt);
+  drawScene();
+  requestAnimationFrame(sceneLoop);
+}
+$('#btnScene').addEventListener('click', (e) => {
+  scene.running = !scene.running;
+  e.currentTarget.textContent = scene.running ? '⏸ Pause scene' : '▶ Play scene';
+  e.currentTarget.classList.toggle('on', scene.running);
+});
+$('#btnDeath').addEventListener('click', () => {
+  if (scene.rex.x < SW * 0.18 || scene.rex.x > SW * 0.78) scene.rex.x = SW * 0.42;
+  startDeath();
+});
+$('#btnFeed').addEventListener('click', () => {
+  const t = {
+    x: scene.rex.x + scene.rex.size * 2.2, size: 36, dir: 1,
+    look: randomTouristLook(36), phase: 0, speed: 30,
+    doomed: true, tripped: false, caught: false, dead: false, alpha: 1,
+  };
+  scene.tourists.push(t);
+});
+requestAnimationFrame(sceneLoop);
+</script>
+</body>
+</html>

@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.54.0';
+const VERSION = '1.55.0';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -25,6 +25,12 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
+  {v: '1.55.0', date: 'Jul 26, 2026', items: [
+    '🦖 The D-Rex has been completely redrawn from the film reference — a hulking knuckle-walker with a swollen skull fused straight into its shoulders, four arms, and a mouth that never quite closes.',
+    '🚶 It now walks on its knuckles like an ape, curling its claws under before each step lands.',
+    '🍽️ On the island map it runs visitors down properly: it closes the distance itself instead of dragging them in, and you can watch the poor soul slide down its throat.',
+    '💥 Its wave-100 death is a full extinction event — the body swells and splits with light before detonating, and the pieces are thrown clear across the map.',
+  ]},
   {v: '1.54.0', date: 'Jul 21, 2026', items: [
     '🎼 Background music is now a full-length cinematic orchestral suite, preserving its authored tempo changes, dynamics, parts, and phrasing.',
     '🎻 A rebuilt browser orchestra gives flute, French horn, brass, strings, contrabass, and piano their own voices instead of generic synth tones.',
@@ -239,7 +245,10 @@ const DINOS = {
   giganotosaurus:   {name:'Giganotosaurus',      epithet:'THE APEX OF APEX PREDATORS', painter:'giga', hp:9000, speed:108, armor:5, bounty:800, dmg:45, size:36, boss:true, weight:0, roar:true,
                      pal:{body:'#4f4a52', belly:'#b7b0ba', accent:'#8a2f2f'}, feat:{bigHead:true, ridge:true}},
   drex:             {name:'D-Rex — Distortus Rex', epithet:'THE DEVIL YOU CREATED', painter:'mutant', hp:16000, speed:116, armor:8, bounty:2000, dmg:60, size:46, boss:true, weight:0, roar:true, regen:0.004,
-                     pal:{body:'#76654b', belly:'#a18461', accent:'#40372c'},
+                     // The D-Rex painter lays an olive dorsal wash and a rust flank wash over
+                     // these, so `body` is the mid-flank base rather than the colour you see
+                     // on its back. Values matched to the two Rebirth renders in assets/ref.
+                     pal:{body:'#8d6238', belly:'#9d8767', accent:'#57492f'},
                      feat:{sixLimbs:true, swollenCranium:true}},
   whiteptera:       {name:'The White Pteranodon', epithet:'DEATH RIDES THE WIND — AIR WEAPONS ONLY', painter:'whiteptera', hp:4200, speed:66, armor:2, bounty:400, dmg:30, size:40, boss:true, weight:0, roar:true, flying:true,
                      pal:{body:'#e6e3da', belly:'#fbfaf5', accent:'#c3beb2'}, feat:{crest:true, glowEyes:true}},
