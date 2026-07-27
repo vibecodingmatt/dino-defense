@@ -1254,6 +1254,12 @@ function tArm(ctx, u, ph, i){
   } else if (u.arms === 'canhold' && i === 1){ // near arm cradles the can up at the chest
     ex = sx + 0.15; ey = sy + 0.16;
     hx = 0.24; hy = -1.04 * t;
+  } else if (u.arms === 'rifle' && i === 1){   // near hand on the grip, tucked at the waist
+    ex = sx + 0.13; ey = sy + 0.20;
+    hx = 0.20; hy = -0.92 * t;
+  } else if (u.arms === 'rifle'){              // far hand steadies the fore-end, out front
+    ex = sx + 0.19; ey = sy + 0.11;
+    hx = 0.40; hy = -1.02 * t;
   } else if (u.arms === 'cane' && i === 1){    // near arm grips the cane, planted ahead
     ex = sx + 0.2; ey = sy + 0.32;
     hx = 0.34; hy = -0.6 * t;
@@ -1296,6 +1302,25 @@ function tArm(ctx, u, ph, i){
     ctx.beginPath(); ctx.arc(hx, hy - 0.035, 0.045, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = 'rgba(255,226,140,0.65)';
     ctx.beginPath(); ctx.arc(hx - 0.015, hy - 0.05, 0.016, 0, Math.PI * 2); ctx.fill();
+  }
+  if (i === 1 && u.holdItem === 'rifle'){        // the warden's rifle, carried at the ready
+    ctx.save();
+    ctx.translate(hx, hy);
+    ctx.rotate(-0.30);
+    ctx.fillStyle = '#5c4028';                   // wooden stock, swept back under the arm
+    ctx.beginPath();
+    ctx.moveTo(-0.22, 0.055); ctx.lineTo(-0.05, -0.012);
+    ctx.lineTo(-0.02, 0.042); ctx.lineTo(-0.18, 0.105);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#2f2a22'; ctx.lineCap = 'butt'; ctx.lineWidth = 0.030;
+    ctx.beginPath(); ctx.moveTo(-0.06, 0.012); ctx.lineTo(0.30, -0.052); ctx.stroke();  // barrel
+    ctx.strokeStyle = '#463a2c'; ctx.lineWidth = 0.020;
+    ctx.beginPath(); ctx.moveTo(-0.04, 0.030); ctx.lineTo(0.10, 0.006); ctx.stroke();   // fore-end
+    ctx.fillStyle = '#2f2a22';                                                          // trigger guard
+    ctx.beginPath(); ctx.arc(-0.035, 0.055, 0.022, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = skin;                        // fingers curled back over the grip
+    ctx.beginPath(); ctx.arc(hx + 0.012, hy + 0.012, 0.028, 0, Math.PI * 2); ctx.fill();
   }
 }
 

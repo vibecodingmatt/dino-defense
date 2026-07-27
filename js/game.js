@@ -2145,6 +2145,22 @@ function hammondLook(size){
   });
   return u;
 }
+/* Robert Muldoon, game warden — sun-bleached khaki, bush hat, and the rifle he
+   never quite gets to raise. He belongs to Blue and to nobody else: the two
+   always spawn together and it never once goes his way. */
+function muldoonLook(size){
+  const u = randomTouristLook(size, true);
+  Object.assign(u, {
+    hero: 'muldoon', skin: '#c08a58', shirt: '#9a8b60',    // sun-bleached khaki
+    bottom: '#7a6c48', bottomType: 'shorts', shoeC: '#4a3524',
+    hairStyle: 'short', hairC: '#4e3c26', beard: false, mustache: false,
+    glasses: false, belly: false, build: 1.08, tall: 1.03,
+    hat: 'safari', hatC: '#9c8c62',
+    pack: null, camera: false, floral: false, balloon: false,
+    arms: 'rifle', holdItem: 'rifle',
+  });
+  return u;
+}
 function spawnTourists(){
   if (G.tourists.length || G.wave > 0) return;
   const wp = G.level.waterPaths || [];
@@ -3254,14 +3270,17 @@ function buildMenuFx(){
 /* giant boss dinosaurs that roam the menu's terrain, far behind the UI —
    sometimes chasing hapless tourists (and sometimes catching them) */
 let menuDinos = [], menuTourists = [], menuPuffs = [], menuSpawnT = 1.2, menuCv = null, menuCtx = null;
-const MENU_BOSSES = ['trex', 'spinosaurus', 'indominus', 'indoraptor', 'giganotosaurus', 'drex'];
+const MENU_BOSSES = ['trex', 'spinosaurus', 'indominus', 'indoraptor', 'giganotosaurus', 'drex', 'blue'];
 function spawnMenuDino(w, h, forcedKey){
   const key = MENU_BOSSES.includes(forcedKey) ? forcedKey : MENU_BOSSES[(Math.random() * MENU_BOSSES.length) | 0];
   const def = DINOS[key];
   const scale = clamp(w / 1280, 0.55, 1.5);
-  const size = rand(88, 138) * scale * (key === 'drex' ? 1.14 : 1); // the finale brute dominates the horizon
+  // the finale brute dominates the horizon; Blue is a raptor and must not
+  // stand shoulder to shoulder with a tyrannosaur
+  const size = rand(88, 138) * scale * (key === 'drex' ? 1.14 : key === 'blue' ? 0.66 : 1);
   const dir = Math.random() < 0.5 ? 1 : -1;
-  const speed = rand(48, 78) * scale * (key === 'drex' ? 0.72 : 1); // Distortus lumbers under its own mass
+  // Distortus lumbers under its own mass; Blue is the fastest thing on the island
+  const speed = rand(48, 78) * scale * (key === 'drex' ? 0.72 : key === 'blue' ? 1.5 : 1);
   const d = {
     painter: def.painter, feat: def.feat, flying: false, size,
     // uniform misty palette (lighter than the near-black jungle) so each distinct
@@ -3278,9 +3297,28 @@ function spawnMenuDino(w, h, forcedKey){
     // leg-cycle rate matched to actual ground speed (game's speed/size gait
     // relation, unclamped) so the giant's feet plant instead of treadmilling
     vx: speed * dir, dir, phase: rand(0, 6.28), stride: Math.max(0.55, (speed / size) * 2.6),
-    alpha: rand(0.74, 0.86),
+    alpha: rand(0.74, 0.86), key,
   };
   menuDinos.push(d);
+  /* Blue hunts alone, and she hunts Muldoon. No pack, no bystanders, no other
+     outcome — the two are a set piece, not a roll of the dice. He gets a long
+     head start so the stalk has room to play out on screen. */
+  if (key === 'blue'){
+    const baseSize = d.size * 0.62;              // she is small; he must still read as a man
+    const look = muldoonLook(baseSize * 0.58);
+    menuTourists.push({
+      // a long head start: she is far quicker, and the stalk and the leap both
+      // need room to land on screen rather than off the edge of it
+      x: d.x + dir * d.size * 7.5,
+      y: d.y + rand(-6, 4),
+      vx: speed * 0.58 * dir,
+      dir, size: baseSize, phase: rand(0, 6.28),
+      fate: 'doomed', doomed: true, tripT: 0,
+      look, shirt: look.shirt, hero: 'muldoon',
+      alpha: 0.85, prey: d,
+    });
+    return;
+  }
   // most giants are chasing dinner: tourists sprint ahead, arms flailing.
   // FATES: ~15% will TRIP and be eaten sitting in terror, ~22% are simply too
   // slow and get run down (≈37% never make it) — the rest outrun the beast.
@@ -3417,12 +3455,17 @@ function drawMenuTourist(ctx, tr){
     drawTouristSitting(ctx, lk, tr.x, tr.y, -tr.dir, G.time, tr.alpha);
     return;
   }
-  // sprinting for their lives — nervous glances back at the thing behind
-  lk.lookT = tr.fate !== 'safe' && Math.sin(G.time * 2.4 + lk.phase * 3) > 0.45 ? 0.3 : 0;
-  drawTourist(ctx, lk, tr.x, tr.y, tr.dir, tr.phase, tr.alpha, 0);
+  // sprinting for their lives — nervous glances back at the thing behind.
+  // `turned` is Muldoon standing his ground: he faces AGAINST his travel
+  // direction. It's a separate flag rather than flipping tr.dir, because the
+  // sitting pose above already negates tr.dir — flipping it too would
+  // double-negate and turn him away from her at the worst possible moment.
+  lk.lookT = !tr.turned && tr.fate !== 'safe' && Math.sin(G.time * 2.4 + lk.phase * 3) > 0.45 ? 0.3 : 0;
+  drawTourist(ctx, lk, tr.x, tr.y, tr.turned ? -tr.dir : tr.dir, tr.phase, tr.alpha, 0);
 }
 /* comic speech bubble floating over a cameo's head (menu canvas space) */
-const MENU_LINES = {nedry: "Ah, Ah, Ah!\nYou didn't say the magic word!", hammond: "We spared no expense!"};
+const MENU_LINES = {nedry: "Ah, Ah, Ah!\nYou didn't say the magic word!", hammond: "We spared no expense!",
+                    muldoon: "Clever girl!"};
 function drawMenuBubble(ctx, tr, w){
   const text = MENU_LINES[tr.hero];
   if (!text) return;
@@ -3490,7 +3533,41 @@ function menuScene(dt){
   if (menuDinos.length < 2 && menuSpawnT <= 0){ spawnMenuDino(w, h); menuSpawnT = rand(7, 15); }
   // dinos: hungry sprint bursts, movement, and the eat-sequence timeline
   for (const d of menuDinos){
-    if (!d.eat){
+    /* BLUE & MULDOON. She doesn't simply run him down like the others: she
+       closes, coils, lets him get his line out, then leaps. The landing puts
+       him on the ground and hands off to the ordinary eat timeline. */
+    if (d.hunt){
+      const H = d.hunt, tr = H.tr;
+      H.t += dt;
+      if (H.stage === 'stalk'){                          // creeping in, low and slow
+        d.x += d.vx * 0.28 * dt;
+        d.phase += dt * d.stride * 0.5;
+        d.eatPitch = 0;
+        if (H.t >= 1.05){
+          H.stage = 'pounce'; H.t = 0;
+          H.x0 = d.x;
+          H.x1 = tr.x - d.dir * d.size * 0.5;            // land right on top of him
+        }
+      } else {
+        const k = clamp(H.t / 0.6, 0, 1);
+        d.x = H.x0 + (H.x1 - H.x0) * k;
+        d.pounceY = -Math.sin(k * Math.PI) * d.size * 1.3;   // the leap arc
+        d.pouncePitch = -0.42 * Math.sin(k * Math.PI * 0.85); // rocks back, then drives down
+        d.phase += dt * 1.1;                                  // legs tucked, not sprinting
+        if (k >= 1){
+          d.pounceY = 0; d.pouncePitch = 0; d.hunt = null;
+          tr.tripped = true; tr.vx = 0; tr.stand = false; tr.sayT = 0;
+          tr.look.shock = true; tr.look.shockT = 0;
+          tr.caught = true;
+          d.eat = {t: 0, tr};
+          for (let i = 0; i < 12; i++){                  // dust knocked out of the ground
+            menuPuffs.push({x: tr.x + rand(-14, 14), y: tr.y - rand(0, 7),
+                            vx: rand(-52, 52), vy: rand(-44, -6),
+                            t: 0, dur: rand(0.35, 0.75), r: rand(2.5, 6), c: '154,143,118'});
+          }
+        }
+      }
+    } else if (!d.eat){
       d._sprint = false;
       for (const tr of menuTourists){                    // catchable prey ahead → burst of speed
         if (tr.prey === d && (tr.doomed || tr.tripped) && !tr.caught && !tr.dead){
@@ -3502,6 +3579,17 @@ function menuScene(dt){
       d.x += d.vx * sp * dt;
       d.phase += dt * d.stride * sp;
       d.eatPitch = 0;
+      if (d.key === 'blue'){                             // close enough — begin the set piece
+        for (const tr of menuTourists){
+          if (tr.prey !== d || tr.hero !== 'muldoon' || tr.caught || tr.dead) continue;
+          if ((tr.x - d.x) * d.dir < d.size * 4.4){
+            d.hunt = {stage: 'stalk', t: 0, tr};
+            tr.vx = 0; tr.stand = true; tr.turned = true; // he stops and faces her
+            tr.sayT = 2.4;                                // "Clever girl!"
+          }
+          break;
+        }
+      }
     } else {
       // the meal: bend down → CHOMP → raise, victim thrashing in the jaws for
       // a good long while → toss the head back → gulp it down
@@ -3566,6 +3654,8 @@ function menuScene(dt){
         // scrabbling backward away from it in little shoves — not nearly fast enough
         tr.x += tr.dir * (10 + Math.max(0, Math.sin(G.time * 7)) * 26) * dt;
         tr.look.shockT += dt;                            // the eyes keep quivering
+      } else if (tr.stand){
+        // Muldoon planted, facing her down. No running legs — he isn't running.
       } else {
         tr.x += tr.vx * dt;
         tr.phase += dt * (tr.hero === 'hammond' ? 5 : 11); // frantic little legs (Hammond dodders)
@@ -3582,7 +3672,9 @@ function menuScene(dt){
           }
         }
       }
-      if (chaseable && (tr.doomed || tr.tripped) && !d.eat){
+      // `!d.hunt` keeps the ordinary run-them-down catch from firing mid-stalk
+      // and stealing Blue's pounce — her set piece owns the kill outright.
+      if (chaseable && (tr.doomed || tr.tripped) && !d.eat && !d.hunt){
         const reach = d.x + d.dir * menuMouthReach(d);   // where the lunge lands
         if ((reach - tr.x) * d.dir >= 0){                // caught
           tr.caught = true;
@@ -3592,12 +3684,13 @@ function menuScene(dt){
     } else if (tr.caught && !tr.dead){
       tr.phase += dt * 16;                               // flailing on the spot
     }
+    if (tr.sayT > 0) tr.sayT -= dt;
     if (!tr.dead) drawMenuTourist(ctx, tr);
   }
   menuTourists = menuTourists.filter(tr => !tr.dead && tr.x > -80 && tr.x < w + 80);
   for (const d of menuDinos){
-    const yy = d.y + Math.sin(d.phase) * d.size * 0.015;
-    drawDino(ctx, d, d.x, yy, d.dir, d.phase, d.alpha, d.eatPitch || 0);
+    const yy = d.y + Math.sin(d.phase) * d.size * 0.015 + (d.pounceY || 0);
+    drawDino(ctx, d, d.x, yy, d.dir, d.phase, d.alpha, (d.eatPitch || 0) + (d.pouncePitch || 0));
     if (d.eat && d.eat.bit){
       const e = d.eat;
       // The victim shows ONLY until the gulp starts: from 2.45 the bulge
@@ -3646,9 +3739,13 @@ function menuScene(dt){
     ctx.fillStyle = `rgba(${pf.c || '150,25,18'},${0.8 * (1 - k)})`;
     ctx.beginPath(); ctx.arc(pf.x, pf.y, pf.r * (1 - k * 0.4), 0, Math.PI * 2); ctx.fill();
   }
-  // celebrity one-liners float on top of everything, while they're still running
+  // celebrity one-liners float on top of everything, while they're still running.
+  // Muldoon's is the exception: his lands on cue, at the moment he turns and
+  // sees her, and would be worthless spoken for the whole chase.
   for (const tr of menuTourists){
-    if (tr.hero && !tr.caught && !tr.dead) drawMenuBubble(ctx, tr, w);
+    if (!tr.hero || tr.caught || tr.dead) continue;
+    if (tr.hero === 'muldoon' && !(tr.sayT > 0)) continue;
+    drawMenuBubble(ctx, tr, w);
   }
   menuDinos = menuDinos.filter(d => d.x > -d.size * 3.2 && d.x < w + d.size * 3.2);
 }
@@ -6716,10 +6813,32 @@ if (new URLSearchParams(location.search).has('menudino')){ // seed roaming menu 
   const menuPreviewParams = new URLSearchParams(location.search);
   const mdMode = menuPreviewParams.get('menudino');
   const forcedBoss = MENU_BOSSES.includes(mdMode) ? mdMode : null;
-  for (let i = 0; i < 3; i++){ spawnMenuDino(innerWidth || 1280, innerHeight || 860, forcedBoss); menuDinos[i].x = (innerWidth || 1280) * (0.22 + i * 0.29); }
+  // Drag each pack along with its dinosaur. Moving the dino alone leaves its
+  // prey where it spawned, which silently breaks any chase the preview is
+  // meant to show — Blue would never close on Muldoon at all.
+  for (let i = 0; i < 3; i++){
+    spawnMenuDino(innerWidth || 1280, innerHeight || 860, forcedBoss);
+    const d = menuDinos[i], to = (innerWidth || 1280) * (0.22 + i * 0.29), shift = to - d.x;
+    d.x = to;
+    for (const tr of menuTourists) if (tr.prey === d) tr.x += shift;
+  }
   if (menuPreviewParams.has('menuphase')){
     const previewPhase = parseFloat(menuPreviewParams.get('menuphase')) || 0;
     for (const d of menuDinos){ d.phase = previewPhase; d.stride = 0; }
+  }
+  if (menuPreviewParams.has('menuhunt')){ // stage Blue's set piece: stalk (<1.05s) then pounce
+    const ht = parseFloat(menuPreviewParams.get('menuhunt')) || 0;
+    const d = menuDinos.find(x => x.key === 'blue');
+    const tr = d && menuTourists.find(x => x.prey === d && x.hero === 'muldoon');
+    if (d && tr){
+      tr.vx = 0; tr.stand = true; tr.turned = true; tr.sayT = Math.max(0.01, 2.4 - ht);
+      // Only the stage and clock are seeded — the pose itself is derived from
+      // H.t by the real code on the next frame, so this previews the shipping
+      // animation rather than a reimplementation of it.
+      if (ht < 1.05) d.hunt = {stage: 'stalk', t: ht, tr};
+      else d.hunt = {stage: 'pounce', t: Math.min(ht - 1.05, 0.599), tr,
+                     x0: d.x, x1: tr.x - d.dir * d.size * 0.5};
+    }
   }
   if (menuPreviewParams.has('menueat')){ // stage the meal: bend/chomp/thrash/toss/gulp on demand
     const eatT = parseFloat(menuPreviewParams.get('menueat')) || 0;
