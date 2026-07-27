@@ -3481,13 +3481,17 @@ function menuScene(dt){
           tr.look.shock = true; tr.look.shockT = 0;
           tr.caught = true;
           d.eat = {t: 0, tr};
-          // the rifle leaves his hands on impact and skitters away
+          /* The rifle leaves his hands on impact. It's thrown FORWARD, the way
+             he was already running and away from the thing that hit him from
+             behind — which is both what the physics wants and the only side
+             where it isn't buried under the dinosaur standing over him. */
           if (tr.look.holdItem === 'rifle'){
             tr.look.holdItem = null; tr.look.arms = 'clutch';
             menuProps.push({x: tr.x, y: tr.y - tr.look.size * 0.9,
-                            vx: -d.dir * rand(40, 90), vy: rand(-110, -70),
-                            rot: rand(-0.6, 0.6), spin: -d.dir * rand(5, 9),
-                            s: tr.look.size, ground: tr.y, t: 0, dur: 6});
+                            vx: d.dir * rand(90, 160), vy: rand(-130, -85),
+                            rot: rand(-0.6, 0.6), spin: d.dir * rand(6, 11),
+                            // a touch oversized on the ground: it is the punchline of the beat
+                            s: tr.look.size * 1.35, ground: tr.y, t: 0, dur: 6});
           }
           for (let i = 0; i < 12; i++){                  // dust knocked out of the ground
             menuPuffs.push({x: tr.x + rand(-14, 14), y: tr.y - rand(0, 7),

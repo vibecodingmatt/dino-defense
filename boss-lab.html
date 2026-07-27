@@ -466,11 +466,12 @@ function stepScene(dt){
         V.tripped = true; V.caught = true; V.say = 0; state.eat = {t:0};
         for (let i=0;i<12;i++) state.puffs.push({x:V.x+rnd(-14,14), y:GY-rnd(0,7),
           vx:rnd(-52,52), vy:rnd(-44,-6), t:0, dur:rnd(.35,.75), r:rnd(2.5,6), c:'154,143,118'});
-        // the rifle leaves his hands on impact and skitters away
+        // thrown forward, away from the thing that hit him from behind —
+        // and clear of the dinosaur that would otherwise stand on top of it
         if (V.look.holdItem === 'rifle'){
           V.look.holdItem = null; V.look.arms = 'clutch';
-          state.props.push({x:V.x, y:GY - V.look.size*0.9, vx:-rnd(40,90), vy:rnd(-110,-70),
-                            rot:rnd(-0.6,0.6), spin:-rnd(5,9), s:V.look.size, ground:GY, t:0, dur:8});
+          state.props.push({x:V.x, y:GY - V.look.size*0.9, vx:rnd(90,160), vy:rnd(-130,-85),
+                            rot:rnd(-0.6,0.6), spin:rnd(6,11), s:V.look.size * 1.35, ground:GY, t:0, dur:8});
         }
       }
     }
@@ -686,6 +687,17 @@ if (qs.get('boss') && DEATHS[qs.get('boss')]) state.boss = qs.get('boss');
 if (qs.get('visitor') && VISITORS.some(v => v.id === qs.get('visitor'))) state.visitor = qs.get('visitor');
 selectBoss(state.boss);
 if (qs.has('feed')) feed();
+/* ?t=<seconds> fast-forwards the fed scene at a fixed step before the first
+   paint, then holds that frame — so a specific beat (the pounce at ~3.0s, the
+   chomp, the rifle settling in the dirt) can be linked to or screenshotted
+   instead of waited for. It drives the real stepScene(), so what you see is
+   the shipping animation rather than a staged approximation of it. */
+const ffT = parseFloat(qs.get('t'));
+if (isFinite(ffT) && ffT > 0){
+  for (let i = 0, n = Math.min(3000, ffT / 0.016); i < n; i++) stepScene(0.016);
+  state.playing = false;
+  $('#btnPlay').textContent = '▶ Play'; $('#btnPlay').classList.remove('on');
+}
 // ?death=live plays it; ?death=<seconds> freezes that exact frame
 if (qs.has('death')){
   const raw = qs.get('death'), at = parseFloat(raw);

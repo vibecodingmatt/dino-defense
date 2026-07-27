@@ -1321,19 +1321,49 @@ function tArm(ctx, u, ph, i){
    Deliberately chunky: at menu scale a visitor is barely 25px tall, and a
    finer weapon simply vanished. */
 function touristRifle(ctx){
-  ctx.fillStyle = '#5c4028';                     // wooden stock, swept back under the arm
+  // Wooden stock, butt swept down and back past the shoulder.
+  ctx.fillStyle = '#63452b';
   ctx.beginPath();
-  ctx.moveTo(-0.26, 0.062); ctx.lineTo(-0.05, -0.018);
-  ctx.lineTo(-0.015, 0.048); ctx.lineTo(-0.21, 0.122);
+  ctx.moveTo(-0.44, 0.118); ctx.lineTo(-0.10, -0.028);
+  ctx.lineTo(-0.035, 0.070); ctx.lineTo(-0.355, 0.205);
   ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = '#241f19'; ctx.lineCap = 'butt'; ctx.lineWidth = 0.042;
-  ctx.beginPath(); ctx.moveTo(-0.06, 0.014); ctx.lineTo(0.38, -0.068); ctx.stroke();   // barrel
-  ctx.strokeStyle = '#4e4034'; ctx.lineWidth = 0.030;
-  ctx.beginPath(); ctx.moveTo(-0.04, 0.034); ctx.lineTo(0.14, 0.002); ctx.stroke();    // fore-end
-  ctx.strokeStyle = '#8d7a5e'; ctx.lineWidth = 0.012;                                  // barrel highlight
-  ctx.beginPath(); ctx.moveTo(0.02, -0.008); ctx.lineTo(0.36, -0.082); ctx.stroke();
-  ctx.fillStyle = '#241f19';                                                           // trigger guard
-  ctx.beginPath(); ctx.arc(-0.038, 0.062, 0.026, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#33271c';                                                    // butt plate
+  ctx.beginPath();
+  ctx.moveTo(-0.44, 0.118); ctx.lineTo(-0.355, 0.205);
+  ctx.lineTo(-0.408, 0.232); ctx.lineTo(-0.492, 0.142);
+  ctx.closePath(); ctx.fill();
+
+  ctx.strokeStyle = '#1f1a15'; ctx.lineCap = 'butt'; ctx.lineWidth = 0.062;     // barrel
+  ctx.beginPath(); ctx.moveTo(-0.10, 0.012); ctx.lineTo(0.62, -0.118); ctx.stroke();
+  ctx.strokeStyle = '#544536'; ctx.lineWidth = 0.052;                           // fore-end woodwork
+  ctx.beginPath(); ctx.moveTo(-0.06, 0.044); ctx.lineTo(0.24, -0.010); ctx.stroke();
+  ctx.strokeStyle = '#a28d69'; ctx.lineWidth = 0.016;                           // barrel highlight
+  ctx.beginPath(); ctx.moveTo(0.00, -0.014); ctx.lineTo(0.59, -0.130); ctx.stroke();
+
+  /* Telescopic sight, mounted proud of the barrel. Deliberately oversized —
+     at menu scale the whole man is ~25px tall, and a correctly-proportioned
+     scope is a single grey pixel. This one is there to be SEEN. */
+  ctx.strokeStyle = '#15120f'; ctx.lineWidth = 0.030;                           // mounts
+  ctx.beginPath();
+  ctx.moveTo(0.045, -0.010); ctx.lineTo(0.055, -0.088);
+  ctx.moveTo(0.275, -0.052); ctx.lineTo(0.285, -0.130);
+  ctx.stroke();
+  ctx.strokeStyle = '#241e18'; ctx.lineCap = 'round'; ctx.lineWidth = 0.070;    // scope tube
+  ctx.beginPath(); ctx.moveTo(0.020, -0.090); ctx.lineTo(0.330, -0.146); ctx.stroke();
+  ctx.strokeStyle = '#2e2720'; ctx.lineWidth = 0.098;                           // objective + eyepiece bells
+  ctx.beginPath(); ctx.moveTo(0.300, -0.140); ctx.lineTo(0.348, -0.149); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0.012, -0.088); ctx.lineTo(0.048, -0.095); ctx.stroke();
+  ctx.strokeStyle = '#6f6154'; ctx.lineCap = 'butt'; ctx.lineWidth = 0.014;     // tube sheen
+  ctx.beginPath(); ctx.moveTo(0.040, -0.118); ctx.lineTo(0.300, -0.166); ctx.stroke();
+  ctx.fillStyle = '#8fd0e6';                                                    // glass catching the light
+  ctx.beginPath(); ctx.ellipse(0.344, -0.150, 0.016, 0.036, -0.18, 0, Math.PI * 2); ctx.fill();
+
+  ctx.strokeStyle = '#1f1a15'; ctx.lineCap = 'round'; ctx.lineWidth = 0.020;    // bolt handle
+  ctx.beginPath(); ctx.moveTo(0.010, 0.020); ctx.lineTo(0.055, 0.072); ctx.stroke();
+  ctx.fillStyle = '#1f1a15';                                                    // trigger guard
+  ctx.beginPath(); ctx.arc(-0.052, 0.082, 0.034, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#63452b';
+  ctx.beginPath(); ctx.arc(-0.052, 0.082, 0.017, 0, Math.PI * 2); ctx.fill();
 }
 
 /* head + hair + face + hat, shared by every tourist pose. `look` flips
