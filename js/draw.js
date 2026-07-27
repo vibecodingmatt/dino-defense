@@ -1307,21 +1307,33 @@ function tArm(ctx, u, ph, i){
     ctx.save();
     ctx.translate(hx, hy);
     ctx.rotate(-0.30);
-    ctx.fillStyle = '#5c4028';                   // wooden stock, swept back under the arm
-    ctx.beginPath();
-    ctx.moveTo(-0.22, 0.055); ctx.lineTo(-0.05, -0.012);
-    ctx.lineTo(-0.02, 0.042); ctx.lineTo(-0.18, 0.105);
-    ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = '#2f2a22'; ctx.lineCap = 'butt'; ctx.lineWidth = 0.030;
-    ctx.beginPath(); ctx.moveTo(-0.06, 0.012); ctx.lineTo(0.30, -0.052); ctx.stroke();  // barrel
-    ctx.strokeStyle = '#463a2c'; ctx.lineWidth = 0.020;
-    ctx.beginPath(); ctx.moveTo(-0.04, 0.030); ctx.lineTo(0.10, 0.006); ctx.stroke();   // fore-end
-    ctx.fillStyle = '#2f2a22';                                                          // trigger guard
-    ctx.beginPath(); ctx.arc(-0.035, 0.055, 0.022, 0, Math.PI * 2); ctx.fill();
+    touristRifle(ctx);
     ctx.restore();
     ctx.fillStyle = skin;                        // fingers curled back over the grip
-    ctx.beginPath(); ctx.arc(hx + 0.012, hy + 0.012, 0.028, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(hx + 0.012, hy + 0.012, 0.030, 0, Math.PI * 2); ctx.fill();
   }
+}
+
+/* The warden's rifle, drawn about its grip at the origin and facing +x, in
+   tourist unit space. Shared by the carried version above and by the one he
+   drops when something finally gets him — so the weapon on the ground is the
+   same object he was holding a moment earlier, not a second sketch of it.
+   Deliberately chunky: at menu scale a visitor is barely 25px tall, and a
+   finer weapon simply vanished. */
+function touristRifle(ctx){
+  ctx.fillStyle = '#5c4028';                     // wooden stock, swept back under the arm
+  ctx.beginPath();
+  ctx.moveTo(-0.26, 0.062); ctx.lineTo(-0.05, -0.018);
+  ctx.lineTo(-0.015, 0.048); ctx.lineTo(-0.21, 0.122);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#241f19'; ctx.lineCap = 'butt'; ctx.lineWidth = 0.042;
+  ctx.beginPath(); ctx.moveTo(-0.06, 0.014); ctx.lineTo(0.38, -0.068); ctx.stroke();   // barrel
+  ctx.strokeStyle = '#4e4034'; ctx.lineWidth = 0.030;
+  ctx.beginPath(); ctx.moveTo(-0.04, 0.034); ctx.lineTo(0.14, 0.002); ctx.stroke();    // fore-end
+  ctx.strokeStyle = '#8d7a5e'; ctx.lineWidth = 0.012;                                  // barrel highlight
+  ctx.beginPath(); ctx.moveTo(0.02, -0.008); ctx.lineTo(0.36, -0.082); ctx.stroke();
+  ctx.fillStyle = '#241f19';                                                           // trigger guard
+  ctx.beginPath(); ctx.arc(-0.038, 0.062, 0.026, 0, Math.PI * 2); ctx.fill();
 }
 
 /* head + hair + face + hat, shared by every tourist pose. `look` flips

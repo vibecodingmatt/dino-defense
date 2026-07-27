@@ -262,7 +262,7 @@ function arche(size, over){
 const state = {
   boss: 'trex', visitor: 'random', playing: true, speed: 1, phase: 0, scale: 150,
   pal: 'game', bg: 'arena', silhouette: false, ground: true,
-  entranceT: 0, eat: null, hunt: null, victim: null, puffs: [],
+  entranceT: 0, eat: null, hunt: null, victim: null, puffs: [], props: [],
 };
 
 /* ================= boss + visitor pickers ================= */
@@ -466,6 +466,12 @@ function stepScene(dt){
         V.tripped = true; V.caught = true; V.say = 0; state.eat = {t:0};
         for (let i=0;i<12;i++) state.puffs.push({x:V.x+rnd(-14,14), y:GY-rnd(0,7),
           vx:rnd(-52,52), vy:rnd(-44,-6), t:0, dur:rnd(.35,.75), r:rnd(2.5,6), c:'154,143,118'});
+        // the rifle leaves his hands on impact and skitters away
+        if (V.look.holdItem === 'rifle'){
+          V.look.holdItem = null; V.look.arms = 'clutch';
+          state.props.push({x:V.x, y:GY - V.look.size*0.9, vx:-rnd(40,90), vy:rnd(-110,-70),
+                            rot:rnd(-0.6,0.6), spin:-rnd(5,9), s:V.look.size, ground:GY, t:0, dur:8});
+        }
       }
     }
   }
@@ -499,6 +505,14 @@ function stepScene(dt){
   }
   for (const p of state.puffs){ p.t += dt; p.x += p.vx*dt; p.y += p.vy*dt; p.vy += 120*dt; }
   state.puffs = state.puffs.filter(p => p.t < p.dur);
+  // dropped kit: tumbles, lands, then lies there
+  state.props = state.props.filter(p => (p.t += dt) < p.dur);
+  for (const p of state.props){
+    if (p.y < p.ground){
+      p.vy += 420*dt; p.x += p.vx*dt; p.y += p.vy*dt; p.rot += p.spin*dt;
+      if (p.y >= p.ground){ p.y = p.ground; p.vx *= 0.3; p.vy = 0; p.spin = 0; p.rot = 1.62; }
+    }
+  }
 }
 
 function drawBoss(x, size, pitch){
@@ -525,18 +539,26 @@ function drawBoss(x, size, pitch){
   try { PAINTERS[bossDef().painter](ctx, d, state.phase); } catch (e) { console.error(e); }
   ctx.restore();
 }
+/* Comic bubble, matching drawMenuBubble()'s look. Multi-line because Nedry's
+   line carries its own break — the real strings come from MENU_LINES in
+   looks.js rather than a copy that could drift from the home screen. */
 function bubble(x, y, text){
   ctx.save();
   ctx.font = '600 15px system-ui, -apple-system, "Segoe UI", sans-serif';
-  const w = ctx.measureText(text).width + 20, h = 30;
+  const lines = String(text).split('\n');
+  const lh = 19, padX = 11, padY = 7;
+  let tw = 0; for (const l of lines) tw = Math.max(tw, ctx.measureText(l).width);
+  const w = tw + padX * 2, h = lines.length * lh + padY * 2;
   const bx = x - w/2, by = y - h - 12;
+  ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
   ctx.fillStyle = '#f7f4ec';
   ctx.beginPath();
   ctx.moveTo(bx+8,by); ctx.arcTo(bx+w,by,bx+w,by+h,8); ctx.arcTo(bx+w,by+h,bx,by+h,8);
   ctx.lineTo(x+7,by+h); ctx.lineTo(x,by+h+9); ctx.lineTo(x-7,by+h);
   ctx.arcTo(bx,by+h,bx,by,8); ctx.arcTo(bx,by,bx+w,by,8); ctx.closePath(); ctx.fill();
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
   ctx.fillStyle = '#20242c'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText(text, x, by + 7);
+  for (let i = 0; i < lines.length; i++) ctx.fillText(lines[i], x, by + padY + i * lh);
   ctx.restore();
 }
 function draw(){
@@ -549,6 +571,14 @@ function draw(){
   const size = state.scale;
   const bx = state.victim ? state.bossX : W*0.5;
   const V = state.victim;
+  // dropped kit lies under everything, where it fell
+  for (const p of state.props){
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, (p.dur - p.t) / 0.9) * 0.9;
+    ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.scale(p.s, p.s);
+    touristRifle(ctx);
+    ctx.restore();
+  }
   if (V && !V.dead){
     if (V.tripped) drawTouristSitting(ctx, V.look, V.x, GY, -1, time, 1);
     else drawTourist(ctx, V.look, V.x, GY, V.turned ? -1 : 1, V.phase, 1, 0);
@@ -564,7 +594,12 @@ function draw(){
     ctx.beginPath(); ctx.arc(p.x, p.y, p.r*(1-k*0.4), 0, Math.PI*2); ctx.fill();
   }
   ctx.globalAlpha = 1;
-  if (V && V.say > 0) bubble(V.x, GY - V.look.size * 1.9, 'Clever girl!');
+  /* Cameo one-liners, same rule as the home screen: Nedry and Hammond talk
+     for the whole chase, Muldoon's lands on cue when he turns and sees her. */
+  if (V && !V.dead && MENU_LINES[V.hero]){
+    const timed = V.hero === 'muldoon';
+    if (!timed ? !V.caught : V.say > 0) bubble(V.x, GY - V.look.size * 1.9, MENU_LINES[V.hero]);
+  }
 }
 
 let last = performance.now();

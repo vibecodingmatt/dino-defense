@@ -92,3 +92,11 @@ function muldoonLook(size){
   });
   return u;
 }
+
+/* What the cameos say. Lives here with their looks so the lab pages can put
+   the real words in the bubble instead of keeping a second, drifting copy. */
+const MENU_LINES = {
+  nedry:   "Ah, Ah, Ah!\nYou didn't say the magic word!",
+  hammond: "We spared no expense!",
+  muldoon: "Clever girl!",
+};

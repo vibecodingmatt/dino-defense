@@ -3191,6 +3191,8 @@ function buildMenuFx(){
 /* giant boss dinosaurs that roam the menu's terrain, far behind the UI —
    sometimes chasing hapless tourists (and sometimes catching them) */
 let menuDinos = [], menuTourists = [], menuPuffs = [], menuSpawnT = 1.2, menuCv = null, menuCtx = null;
+// dropped kit that outlives its owner — currently just Muldoon's rifle
+let menuProps = [];
 const MENU_BOSSES = ['trex', 'spinosaurus', 'indominus', 'indoraptor', 'giganotosaurus', 'drex', 'blue'];
 function spawnMenuDino(w, h, forcedKey){
   const key = MENU_BOSSES.includes(forcedKey) ? forcedKey : MENU_BOSSES[(Math.random() * MENU_BOSSES.length) | 0];
@@ -3385,8 +3387,6 @@ function drawMenuTourist(ctx, tr){
   drawTourist(ctx, lk, tr.x, tr.y, tr.turned ? -tr.dir : tr.dir, tr.phase, tr.alpha, 0);
 }
 /* comic speech bubble floating over a cameo's head (menu canvas space) */
-const MENU_LINES = {nedry: "Ah, Ah, Ah!\nYou didn't say the magic word!", hammond: "We spared no expense!",
-                    muldoon: "Clever girl!"};
 function drawMenuBubble(ctx, tr, w){
   const text = MENU_LINES[tr.hero];
   if (!text) return;
@@ -3481,6 +3481,14 @@ function menuScene(dt){
           tr.look.shock = true; tr.look.shockT = 0;
           tr.caught = true;
           d.eat = {t: 0, tr};
+          // the rifle leaves his hands on impact and skitters away
+          if (tr.look.holdItem === 'rifle'){
+            tr.look.holdItem = null; tr.look.arms = 'clutch';
+            menuProps.push({x: tr.x, y: tr.y - tr.look.size * 0.9,
+                            vx: -d.dir * rand(40, 90), vy: rand(-110, -70),
+                            rot: rand(-0.6, 0.6), spin: -d.dir * rand(5, 9),
+                            s: tr.look.size, ground: tr.y, t: 0, dur: 6});
+          }
           for (let i = 0; i < 12; i++){                  // dust knocked out of the ground
             menuPuffs.push({x: tr.x + rand(-14, 14), y: tr.y - rand(0, 7),
                             vx: rand(-52, 52), vy: rand(-44, -6),
@@ -3651,6 +3659,19 @@ function menuScene(dt){
         ctx.restore();
       }
     }
+  }
+  // dropped kit: tumbles, lands, then lies there going nowhere
+  menuProps = menuProps.filter(p => (p.t += dt) < p.dur);
+  for (const p of menuProps){
+    if (p.y < p.ground){
+      p.vy += 420 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.spin * dt;
+      if (p.y >= p.ground){ p.y = p.ground; p.vx *= 0.3; p.vy = 0; p.spin = 0; p.rot = 1.62; }
+    }
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, (p.dur - p.t) / 0.9) * 0.9;
+    ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.scale(p.s, p.s);
+    touristRifle(ctx);
+    ctx.restore();
   }
   // short-lived sprays: red where a tourist used to be, dust where one fell
   menuPuffs = menuPuffs.filter(pf => (pf.t += dt) < pf.dur);
