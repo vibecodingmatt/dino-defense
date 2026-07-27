@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#100b0a">
+  <title>Boss Lab — Dino Defense</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #fff2d3; --muted: #bdaea2;
+      --panel: rgba(27, 20, 17, .94); --line: rgba(245, 194, 109, .19);
+      --gold: #f6c05d; --red: #e54935; --green: #88c85c;
+    }
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0; color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 84% 5%, rgba(142, 38, 24, .27), transparent 35rem),
+        radial-gradient(circle at 14% 90%, rgba(121, 91, 38, .16), transparent 32rem),
+        #0e0b0a;
+    }
+    button, input, select { font: inherit; }
+    button { color: inherit; }
+    .shell { width: min(1720px, 100%); margin: 0 auto; padding: clamp(16px, 2.2vw, 34px); }
+
+    header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 18px; flex-wrap: wrap; }
+    .eyebrow { margin: 0 0 5px; color: var(--red); font-size: .73rem; font-weight: 900; letter-spacing: .2em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(1.9rem, 4vw, 3.2rem); line-height: .98; letter-spacing: -.045em; }
+    .subhead { max-width: 800px; margin: 10px 0 0; color: var(--muted); font-size: clamp(.9rem, 1.25vw, 1.02rem); }
+    .badge {
+      flex: none; display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px;
+      border: 1px solid rgba(136, 200, 92, .35); border-radius: 999px; color: #d9ffc2;
+      background: rgba(50, 95, 32, .22); font-size: .72rem; font-weight: 900; letter-spacing: .08em; white-space: nowrap;
+    }
+    .badge::before { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px var(--green); content: ""; }
+
+    .workspace { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 18px; align-items: start; }
+    @media (max-width: 1060px) { .workspace { grid-template-columns: 1fr; } }
+    .panel { border: 1px solid var(--line); border-radius: 18px; background: var(--panel); box-shadow: 0 20px 70px rgba(0,0,0,.36); }
+    aside { padding: 16px; position: sticky; top: 14px; max-height: calc(100vh - 28px); overflow-y: auto; }
+    .section-title { margin: 0 0 10px; font-size: .70rem; font-weight: 900; letter-spacing: .19em; text-transform: uppercase; color: var(--gold); }
+    .group { margin-bottom: 18px; } .group:last-child { margin-bottom: 0; }
+
+    label.row { display: block; margin-bottom: 11px; font-size: .82rem; color: var(--muted); }
+    label.row span.val { float: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+    input[type=range] { width: 100%; margin-top: 6px; accent-color: var(--gold); }
+    select { width: 100%; margin-top: 6px; padding: 7px 9px; border-radius: 9px; border: 1px solid var(--line); background: rgba(255,255,255,.05); color: var(--ink); }
+
+    .btnrow { display: flex; flex-wrap: wrap; gap: 8px; }
+    .btn { flex: 1 1 auto; padding: 9px 12px; border-radius: 10px; cursor: pointer; border: 1px solid var(--line);
+           background: rgba(255,255,255,.05); font-size: .82rem; font-weight: 700; transition: background .15s, border-color .15s; }
+    .btn:hover { background: rgba(246,192,93,.14); border-color: rgba(246,192,93,.4); }
+    .btn.on { background: rgba(246,192,93,.2); border-color: var(--gold); color: #fff; }
+    .btn.primary { background: rgba(229,73,53,.22); border-color: rgba(229,73,53,.5); }
+    .btn.primary:hover { background: rgba(229,73,53,.35); }
+    .btn:disabled { opacity: .38; cursor: not-allowed; }
+    .btn:disabled:hover { background: rgba(255,255,255,.05); border-color: var(--line); }
+
+    /* boss + visitor pickers: clickable cards with live canvas previews */
+    .picker { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+    .pick { position: relative; padding: 5px 3px 4px; border-radius: 11px; cursor: pointer; border: 1px solid var(--line);
+            background: rgba(255,255,255,.04); text-align: center; transition: background .15s, border-color .15s; }
+    .pick:hover { background: rgba(246,192,93,.12); }
+    .pick.on { background: rgba(246,192,93,.20); border-color: var(--gold); }
+    .pick canvas { display: block; width: 100%; height: auto; border-radius: 7px; }
+    .pick b { display: block; margin-top: 3px; font-size: .62rem; font-weight: 800; letter-spacing: .02em;
+              line-height: 1.15; color: var(--ink); overflow-wrap: anywhere; }
+    .pick.locked { opacity: .32; cursor: not-allowed; }
+    .pick.locked:hover { background: rgba(255,255,255,.04); }
+    .pick .tie { position: absolute; top: 3px; right: 4px; font-size: .55rem; font-weight: 900; color: var(--gold); }
+
+    .stage { padding: 14px; }
+    .stage h2 { margin: 0 0 4px; font-size: .78rem; letter-spacing: .16em; text-transform: uppercase; color: var(--gold); }
+    .stage p.note { margin: 0 0 10px; font-size: .78rem; color: var(--muted); }
+    canvas.main { display: block; width: 100%; height: auto; border-radius: 12px; background: #11100d; }
+
+    .deathwrap { margin-top: 18px; }
+    .frame { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: #0c0f0a; }
+    .frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+    .frame .idle { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: .86rem; text-align: center; padding: 20px; }
+    .scrub { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+    .scrub input[type=range] { flex: 1; margin: 0; }
+    .scrub .t { min-width: 96px; text-align: right; font-size: .78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+    .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 8px; margin-top: 12px; }
+    .fact { padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.03); }
+    .fact b { display: block; font-size: .62rem; letter-spacing: .13em; text-transform: uppercase; color: var(--gold); margin-bottom: 3px; }
+    .fact span { font-size: .84rem; font-variant-numeric: tabular-nums; }
+    .notes { margin-top: 18px; padding: 16px 18px; }
+    .notes h3 { margin: 0 0 10px; font-size: .72rem; letter-spacing: .18em; text-transform: uppercase; color: var(--gold); }
+    .notes ul { margin: 0; padding-left: 20px; color: var(--muted); font-size: .86rem; line-height: 1.6; }
+    .notes b { color: var(--ink); }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <div>
+      <p class="eyebrow">Internal · design harness</p>
+      <h1>Boss Lab</h1>
+      <p class="subhead">
+        Every boss, on demand: walk it, feed it a specific visitor, and play its real death finale.
+        The creature and visitor artwork here is the game's own — <code>js/draw.js</code>,
+        <code>js/drex.js</code> and <code>js/looks.js</code> — and the finale is the actual in-game
+        animation, driven through <code>index.html</code>'s test hooks rather than reproduced.
+      </p>
+    </div>
+    <span class="badge">Reads live game code</span>
+  </header>
+
+  <div class="workspace">
+    <aside class="panel">
+      <div class="group">
+        <p class="section-title">Boss</p>
+        <div class="picker" id="bossPick"></div>
+      </div>
+
+      <div class="group">
+        <p class="section-title">Visitor</p>
+        <div class="picker" id="tourPick"></div>
+        <div class="btnrow" style="margin-top:9px">
+          <button class="btn primary" id="btnFeed">🍖 Send them in</button>
+        </div>
+        <p class="note" style="margin:8px 0 0;font-size:.73rem;color:var(--muted)" id="tourNote"></p>
+      </div>
+
+      <div class="group">
+        <p class="section-title">Playback</p>
+        <div class="btnrow">
+          <button class="btn on" id="btnPlay">⏸ Pause</button>
+          <button class="btn" id="btnRoar">🗣 Roar</button>
+        </div>
+        <label class="row" style="margin-top:12px">Gait speed <span class="val" id="vSpeed">1.00×</span>
+          <input type="range" id="rSpeed" min="0" max="3" step="0.01" value="1"></label>
+        <label class="row">Walk phase <span class="val" id="vPhase">0.00</span>
+          <input type="range" id="rPhase" min="0" max="6.2832" step="0.001" value="0"></label>
+        <label class="row">Scale <span class="val" id="vScale">150</span>
+          <input type="range" id="rScale" min="60" max="300" step="1" value="150"></label>
+      </div>
+
+      <div class="group">
+        <p class="section-title">Presentation</p>
+        <label class="row">Palette
+          <select id="selPal">
+            <option value="game">In-game (DINOS palette)</option>
+            <option value="menu">Home-screen fog palette</option>
+          </select></label>
+        <label class="row">Backdrop
+          <select id="selBg">
+            <option value="arena">Arena dirt</option>
+            <option value="dark">Dark void</option>
+            <option value="light">Light box</option>
+            <option value="grid">Blueprint grid</option>
+          </select></label>
+        <div class="picker" style="grid-template-columns:1fr 1fr;margin-top:10px">
+          <button class="btn" id="btnSil">◼ Silhouette</button>
+          <button class="btn on" id="btnGround">▁ Ground</button>
+        </div>
+      </div>
+    </aside>
+
+    <div>
+      <section class="panel stage">
+        <h2 id="stageTitle">—</h2>
+        <p class="note">Drawn through the same transform the game uses: unit space, facing +x, origin at ground under the hips.</p>
+        <canvas class="main" id="cv" width="1180" height="560"></canvas>
+        <div class="facts" id="facts"></div>
+      </section>
+
+      <section class="panel stage deathwrap">
+        <h2>Death finale</h2>
+        <p class="note">
+          The real in-game animation, not a reproduction — this embeds
+          <code>index.html?test=1&amp;bosskey=…&amp;kill=…</code>, the same hook the game's own
+          regression uses, so whatever ships is what you see. Scrub for an exact frame, or play it live.
+        </p>
+        <div class="btnrow" style="margin-bottom:10px">
+          <button class="btn primary" id="btnPlayDeath">▶ Play death</button>
+          <button class="btn" id="btnFinal">☠ Wave-100 finale</button>
+          <button class="btn" id="btnClearDeath">✕ Clear</button>
+        </div>
+        <div class="frame"><div class="idle" id="deathIdle">Pick a boss and press <b>Play death</b>.</div></div>
+        <div class="scrub">
+          <input type="range" id="deathScrub" min="0" max="4" step="0.02" value="0" disabled>
+          <span class="t" id="deathT">— / —</span>
+        </div>
+      </section>
+
+      <section class="panel notes">
+        <h3>How to use it</h3>
+        <ul>
+          <li><b>Boss</b> — every entry in <code>BOSS_DEATHS</code>, including the two that never roam the home screen (the White Pteranodon and the Mosasaurus). Each card previews live.</li>
+          <li><b>Visitor</b> — the whole cast: a randomised guest, the eight wave-one archetypes, and the three cameos. Click a card, then <b>Send them in</b> to watch that exact person get caught, thrashed, and swallowed on the real menu eat timeline.</li>
+          <li><b>Muldoon is locked to Blue.</b> They're a set piece in the game and the lab won't let you break the pairing — pick Blue and he unlocks, along with the stalk, his line, and the pounce.</li>
+          <li><b>Palette</b> — bosses look different on the map than in the home-screen fog. Both are one click apart, because a change that reads on one can disappear in the other.</li>
+          <li><b>Silhouette</b> is the honest test of a redesign: if the shape doesn't read as solid black, detail won't save it.</li>
+        </ul>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/looks.js"></script>
+<script src="js/draw.js"></script>
+<script src="js/drex.js"></script>
+<script>
+'use strict';
+const $ = (s) => document.querySelector(s);
+const rnd = (a, b) => a + Math.random() * (b - a);
+const clamp01 = (v, a, b) => Math.max(a, Math.min(b, v));
+
+/* ---- roster -------------------------------------------------------
+   Sourced from the game's own tables so a boss added to DINOS/BOSS_DEATHS
+   shows up here without touching this file. `dur`/`impact` mirror
+   BOSS_DEATHS, which game.js owns; they're only used to size the scrubber. */
+const DEATHS = {
+  blue:{dur:2.9,impact:.92}, trex:{dur:3.7,impact:1.08}, spinosaurus:{dur:3.8,impact:1.14},
+  indominus:{dur:4.0,impact:1.46}, indoraptor:{dur:3.2,impact:1.06},
+  giganotosaurus:{dur:4.2,impact:1.76}, drex:{dur:7.6,impact:2.0},
+  whiteptera:{dur:3.7,impact:1.55}, mosasaurus:{dur:3.9,impact:1.34},
+};
+const BOSSES = Object.keys(DEATHS)
+  .filter(k => typeof DINOS !== 'undefined' && DINOS[k])
+  .map(k => ({key: k, def: DINOS[k], short: DINOS[k].name.split('—')[0].trim()}));
+
+// the home-screen fog recolour, mirroring spawnMenuDino()
+function menuPal(def){
+  if (def.painter === 'trex')   return {body:'#615e49', belly:'#80795b', accent:'#30362b'};
+  if (def.painter === 'mutant') return {body:'#776344', belly:'#967653', accent:'#40352a'};
+  return {body: shade(def.pal.body, -0.10), belly: shade(def.pal.belly, -0.24), accent: def.pal.accent};
+}
+
+/* Visitor roster. The eight archetypes mirror the wave-one evacuation cast in
+   game.js spawnTourists(); the cameos come straight from looks.js. */
+const VISITORS = [
+  {id:'random',   name:'Random guest', make:s => randomTouristLook(s)},
+  {id:'jogger',   name:'Jogger',       make:s => arche(s, {arms:'pump', hairStyle:'pony', hat:'visor', bottomType:'shorts', tall:1.04, build:0.88, shoeC:'#efe9dc'})},
+  {id:'kid',      name:'Kid + balloon',make:s => arche(s * 0.72, {arms:'flail', hairStyle:'pig', kid:true, balloon:true, bottomType:'shorts', tall:0.9, build:0.95, shoeC:'#c4433b'})},
+  {id:'cap',      name:'Ball-cap dad', make:s => arche(s, {arms:'hathold', hairStyle:'short', hat:'cap', bottomType:'pants', tall:1, build:1, shoeC:'#2e2e34'})},
+  {id:'camera',   name:'Camera crew',  make:s => arche(s, {arms:'camera', hairStyle:'bob', glasses:true, bottomType:'skirt', tall:0.98, build:0.92, shoeC:'#7a4a2a', camera:true})},
+  {id:'backpack', name:'Backpacker',   make:s => arche(s, {arms:'clutch', hairStyle:'curls', pack:'backpack', bottomType:'shorts', tall:1.02, build:1.02, shoeC:'#3d5f9e'})},
+  {id:'sunhat',   name:'Sun hat',      make:s => arche(s, {arms:'flail', hairStyle:'long', hat:'sun', bottomType:'skirt', tall:1.02, build:0.9, shoeC:'#efe9dc'})},
+  {id:'safari',   name:'Safari guest', make:s => arche(s, {arms:'pump', hairStyle:'bun', hat:'safari', camera:true, pack:'fanny', bottomType:'shorts', tall:1, build:1.08, shoeC:'#7a4a2a'})},
+  {id:'floral',   name:'Floral shirt', make:s => arche(s, {arms:'flail', hairStyle:'bald', glasses:true, floral:true, belly:true, bottomType:'shorts', tall:0.95, build:1.25, shoeC:'#8a6a3f'})},
+  {id:'nedry',    name:'Dennis Nedry', make:s => nedryLook(s)},
+  {id:'hammond',  name:'John Hammond', make:s => hammondLook(s)},
+  {id:'muldoon',  name:'Robert Muldoon', only:'blue', make:s => muldoonLook(s)},
+];
+function arche(size, over){
+  const u = randomTouristLook(size, !over.kid);
+  Object.assign(u, over);
+  if (over.floral) u.shirt = '#e8574f';
+  if (over.belly) u.build = Math.max(u.build, 1.15);
+  u.size = size;
+  return u;
+}
+
+const state = {
+  boss: 'trex', visitor: 'random', playing: true, speed: 1, phase: 0, scale: 150,
+  pal: 'game', bg: 'arena', silhouette: false, ground: true,
+  entranceT: 0, eat: null, hunt: null, victim: null, puffs: [],
+};
+
+/* ================= boss + visitor pickers ================= */
+function bossCard(b){
+  const el = document.createElement('div');
+  el.className = 'pick' + (b.key === state.boss ? ' on' : '');
+  el.innerHTML = `<b>${b.short}</b>`;
+  const cv = document.createElement('canvas');
+  cv.width = 180; cv.height = 120;
+  el.insertBefore(cv, el.firstChild);
+  const c = cv.getContext('2d');
+  c.fillStyle = '#191811'; c.fillRect(0, 0, 180, 120);
+  c.save(); c.translate(90, 104);
+  const s = b.def.painter === 'blue' || b.def.painter === 'indoraptor' ? 46 : 40;
+  c.scale(s, s);
+  try { PAINTERS[b.def.painter](c, {size:1, pal:b.def.pal, feat:b.def.feat || {}, entranceT:0, eat:null}, 0.7); }
+  catch (err) { console.error(b.key, err); }
+  c.restore();
+  el.addEventListener('click', () => selectBoss(b.key));
+  return el;
+}
+function visitorCard(v){
+  const locked = v.only && v.only !== state.boss;
+  const el = document.createElement('div');
+  el.className = 'pick' + (v.id === state.visitor ? ' on' : '') + (locked ? ' locked' : '');
+  el.innerHTML = `<b>${v.name}</b>` + (v.only ? `<span class="tie">${v.only}</span>` : '');
+  const cv = document.createElement('canvas');
+  cv.width = 150; cv.height = 120;
+  el.insertBefore(cv, el.firstChild);
+  const c = cv.getContext('2d');
+  c.fillStyle = '#191811'; c.fillRect(0, 0, 150, 120);
+  if (!v._look) v._look = v.make(34);
+  c.save(); c.translate(75, 112);
+  try { drawTourist(c, v._look, 0, 0, 1, 0.6, 1, 0); } catch (err) { console.error(v.id, err); }
+  c.restore();
+  if (!locked) el.addEventListener('click', () => { state.visitor = v.id; buildVisitors(); });
+  return el;
+}
+function buildBosses(){
+  const host = $('#bossPick'); host.textContent = '';
+  for (const b of BOSSES) host.appendChild(bossCard(b));
+}
+function buildVisitors(){
+  const host = $('#tourPick'); host.textContent = '';
+  for (const v of VISITORS) host.appendChild(visitorCard(v));
+  const v = VISITORS.find(x => x.id === state.visitor);
+  $('#tourNote').textContent = v && v.only
+    ? `${v.name} only ever appears with ${v.only} — they're a set piece, so the lab keeps them together.`
+    : 'Pick anyone, then send them in to watch the full catch → thrash → gulp.';
+}
+function selectBoss(key){
+  state.boss = key;
+  state.eat = null; state.hunt = null; state.victim = null; state.puffs.length = 0;
+  // Muldoon is Blue's alone — drop him the moment you leave her
+  const v = VISITORS.find(x => x.id === state.visitor);
+  if (v && v.only && v.only !== key) state.visitor = 'random';
+  buildBosses(); buildVisitors(); refreshFacts(); clearDeath();
+  const b = BOSSES.find(x => x.key === key);
+  $('#stageTitle').textContent = b ? b.def.name : '—';
+}
+function refreshFacts(){
+  const b = BOSSES.find(x => x.key === state.boss); if (!b) return;
+  const d = DEATHS[state.boss], f = b.def;
+  $('#facts').innerHTML = [
+    ['Painter', f.painter], ['HP', f.hp.toLocaleString()], ['Speed', f.speed],
+    ['Armor', f.armor], ['Bounty', '$' + f.bounty], ['Size', f.size],
+    ['Death', d.dur.toFixed(2) + 's'], ['Impact', d.impact.toFixed(2) + 's'],
+  ].map(([k, v]) => `<div class="fact"><b>${k}</b><span>${v}</span></div>`).join('');
+}
+
+/* ================= the stage ================= */
+const cv = $('#cv'), ctx = cv.getContext('2d');
+const W = cv.width, H = cv.height, GY = H * 0.86;
+const off = document.createElement('canvas'), offCtx = off.getContext('2d');
+
+function bossDef(){ return (BOSSES.find(b => b.key === state.boss) || BOSSES[0]).def; }
+function palOf(){ const def = bossDef(); return state.pal === 'menu' ? menuPal(def) : def.pal; }
+function dinoObj(){
+  return {size:1, pal:palOf(), feat:bossDef().feat || {}, entranceT:state.entranceT, eat:state.eat};
+}
+function paintBackdrop(){
+  if (state.bg === 'light'){ ctx.fillStyle = '#e8e4da'; ctx.fillRect(0,0,W,H); return; }
+  if (state.bg === 'dark'){ ctx.fillStyle = '#0b0a09'; ctx.fillRect(0,0,W,H); return; }
+  if (state.bg === 'grid'){
+    ctx.fillStyle = '#0d1420'; ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle = 'rgba(120,180,255,.14)'; ctx.lineWidth = 1;
+    for (let x=0;x<W;x+=40){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+    for (let y=0;y<H;y+=40){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+    return;
+  }
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#20211a'); g.addColorStop(.62,'#2b2a20'); g.addColorStop(1,'#3a3225');
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+}
+
+/* Mouth position. The D-Rex reports its own (its skull hinges at the rear and
+   the body pitches with the gait, so no fixed offset can describe it); every
+   other painter uses the same table game.js does. */
+const MOUTHS = {blue:{x:1.02,y:-0.39}, spino:{x:1.25,y:-0.40}, indominus:{x:1.10,y:-0.44},
+                indoraptor:{x:1.02,y:-0.39}, giga:{x:1.13,y:-0.44}};
+function mouthOffset(){
+  const p = bossDef().painter;
+  if (p === 'mutant' && typeof drexMouth === 'function'){ const m = drexMouth(state.phase, 0); return {x:m.x, y:m.y + 0.6}; }
+  const f = MOUTHS[p];
+  return {x: p === 'trex' ? 1.26 : f ? f.x : 0.8, y: p === 'trex' ? -0.48 : f ? f.y : -0.42};
+}
+function bitePitch(){
+  const m = mouthOffset(), r = Math.hypot(m.x, m.y) || 1;
+  return clamp01(Math.asin(clamp01(0.48 / r, -1, 1)) - Math.atan2(m.y, m.x), 0.52, 1.02);
+}
+function mouthAt(bx, pitch, size){
+  const m = mouthOffset(), c = Math.cos(pitch), s = Math.sin(pitch);
+  return {x: bx + (m.x * c - m.y * s) * size, y: GY + (m.x * s + m.y * c - 0.6) * size};
+}
+
+// the victim clamped sideways in the jaws — same scale correction as game.js
+function victimScale(u){
+  const headR = 0.17 * (u.kid ? 1.25 : 1);
+  return ((1.58 * (u.tall || 1) + headR) * u.size) / 0.83;
+}
+function drawVictim(u, m, time){
+  const s = victimScale(u), skin = u.skin || '#e8c49a';
+  const legCol = u.bottomType === 'pants' ? u.bottom : skin;
+  ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(1.2 + Math.sin(time * 16) * 0.1);
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = u.shirt; ctx.lineWidth = s * 0.2;
+  ctx.beginPath(); ctx.moveTo(-s*0.1, 0); ctx.lineTo(s*0.25, 0); ctx.stroke();
+  ctx.strokeStyle = legCol; ctx.lineWidth = s * 0.1;
+  for (const o of [0, Math.PI]){ const k = Math.sin(time*22+o)*0.7;
+    ctx.beginPath(); ctx.moveTo(-s*0.1,0); ctx.lineTo(-s*0.35, -s*0.2*k); ctx.stroke(); }
+  ctx.strokeStyle = skin; ctx.lineWidth = s * 0.08;
+  for (const o of [0.6, Math.PI+0.9]){ const a = Math.sin(time*19+o)*0.9;
+    ctx.beginPath(); ctx.moveTo(s*0.22,0);
+    ctx.lineTo(s*0.22+Math.cos(a)*s*0.3, -Math.abs(Math.sin(a))*s*0.28 - s*0.06); ctx.stroke(); }
+  ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(s*0.36, 0, s*0.12, 0, Math.PI*2); ctx.fill();
+  if (u.hairC && u.hairStyle !== 'bald'){ ctx.fillStyle = u.hairC;
+    ctx.beginPath(); ctx.arc(s*0.37, -s*0.02, s*0.115, Math.PI*0.9, Math.PI*2.05); ctx.fill(); }
+  ctx.fillStyle = 'rgba(150,25,18,0.8)';
+  ctx.beginPath(); ctx.arc(s*0.05, s*0.04, s*0.09, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+let time = 0;
+function feed(){
+  const v = VISITORS.find(x => x.id === state.visitor); if (!v) return;
+  const size = state.scale * 0.30;
+  const look = v.make(size * 0.58);
+  state.victim = {look, x: W*0.5 + state.scale * 2.6, phase: 0, tripped: false, caught: false,
+                  dead: false, hero: v.id, say: 0};
+  state.eat = null;
+  // Blue and Muldoon run their set piece: stalk → "Clever girl!" → pounce
+  state.hunt = (state.boss === 'blue' && v.id === 'muldoon') ? {stage:'approach', t:0} : {stage:'approach', t:0, plain:true};
+  state.bossX = W*0.5 - state.scale * 1.4;
+}
+function stepScene(dt){
+  time += dt;
+  if (state.playing) state.phase = (state.phase + dt * 3.1 * state.speed) % (Math.PI*2);
+  if (state.entranceT > 0) state.entranceT = Math.max(0, state.entranceT - dt);
+  const size = state.scale, V = state.victim;
+
+  if (V && state.hunt){
+    const Hn = state.hunt; Hn.t += dt;
+    if (Hn.stage === 'approach'){
+      state.bossX += size * 1.15 * dt;
+      const gap = V.x - state.bossX;
+      if (Hn.plain ? gap < size * mouthOffset().x : gap < size * 2.9){
+        if (Hn.plain){ Hn.stage = 'bite'; state.eat = {t:0}; state.hunt = null; V.caught = true; }
+        else { Hn.stage = 'stalk'; Hn.t = 0; V.say = 2.4; V.turned = true; }
+      }
+    } else if (Hn.stage === 'stalk'){
+      state.bossX += size * 0.3 * dt;
+      if (Hn.t >= 1.05){ Hn.stage = 'pounce'; Hn.t = 0; Hn.x0 = state.bossX; Hn.x1 = V.x - size * 0.5; }
+    } else {
+      const k = clamp01(Hn.t / 0.6, 0, 1);
+      state.bossX = Hn.x0 + (Hn.x1 - Hn.x0) * k;
+      state.pounceY = -Math.sin(k * Math.PI) * size * 1.3;
+      state.pouncePitch = -0.42 * Math.sin(k * Math.PI * 0.85);
+      if (k >= 1){
+        state.pounceY = 0; state.pouncePitch = 0; state.hunt = null;
+        V.tripped = true; V.caught = true; V.say = 0; state.eat = {t:0};
+        for (let i=0;i<12;i++) state.puffs.push({x:V.x+rnd(-14,14), y:GY-rnd(0,7),
+          vx:rnd(-52,52), vy:rnd(-44,-6), t:0, dur:rnd(.35,.75), r:rnd(2.5,6), c:'154,143,118'});
+      }
+    }
+  }
+  if (V && V.say > 0) V.say -= dt;
+
+  if (state.eat){
+    const e = state.eat; e.t += dt;
+    const bp = bitePitch();
+    state.eatPitch = e.t < 0.45 ? (e.t/0.45)*bp : e.t < 0.8 ? bp
+      : e.t < 1.1 ? bp - ((e.t-0.8)/0.3)*(bp-0.15)
+      : e.t < 2.1 ? 0.15 + Math.sin(e.t*9)*0.05
+      : e.t < 2.45 ? 0.15 - ((e.t-2.1)/0.35)*0.5
+      : e.t < 2.95 ? -0.35 + ((e.t-2.45)/0.5)*0.35 : 0;
+    if (!e.bit && e.standX === undefined){
+      const o = mouthOffset(), c = Math.cos(bp), s = Math.sin(bp);
+      e.x0 = state.bossX; e.standX = V.x - (o.x*c - o.y*s) * size;
+    }
+    if (!e.bit){ const k = clamp01(e.t/0.42,0,1); state.bossX = e.x0 + (e.standX-e.x0)*(1-Math.pow(1-k,3)); }
+    if (!e.bit && e.t >= 0.48){
+      e.bit = true; V.dead = true;
+      const m = mouthAt(state.bossX, state.eatPitch, size);
+      for (let i=0;i<26;i++){ const a = rnd(-2.5,0.5), sp = rnd(45,190);
+        state.puffs.push({x:m.x+rnd(-7,7), y:m.y+rnd(-7,7), vx:Math.cos(a)*sp, vy:Math.sin(a)*sp-rnd(0,40), t:0, dur:rnd(.45,1.15), r:rnd(2,6.5)}); }
+      for (let i=0;i<8;i++) state.puffs.push({x:m.x+rnd(-5,5), y:m.y+rnd(-2,8), vx:rnd(-24,24), vy:rnd(-18,30), t:0, dur:rnd(.8,1.5), r:rnd(4,8), c:'112,16,12'});
+    }
+    if (e.bit && e.t < 2.45 && Math.random() < 0.65){
+      const m = mouthAt(state.bossX, state.eatPitch, size);
+      state.puffs.push({x:m.x+rnd(-7,7), y:m.y+rnd(0,7), vx:rnd(-16,16), vy:rnd(12,52), t:0, dur:rnd(.35,.75), r:rnd(1.8,4.4)});
+    }
+    if (e.t >= 2.95){ state.eat = null; state.victim = null; state.eatPitch = 0; }
+  }
+  for (const p of state.puffs){ p.t += dt; p.x += p.vx*dt; p.y += p.vy*dt; p.vy += 120*dt; }
+  state.puffs = state.puffs.filter(p => p.t < p.dur);
+}
+
+function drawBoss(x, size, pitch){
+  const d = dinoObj();
+  ctx.save(); ctx.globalAlpha = .3; ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.ellipse(x, GY+3, size*.9, size*.2, 0, 0, Math.PI*2); ctx.fill(); ctx.restore();
+  if (state.silhouette){
+    off.width = W; off.height = H;
+    offCtx.setTransform(1,0,0,1,0,0); offCtx.clearRect(0,0,W,H);
+    offCtx.save(); offCtx.translate(x, GY + (state.pounceY||0));
+    if (pitch){ offCtx.translate(0,-size*0.6); offCtx.rotate(pitch); offCtx.translate(0,size*0.6); }
+    offCtx.scale(size,size);
+    try { PAINTERS[bossDef().painter](offCtx, d, state.phase); } catch (e) { console.error(e); }
+    offCtx.restore();
+    offCtx.globalCompositeOperation = 'source-in';
+    offCtx.fillStyle = '#000'; offCtx.fillRect(0,0,W,H);
+    offCtx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(off,0,0);
+    return;
+  }
+  ctx.save(); ctx.translate(x, GY + (state.pounceY||0));
+  if (pitch){ ctx.translate(0,-size*0.6); ctx.rotate(pitch); ctx.translate(0,size*0.6); }
+  ctx.scale(size,size);
+  try { PAINTERS[bossDef().painter](ctx, d, state.phase); } catch (e) { console.error(e); }
+  ctx.restore();
+}
+function bubble(x, y, text){
+  ctx.save();
+  ctx.font = '600 15px system-ui, -apple-system, "Segoe UI", sans-serif';
+  const w = ctx.measureText(text).width + 20, h = 30;
+  const bx = x - w/2, by = y - h - 12;
+  ctx.fillStyle = '#f7f4ec';
+  ctx.beginPath();
+  ctx.moveTo(bx+8,by); ctx.arcTo(bx+w,by,bx+w,by+h,8); ctx.arcTo(bx+w,by+h,bx,by+h,8);
+  ctx.lineTo(x+7,by+h); ctx.lineTo(x,by+h+9); ctx.lineTo(x-7,by+h);
+  ctx.arcTo(bx,by+h,bx,by,8); ctx.arcTo(bx,by,bx+w,by,8); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#20242c'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText(text, x, by + 7);
+  ctx.restore();
+}
+function draw(){
+  ctx.setTransform(1,0,0,1,0,0);
+  paintBackdrop();
+  if (state.ground){
+    ctx.strokeStyle = 'rgba(246,192,93,.28)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0,GY+.5); ctx.lineTo(W,GY+.5); ctx.stroke();
+  }
+  const size = state.scale;
+  const bx = state.victim ? state.bossX : W*0.5;
+  const V = state.victim;
+  if (V && !V.dead){
+    if (V.tripped) drawTouristSitting(ctx, V.look, V.x, GY, -1, time, 1);
+    else drawTourist(ctx, V.look, V.x, GY, V.turned ? -1 : 1, V.phase, 1, 0);
+  }
+  drawBoss(bx, size, (state.eatPitch || 0) + (state.pouncePitch || 0));
+  if (state.eat && state.eat.bit && V && state.eat.t < 2.45){
+    drawVictim(V.look, mouthAt(bx, state.eatPitch, size), time);
+  }
+  for (const p of state.puffs){
+    const k = p.t / p.dur;
+    ctx.globalAlpha = Math.max(0, 1-k) * .85;
+    ctx.fillStyle = `rgb(${p.c || '150,25,18'})`;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r*(1-k*0.4), 0, Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  if (V && V.say > 0) bubble(V.x, GY - V.look.size * 1.9, 'Clever girl!');
+}
+
+let last = performance.now();
+function loop(now){
+  const dt = Math.min(.05, (now-last)/1000); last = now;
+  stepScene(dt);
+  $('#rPhase').value = String(state.phase);
+  $('#vPhase').textContent = state.phase.toFixed(2);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+/* ================= death finale (the real one, via iframe) ============ */
+const frame = $('.frame'), scrub = $('#deathScrub'), tRead = $('#deathT');
+let iframeEl = null, playTimer = 0;
+function deathURL(t, play, final){
+  const u = new URL('index.html', location.href);
+  u.searchParams.set('test','1'); u.searchParams.set('bosskey', state.boss);
+  u.searchParams.set('kill', Math.max(0,t).toFixed(2));
+  u.searchParams.set('deathphase','.7');
+  if (play) u.searchParams.set('killplay','1');
+  if (final) u.searchParams.set('final','1');
+  return u.href;
+}
+function showDeath(t, play, final){
+  const idle = $('#deathIdle'); if (idle) idle.remove();
+  if (!iframeEl){ iframeEl = document.createElement('iframe'); frame.appendChild(iframeEl); }
+  iframeEl.src = deathURL(t, play, final);
+  const d = DEATHS[state.boss];
+  scrub.max = d.dur; scrub.value = Math.min(t, d.dur); scrub.disabled = false;
+  tRead.textContent = `${Number(scrub.value).toFixed(2)} / ${d.dur.toFixed(2)}s`;
+  clearInterval(playTimer);
+  if (play){
+    const started = performance.now();
+    playTimer = setInterval(() => {
+      const el = Math.min(d.dur, (performance.now()-started)/1000);
+      scrub.value = el; tRead.textContent = `${el.toFixed(2)} / ${d.dur.toFixed(2)}s`;
+      if (el >= d.dur) clearInterval(playTimer);
+    }, 60);
+  }
+}
+function clearDeath(){
+  clearInterval(playTimer);
+  if (iframeEl){ iframeEl.remove(); iframeEl = null; }
+  if (!$('#deathIdle')){
+    const p = document.createElement('div');
+    p.className = 'idle'; p.id = 'deathIdle';
+    p.innerHTML = 'Pick a boss and press <b>Play death</b>.';
+    frame.appendChild(p);
+  }
+  scrub.disabled = true; scrub.value = 0; tRead.textContent = '— / —';
+}
+$('#btnPlayDeath').addEventListener('click', () => showDeath(0, true, false));
+$('#btnFinal').addEventListener('click', () => showDeath(0, true, true));
+$('#btnClearDeath').addEventListener('click', clearDeath);
+scrub.addEventListener('input', () => {
+  clearInterval(playTimer);
+  const d = DEATHS[state.boss];
+  tRead.textContent = `${Number(scrub.value).toFixed(2)} / ${d.dur.toFixed(2)}s`;
+});
+scrub.addEventListener('change', () => showDeath(parseFloat(scrub.value), false, false));
+
+/* ================= controls ================= */
+$('#btnFeed').addEventListener('click', feed);
+$('#btnPlay').addEventListener('click', (e) => {
+  state.playing = !state.playing;
+  e.currentTarget.textContent = state.playing ? '⏸ Pause' : '▶ Play';
+  e.currentTarget.classList.toggle('on', state.playing);
+});
+$('#btnRoar').addEventListener('click', () => { state.entranceT = 3.4; });
+$('#rSpeed').addEventListener('input', e => { state.speed = +e.target.value; $('#vSpeed').textContent = state.speed.toFixed(2)+'×'; });
+$('#rPhase').addEventListener('input', e => {
+  state.phase = +e.target.value; $('#vPhase').textContent = state.phase.toFixed(2);
+  state.playing = false; $('#btnPlay').textContent = '▶ Play'; $('#btnPlay').classList.remove('on');
+});
+$('#rScale').addEventListener('input', e => { state.scale = +e.target.value; $('#vScale').textContent = state.scale; });
+$('#selPal').addEventListener('change', e => { state.pal = e.target.value; buildBosses(); });
+$('#selBg').addEventListener('change', e => { state.bg = e.target.value; });
+$('#btnSil').addEventListener('click', e => { state.silhouette = !state.silhouette; e.currentTarget.classList.toggle('on', state.silhouette); });
+$('#btnGround').addEventListener('click', e => { state.ground = !state.ground; e.currentTarget.classList.toggle('on', state.ground); });
+
+const qs = new URLSearchParams(location.search);
+if (qs.get('boss') && DEATHS[qs.get('boss')]) state.boss = qs.get('boss');
+if (qs.get('visitor') && VISITORS.some(v => v.id === qs.get('visitor'))) state.visitor = qs.get('visitor');
+selectBoss(state.boss);
+if (qs.has('feed')) feed();
+// ?death=live plays it; ?death=<seconds> freezes that exact frame
+if (qs.has('death')){
+  const raw = qs.get('death'), at = parseFloat(raw);
+  showDeath(Number.isFinite(at) ? at : 0, !Number.isFinite(at), qs.has('final'));
+}
+if (qs.has('phase')){ state.phase = parseFloat(qs.get('phase')) || 0; state.playing = false;
+  $('#btnPlay').textContent = '▶ Play'; $('#btnPlay').classList.remove('on'); }
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
