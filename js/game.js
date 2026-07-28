@@ -2313,6 +2313,12 @@ function drawSnatch(ctx){
    health to be fought properly. Costs no lives and kills nothing that counts
    — the warden was never on the payroll. */
 const CLEVER_STALK = 1.15, CLEVER_POUNCE = 0.6, CLEVER_MEAL = 2.95;
+/* A LEASH ON THE WHOLE SET PIECE. She is untouchable while it plays, so every
+   square she covers during it is a square the guns never got a shot at. Budget:
+   the chase may not carry her more than 3 squares, and the stalk, the leap and
+   the meal together add at most ~1.5 more — so the scene can never hand her
+   more than 5 squares of free ground, whatever the map or her condition. */
+const CLEVER_LEASH = 3 * MAZE_CS;
 function beginCleverGirl(d){
   const path = G.paths[d.pathI];
   if (!path || G.clever) return;
@@ -2328,7 +2334,8 @@ function beginCleverGirl(d){
     turn: d.dirT, dirT: d.dirT, pitch: 0, speed: 76,
     lookT: 0, kneel: false, tripped: false, gone: false,
   });
-  G.clever = {stage: 'flee', t: 0, d, u, spd0: d.speed, stride0: d.stride};
+  G.clever = {stage: 'flee', t: 0, d, u, spd0: d.speed, stride0: d.stride,
+              run: 0, lp: start};          // ground she has covered under the leash
   d.clever = true;
   d.noHurt = true;                                 // untouchable until it's done
   // say so plainly, once — the cold blue aura carries it from here
@@ -2363,13 +2370,23 @@ function updateCleverGirl(dt){
   c.t += dt;
   const p = dinoPos(d);
   const gap = hyp(p.x, p.y, u.px, u.py);
+  c.run += hyp(p.x, p.y, c.lp.x, c.lp.y);         // ground covered, this frame
+  c.lp = p;
 
   if (c.stage === 'flee'){
     /* FAILSAFE. Her invulnerability lasts exactly as long as the scene, so the
-       scene must always end: if she is slowed to a crawl or he somehow makes
-       the treeline, call it off and let the wave be a wave. He escapes; she
-       becomes shootable on the spot. */
-    if (c.t > 9 || u.px < -90 || u.px > W + 90){ endCleverGirl(); return; }
+       scene must always end: if the chase has spent its leash, she is slowed to
+       a crawl, or he somehow makes the treeline, call it off and let the wave be
+       a wave. He escapes; she becomes shootable on the spot. */
+    if (c.run > CLEVER_LEASH || c.t > 9 || u.px < -90 || u.px > W + 90){ endCleverGirl(); return; }
+    /* He breaks cover WITH her, not before her. She holds position through her
+       boss entrance; a man running through that hold banks a lead she then has
+       to buy back untouchable, which is how the chase grew past its welcome.
+       He also only ever runs at a fraction of whatever she is actually managing,
+       so the gap always closes — at a flat pace one cryo hit put her under him
+       and the chase ran to the failsafe with her invulnerable the whole way. */
+    u.speed = d.entranceT > 0 ? 0
+            : Math.min(76, d.speed * (d.slowT > 0 ? d.slowF : 1) * 0.58);
     u.dist += u.speed * dt;
     if (u.free){
       u.px += u.dirT * u.speed * dt;
@@ -2377,7 +2394,7 @@ function updateCleverGirl(dt){
       // leap lands on him rather than beside him
       u.py += clamp(p.y - u.py, -dt * 70, dt * 70);
     }
-    u.phase += dt * 11;                            // frantic little legs
+    u.phase += dt * (u.speed > 0 ? 11 : 2.2);      // frantic little legs — once he runs
     u.lookT = Math.sin(G.time * 2.7 + u.phase * 0.4) > 0.4 ? 0.32 : 0;  // glances back
     // she is on him: he turns, goes down on one knee, and gets his line out
     if (d.entranceT <= 0 && gap < d.size * 3.1){
@@ -7143,12 +7160,18 @@ if (testParams.has('test')){
     spawnDino('blue', 0, true);
     const bz = G.dinos.find(d => d.boss);
     const spd = bz.speed;
-    bz.entranceT = 0; G.cinT = 0; G.banner = null;
-    let sawScene = false, hurtDuring = false;
-    for (let s = 0; s < 12; s += 0.05){
+    G.cinT = 0; G.banner = null;   // NOTE: her entrance hold is left in — the man
+    // must not run during it, and zeroing it here is what once hid that he did
+    let sawScene = false, hurtDuring = false, ran = 0, start = null;
+    for (let s = 0; s < 16; s += 0.05){
+      // halfway through, ice her: he has to slow to match, or the chase never
+      // ends and she rides the invulnerability across the map
+      if (Math.abs(s - 3) < 0.03){ bz.slowT = 4; bz.slowF = 0.35; }
       step(0.05);
       if (G.clever){
         sawScene = true;
+        if (!start) start = dinoPos(bz);
+        ran = Math.max(ran, hyp(dinoPos(bz).x, dinoPos(bz).y, start.x, start.y));
         const before = bz.hp;
         damage(bz, 1e9, true);                       // guns must do nothing mid-scene
         if (bz.hp !== before) hurtDuring = true;
@@ -7158,6 +7181,7 @@ if (testParams.has('test')){
     damage(bz, 500, true);                           // ...and everything after
     const el = $('#errbox'); el.classList.remove('hidden');
     el.textContent = `CLEVER scene-ran=${sawScene} · hurt-during=${hurtDuring} (want false) · cleared=${G.clever === null}`
+      + ` · untouchable-ground=${(ran / MAZE_CS).toFixed(2)}sq (want <=5)`
       + ` · alive=${!bz.dead} · speed-restored=${bz.speed === spd}`
       + ` · hurt-after=${bz.hp < hpBefore} (n/a once leaked=${!!bz.leaked})`;
     G.paused = true;

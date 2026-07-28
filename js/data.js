@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.57.2';
+const VERSION = '1.57.3';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
