@@ -54,6 +54,7 @@ const START_DNA = 80;   // grant so a new player can buy their first upgrade rig
 function defaultSave(){
   return {bestDiff:0, mapBest:{}, wlv:{}, dna:START_DNA, kills:0, run:null, ach:{},
           stickers:{}, stickerD:{}, cardSeen:false, wkills:{}, studio:[], granted:true,
+          tampered:false,
           settings:{invincible:false, unlimitedCash:false, levelSkip:false, allStickers:false, mute:false,
                     auto:true, music:true, wavePreview:true, killCallouts:true, mutedWeapons:{}}};
 }
@@ -66,6 +67,52 @@ const masteryTier = key => {
   const k = (save.wkills && save.wkills[key]) || 0;
   return k >= MASTERY_TIERS[2] ? 3 : k >= MASTERY_TIERS[1] ? 2 : k >= MASTERY_TIERS[0] ? 1 : 0;
 };
+/* ---------------- save integrity ----------------
+   Every save carries a checksum of itself, salted with the constant below.
+   This is tamper-EVIDENT, not tamper-proof: everything needed to recompute the
+   checksum ships in this file, so anyone who reads the source can forge one.
+   What it catches is the realistic case — editing a value straight from the
+   browser's Application tab. On a mismatch we NEVER wipe, reject, or repair the
+   save: we only flag it, and the flag forfeits achievements and trophies the
+   same way the dev cheats already do (see runDisqualified below).
+   Saves written before this shipped carry no signature at all; those are
+   trusted as-is and signed on their next write, so no existing player is
+   affected. `tampered` is itself part of what gets signed, so clearing the flag
+   by hand just invalidates the signature again.
+   DO NOT CHANGE SAVE_SALT. Every signature in the wild was made with it, so a
+   new value would flag every existing player as tampered on their next load. */
+const SAVE_SALT = 'islaDefense.sig.1';
+/* key-sorted serialisation, so the digest never depends on property order.
+   Mirrors JSON's own handling of undefined/NaN so signing and re-reading a
+   round-tripped save can never disagree. */
+function canonical(v){
+  if (v === undefined || typeof v === 'function') return 'null';
+  if (v === null || typeof v !== 'object') return JSON.stringify(v);
+  // Array.from, not map: map SKIPS holes in a sparse array, which would render
+  // as '' here while JSON writes 'null' — a mismatch that fails a clean save
+  if (Array.isArray(v)) return '[' + Array.from(v, x => canonical(x)).join(',') + ']';
+  return '{' + Object.keys(v).sort().filter(k => v[k] !== undefined)
+                .map(k => JSON.stringify(k) + ':' + canonical(v[k])).join(',') + '}';
+}
+/* cyrb53 — fast and deterministic, deliberately NOT cryptographic (see above) */
+function signSave(obj){
+  const {sig, ...rest} = obj;            // a save never signs its own signature
+  const s = SAVE_SALT + canonical(rest);
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0; i < s.length; i++){
+    const c = s.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 2654435761);
+    h2 = Math.imul(h2 ^ c, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+}
+/* No signature at all means a save (or an exported code) from before this
+   check shipped — trust it. Only a signature that is PRESENT and WRONG counts
+   as tampering, so the check can never fire on a save it has never signed. */
+const saveTampered = s => s.sig === undefined ? !!s.tampered : s.sig !== signSave(s);
+
 function loadSave(){
   try {
     const s = JSON.parse(localStorage.getItem(SAVE_KEY));
@@ -75,7 +122,7 @@ function loadSave(){
             dna: s.dna || 0, kills: s.kills || 0, run: s.run || null, ach: s.ach || {},
             stickers: s.stickers || {}, stickerD: s.stickerD || {}, cardSeen: !!s.cardSeen,
             wkills: s.wkills || {}, studio: s.studio || [],
-            granted: !!s.granted,
+            granted: !!s.granted, tampered: saveTampered(s),
             settings: Object.assign(d.settings, s.settings || {})};
   } catch(e){ return defaultSave(); }
 }
@@ -120,6 +167,7 @@ try {
   };
 } catch(e){}
 function persist(){
+  save.sig = signSave(save);          // re-signed on every write, mirror included
   const j = JSON.stringify(save);
   localStorage.setItem(SAVE_KEY, j);
   try { if (idb) idb.transaction('kv', 'readwrite').objectStore('kv').put(j, 'save'); } catch(e){}
@@ -142,8 +190,9 @@ const sellRefund       = t => Math.round(t.invested * SELL_BASE * (sellDoubled()
 const CHEAT_PASSWORD = 'matttest';
 const cheatsActive = () =>
   save.settings.invincible || save.settings.unlimitedCash || save.settings.levelSkip;
-/* trophies are only earned on clean runs — using any cheat this run forfeits them */
-const runDisqualified = () => G.runCheated || cheatsActive();
+/* trophies are only earned on clean runs — using any cheat this run forfeits
+   them, and so does an edited save (see the save integrity block above) */
+const runDisqualified = () => G.runCheated || cheatsActive() || !!save.tampered;
 
 let achToastQ = [];
 function unlockAch(key){
@@ -7676,6 +7725,7 @@ $('#optAuto').onchange = e => { save.settings.auto = e.target.checked; persist()
 $('#optPreview').onchange = e => { save.settings.wavePreview = e.target.checked; persist(); updateHUD(); };
 $('#optCallouts').onchange = e => { save.settings.killCallouts = e.target.checked; persist(); };
 $('#btnExport').onclick = () => {
+  persist();   // re-sign before exporting, so the code always imports back clean
   const code = btoa(unescape(encodeURIComponent(JSON.stringify(save))));
   prompt('Copy this save code and keep it somewhere safe:', code);
 };

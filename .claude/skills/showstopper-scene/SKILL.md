@@ -112,8 +112,9 @@ flaky results twice).
 
 ## Shipping checklist
 
-- `VERSION` in `js/data.js`, plus a dated `CHANGELOG` entry at the top (same-day
-  reship: update that day's entry and bump its `v`).
+- `VERSION` in `js/data.js`, plus the `CHANGELOG` entry — **follow the
+  `whats-new` skill**, which owns the one-entry-per-day and brevity rules and
+  the audit that catches violations.
 - Bump `CACHE` in `sw.js` to force a clean re-precache.
 - Confirm the other harnesses still pass: `?test=1&menudino=1`, `&menuhunt=`,
   `&menueat=`, `&clevertest=1`, `&mazecheck=1`, and all three lab pages.
