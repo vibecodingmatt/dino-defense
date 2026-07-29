@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.59.0';
+const VERSION = '1.59.1';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -25,22 +25,16 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.59.0', date: 'Jul 28, 2026', items: [
-    '🚽 A park outhouse now stands in the home-screen backdrop, opposite the fence — and sooner or later a tyrannosaur walks the length of the paddock to get at it.',
-    '💼 It takes the front off, and there is the lawyer: sat on the toilet, hands in the air, still selling the place.',
-    '🦖 Then it picks him up off the toilet. The toilet stays.',
-    '🎞️ He is now the third scene of the opening card — the boy on the fence, Blue and Muldoon, the lawyer, Hammond, Nedry — and comes up often once the card is spent.',
-    '🩸 Fixed a long-standing bug where everything on the home screen driven by the game clock was frozen: visitors in the jaws now thrash, the fallen scrabble backward, and the terrified actually glance over their shoulders.',
-  ]},
-  {v: '1.58.0', date: 'Jul 28, 2026', items: [
+  {v: '1.59.1', date: 'Jul 28, 2026', items: [
     '⚡ A bay of park perimeter fence now stands in the home-screen backdrop — ten thousand volts of it, humming away behind the giants.',
-    '🧒 Every so often the power drops out, and Tim Murphy legs it for the fence with something enormous behind him.',
-    '🧗 He gets exactly halfway up before the beacons go amber and the park comes back on line.',
-    '💨 It does not go well. He is thrown clear of the wire and lands as a small heap of ash, which blows away shortly afterward.',
-    '🎞️ Every visit now opens with the full card in order — the boy on the fence, then Blue and Muldoon, then Hammond, then Nedry — and the set pieces queue instead of overlapping, so you never lose one behind the other.',
-    '🎲 After that the backdrop rolls its own again, but the two showstoppers now come up far more often than anything else.',
-    '🌲 Giants and visitors standing further back than the fence now pass BEHIND it instead of walking over the top of it.',
-    '📱 The whole backdrop was reworked for phones: bigger giants, a fence bay sized to fit the screen, and the set pieces staged clear of the menu.',
+    '🧒 Every so often the power drops out and Tim Murphy legs it for the fence. He gets exactly halfway up before it comes back on, and lands as a small heap of ash.',
+    '🚽 A park outhouse stands opposite — and sooner or later a tyrannosaur crosses the paddock, takes the front off, and finds the lawyer sat on the toilet with his hands in the air.',
+    '💼 It picks him up off it without him ever standing. The toilet stays.',
+    '🎞️ Every visit now opens with the full card in order — the boy on the fence, Blue and Muldoon, the lawyer, Hammond, Nedry — and the set pieces queue instead of overlapping.',
+    '🎲 After that the backdrop rolls its own again, with the three showstoppers coming up far more often than anything else.',
+    '🌲 Giants and visitors standing further back than the scenery now pass BEHIND it instead of walking over the top of it.',
+    '📱 The whole backdrop was reworked for phones: bigger giants, scenery sized to fit the screen, and the set pieces staged clear of the menu.',
+    '🩸 Fixed a long-standing bug where everything on the home screen driven by the game clock was frozen: visitors in the jaws now thrash, the fallen scrabble backward, and the terrified glance over their shoulders.',
   ]},
   {v: '1.57.0', date: 'Jul 27, 2026', items: [
     '🦖 Blue now prowls the home screen — and she never hunts alone.',

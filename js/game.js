@@ -3744,8 +3744,13 @@ function drawMenuVictim(ctx, tr, m, dir){
 }
 function drawMenuTourist(ctx, tr){
   const lk = tr.look;
-  if (tr.seated && !tr.caught){
-    // caught on the toilet with his hands up, which is the entire joke
+  if (tr.seated){
+    /* Caught on the toilet with his hands up, which is the entire joke — and
+       he stays on it to the last frame. Ending this at `caught` dropped him
+       back to the standing run pose for the half second before the jaws land,
+       so he stood up to be eaten. He never stands: he is lifted off the seat
+       sitting down. Once bitten he is drawn in the jaws instead, by the
+       ordinary victim painter, so there is no third state to handle here. */
     lk.lookT = 0;
     drawTouristSeated(ctx, lk, tr.x, tr.y, tr.dir, menuT, tr.alpha);
     return;
@@ -4219,11 +4224,20 @@ function updateMenuLoo(dt, w, h, o){
     // held, so the shot lands: him on the toilet, hands up, it looking at him
     if (L.t >= LOO_REVEAL){
       L.stage = 'eaten'; L.t = 0;
+      L.seatY = tr.y;                              // where the porcelain left him
       tr.caught = true;                            // ...and off the toilet he comes
       d.eat = {t: 0, tr};
     }
   } else {
-    // the ordinary eat timeline owns him now; wait for it to finish its meal
+    /* The ordinary eat timeline owns him now. The one thing it can't know is
+       that he is sitting down: it brings the head onto its prey and bites, and
+       a man on a toilet has to come UP off it to meet the jaws. So he is lifted,
+       still seated, over the last moment before they close — picked up off the
+       toilet rather than swapped out of it. */
+    if (d.eat && !d.eat.bit && L.seatY !== undefined){
+      const k = clamp((d.eat.t - 0.26) / 0.22, 0, 1);
+      tr.y = L.seatY - o.h * 0.3 * k * k;
+    }
     if (!d.eat) endMenuLoo();
   }
 }
@@ -4231,7 +4245,12 @@ function endMenuLoo(){
   if (menuLoo){
     const d = menuLoo.d, tr = menuLoo.tr;
     if (d) d.toLoo = false;
-    if (tr && !tr.dead && tr.hidden) tr.dead = true;   // never revealed; just remove him
+    /* Take him with the set. Normally the jaws have already done this; it
+       matters when the scene is struck early, where a seated man left behind
+       mid-lift would hang in the air with nothing under him and never be
+       culled — he is parked on the spot, so the off-screen filter can't reach
+       him the way it does an ordinary runner. */
+    if (tr) tr.dead = true;
     menuLooWreck = 14;                                 // the wreck lies there a while
   }
   menuLoo = null;
