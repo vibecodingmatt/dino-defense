@@ -31,6 +31,16 @@ function shade(hex, f){ // lighten (f>0) / darken (f<0) a #rrggbb color
   shadeCache.set(key, out);
   return out;
 }
+/* walk one #rrggbb color k of the way toward another — for anything that
+   changes color over its own lifetime rather than being tinted once */
+function blend(a, b, k){
+  k = Math.max(0, Math.min(1, k));
+  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+  const r = ((pa >> 16) & 255) + (((pb >> 16) & 255) - ((pa >> 16) & 255)) * k;
+  const g = ((pa >> 8) & 255) + (((pb >> 8) & 255) - ((pa >> 8) & 255)) * k;
+  const bl = (pa & 255) + ((pb & 255) - (pa & 255)) * k;
+  return `rgb(${r | 0},${g | 0},${bl | 0})`;
+}
 
 /* ---------- leg helper: two-joint walk cycle with foot lift ---------- */
 function leg(ctx, hipX, hipY, len, ph, color, w){
@@ -1874,6 +1884,150 @@ function drawTouristKneelAim(ctx, u, x, y, dir, t, alpha){
   ctx.fillStyle = skin;
   ctx.beginPath(); ctx.arc(gripX - 0.03, gripY + 0.09, 0.055, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
+  ctx.restore();
+}
+
+/* Someone going up a fence, hand over hand, seen from the side. Origin is the
+   lower foot where it stands on the wire — NOT the ground — so the caller can
+   simply raise y to send them up. `ph` drives the reach cycle: the two hands
+   and the two feet alternate, one always gripping while the other moves.
+   No ground shadow: nothing about this pose is touching the ground. */
+function drawTouristClimb(ctx, u, x, y, dir, ph, alpha){
+  if (alpha <= 0) return;
+  const s = u.size, bw = u.build, t = u.tall, skin = u.skin;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(x, y);
+  ctx.scale(dir * s, s);
+  ctx.lineCap = 'round';
+
+  const c = Math.sin(ph);                       // +1 = near side reaching, -1 = far side
+  const hipY = -0.70 * t, shY = -1.20 * t, headY = -1.46 * t, headX = 0.05;
+  // the whole body sways in toward the wire on each pull
+  ctx.translate(0.03 * c, -0.02 * Math.abs(c));
+  const grip = 0.30;                            // how far out in front the wire runs
+
+  // FAR SIDE first — arm and leg behind the torso
+  const farH = -1.66 * t - 0.16 * Math.max(0, -c);
+  ctx.strokeStyle = shade(u.shirt, -0.28); ctx.lineWidth = 0.1 * bw;
+  ctx.beginPath(); ctx.moveTo(0.0, shY); ctx.lineTo(0.16, shY - 0.13); ctx.stroke();
+  ctx.strokeStyle = shade(skin, -0.2); ctx.lineWidth = 0.08 * bw;
+  ctx.beginPath(); ctx.moveTo(0.16, shY - 0.13); ctx.lineTo(grip, farH); ctx.stroke();
+  ctx.fillStyle = shade(skin, -0.2);
+  ctx.beginPath(); ctx.arc(grip, farH, 0.05, 0, Math.PI * 2); ctx.fill();
+  climbLeg(ctx, u, -0.03, hipY, 0.24, -0.10 - 0.22 * Math.max(0, c), true);
+
+  // shorts/skirt over the hips, then the torso pressed to the wire
+  if (u.bottomType !== 'pants'){
+    ctx.fillStyle = u.bottom;
+    ctx.beginPath(); ctx.ellipse(0, hipY + 0.05, 0.185 * bw, 0.155, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.fillStyle = skin;
+  ctx.fillRect(headX - 0.05, headY + 0.09, 0.1, 0.16);            // neck, craned upward
+  ctx.fillStyle = u.shirt;
+  ctx.beginPath();
+  ctx.ellipse(0, (hipY + shY) / 2, 0.165 * bw, (hipY - shY) / 2 + 0.07, 0, 0, Math.PI * 2);
+  ctx.fill();
+  if (u.pack === 'backpack'){
+    ctx.fillStyle = u.packC;
+    ctx.beginPath(); ctx.ellipse(-0.22 * bw, -0.95 * t, 0.12, 0.2, 0.08, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // head, tipped back to look at how far there is left to go
+  ctx.save();
+  ctx.translate(headX, headY);
+  ctx.rotate(-0.18);
+  touristHead(ctx, u, ph, 0, 0, 1);
+  ctx.restore();
+
+  // NEAR SIDE last, over everything — the arm currently taking the weight
+  const nearH = -1.66 * t - 0.16 * Math.max(0, c);
+  ctx.strokeStyle = u.shirt; ctx.lineWidth = 0.1 * bw;
+  ctx.beginPath(); ctx.moveTo(0.02, shY); ctx.lineTo(0.19, shY - 0.15); ctx.stroke();
+  ctx.strokeStyle = skin; ctx.lineWidth = 0.08 * bw;
+  ctx.beginPath(); ctx.moveTo(0.19, shY - 0.15); ctx.lineTo(grip + 0.03, nearH); ctx.stroke();
+  ctx.fillStyle = skin;
+  ctx.beginPath(); ctx.arc(grip + 0.03, nearH, 0.055, 0, Math.PI * 2); ctx.fill();
+  climbLeg(ctx, u, 0.03, hipY, 0.27, -0.10 - 0.22 * Math.max(0, -c), false);
+  ctx.restore();
+}
+/* one leg of the climb: knee out to the side, toe hooked on a wire at `footY` */
+function climbLeg(ctx, u, hipX, hipY, footX, footY, far){
+  const bw = u.build, skin = u.skin;
+  const thC = u.bottomType === 'skirt' ? skin : u.bottom;
+  const shC = u.bottomType === 'pants' ? u.bottom : skin;
+  const kx = hipX + footX * 0.72, ky = hipY + (footY - hipY) * 0.42;
+  ctx.strokeStyle = far ? shade(thC, -0.3) : thC; ctx.lineWidth = (far ? 0.135 : 0.15) * bw;
+  ctx.beginPath(); ctx.moveTo(hipX, hipY); ctx.lineTo(kx, ky); ctx.stroke();
+  ctx.strokeStyle = far ? shade(shC, -0.3) : shC; ctx.lineWidth = (far ? 0.105 : 0.117) * bw;
+  ctx.beginPath(); ctx.moveTo(kx, ky); ctx.lineTo(footX, footY); ctx.stroke();
+  ctx.fillStyle = far ? shade(u.shoeC || '#2e2e34', -0.3) : (u.shoeC || '#2e2e34');
+  ctx.beginPath(); ctx.ellipse(footX + 0.02, footY, 0.082, 0.04, -0.1, 0, Math.PI * 2); ctx.fill();
+}
+
+/* Ten thousand volts, mid-flight. Every joint locks at once, so this is one
+   rigid splayed shape rather than a pose with a cycle in it — the caller spins
+   and arcs the whole figure. `burn` runs 0→1: at 0 the body is blown out to a
+   pure white silhouette by the flash, and by 1 it is charcoal on its way to
+   being a pile of ash. */
+function drawTouristZapped(ctx, u, x, y, dir, rot, burn, alpha){
+  if (alpha <= 0) return;
+  const s = u.size, bw = u.build, t = u.tall;
+  const k = Math.max(0, Math.min(1, burn));
+  /* White-hot → ember orange → charcoal. It has to hold the white for most of
+     the flight: a body drawn in any shade near skin stops reading as a
+     silhouette and starts reading as an ordinary person doing a cartwheel. */
+  const body = k < 0.66
+    ? blend('#ffffff', '#ffcf92', (k / 0.66) ** 2)
+    : blend('#ffcf92', '#26221f', (k - 0.66) / 0.34);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(x, y);
+  ctx.rotate(rot);
+  ctx.scale(dir * s, s);
+  ctx.lineCap = 'round';
+
+  // the flash still clinging to him for the first instant — kept behind and
+  // below full strength, or it simply erases the body it is meant to light
+  if (k < 0.35){
+    ctx.save();
+    ctx.globalAlpha = alpha * (1 - k / 0.35) * 0.4;
+    ctx.fillStyle = '#cfeaff';
+    ctx.beginPath(); ctx.arc(0, -0.85 * t, 1.15, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  const hipY = -0.72 * t, shY = -1.24 * t, headY = -1.52 * t;
+  ctx.strokeStyle = body;
+  // legs and arms thrown out hard — the classic rigid X. Everything is a good
+  // deal chunkier than the running build: at menu scale this figure is a
+  // thumbnail, and thin limbs on it just dissolve into the backdrop.
+  /* Limbs are kept SHORT and the head large — nearer a child's proportions
+     than a stick figure's. Drawn long and thin it stops reading as a person at
+     all and turns into a starfish, which is a different joke entirely. */
+  ctx.lineWidth = 0.2 * bw;
+  ctx.beginPath();
+  ctx.moveTo(-0.02, hipY); ctx.lineTo(-0.26, -0.30); ctx.lineTo(-0.36, 0.04);
+  ctx.moveTo(0.02, hipY);  ctx.lineTo(0.28, -0.28);  ctx.lineTo(0.42, 0.06);
+  ctx.stroke();
+  ctx.lineWidth = 0.15 * bw;
+  ctx.beginPath();
+  ctx.moveTo(0, shY); ctx.lineTo(-0.24, shY - 0.22); ctx.lineTo(-0.40, shY - 0.34);
+  ctx.moveTo(0, shY); ctx.lineTo(0.26, shY - 0.20);  ctx.lineTo(0.44, shY - 0.30);
+  ctx.stroke();
+  ctx.fillStyle = body;                                   // torso + head, fused solid
+  ctx.beginPath();
+  ctx.ellipse(0, (hipY + shY) / 2, 0.2 * bw, (hipY - shY) / 2 + 0.09, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath(); ctx.arc(0.04, headY, 0.26, 0, Math.PI * 2); ctx.fill();
+  // hair standing straight up, which is the only funny part of this
+  ctx.strokeStyle = body; ctx.lineWidth = 0.06;
+  ctx.beginPath();
+  for (let i = 0; i < 5; i++){
+    const hx = -0.10 + i * 0.07;
+    ctx.moveTo(hx, headY - 0.21); ctx.lineTo(hx + (i - 2) * 0.035, headY - 0.4);
+  }
+  ctx.stroke();
   ctx.restore();
 }
 

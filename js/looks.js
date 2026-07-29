@@ -93,10 +93,30 @@ function muldoonLook(size){
   return u;
 }
 
+/* Tim Murphy, who goes over the perimeter fence at the worst possible moment.
+   A child, so he keeps the factory's kid proportions — the big head, the short
+   legs — but none of its pigtails or balloons: those belong to the park's other
+   children, and he is emphatically his own cameo. */
+function timmyLook(size){
+  const u = randomTouristLook(size, true);   // no random kid roll; he IS the kid
+  Object.assign(u, {
+    hero: 'timmy', kid: true,
+    size: size * 0.72, tall: 0.88, build: 0.92,
+    skin: '#eec49c', shirt: '#cdd6de',       // pale grey-blue tee
+    bottom: '#6d5a3c', bottomType: 'shorts', shoeC: '#ded8c8',
+    hairStyle: 'short', hairC: '#3a2718',
+    hat: null, pack: null, glasses: false, beard: false, mustache: false,
+    belly: false, floral: false, balloon: false, camera: false,
+    arms: 'flail',
+  });
+  return u;
+}
+
 /* What the cameos say. Lives here with their looks so the lab pages can put
    the real words in the bubble instead of keeping a second, drifting copy. */
 const MENU_LINES = {
   nedry:   "Ah, Ah, Ah!\nYou didn't say the magic word!",
   hammond: "We spared no expense!",
   muldoon: "Clever girl!",
+  timmy:   "The power's out!\nI can make it!",
 };
