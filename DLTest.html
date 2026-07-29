@@ -103,6 +103,7 @@
               <span class="guide-label">ALIGN THE WIDE PDF417 BARCODE</span>
             </div>
             <span class="timer-chip" id="liveTimer" hidden>15.0s</span>
+            <span class="focus-chip" id="focusChip" hidden>AF device-managed</span>
           </div>
 
           <div class="status-line idle" id="liveStatus" role="status" aria-live="polite">
@@ -132,6 +133,9 @@
               Start live trial
             </button>
             <button class="button secondary" id="stopLive" type="button" disabled>Stop</button>
+            <button class="button icon-button focus-button" id="refocus" type="button" aria-label="Refocus camera" title="Refocus camera" hidden>
+              <span class="focus-icon" aria-hidden="true"></span>
+            </button>
             <button class="button icon-button" id="toggleTorch" type="button" aria-label="Toggle camera torch" aria-pressed="false" title="Toggle torch" hidden>
               <span class="torch-icon" aria-hidden="true"></span>
             </button>
@@ -144,8 +148,8 @@
           </dl>
 
           <p class="capture-tip">
-            <strong>Best results:</strong> fill most of the guide, keep all four
-            barcode edges visible, and tilt slightly to move glare.
+            <strong>Best results:</strong> fill most of the guide, hold steady while
+            autofocus settles, keep all four edges visible, and tilt slightly to move glare.
           </p>
         </article>
 

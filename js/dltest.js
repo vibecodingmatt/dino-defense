@@ -13,8 +13,10 @@
     trialLength: $("trialLength"),
     startLive: $("startLive"),
     stopLive: $("stopLive"),
+    refocus: $("refocus"),
     toggleTorch: $("toggleTorch"),
     liveTimer: $("liveTimer"),
+    focusChip: $("focusChip"),
     liveStatus: $("liveStatus"),
     liveLastTime: $("liveLastTime"),
     liveAttempts: $("liveAttempts"),
@@ -88,6 +90,8 @@
 
   const SIGNATURE_FIELDS = [...FORM_FIELD_IDS];
   const MAX_IMAGE_PIXELS = 25_000_000;
+  const REFOCUS_INTERVAL_MS = 2500;
+  const FOCUS_SWEEP_MS = 650;
 
   const CANADIAN_PROVINCES = new Set([
     "AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT",
@@ -239,6 +243,9 @@
   function bindEvents() {
     elements.startLive.addEventListener("click", startLiveTrial);
     elements.stopLive.addEventListener("click", stopLiveTrial);
+    elements.refocus.addEventListener("click", () => {
+      if (state.live) requestRefocus(state.live, true).catch(() => {});
+    });
     elements.toggleTorch.addEventListener("click", toggleTorch);
     elements.choosePhoto.addEventListener("click", () => elements.photoInput.click());
     elements.photoDrop.addEventListener("click", () => {
@@ -375,11 +382,13 @@
           deviceId: { exact: selectedDevice },
           width: { ideal: 1920 },
           height: { ideal: 1080 },
+          advanced: [{ focusMode: "continuous" }],
         }
       : {
           facingMode: { ideal: "environment" },
           width: { ideal: 1920 },
           height: { ideal: 1080 },
+          advanced: [{ focusMode: "continuous" }],
         };
 
     elements.startLive.disabled = true;
@@ -428,6 +437,14 @@
         clockTimer: 0,
         timeoutTimer: 0,
         torchOn: false,
+        capabilities: {},
+        focusModes: [],
+        focusMode: "",
+        focusPending: false,
+        lastFocusAt: 0,
+        focusTimer: 0,
+        focusResolve: null,
+        controlChain: Promise.resolve(),
       };
       state.live = run;
       state.pendingLive = null;
@@ -441,10 +458,16 @@
       setStatus(elements.liveStatus, "working", "Scanning for a PDF417 license barcode…");
 
       const capabilities = track.getCapabilities?.() || {};
+      run.capabilities = capabilities;
       if (capabilities.torch) {
         elements.toggleTorch.hidden = false;
         elements.toggleTorch.disabled = false;
       }
+      await configureAutofocus(run, capabilities);
+      if (state.live !== run || !run.active) return;
+
+      run.startAt = performance.now();
+      run.deadline = run.startAt + duration;
 
       refreshCameraDevices(settings.deviceId || selectedDevice)
         .then(() => {
@@ -539,6 +562,7 @@
     }
 
     if (state.live !== run || !run.active) return;
+    maybeRequestRefocus(run);
     const spent = performance.now() - attemptStarted;
     run.scanTimer = window.setTimeout(() => scanLiveFrame(run), Math.max(30, 250 - spent));
   }
@@ -598,13 +622,22 @@
     run.active = false;
     clearTimeout(run.scanTimer);
     clearTimeout(run.timeoutTimer);
+    clearTimeout(run.focusTimer);
     clearInterval(run.clockTimer);
+    if (run.focusResolve) {
+      const resolveFocus = run.focusResolve;
+      run.focusResolve = null;
+      resolveFocus();
+    }
     run.stream?.getTracks().forEach((track) => track.stop());
     elements.cameraVideo.pause();
     elements.cameraVideo.srcObject = null;
     elements.cameraStage.classList.remove("active");
     elements.cameraPlaceholder.hidden = false;
     elements.liveTimer.hidden = true;
+    elements.focusChip.hidden = true;
+    elements.refocus.hidden = true;
+    elements.refocus.disabled = true;
     elements.toggleTorch.hidden = true;
     elements.toggleTorch.disabled = true;
     elements.toggleTorch.classList.remove("on");
@@ -621,18 +654,186 @@
     elements.trialLength.disabled = false;
   }
 
+  async function configureAutofocus(run, capabilities) {
+    const reportedModes = normalizeFocusModes(capabilities.focusMode);
+    const focusConstraintKnown =
+      navigator.mediaDevices.getSupportedConstraints?.().focusMode === true;
+    run.focusModes = reportedModes.length
+      ? reportedModes
+      : focusConstraintKnown
+        ? ["continuous"]
+        : [];
+
+    elements.focusChip.hidden = false;
+    if (!run.focusModes.length || !run.track?.applyConstraints) {
+      setFocusChip(run, "AF device-managed");
+      return;
+    }
+
+    elements.refocus.hidden = false;
+    elements.refocus.disabled = false;
+    const preferredModes = [
+      run.focusModes.includes("continuous") ? "continuous" : "",
+      run.focusModes.includes("single-shot") ? "single-shot" : "",
+    ].filter(Boolean);
+
+    for (const mode of preferredModes) {
+      try {
+        await applyCameraControls(run, { focusMode: mode });
+        if (state.live !== run || !run.active) return;
+        run.lastFocusAt = performance.now();
+        const actualMode = run.track.getSettings?.().focusMode;
+        if (mode === "continuous") {
+          setFocusChip(run, actualMode === "continuous" ? "AF continuous" : "AF continuous requested");
+        } else {
+          setFocusChip(run, "AF pulse mode");
+        }
+        return;
+      } catch {
+        // Try the next focus mode before falling back to device-managed focus.
+        run.focusModes = run.focusModes.filter((candidate) => candidate !== mode);
+      }
+    }
+
+    run.focusModes = [];
+    elements.refocus.hidden = true;
+    elements.refocus.disabled = true;
+    setFocusChip(run, "AF device-managed");
+  }
+
+  function normalizeFocusModes(value) {
+    const modes = Array.isArray(value) ? value : value ? [value] : [];
+    return [...new Set(modes.filter((mode) =>
+      mode === "continuous" || mode === "single-shot"
+    ))];
+  }
+
+  function maybeRequestRefocus(run) {
+    if (
+      !run.focusModes.length ||
+      run.focusPending ||
+      performance.now() - run.lastFocusAt < REFOCUS_INTERVAL_MS
+    ) return;
+    requestRefocus(run).catch(() => {});
+  }
+
+  async function requestRefocus(run, force = false) {
+    if (
+      state.live !== run ||
+      !run.active ||
+      !run.focusModes.length ||
+      run.focusPending ||
+      (!force && performance.now() - run.lastFocusAt < REFOCUS_INTERVAL_MS)
+    ) return;
+
+    run.focusPending = true;
+    run.lastFocusAt = performance.now();
+    elements.refocus.disabled = true;
+    setFocusChip(run, "AF refocusing…");
+
+    try {
+      const canSweep = run.focusModes.includes("single-shot");
+      const canContinue = run.focusModes.includes("continuous");
+      if (canSweep) {
+        await applyCameraControls(run, { focusMode: "single-shot" });
+        if (canContinue) {
+          await waitForFocusSweep(run);
+          if (state.live !== run || !run.active) return;
+          await applyCameraControls(run, { focusMode: "continuous" });
+          setFocusChip(run, "AF continuous");
+        } else {
+          setFocusChip(run, "AF pulse mode");
+        }
+      } else if (canContinue) {
+        await applyCameraControls(run, { focusMode: "continuous" });
+        setFocusChip(run, "AF continuous");
+      }
+    } catch {
+      if (state.live === run && run.active) {
+        setFocusChip(run, "AF device-managed");
+      }
+    } finally {
+      if (state.live === run && run.active) {
+        run.focusPending = false;
+        elements.refocus.disabled = false;
+      }
+    }
+  }
+
+  function waitForFocusSweep(run) {
+    return new Promise((resolve) => {
+      clearTimeout(run.focusTimer);
+      run.focusResolve = () => {
+        run.focusResolve = null;
+        resolve();
+      };
+      run.focusTimer = window.setTimeout(() => {
+        run.focusTimer = 0;
+        run.focusResolve?.();
+      }, FOCUS_SWEEP_MS);
+    });
+  }
+
+  function setFocusChip(run, text) {
+    if (state.live !== run || !run.active) return;
+    elements.focusChip.textContent = text;
+    elements.focusChip.hidden = false;
+  }
+
+  function applyCameraControls(run, controls) {
+    const operation = async () => {
+      if (
+        state.live !== run ||
+        !run.active ||
+        run.track?.readyState === "ended" ||
+        !run.track?.applyConstraints
+      ) {
+        throw new DOMException("Camera track is no longer active.", "AbortError");
+      }
+
+      const current = run.track.getConstraints?.() || {};
+      const next = { ...current };
+      delete next.focusMode;
+      delete next.torch;
+      const advanced = (Array.isArray(current.advanced) ? current.advanced : [])
+        .map((entry) => {
+          const preserved = { ...entry };
+          delete preserved.focusMode;
+          delete preserved.torch;
+          return preserved;
+        })
+        .filter((entry) => Object.keys(entry).length);
+
+      const focusMode = controls.focusMode ?? run.focusMode;
+      if (focusMode) next.focusMode = focusMode;
+      if (run.capabilities.torch) {
+        advanced.push({ torch: controls.torch ?? run.torchOn });
+      }
+      if (advanced.length) next.advanced = advanced;
+      else delete next.advanced;
+
+      await run.track.applyConstraints(next);
+      if (controls.focusMode) run.focusMode = controls.focusMode;
+    };
+
+    run.controlChain = run.controlChain.catch(() => {}).then(operation);
+    return run.controlChain;
+  }
+
   async function toggleTorch() {
     const run = state.live;
     if (!run?.track?.applyConstraints) return;
+    const previous = run.torchOn;
+    const next = !previous;
     try {
-      run.torchOn = !run.torchOn;
-      await run.track.applyConstraints({ advanced: [{ torch: run.torchOn }] });
-      elements.toggleTorch.classList.toggle("on", run.torchOn);
-      elements.toggleTorch.setAttribute("aria-pressed", String(run.torchOn));
+      await applyCameraControls(run, { torch: next });
+      run.torchOn = next;
+      elements.toggleTorch.classList.toggle("on", next);
+      elements.toggleTorch.setAttribute("aria-pressed", String(next));
     } catch (error) {
-      run.torchOn = false;
-      elements.toggleTorch.classList.remove("on");
-      elements.toggleTorch.setAttribute("aria-pressed", "false");
+      run.torchOn = previous;
+      elements.toggleTorch.classList.toggle("on", previous);
+      elements.toggleTorch.setAttribute("aria-pressed", String(previous));
       setStatus(elements.liveStatus, "warning", `Torch is unavailable: ${friendlyError(error)}`);
     }
   }
