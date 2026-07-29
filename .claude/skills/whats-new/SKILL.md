@@ -26,22 +26,38 @@ rules are non-negotiable.
   entry above — that is exactly how duplicates get created.
 - Format is `Mon D, YYYY` — `Jul 28, 2026`.
 
-## Rule 2 — be brief
+## Rule 2 — ONE LINE per entry. Never a list.
 
-- **One short sentence per item.** If it needs a semicolon, a second sentence,
-  or a third clause, it is two items or it is too much detail.
-- **The WHAT, not the HOW.** "Fixed the map appearing to zoom in and out
-  mid-game" — not the story of the top bar wrapping to an extra line.
+`items` holds exactly **one** string. Not two, not "just a couple for a big
+release" — one. The purpose of this page is to tell players updates are
+happening and roughly what changed, not to itemise the release.
+
+- **One sentence, high level.** Name the one thing a player would notice. If a
+  release did five things, the line covers the headline and the rest go
+  unmentioned — they are not missing, they are *summarised*.
+- **`'🐛 Bug fixes and improvements.'` is a perfectly good line** when nothing
+  is headline-worthy. Reach for it often. It is not filler here; it is the
+  honest answer, and it beats inventing detail to fill space.
+- **Never enumerate.** No sub-features, no per-weapon or per-map breakdowns, no
+  "plus A, B, C and D". If the line needs a semicolon or a second clause list,
+  it is trying to be three items.
+- **The WHAT, not the HOW.** "Fixed the map zooming mid-game" — not the story of
+  the top bar wrapping to an extra line.
 - **Never**: internal numbers, formulas, colour codes, file or function names,
-  version numbers inside item text, or anything a nine-year-old would skim past.
-  Player-facing figures are fine ("from wave 1", "10× game speed").
-- **Major changes only.** Minor same-day fixes fold into a related item, collect
-  into a single `🐛 Fixes: …` line, or get dropped. "Minor fixes and
-  improvements" alone is filler — drop it.
-- **Keep the entry short too.** Aim for 3–6 items; a genuinely huge release can
-  run longer, but a dozen is the ceiling and each one still gets one sentence.
-- Each item opens with a single emoji, then a space. Keep the playful,
-  in-universe voice — brevity is not the same as dryness.
+  or version numbers inside the text. Player-facing figures are fine
+  ("from wave 1", "10× game speed").
+- **Under ~120 characters**, so it reads at a glance.
+- One emoji lead, then a space. Keep the playful voice — brief is not dry.
+
+Worked example. A release that added an electric fence set piece, a Tim Murphy
+climb, an outhouse scene, a cameo scheduler, depth sorting, a phone layout pass
+and an animation fix becomes, in full:
+
+```js
+{v: '1.59.1', date: 'Jul 28, 2026', items: [
+  '🎬 New film cameos on the home screen, and a backdrop rebuilt for phones.',
+]},
+```
 
 ## A release with nothing player-facing gets no entry
 
@@ -66,15 +82,16 @@ const seen=new Map();
 for(const c of CHANGELOG) seen.has(c.date)?console.log('DUP DATE:',c.date):seen.set(c.date,1);
 if(CHANGELOG[0].v!==VERSION) console.log('TOP ENTRY v',CHANGELOG[0].v,'!= VERSION',VERSION);
 for(const c of CHANGELOG){
-  if(c.items.length>12) console.log('TOO MANY ITEMS:',c.v,c.items.length);
-  for(const i of c.items) if(i.length>130) console.log('TOO LONG:',c.v,i.length,i.slice(0,70)+'…');
+  if(c.items.length!==1) console.log('NOT ONE LINE:',c.v,'has',c.items.length,'items');
+  for(const i of c.items) if(i.length>120) console.log('TOO LONG:',c.v,i.length,i.slice(0,70)+'…');
 }
 console.log('audit done —',CHANGELOG.length,'entries,',CHANGELOG.reduce((n,c)=>n+c.items.length,0),'items');
 "
 ```
 
-A clean run prints only the `audit done` line. The length and count limits are a
-tripwire for prose creep, not a target — most items should be well under them.
+A clean run prints only the `audit done` line, and `entries` and `items` must be
+**the same number** — that is the whole rule in one glance. `NOT ONE LINE` means
+someone started itemising again; collapse it back to a single summary sentence.
 
 ## Ship checklist
 
