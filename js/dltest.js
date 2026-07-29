@@ -9,18 +9,24 @@
     cameraStage: $("cameraStage"),
     cameraVideo: $("cameraVideo"),
     cameraPlaceholder: $("cameraPlaceholder"),
+    scanGuide: $("scanGuide"),
     cameraSelect: $("cameraSelect"),
     trialLength: $("trialLength"),
     startLive: $("startLive"),
     stopLive: $("stopLive"),
+    captureStill: $("captureStill"),
     refocus: $("refocus"),
     toggleTorch: $("toggleTorch"),
+    zoomControl: $("zoomControl"),
+    cameraZoom: $("cameraZoom"),
+    zoomValue: $("zoomValue"),
     liveTimer: $("liveTimer"),
     focusChip: $("focusChip"),
     liveStatus: $("liveStatus"),
     liveLastTime: $("liveLastTime"),
     liveAttempts: $("liveAttempts"),
     liveResolution: $("liveResolution"),
+    liveQuality: $("liveQuality"),
     photoInput: $("photoInput"),
     photoDrop: $("photoDrop"),
     photoPreview: $("photoPreview"),
@@ -89,9 +95,43 @@
   ];
 
   const SIGNATURE_FIELDS = [...FORM_FIELD_IDS];
-  const MAX_IMAGE_PIXELS = 25_000_000;
-  const REFOCUS_INTERVAL_MS = 2500;
+  const MAX_DECODE_DIMENSION = 3200;
+  const REFOCUS_INTERVAL_MS = 6000;
   const FOCUS_SWEEP_MS = 650;
+  const BLUR_REFOCUS_THRESHOLD = 11;
+  const BLUR_FRAMES_BEFORE_REFOCUS = 3;
+
+  const READER_OPTIONS = {
+    formats: ["PDF417"],
+    tryHarder: true,
+    tryRotate: false,
+    tryInvert: true,
+    maxNumberOfSymbols: 1,
+    textMode: "Plain",
+    returnErrors: false,
+  };
+
+  const LIVE_PASSES = [
+    { name: "local", binarizer: "LocalAverage", tryDownscale: false, tryDenoise: false },
+    { name: "contrast", binarizer: "LocalAverage", tryDownscale: false, tryDenoise: false, contrast: true },
+    { name: "denoise", binarizer: "LocalAverage", tryDownscale: false, tryDenoise: true },
+    { name: "left tilt", binarizer: "LocalAverage", tryDownscale: false, tryDenoise: false, contrast: true, rotation: -2 },
+    { name: "right tilt", binarizer: "LocalAverage", tryDownscale: false, tryDenoise: false, contrast: true, rotation: 2 },
+    { name: "global", binarizer: "GlobalHistogram", tryDownscale: true, tryDenoise: false },
+  ];
+
+  const PHOTO_PASSES = [
+    { name: "full · local", crop: "full", binarizer: "LocalAverage" },
+    { name: "center · local", crop: "center", binarizer: "LocalAverage" },
+    { name: "lower · local", crop: "lower", binarizer: "LocalAverage" },
+    { name: "upper · local", crop: "upper", binarizer: "LocalAverage" },
+    { name: "full · contrast", crop: "full", binarizer: "LocalAverage", contrast: true },
+    { name: "center · contrast", crop: "center", binarizer: "LocalAverage", contrast: true },
+    { name: "lower · denoise", crop: "lower", binarizer: "LocalAverage", tryDenoise: true },
+    { name: "center · left tilt", crop: "center", binarizer: "LocalAverage", contrast: true, rotation: -2 },
+    { name: "center · right tilt", crop: "center", binarizer: "LocalAverage", contrast: true, rotation: 2 },
+    { name: "full · global", crop: "full", binarizer: "GlobalHistogram", tryDownscale: true },
+  ];
 
   const CANADIAN_PROVINCES = new Set([
     "AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT",
@@ -206,7 +246,7 @@
   };
 
   const state = {
-    detector: null,
+    reader: null,
     readyPromise: null,
     live: null,
     pendingLive: null,
@@ -243,16 +283,19 @@
   function bindEvents() {
     elements.startLive.addEventListener("click", startLiveTrial);
     elements.stopLive.addEventListener("click", stopLiveTrial);
+    elements.captureStill.addEventListener("click", captureHighResolutionStill);
     elements.refocus.addEventListener("click", () => {
       if (state.live) requestRefocus(state.live, true).catch(() => {});
     });
     elements.toggleTorch.addEventListener("click", toggleTorch);
+    elements.cameraZoom.addEventListener("input", updateZoomLabel);
+    elements.cameraZoom.addEventListener("change", applySelectedZoom);
     elements.choosePhoto.addEventListener("click", () => elements.photoInput.click());
     elements.photoDrop.addEventListener("click", () => {
-      if (state.detector && !state.photoRun) elements.photoInput.click();
+      if (state.reader && !state.photoRun) elements.photoInput.click();
     });
     elements.photoDrop.addEventListener("keydown", (event) => {
-      if (state.detector && !state.photoRun && (event.key === "Enter" || event.key === " ")) {
+      if (state.reader && !state.photoRun && (event.key === "Enter" || event.key === " ")) {
         event.preventDefault();
         elements.photoInput.click();
       }
@@ -275,7 +318,7 @@
       });
     });
     elements.photoDrop.addEventListener("drop", (event) => {
-      if (!state.detector || state.photoRun) return;
+      if (!state.reader || state.photoRun) return;
       const [file] = event.dataTransfer.files || [];
       if (file) runPhotoTrial(file);
     });
@@ -302,22 +345,20 @@
 
   async function prepareScanner() {
     try {
-      if (!window.BarcodeDetectionAPI) {
+      if (!window.ZXingWASM?.readBarcodes) {
         throw new Error("The local barcode decoder script did not load.");
       }
 
       elements.engineBadge.textContent = "Loading ZXing-C++";
       const wasmUrl = new URL("js/zxing-reader-3.1.1.wasm", window.location.href).href;
-      await window.BarcodeDetectionAPI.prepareZXingModule({
+      await window.ZXingWASM.prepareZXingModule({
         overrides: {
           locateFile: (path, prefix) => path.endsWith(".wasm") ? wasmUrl : prefix + path,
         },
         fireImmediately: true,
       });
 
-      state.detector = new window.BarcodeDetectionAPI.BarcodeDetector({
-        formats: ["pdf417"],
-      });
+      state.reader = window.ZXingWASM;
 
       elements.engineBadge.textContent = "ZXing-C++ ready";
       elements.engineBadge.classList.add("ready");
@@ -328,7 +369,7 @@
       setStatus(elements.liveStatus, "idle", elements.startLive.disabled
         ? "Camera requires HTTPS or localhost"
         : "Ready for a live trial");
-      return state.detector;
+      return state.reader;
     } catch (error) {
       elements.engineBadge.textContent = "Engine unavailable";
       elements.engineBadge.classList.add("error");
@@ -380,14 +421,16 @@
     const video = selectedDevice
       ? {
           deviceId: { exact: selectedDevice },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
+          width: { ideal: 3840 },
+          height: { ideal: 2160 },
+          resizeMode: { ideal: "none" },
           advanced: [{ focusMode: "continuous" }],
         }
       : {
           facingMode: { ideal: "environment" },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
+          width: { ideal: 3840 },
+          height: { ideal: 2160 },
+          resizeMode: { ideal: "none" },
           advanced: [{ focusMode: "continuous" }],
         };
 
@@ -444,6 +487,10 @@
         lastFocusAt: 0,
         focusTimer: 0,
         focusResolve: null,
+        blurStreak: 0,
+        lastSharpness: 0,
+        imageCapture: null,
+        capturePending: false,
         controlChain: Promise.resolve(),
       };
       state.live = run;
@@ -465,6 +512,8 @@
       }
       await configureAutofocus(run, capabilities);
       if (state.live !== run || !run.active) return;
+      configureZoom(run, capabilities);
+      configureHighResolutionCapture(run);
 
       run.startAt = performance.now();
       run.deadline = run.startAt + duration;
@@ -526,14 +575,23 @@
 
   async function scanLiveFrame(run) {
     if (state.live !== run || !run.active) return;
+    if (run.focusPending || run.capturePending) {
+      run.scanTimer = window.setTimeout(() => scanLiveFrame(run), 100);
+      return;
+    }
     const attemptStarted = performance.now();
     run.attempts += 1;
     elements.liveAttempts.textContent = String(run.attempts);
 
     try {
-      const detections = await state.detector.detect(elements.cameraVideo);
+      const crop = captureGuideCanvas(elements.cameraVideo);
+      const sharpness = measureSharpness(crop);
+      run.lastSharpness = sharpness;
+      const pass = LIVE_PASSES[(run.attempts - 1) % LIVE_PASSES.length];
+      elements.liveQuality.textContent =
+        `${sharpnessLabel(sharpness)} ${Math.round(sharpness)} · ${crop.width}×${crop.height} · ${pass.name}`;
+      const hit = await decodeCanvasPass(crop, pass);
       if (state.live !== run || !run.active) return;
-      const hit = detections.find((result) => result.format === "pdf417");
       if (hit) {
         const parsed = parseAamva(hit.rawValue);
         if (parsed.valid) {
@@ -562,9 +620,178 @@
     }
 
     if (state.live !== run || !run.active) return;
-    maybeRequestRefocus(run);
+    maybeRequestRefocus(run, run.lastSharpness);
     const spent = performance.now() - attemptStarted;
     run.scanTimer = window.setTimeout(() => scanLiveFrame(run), Math.max(30, 250 - spent));
+  }
+
+  function captureGuideCanvas(video) {
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
+    if (!videoWidth || !videoHeight) {
+      throw new DOMException("The camera frame is not ready.", "InvalidStateError");
+    }
+
+    const stageRect = elements.cameraStage.getBoundingClientRect();
+    const guideRect = elements.scanGuide.getBoundingClientRect();
+    const displayScale = Math.max(
+      stageRect.width / videoWidth,
+      stageRect.height / videoHeight
+    );
+    const displayedWidth = videoWidth * displayScale;
+    const displayedHeight = videoHeight * displayScale;
+    const hiddenX = (displayedWidth - stageRect.width) / 2;
+    const hiddenY = (displayedHeight - stageRect.height) / 2;
+    const guideX = guideRect.left - stageRect.left;
+    const guideY = guideRect.top - stageRect.top;
+    const paddingX = guideRect.width * 0.055;
+    const paddingY = guideRect.height * 0.11;
+
+    const x = (guideX - paddingX + hiddenX) / displayScale;
+    const y = (guideY - paddingY + hiddenY) / displayScale;
+    const width = (guideRect.width + paddingX * 2) / displayScale;
+    const height = (guideRect.height + paddingY * 2) / displayScale;
+    return drawSourceRegion(video, videoWidth, videoHeight, { x, y, width, height });
+  }
+
+  function drawSourceRegion(source, sourceWidth, sourceHeight, region) {
+    const x = Math.max(0, Math.floor(region.x));
+    const y = Math.max(0, Math.floor(region.y));
+    const width = Math.max(1, Math.min(sourceWidth - x, Math.ceil(region.width)));
+    const height = Math.max(1, Math.min(sourceHeight - y, Math.ceil(region.height)));
+    const scale = Math.min(1, MAX_DECODE_DIMENSION / Math.max(width, height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    context.imageSmoothingEnabled = scale < 1;
+    context.imageSmoothingQuality = "high";
+    context.drawImage(source, x, y, width, height, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  }
+
+  function renderDecodeVariant(source, pass) {
+    const requestedScale =
+      pass.scale || (source.width < 900 ? Math.min(2, 1400 / source.width) : 1);
+    const radians = (pass.rotation || 0) * Math.PI / 180;
+    const cosine = Math.abs(Math.cos(radians));
+    const sine = Math.abs(Math.sin(radians));
+    const naturalWidth = source.width * requestedScale;
+    const naturalHeight = source.height * requestedScale;
+    const rotatedWidth = naturalWidth * cosine + naturalHeight * sine;
+    const rotatedHeight = naturalWidth * sine + naturalHeight * cosine;
+    const limitScale = Math.min(
+      1,
+      MAX_DECODE_DIMENSION / Math.max(rotatedWidth, rotatedHeight)
+    );
+    const drawWidth = naturalWidth * limitScale;
+    const drawHeight = naturalHeight * limitScale;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.ceil(rotatedWidth * limitScale));
+    canvas.height = Math.max(1, Math.ceil(rotatedHeight * limitScale));
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    context.imageSmoothingEnabled = requestedScale * limitScale < 1;
+    context.imageSmoothingQuality = "high";
+    context.fillStyle = "#fff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.translate(canvas.width / 2, canvas.height / 2);
+    context.rotate(radians);
+    context.drawImage(source, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+    context.setTransform(1, 0, 0, 1, 0, 0);
+
+    if (pass.contrast) {
+      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      stretchGrayscaleContrast(imageData);
+      context.putImageData(imageData, 0, 0);
+    }
+    return canvas;
+  }
+
+  function stretchGrayscaleContrast(imageData) {
+    const histogram = new Uint32Array(256);
+    const data = imageData.data;
+    for (let index = 0; index < data.length; index += 4) {
+      histogram[Math.round(0.299 * data[index] + 0.587 * data[index + 1] + 0.114 * data[index + 2])] += 1;
+    }
+
+    const pixels = imageData.width * imageData.height;
+    const lowTarget = pixels * 0.02;
+    const highTarget = pixels * 0.98;
+    let cumulative = 0;
+    let low = 0;
+    let high = 255;
+    for (let value = 0; value < 256; value += 1) {
+      cumulative += histogram[value];
+      if (cumulative >= lowTarget) {
+        low = value;
+        break;
+      }
+    }
+    cumulative = 0;
+    for (let value = 0; value < 256; value += 1) {
+      cumulative += histogram[value];
+      if (cumulative >= highTarget) {
+        high = value;
+        break;
+      }
+    }
+
+    const range = Math.max(24, high - low);
+    for (let index = 0; index < data.length; index += 4) {
+      const luminance = 0.299 * data[index] + 0.587 * data[index + 1] + 0.114 * data[index + 2];
+      const value = Math.max(0, Math.min(255, Math.round((luminance - low) * 255 / range)));
+      data[index] = value;
+      data[index + 1] = value;
+      data[index + 2] = value;
+    }
+  }
+
+  function measureSharpness(canvas) {
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    const { width, height } = canvas;
+    const data = context.getImageData(0, 0, width, height).data;
+    const step = Math.max(2, Math.floor(Math.max(width, height) / 420));
+    let total = 0;
+    let samples = 0;
+    const luminanceAt = (x, y) => {
+      const index = (y * width + x) * 4;
+      return 0.299 * data[index] + 0.587 * data[index + 1] + 0.114 * data[index + 2];
+    };
+    for (let y = step; y < height - step; y += step) {
+      for (let x = step; x < width - step; x += step) {
+        const center = luminanceAt(x, y);
+        const horizontal = Math.abs(2 * center - luminanceAt(x - step, y) - luminanceAt(x + step, y));
+        const vertical = Math.abs(2 * center - luminanceAt(x, y - step) - luminanceAt(x, y + step));
+        total += (horizontal + vertical) / 2;
+        samples += 1;
+      }
+    }
+    return samples ? total / samples : 0;
+  }
+
+  function sharpnessLabel(score) {
+    if (score < BLUR_REFOCUS_THRESHOLD) return "Soft";
+    if (score < BLUR_REFOCUS_THRESHOLD * 1.8) return "Usable";
+    return "Sharp";
+  }
+
+  async function decodeCanvasPass(source, pass) {
+    const canvas = renderDecodeVariant(source, pass);
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+    const results = await state.reader.readBarcodes(imageData, {
+      ...READER_OPTIONS,
+      binarizer: pass.binarizer || "LocalAverage",
+      tryDenoise: Boolean(pass.tryDenoise),
+      tryDownscale: Boolean(pass.tryDownscale),
+      tryRotate: Boolean(pass.tryRotate),
+    });
+    const result = results.find((candidate) =>
+      candidate.format === "PDF417" && candidate.text
+    );
+    return result
+      ? { rawValue: result.text, format: "pdf417", sourcePass: pass.name }
+      : null;
   }
 
   function updateLiveClock(run) {
@@ -638,6 +865,10 @@
     elements.focusChip.hidden = true;
     elements.refocus.hidden = true;
     elements.refocus.disabled = true;
+    elements.captureStill.hidden = true;
+    elements.captureStill.disabled = true;
+    elements.zoomControl.hidden = true;
+    elements.cameraZoom.disabled = true;
     elements.toggleTorch.hidden = true;
     elements.toggleTorch.disabled = true;
     elements.toggleTorch.classList.remove("on");
@@ -648,10 +879,116 @@
 
   function restoreLiveControls() {
     const secureForCamera = isCameraOriginSupported();
-    elements.startLive.disabled = !state.detector || !secureForCamera || Boolean(state.pendingLive);
+    elements.startLive.disabled = !state.reader || !secureForCamera || Boolean(state.pendingLive);
     elements.stopLive.disabled = true;
     elements.cameraSelect.disabled = false;
     elements.trialLength.disabled = false;
+  }
+
+  function configureZoom(run, capabilities) {
+    const range = capabilities.zoom;
+    if (
+      !range ||
+      !Number.isFinite(range.min) ||
+      !Number.isFinite(range.max) ||
+      range.max <= range.min ||
+      !run.track?.applyConstraints
+    ) {
+      elements.zoomControl.hidden = true;
+      return;
+    }
+
+    const current = Number(run.track.getSettings?.().zoom);
+    const value = Number.isFinite(current) ? current : range.min;
+    const step = Number.isFinite(range.step) && range.step > 0 ? range.step : 0.1;
+    elements.cameraZoom.min = String(range.min);
+    elements.cameraZoom.max = String(range.max);
+    elements.cameraZoom.step = String(step);
+    elements.cameraZoom.value = String(Math.max(range.min, Math.min(range.max, value)));
+    elements.cameraZoom.disabled = false;
+    elements.zoomControl.hidden = false;
+    updateZoomLabel();
+  }
+
+  function updateZoomLabel() {
+    elements.zoomValue.textContent = `${Number(elements.cameraZoom.value).toFixed(1)}×`;
+  }
+
+  async function applySelectedZoom() {
+    const run = state.live;
+    if (!run?.active) return;
+    const zoom = Number(elements.cameraZoom.value);
+    elements.cameraZoom.disabled = true;
+    try {
+      await applyCameraControls(run, { zoom });
+      updateZoomLabel();
+    } catch (error) {
+      setStatus(elements.liveStatus, "warning", `Zoom is unavailable: ${friendlyError(error)}`);
+    } finally {
+      if (state.live === run && run.active) elements.cameraZoom.disabled = false;
+    }
+  }
+
+  function configureHighResolutionCapture(run) {
+    if (typeof window.ImageCapture !== "function") {
+      elements.captureStill.hidden = true;
+      return;
+    }
+    try {
+      run.imageCapture = new ImageCapture(run.track);
+      elements.captureStill.hidden = false;
+      elements.captureStill.disabled = false;
+    } catch {
+      run.imageCapture = null;
+      elements.captureStill.hidden = true;
+    }
+  }
+
+  async function captureHighResolutionStill() {
+    const run = state.live;
+    if (!run?.active || !run.imageCapture || run.capturePending) return;
+    if (state.photoRun) {
+      setStatus(elements.liveStatus, "warning", "Wait for the current photo decode to finish.");
+      return;
+    }
+
+    run.capturePending = true;
+    elements.captureStill.disabled = true;
+    setStatus(elements.liveStatus, "working", "Capturing a full-resolution still locally…");
+    try {
+      let settings;
+      try {
+        const capabilities = await run.imageCapture.getPhotoCapabilities?.();
+        if (capabilities?.imageWidth?.max && capabilities?.imageHeight?.max) {
+          settings = {
+            imageWidth: capabilities.imageWidth.max,
+            imageHeight: capabilities.imageHeight.max,
+          };
+        }
+      } catch {
+        // Some browsers support takePhoto() but not photo capability inspection.
+      }
+      const blob = await run.imageCapture.takePhoto(settings);
+      if (state.live !== run || !run.active) return;
+      const file = new File(
+        [blob],
+        `local-camera-capture.${blob.type.includes("png") ? "png" : "jpg"}`,
+        { type: blob.type || "image/jpeg" }
+      );
+      await runPhotoTrial(file);
+      if (state.live === run && run.active) {
+        setStatus(elements.liveStatus, "working", "Live scan continues after the local high-resolution capture.");
+      }
+    } catch (error) {
+      if (state.live === run && run.active) {
+        setStatus(elements.liveStatus, "warning", `High-resolution capture failed: ${friendlyError(error)}`);
+      }
+    } finally {
+      if (state.live === run && run.active) {
+        run.capturePending = false;
+        elements.captureStill.disabled = false;
+      }
+    }
   }
 
   async function configureAutofocus(run, capabilities) {
@@ -708,12 +1045,16 @@
     ))];
   }
 
-  function maybeRequestRefocus(run) {
+  function maybeRequestRefocus(run, sharpness) {
+    if (sharpness < BLUR_REFOCUS_THRESHOLD) run.blurStreak += 1;
+    else run.blurStreak = 0;
     if (
       !run.focusModes.length ||
       run.focusPending ||
+      run.blurStreak < BLUR_FRAMES_BEFORE_REFOCUS ||
       performance.now() - run.lastFocusAt < REFOCUS_INTERVAL_MS
     ) return;
+    run.blurStreak = 0;
     requestRefocus(run).catch(() => {});
   }
 
@@ -806,6 +1147,7 @@
 
       const focusMode = controls.focusMode ?? run.focusMode;
       if (focusMode) next.focusMode = focusMode;
+      if (Number.isFinite(controls.zoom)) next.zoom = controls.zoom;
       if (run.capabilities.torch) {
         advanced.push({ torch: controls.torch ?? run.torchOn });
       }
@@ -847,76 +1189,136 @@
       setStatus(elements.photoStatus, "error", "Choose an image file.");
       return;
     }
-    if (file.size > 30 * 1024 * 1024) {
-      setStatus(elements.photoStatus, "error", "This image is over 30 MB. Choose a smaller original photo.");
+    if (file.size > 50 * 1024 * 1024) {
+      setStatus(elements.photoStatus, "error", "This image is over 50 MB. Choose a smaller original photo.");
       addRun({ mode: "photo", outcome: "failure", duration: 0, attempts: 0, fields: 0, match: "—" });
       return;
     }
 
     clearPhotoPreview(false);
-    const run = { canceled: false, rejectPreview: null };
+    const run = { canceled: false, rejectPreview: null, attempts: 0, nonAamvaReads: 0 };
     state.photoRun = run;
     const previewReady = showPhotoPreview(file, run);
     elements.choosePhoto.disabled = true;
     elements.photoDrop.setAttribute("aria-busy", "true");
     elements.photoDrop.setAttribute("aria-disabled", "true");
-    elements.photoAttempts.textContent = "1";
-    setStatus(elements.photoStatus, "working", "Loading and decoding the original image locally…");
+    elements.photoAttempts.textContent = "0";
+    setStatus(elements.photoStatus, "working", "Loading the image into private in-memory canvases…");
     const started = performance.now();
 
     try {
-      const [, dimensions] = await Promise.all([state.readyPromise, previewReady]);
+      await Promise.all([state.readyPromise, previewReady]);
       if (run.canceled || state.photoRun !== run) return;
-      if (dimensions.width * dimensions.height > MAX_IMAGE_PIXELS) {
-        throw new RangeError(
-          `Image dimensions exceed 25 megapixels (${dimensions.width}×${dimensions.height}). Use the camera's standard-resolution mode.`
-        );
-      }
-      const detections = await state.detector.detect(elements.photoPreview);
-      if (run.canceled || state.photoRun !== run) return;
-      const elapsed = performance.now() - started;
-      const hit = detections.find((result) => result.format === "pdf417");
+      const source = createPhotoSourceCanvas(elements.photoPreview);
+      const crops = new Map();
 
-      if (!hit) {
-        elements.photoLastTime.textContent = "No read";
-        setStatus(elements.photoStatus, "error", "No PDF417 barcode was found. Retake closer, sharper, and without glare.");
-        addRun({ mode: "photo", outcome: "failure", duration: elapsed, attempts: 1, fields: 0, match: "—" });
-        return;
-      }
-
-      const parsed = parseAamva(hit.rawValue);
-      if (!parsed.valid) {
-        elements.photoLastTime.textContent = "Parse failed";
+      for (const pass of PHOTO_PASSES) {
+        if (run.canceled || state.photoRun !== run) return;
+        run.attempts += 1;
+        elements.photoAttempts.textContent = String(run.attempts);
         setStatus(
           elements.photoStatus,
-          "error",
-          "PDF417 decoded, but it was not a supported line-based AAMVA DL/ID payload."
+          "working",
+          `Local pass ${run.attempts}/${PHOTO_PASSES.length}: ${pass.name}`
         );
-        addRun({ mode: "photo", outcome: "failure", duration: elapsed, attempts: 1, fields: 0, match: "—" });
+        await nextPaint();
+
+        if (!crops.has(pass.crop)) {
+          crops.set(pass.crop, createPhotoCrop(source, pass.crop));
+        }
+        const hit = await decodeCanvasPass(crops.get(pass.crop), {
+          ...pass,
+          tryRotate: true,
+        });
+        if (!hit) continue;
+
+        const parsed = parseAamva(hit.rawValue);
+        if (!parsed.valid) {
+          run.nonAamvaReads += 1;
+          continue;
+        }
+
+        const elapsed = performance.now() - started;
+        const summary = acceptParsedResult(parsed, "photo", elapsed, run.attempts);
+        elements.photoLastTime.textContent = formatDuration(elapsed);
+        setStatus(
+          elements.photoStatus,
+          "success",
+          `Captured ${summary.fields} fields in ${formatDuration(elapsed)} using ${pass.name}.`
+        );
         return;
       }
 
-      const summary = acceptParsedResult(parsed, "photo", elapsed, 1);
-      elements.photoLastTime.textContent = formatDuration(elapsed);
+      const elapsed = performance.now() - started;
+      elements.photoLastTime.textContent = run.nonAamvaReads ? "Parse failed" : "No read";
+      const detail = run.nonAamvaReads
+        ? "PDF417 was detected, but the result was not a supported line-based AAMVA payload."
+        : "No PDF417 barcode was found after all local crop and enhancement passes.";
       setStatus(
         elements.photoStatus,
-        "success",
-        `Captured ${summary.fields} fields in ${formatDuration(elapsed)} from one image.`
+        "error",
+        `${detail} Retake closer, square to the barcode, and without glare.`
       );
+      addRun({
+        mode: "photo",
+        outcome: "failure",
+        duration: elapsed,
+        attempts: run.attempts,
+        fields: 0,
+        match: "—",
+      });
     } catch (error) {
       if (run.canceled || state.photoRun !== run) return;
       const elapsed = performance.now() - started;
       elements.photoLastTime.textContent = "Error";
       setStatus(elements.photoStatus, "error", `Image could not be decoded: ${friendlyError(error)}`);
-      addRun({ mode: "photo", outcome: "failure", duration: elapsed, attempts: 1, fields: 0, match: "—" });
+      addRun({
+        mode: "photo",
+        outcome: "failure",
+        duration: elapsed,
+        attempts: run.attempts,
+        fields: 0,
+        match: "—",
+      });
     } finally {
       if (state.photoRun === run) {
         state.photoRun = null;
-        elements.choosePhoto.disabled = !state.detector;
+        elements.choosePhoto.disabled = !state.reader;
         elements.photoDrop.removeAttribute("aria-busy");
         elements.photoDrop.removeAttribute("aria-disabled");
       }
     }
+  }
+
+  function createPhotoSourceCanvas(image) {
+    const width = image.naturalWidth;
+    const height = image.naturalHeight;
+    return drawSourceRegion(image, width, height, {
+      x: 0,
+      y: 0,
+      width,
+      height,
+    });
+  }
+
+  function createPhotoCrop(source, name) {
+    const regions = {
+      full: { x: 0, y: 0, width: 1, height: 1 },
+      center: { x: 0.025, y: 0.18, width: 0.95, height: 0.64 },
+      lower: { x: 0.025, y: 0.39, width: 0.95, height: 0.59 },
+      upper: { x: 0.025, y: 0.02, width: 0.95, height: 0.59 },
+    };
+    const region = regions[name] || regions.full;
+    return drawSourceRegion(source, source.width, source.height, {
+      x: source.width * region.x,
+      y: source.height * region.y,
+      width: source.width * region.width,
+      height: source.height * region.height,
+    });
+  }
+
+  function nextPaint() {
+    return new Promise((resolve) => requestAnimationFrame(() => resolve()));
   }
 
   function showPhotoPreview(file, run) {
@@ -978,7 +1380,7 @@
     run.rejectPreview?.(new DOMException("Photo decode canceled.", "AbortError"));
     run.rejectPreview = null;
     state.photoRun = null;
-    elements.choosePhoto.disabled = !state.detector;
+    elements.choosePhoto.disabled = !state.reader;
     elements.photoDrop.removeAttribute("aria-busy");
     elements.photoDrop.removeAttribute("aria-disabled");
   }
@@ -1870,8 +2272,8 @@
     elements.liveResolution.textContent = "—";
     setStatus(
       elements.liveStatus,
-      state.detector ? "idle" : "error",
-      state.detector ? "Ready for a live trial" : "Scanner is unavailable"
+      state.reader ? "idle" : "error",
+      state.reader ? "Ready for a live trial" : "Scanner is unavailable"
     );
   }
 

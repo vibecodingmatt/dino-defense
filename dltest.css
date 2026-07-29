@@ -799,6 +799,33 @@ main {
   margin-bottom: 11px;
 }
 
+.zoom-control {
+  display: grid;
+  margin: -1px 0 12px;
+  gap: 7px;
+}
+
+.zoom-control > span {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.025em;
+}
+
+.zoom-control output {
+  color: var(--mint);
+  font-family: var(--mono);
+}
+
+.zoom-control input {
+  height: 5px;
+  border: 0;
+  accent-color: var(--mint);
+  background: var(--line);
+}
+
 .control-field {
   display: grid;
   min-width: 0;
@@ -873,6 +900,10 @@ select {
 .button.secondary:hover:not(:disabled) {
   border-color: rgba(105, 229, 186, 0.35);
   color: var(--ink);
+}
+
+.capture-still {
+  white-space: nowrap;
 }
 
 .button.small {
@@ -984,6 +1015,10 @@ select {
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.live-card .method-stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .method-stats div {
@@ -1857,6 +1892,25 @@ footer a {
 
   .method-stats div {
     padding-inline: 8px;
+  }
+
+  .method-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .method-stats div:nth-child(even) {
+    padding-right: 0;
+    border-right: 0;
+  }
+
+  .method-stats div:nth-child(odd) {
+    padding-left: 0;
+  }
+
+  .method-stats div:nth-child(n + 3) {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
   }
 
   .method-stats dd {

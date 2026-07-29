@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta
     http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; connect-src 'self'; worker-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
   >
   <meta name="theme-color" content="#0a1419">
   <meta
@@ -55,7 +55,7 @@
         </div>
         <div>
           <strong>Your ID stays on this device</strong>
-          <p>Images and decoded data are held in memory only. No upload, analytics, storage, or network API is used.</p>
+          <p>Images and decoded data are held in memory only. The decoder and WASM are served by this site; no upload, analytics, storage, cloud OCR, or third-party API is used.</p>
         </div>
       </aside>
     </section>
@@ -85,8 +85,8 @@
             <span class="mode-chip live">LIVE</span>
           </div>
           <p class="method-description">
-            The decoder samples the camera up to four times per second until it
-            gets one recognized line-based AAMVA payload or the trial timer ends.
+            The decoder crops the guide at native camera resolution and cycles
+            through local enhancement passes until it reads an AAMVA payload.
           </p>
 
           <div class="camera-stage" id="cameraStage">
@@ -96,7 +96,7 @@
               <strong>Camera is off</strong>
               <small>Start a trial to request permission</small>
             </div>
-            <div class="scan-guide" aria-hidden="true">
+            <div class="scan-guide" id="scanGuide" aria-hidden="true">
               <i class="corner tl"></i><i class="corner tr"></i>
               <i class="corner bl"></i><i class="corner br"></i>
               <span class="scan-line"></span>
@@ -127,12 +127,18 @@
             </label>
           </div>
 
+          <label class="zoom-control" id="zoomControl" hidden>
+            <span>Camera zoom <output id="zoomValue">1.0×</output></span>
+            <input id="cameraZoom" type="range" min="1" max="1" step="0.1" value="1" aria-label="Camera zoom">
+          </label>
+
           <div class="control-row button-row">
             <button class="button primary" id="startLive" type="button">
               <span class="button-icon camera" aria-hidden="true"></span>
               Start live trial
             </button>
             <button class="button secondary" id="stopLive" type="button" disabled>Stop</button>
+            <button class="button secondary capture-still" id="captureStill" type="button" hidden disabled>Hi-res capture</button>
             <button class="button icon-button focus-button" id="refocus" type="button" aria-label="Refocus camera" title="Refocus camera" hidden>
               <span class="focus-icon" aria-hidden="true"></span>
             </button>
@@ -145,11 +151,12 @@
             <div><dt>Last read</dt><dd id="liveLastTime">—</dd></div>
             <div><dt>Frames tried</dt><dd id="liveAttempts">0</dd></div>
             <div><dt>Camera</dt><dd id="liveResolution">—</dd></div>
+            <div><dt>Crop quality</dt><dd id="liveQuality">Waiting</dd></div>
           </dl>
 
           <p class="capture-tip">
-            <strong>Best results:</strong> fill most of the guide, hold steady while
-            autofocus settles, keep all four edges visible, and tilt slightly to move glare.
+            <strong>Best results:</strong> fill the guide with the barcode—not the
+            whole card. Keep both end patterns visible and tilt slightly to move glare.
           </p>
         </article>
 
@@ -163,8 +170,8 @@
             <span class="mode-chip photo">PHOTO</span>
           </div>
           <p class="method-description">
-            Take or choose one photo. The original image is decoded locally in
-            a single trial, with no camera permission required.
+            Take or choose one photo. Several crops, scales, rotations, and
+            contrast treatments are tried locally in memory.
           </p>
 
           <input id="photoInput" class="visually-hidden" type="file" accept="image/*" capture="environment">
@@ -475,7 +482,7 @@
       </div>
       <p class="metric-note">
         “Success” means a recognized line-based AAMVA payload was decoded and parsed within the task.
-        Live attempts are sampled frames; a photo is one decode pass. Canceled trials do not affect success rates.
+        Live attempts are sampled frames; photo attempts are local enhancement passes. Canceled trials do not affect success rates.
         Timers begin after camera video or the selected image is ready; permission prompts and taking or choosing a photo are excluded.
       </p>
     </section>
@@ -523,14 +530,13 @@
             <span class="research-status">SELECTED</span>
             <span class="license-chip">MIT + Apache-2.0</span>
           </div>
-          <h3>barcode-detector + ZXing-C++ WASM</h3>
+          <h3>zxing-wasm + ZXing-C++</h3>
           <p>
-            A current Barcode Detection API ponyfill backed by ZXing-C++. It
-            supports PDF417, image files, video frames, rotation, inversion,
-            and downscaling. The explicit ponyfill avoids browser-native format differences.
+            The direct reader API exposes PDF417-specific options for local
+            crops, binarization, rotation, inversion, downscaling, and denoising.
+            Both JavaScript and WebAssembly are pinned and self-hosted.
           </p>
           <div class="research-links">
-            <a href="https://github.com/Sec-ant/barcode-detector" target="_blank" rel="noreferrer">barcode-detector</a>
             <a href="https://github.com/Sec-ant/zxing-wasm" target="_blank" rel="noreferrer">zxing-wasm</a>
           </div>
         </article>
@@ -615,13 +621,12 @@
   <footer>
     <p>DLTest · client-side PDF417 capture experiment</p>
     <div>
-      <a href="js/barcode-detector-LICENSE.txt">barcode-detector license</a>
       <a href="js/zxing-wasm-LICENSE.txt">zxing-wasm license</a>
       <a href="js/zxing-cpp-LICENSE.txt">ZXing-C++ license</a>
     </div>
   </footer>
 
-  <script src="js/barcode-detector-3.2.1.js" defer></script>
+  <script src="js/zxing-reader-3.1.1.js" defer></script>
   <script src="js/dltest.js" defer></script>
 </body>
 </html>
