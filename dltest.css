@@ -408,6 +408,11 @@ main {
   border-top-color: rgba(112, 216, 232, 0.5);
 }
 
+.method-card.ocr-card {
+  grid-column: 1 / -1;
+  border-top-color: rgba(255, 201, 120, 0.55);
+}
+
 .method-head {
   display: flex;
   align-items: center;
@@ -457,6 +462,11 @@ main {
 .mode-chip.photo {
   background: rgba(112, 216, 232, 0.1);
   color: var(--cyan);
+}
+
+.mode-chip.ocr {
+  background: rgba(255, 201, 120, 0.1);
+  color: var(--amber);
 }
 
 .method-description {
@@ -698,6 +708,107 @@ main {
   height: 100%;
   object-fit: contain;
   background: #05090b;
+}
+
+.media-preview {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #05090b;
+}
+
+.ocr-layout {
+  display: grid;
+  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.82fr);
+  gap: clamp(22px, 4vw, 48px);
+  margin-top: 18px;
+}
+
+.ocr-layout .method-description {
+  min-height: 0;
+  margin-top: 0;
+}
+
+.ocr-drop-zone {
+  min-height: 260px;
+}
+
+.ocr-drop-zone:hover,
+.ocr-drop-zone.dragging {
+  border-color: rgba(255, 201, 120, 0.6);
+  background: rgba(255, 201, 120, 0.055);
+}
+
+.ocr-icon {
+  display: grid;
+  width: 50px;
+  height: 44px;
+  place-items: center;
+  border: 2px solid var(--amber);
+  border-radius: 9px;
+  color: var(--amber);
+  font-family: Georgia, serif;
+  font-size: 1.15rem;
+  font-weight: 800;
+  opacity: 0.86;
+}
+
+.ocr-controls {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.ocr-caution {
+  padding: 15px 17px;
+  border: 1px solid rgba(255, 201, 120, 0.22);
+  border-radius: 12px;
+  background: rgba(255, 201, 120, 0.055);
+}
+
+.ocr-caution strong {
+  color: var(--amber);
+  font-size: 0.78rem;
+}
+
+.ocr-caution p {
+  margin: 5px 0 0;
+  color: #c3b69e;
+  font-size: 0.73rem;
+  line-height: 1.55;
+}
+
+.ocr-progress {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.ocr-progress span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #e7a952, var(--amber));
+  transition: width 0.2s ease;
+}
+
+.button.primary.ocr-button {
+  border-color: rgba(255, 201, 120, 0.25);
+  background: var(--amber);
+  color: #22180a;
+}
+
+.button.primary.ocr-button:hover:not(:disabled) {
+  background: #ffd594;
+}
+
+.ocr-stats {
+  margin-top: 18px;
 }
 
 .upload-icon {
@@ -1822,7 +1933,8 @@ footer a {
   }
 
   .method-grid,
-  .protocol-section {
+  .protocol-section,
+  .ocr-layout {
     grid-template-columns: 1fr;
   }
 
