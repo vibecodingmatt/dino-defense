@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.58.0';
+const VERSION = '1.59.0';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -25,6 +25,13 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    day, add a NEW dated entry at the top; when shipping again the same day,
    update that day's entry and bump its `v`. */
 const CHANGELOG = [
+  {v: '1.59.0', date: 'Jul 28, 2026', items: [
+    '🚽 A park outhouse now stands in the home-screen backdrop, opposite the fence — and sooner or later a tyrannosaur walks the length of the paddock to get at it.',
+    '💼 It takes the front off, and there is the lawyer: sat on the toilet, hands in the air, still selling the place.',
+    '🦖 Then it picks him up off the toilet. The toilet stays.',
+    '🎞️ He is now the third scene of the opening card — the boy on the fence, Blue and Muldoon, the lawyer, Hammond, Nedry — and comes up often once the card is spent.',
+    '🩸 Fixed a long-standing bug where everything on the home screen driven by the game clock was frozen: visitors in the jaws now thrash, the fallen scrabble backward, and the terrified actually glance over their shoulders.',
+  ]},
   {v: '1.58.0', date: 'Jul 28, 2026', items: [
     '⚡ A bay of park perimeter fence now stands in the home-screen backdrop — ten thousand volts of it, humming away behind the giants.',
     '🧒 Every so often the power drops out, and Tim Murphy legs it for the fence with something enormous behind him.',

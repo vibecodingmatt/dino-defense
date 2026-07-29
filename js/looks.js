@@ -112,6 +112,23 @@ function timmyLook(size){
   return u;
 }
 
+/* Donald Gennaro, counsel for the investors, who abandons two children and
+   locks himself in a toilet. Shirtsleeves, loosened tie and the glasses — no
+   hat, no pack, nothing that reads as a tourist: he is the only man on the
+   island dressed for a meeting. */
+function gennaroLook(size){
+  const u = randomTouristLook(size, true);
+  Object.assign(u, {
+    hero: 'gennaro', skin: '#e0ac7e', shirt: '#e2e8ee',    // white shirt, gone grey with sweat
+    bottom: '#39404c', bottomType: 'pants', shoeC: '#2a2622',
+    hairStyle: 'short', hairC: '#2c2118', glasses: true,
+    beard: false, mustache: false, belly: false, build: 1.02, tall: 1.0,
+    hat: null, pack: null, camera: false, floral: false, balloon: false,
+    arms: 'clutch', tie: '#8e332c',
+  });
+  return u;
+}
+
 /* What the cameos say. Lives here with their looks so the lab pages can put
    the real words in the bubble instead of keeping a second, drifting copy. */
 const MENU_LINES = {
@@ -119,4 +136,5 @@ const MENU_LINES = {
   hammond: "We spared no expense!",
   muldoon: "Clever girl!",
   timmy:   "The power's out!\nI can make it!",
+  gennaro: "We're gonna make a fortune\nwith this place!",
 };

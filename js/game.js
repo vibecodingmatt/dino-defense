@@ -3476,38 +3476,71 @@ function menuFenceAt(w, h){
   const x0 = Math.min(w * 0.795, w - bay - ht * 0.18);
   return {x0, x1: x0 + bay, y: g.fence, h: ht, bay, climbX: x0 + bay * FENCE_CLIMB_F};
 }
+/* ---------------- THE OUTHOUSE ----------------
+   The park's least dignified structure, standing in the open margin on the
+   LEFT — deliberately the opposite side to the fence, so the backdrop has one
+   piece of scenery either side of the menu rather than a pile on one edge.
+   Same ground line as everything else, so it sorts for depth with the rest.
+
+   It is drawn in two halves. The SHELL — back wall, floor, and the toilet — is
+   what's left standing afterwards, and the FRONT — door, walls, roof — is what
+   a tyrannosaur removes. See menuLoo. */
+/* Where the man on the seat ends up, as fractions of the hut's height/width.
+   The porcelain and the occupant are both placed from these, so the two can
+   never drift apart into a man hovering next to a toilet. LOO_SEAT is derived:
+   the seated pose puts the hips 0.52 of a body-unit up, and the occupant is
+   scaled to LOO_MAN of the hut, so 0.52 x LOO_MAN is where the seat has to be. */
+const LOO_MAN = 0.27, LOO_SEAT = 0.52 * LOO_MAN, LOO_SEAT_X = -0.06;
+function menuLooAt(w, h){
+  const g = menuGround(w, h);
+  // The width term keeps it off the middle of a narrow layout, but generously:
+  // scaled strictly to a phone's margin the hut came out barely fifty pixels
+  // tall and the man inside it was unreadable, which loses the entire joke.
+  const ht = clamp(Math.min(h * 0.115, w * 0.195), 52, 118);
+  return {x: Math.max(w * 0.115, ht * 0.95), y: g.fence, h: ht, w: ht * 0.72};
+}
 const MENU_BOSSES = ['trex', 'spinosaurus', 'indominus', 'indoraptor', 'giganotosaurus', 'drex', 'blue'];
 /* THE OPENING RUNNING ORDER. A first-time visitor shouldn't have to sit through
    a run of anonymous packs hoping to catch one of the good ones, so the first
    four spawns of every visit are the four set pieces, in this order. Once the
    card is spent the backdrop goes back to rolling its own dice. Reset per page
    load, deliberately — each visit opens with the boy on the fence. */
-let menuCard = ['timmy', 'blue', 'hammond', 'nedry'];
+let menuCard = ['timmy', 'blue', 'lawyer', 'hammond', 'nedry'];
 /* Once the card is spent the backdrop rolls its own — but the two set pieces
    are the reason anybody watches it, so they keep a heavy thumb on the scale.
    Everything left over is an ordinary pack, which is where the Hammond and
    Nedry cameos still turn up on their own odds. */
-const MENU_ODDS = {timmy: 0.30, blue: 0.22};
+const MENU_ODDS = {timmy: 0.24, blue: 0.20, lawyer: 0.18};
 const MENU_ROAMERS = MENU_BOSSES.filter(k => k !== 'blue');
-function spawnMenuDino(w, h, forcedKey, forceFence){
+/* `forceScene` is a scene NAME ('timmy' / 'lawyer' / 'blue'), not a flag — the
+   preview harnesses pass it to stage one on demand. */
+function spawnMenuDino(w, h, forcedKey, forceScene){
   /* WHICH SCENE — unless a preview harness has asked for something specific. */
-  const rolled = !(forcedKey || forceFence);
+  const rolled = !(forcedKey || forceScene);
   const fromCard = rolled && menuCard.length > 0;
-  let scene = null;
+  let scene = forceScene || null;
   if (fromCard) scene = menuCard[0];
   else if (rolled){
-    const r = Math.random();
-    scene = r < MENU_ODDS.timmy ? 'timmy'
-          : r < MENU_ODDS.timmy + MENU_ODDS.blue ? 'blue' : null;
-    // The wire is still busy with the last one. Spend the roll on the other
-    // showstopper rather than letting it collapse into an ordinary pack —
-    // otherwise the odds above quietly under-deliver on the thing they name.
-    if (scene === 'timmy' && menuTimmy) scene = 'blue';
+    /* Weighted pick over the scenes that can actually run right now, plus an
+       ordinary pack for the remainder. A set still busy with its last outing
+       is dropped from the draw and everything else scales up to fill the gap,
+       which keeps the survivors in their intended proportion to each other.
+       A fixed fallback does not: pointing every refused turn at one scene
+       quietly makes that scene the most common thing on the backdrop. */
+    const O = MENU_ODDS, opts = [];
+    if (!menuTimmy) opts.push(['timmy', O.timmy]);
+    if (!menuLoo) opts.push(['lawyer', O.lawyer]);
+    opts.push(['blue', O.blue]);
+    opts.push([null, Math.max(0, 1 - O.timmy - O.blue - O.lawyer)]);
+    let r = Math.random() * opts.reduce((a, o) => a + o[1], 0);
+    for (const [name, wgt] of opts){ if ((r -= wgt) < 0){ scene = name; break; } }
   }
   // Blue is drawn ONLY by her own scene, never by the roamer pick — otherwise
-  // she turns up on top of the odds above and they stop meaning anything
+  // she turns up on top of the odds above and they stop meaning anything.
+  // The outhouse belongs to the tyrannosaur and nothing else.
   const key = MENU_BOSSES.includes(forcedKey) ? forcedKey
             : scene === 'blue' ? 'blue'
+            : scene === 'lawyer' ? 'trex'
             : MENU_ROAMERS[(Math.random() * MENU_ROAMERS.length) | 0];
   const def = DINOS[key];
   /* Sized off the viewport width, but with a much higher floor than the layout
@@ -3517,14 +3550,17 @@ function spawnMenuDino(w, h, forcedKey, forceFence){
   // the finale brute dominates the horizon; Blue is a raptor and must not
   // stand shoulder to shoulder with a tyrannosaur
   const size = rand(88, 138) * scale * (key === 'drex' ? 1.14 : key === 'blue' ? 0.66 : 1);
-  /* Only one boy can be on the fence at a time, and Blue is spoken for — she
-     hunts Muldoon and nobody else. The direction is forced: the fence is off
-     to the right, so this one has to be herding him toward it. */
-  const toFence = key !== 'blue' && !menuTimmy && (forceFence || scene === 'timmy');
-  // spend the card — unless the boy's turn couldn't be taken, in which case he
-  // keeps his place at the front of the queue rather than losing it
-  if (fromCard && (scene !== 'timmy' || toFence)) menuCard.shift();
-  const dir = toFence ? 1 : (Math.random() < 0.5 ? 1 : -1);
+  /* Only one boy can be on the fence and one man in the outhouse at a time, and
+     Blue is spoken for — she hunts Muldoon and nobody else. Both directions are
+     forced by where their scenery stands: the fence is off to the right, so the
+     fence scene herds him that way; the outhouse is off to the left, so the
+     tyrannosaur comes in from the far side and crosses to it. */
+  const toFence = key !== 'blue' && !menuTimmy && (forceScene === 'timmy' || scene === 'timmy');
+  const toLoo = !toFence && key === 'trex' && !menuLoo && scene === 'lawyer';
+  // spend the card — unless that turn couldn't be taken, in which case the
+  // scene keeps its place at the front of the queue rather than losing it
+  if (fromCard && ((scene !== 'timmy' && scene !== 'lawyer') || toFence || toLoo)) menuCard.shift();
+  const dir = toFence ? 1 : toLoo ? -1 : (Math.random() < 0.5 ? 1 : -1);
   // Distortus lumbers under its own mass; Blue is the fastest thing on the island
   const speed = rand(48, 78) * scale * (key === 'drex' ? 0.72 : key === 'blue' ? 1.5 : 1);
   const d = {
@@ -3539,9 +3575,10 @@ function spawnMenuDino(w, h, forcedKey, forceFence){
       // supplied palette keeps them atmospheric without turning them generic.
       : {body: shade(def.pal.body, -0.10), belly: shade(def.pal.belly, -0.24), accent: def.pal.accent},
     x: dir > 0 ? -size * 2.4 : w + size * 2.4,
-    // roam the shared ground band — except the one driving a boy at the fence,
-    // which has to walk the fence's own line to end up standing under him
-    y: toFence ? menuFenceAt(w, h).y : rand(menuGround(w, h).lo, menuGround(w, h).hi),
+    // roam the shared ground band — except the two headed for a piece of
+    // scenery, which have to walk its own line to line up with it
+    y: toFence ? menuFenceAt(w, h).y : toLoo ? menuLooAt(w, h).y
+      : rand(menuGround(w, h).lo, menuGround(w, h).hi),
     // leg-cycle rate matched to actual ground speed (game's speed/size gait
     // relation, unclamped) so the giant's feet plant instead of treadmilling
     vx: speed * dir, dir, phase: rand(0, 6.28), stride: Math.max(0.55, (speed / size) * 2.6),
@@ -3552,6 +3589,10 @@ function spawnMenuDino(w, h, forcedKey, forceFence){
      fades in ahead of it once it is properly on screen (see menuScene), so
      nobody watches a child pop into existence in the middle of the backdrop. */
   if (toFence){ d.toFence = true; return; }
+  /* And this one is crossing to the outhouse. Same deal — the man inside is
+     staged the moment it is properly on screen, and stays hidden behind the
+     door until the door stops existing. */
+  if (toLoo){ d.toLoo = true; return; }
   /* Blue hunts alone, and she hunts Muldoon. No pack, no bystanders, no other
      outcome — the two are a set piece, not a roll of the dice. He gets a long
      head start so the stalk has room to play out on screen. */
@@ -3674,19 +3715,19 @@ function drawMenuVictim(ctx, tr, m, dir){
   ctx.save();
   ctx.translate(m.x, m.y);
   ctx.scale(dir, 1);
-  ctx.rotate(1.2 + Math.sin(G.time * 16) * 0.1);       // wriggling in the grip
+  ctx.rotate(1.2 + Math.sin(menuT * 16) * 0.1);       // wriggling in the grip
   ctx.lineCap = 'round';
   ctx.strokeStyle = tr.shirt; ctx.lineWidth = s * 0.2; // torso
   ctx.beginPath(); ctx.moveTo(-s * 0.1, 0); ctx.lineTo(s * 0.25, 0); ctx.stroke();
   ctx.strokeStyle = legCol; ctx.lineWidth = s * 0.1;
   for (const off of [0, Math.PI]){                     // kicking legs
-    const k = Math.sin(G.time * 22 + off) * 0.7;
+    const k = Math.sin(menuT * 22 + off) * 0.7;
     ctx.beginPath(); ctx.moveTo(-s * 0.1, 0);
     ctx.lineTo(-s * 0.35, -s * 0.2 * k); ctx.stroke();
   }
   ctx.strokeStyle = skin; ctx.lineWidth = s * 0.08;
   for (const off of [0.6, Math.PI + 0.9]){             // arms flailing wildly
-    const a = Math.sin(G.time * 19 + off) * 0.9;
+    const a = Math.sin(menuT * 19 + off) * 0.9;
     ctx.beginPath(); ctx.moveTo(s * 0.22, 0);
     ctx.lineTo(s * 0.22 + Math.cos(a) * s * 0.3, -Math.abs(Math.sin(a)) * s * 0.28 - s * 0.06);
     ctx.stroke();
@@ -3703,6 +3744,12 @@ function drawMenuVictim(ctx, tr, m, dir){
 }
 function drawMenuTourist(ctx, tr){
   const lk = tr.look;
+  if (tr.seated && !tr.caught){
+    // caught on the toilet with his hands up, which is the entire joke
+    lk.lookT = 0;
+    drawTouristSeated(ctx, lk, tr.x, tr.y, tr.dir, menuT, tr.alpha);
+    return;
+  }
   if (tr.climbY !== undefined){
     // going up the wire, hand over hand — origin is his foot on the fence
     lk.lookT = 0;
@@ -3717,7 +3764,7 @@ function drawMenuTourist(ctx, tr){
   if (tr.tripped){
     // down on their backside facing the thing, saucer-eyed, scrabbling
     // backward — the full-fidelity sitting-terror pose
-    drawTouristSitting(ctx, lk, tr.x, tr.y, -tr.dir, G.time, tr.alpha);
+    drawTouristSitting(ctx, lk, tr.x, tr.y, -tr.dir, menuT, tr.alpha);
     return;
   }
   if (tr.kneel){
@@ -3725,7 +3772,7 @@ function drawMenuTourist(ctx, tr){
     // about to become famous for. Same -tr.dir as the sitting pose — he has
     // turned to face what is behind him.
     lk.lookT = 0;                                  // he is looking right at her
-    drawTouristKneelAim(ctx, lk, tr.x, tr.y, -tr.dir, G.time, tr.alpha);
+    drawTouristKneelAim(ctx, lk, tr.x, tr.y, -tr.dir, menuT, tr.alpha);
     return;
   }
   // sprinting for their lives — nervous glances back at the thing behind.
@@ -3733,7 +3780,7 @@ function drawMenuTourist(ctx, tr){
   // direction. It's a separate flag rather than flipping tr.dir, because the
   // sitting pose above already negates tr.dir — flipping it too would
   // double-negate and turn him away from her at the worst possible moment.
-  lk.lookT = !tr.turned && tr.fate !== 'safe' && Math.sin(G.time * 2.4 + lk.phase * 3) > 0.45 ? 0.3 : 0;
+  lk.lookT = !tr.turned && tr.fate !== 'safe' && Math.sin(menuT * 2.4 + lk.phase * 3) > 0.45 ? 0.3 : 0;
   drawTourist(ctx, lk, tr.x, tr.y, tr.turned ? -tr.dir : tr.dir, tr.phase, tr.alpha, 0);
 }
 /* comic speech bubble floating over a cameo's head (menu canvas space) */
@@ -3759,7 +3806,7 @@ function drawMenuBubble(ctx, tr, w){
   let tw = 0;
   for (const l of lines) tw = Math.max(tw, ctx.measureText(l).width);
   const bw = tw + padX * 2, bh = lines.length * lh + padY * 2;
-  const bob = Math.sin(G.time * 3 + tr.phase) * 1.8;
+  const bob = Math.sin(menuT * 3 + tr.phase) * 1.8;
   // just above the head — a good deal lower once he's on one knee, and it has
   // to climb the fence with anyone who's on one
   const anchorY = tr.climbY !== undefined ? tr.climbY : tr.y;
@@ -3900,6 +3947,83 @@ function drawMenuFence(ctx, f, p, time){
   ctx.restore();
 }
 
+/* The outhouse, in elevation. `wrecked` drops the front and roof, leaving the
+   back wall, the floor and the porcelain — which is exactly the shot. `rock`
+   is how hard the whole thing is shaking, for the man inside who can hear
+   what is coming. */
+function drawMenuLoo(ctx, o, wrecked, rock, time){
+  const {x, y, h} = o, hw = o.w / 2;
+  ctx.save();
+  ctx.globalAlpha = 0.62;                          // same haze as the fence
+  if (rock > 0){                                   // rocking on its footings
+    ctx.translate(x, y);
+    ctx.rotate(Math.sin(time * 21) * 0.045 * rock);
+    ctx.translate(-x, -y);
+  }
+  // weathered, and muted toward the fog the rest of the backdrop lives in
+  const plank = '#544438', plankD = '#3c3025', roofC = '#453a30';
+
+  // ---- SHELL: the floor slab, the back wall, and the porcelain
+  ctx.fillStyle = 'rgba(0,0,0,0.30)';
+  ctx.beginPath(); ctx.ellipse(x, y + 2, hw * 1.25, h * 0.05, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = wrecked ? '#2b2119' : plankD;    // interior back wall
+  ctx.fillRect(x - hw * 0.86, y - h * 0.92, hw * 1.72, h * 0.92);
+  if (wrecked){
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1;
+    for (let i = 1; i < 5; i++){                   // planking, seen from inside
+      const px = x - hw * 0.86 + (hw * 1.72) * (i / 5);
+      ctx.beginPath(); ctx.moveTo(px, y - h * 0.92); ctx.lineTo(px, y); ctx.stroke();
+    }
+    /* THE PORCELAIN, still bolted down. The seat height is not a look — it is
+       exactly where the seated pose puts a man's backside (LOO_SEAT of the
+       hut's height), so he sits ON it rather than beside it. */
+    const tx = x + o.w * LOO_SEAT_X, sy = y - h * LOO_SEAT;
+    ctx.fillStyle = '#9ea39c';                     // cistern, up against the back wall
+    ctx.fillRect(tx - h * 0.13, sy - h * 0.17, h * 0.075, h * 0.17);
+    ctx.fillStyle = '#c9cec7';                     // pedestal, waisted
+    ctx.beginPath();
+    ctx.moveTo(tx - h * 0.075, sy); ctx.lineTo(tx + h * 0.075, sy);
+    ctx.quadraticCurveTo(tx + h * 0.05, sy + h * 0.07, tx + h * 0.055, y);
+    ctx.lineTo(tx - h * 0.055, y);
+    ctx.quadraticCurveTo(tx - h * 0.05, sy + h * 0.07, tx - h * 0.075, sy);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#e4e8e1';                     // the seat itself
+    ctx.beginPath(); ctx.ellipse(tx, sy, h * 0.085, h * 0.028, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#aeb3ac';                     // lid, up against the cistern
+    ctx.beginPath(); ctx.ellipse(tx - h * 0.075, sy - h * 0.06, h * 0.022, h * 0.055, -0.18, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // ---- FRONT: everything a tyrannosaur is about to remove
+  if (!wrecked){
+    ctx.fillStyle = plank;
+    ctx.fillRect(x - hw, y - h * 0.92, o.w, h * 0.92);
+    ctx.strokeStyle = plankD; ctx.lineWidth = 1.2;
+    for (let i = 1; i < 6; i++){
+      const px = x - hw + o.w * (i / 6);
+      ctx.beginPath(); ctx.moveTo(px, y - h * 0.92); ctx.lineTo(px, y); ctx.stroke();
+    }
+    ctx.fillStyle = shade(plank, -0.18);           // the door, inset
+    ctx.fillRect(x - hw * 0.62, y - h * 0.8, hw * 1.24, h * 0.8);
+    ctx.strokeStyle = plankD; ctx.lineWidth = 1;
+    ctx.strokeRect(x - hw * 0.62, y - h * 0.8, hw * 1.24, h * 0.8);
+    // the crescent, cut where every outhouse has one
+    ctx.fillStyle = '#1b1a14';
+    ctx.beginPath(); ctx.arc(x, y - h * 0.62, h * 0.075, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = shade(plank, -0.18);
+    ctx.beginPath(); ctx.arc(x + h * 0.035, y - h * 0.645, h * 0.07, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#8d8f88';                     // handle, and the bolt he threw
+    ctx.beginPath(); ctx.arc(x + hw * 0.44, y - h * 0.4, h * 0.022, 0, Math.PI * 2); ctx.fill();
+    // roof, overhanging on both sides
+    ctx.fillStyle = roofC;
+    ctx.beginPath();
+    ctx.moveTo(x - hw * 1.2, y - h * 0.9); ctx.lineTo(x, y - h * 1.06);
+    ctx.lineTo(x + hw * 1.2, y - h * 0.9); ctx.lineTo(x + hw * 1.2, y - h * 0.84);
+    ctx.lineTo(x, y - h); ctx.lineTo(x - hw * 1.2, y - h * 0.84);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+
 /* ---------------- TIM MURPHY AND THE FENCE ----------------
    The other thing everybody remembers about a Jurassic Park fence. A boy is
    driven at it, finds the power out, and starts to climb — and gets exactly
@@ -3911,7 +4035,13 @@ function drawMenuFence(ctx, f, p, time){
    thing anyone wants to watch. This is a different register entirely: nobody
    gets bitten, and the joke is the timing.) */
 let menuTimmy = null;
-const TIMMY_CLIMB = 2.4, TIMMY_WARN = 0.9, TIMMY_FLY = 0.85;
+/* The heap he leaves is deliberately NOT part of the scene state. It outlives
+   him by several seconds, and while the scene object exists the scheduler
+   counts the fence as spoken for — so leaving the ash inside it quietly barred
+   the fence from the draw for five seconds after every single outing, and it
+   came up noticeably less often than its odds said it should. */
+let menuAsh = null;
+const TIMMY_CLIMB = 2.4, TIMMY_WARN = 0.9, TIMMY_FLY = 0.85, ASH_LIFE = 5;
 function updateMenuTimmy(dt, w, h, f){
   const p = menuFence;
   // power settles back toward live whenever nothing is staged against it
@@ -3924,7 +4054,7 @@ function updateMenuTimmy(dt, w, h, f){
   T.t += dt;
   // the dinosaur that was herding him is gone (walked off, or the menu reset):
   // strike the set, hand the fence back its power, and let him just run
-  if (T.stage !== 'ash' && d && !menuDinos.includes(d)) return endMenuTimmy();
+  if (d && !menuDinos.includes(d)) return endMenuTimmy();
 
   if (T.stage === 'run'){
     T.power = 0;                                   // the line is dead. that's the invitation.
@@ -3996,20 +4126,17 @@ function updateMenuTimmy(dt, w, h, f){
                       t: 0, dur: rand(0.5, 1.1), r: rand(2, 4.5), c: '104,100,96'});
     }
     if (k >= 1){
-      /* ...and comes apart on landing. */
-      T.stage = 'ash'; T.t = 0;
-      tr.dead = true;                              // the body is done; the pile takes over
-      T.pile = {x: T.x1, y: T.y1, r: tr.look.size * 0.62};
+      /* ...and comes apart on landing. The heap is handed off to the backdrop
+         and the scene ends here: the dinosaur, robbed, walks on. */
+      tr.dead = true;
+      menuAsh = {x: T.x1, y: T.y1, r: tr.look.size * 0.62, t: 0};
       for (let i = 0; i < 22; i++){
         menuPuffs.push({x: T.x1 + rand(-8, 8), y: T.y1 - rand(0, 10),
                         vx: rand(-46, 46), vy: rand(-58, -8),
                         t: 0, dur: rand(0.6, 1.4), r: rand(2, 5.5), c: '122,118,112'});
       }
+      endMenuTimmy();
     }
-  } else {
-    // the pile, settling and then blowing away. The dinosaur, robbed, moves on.
-    if (T.t > 0.6 && d && menuDinos.includes(d)) d.toFence = false;
-    if (T.t >= 5) endMenuTimmy();
   }
 }
 function endMenuTimmy(){
@@ -4023,22 +4150,91 @@ function endMenuTimmy(){
   menuTimmy = null;
 }
 /* the ash, heaped where he landed, thinning out as it drifts off */
-function drawMenuAsh(ctx, T){
-  if (!T || !T.pile) return;
-  const k = clamp(T.t / 5, 0, 1), a = (1 - k * k) * 0.75;
+function drawMenuAsh(ctx, A){
+  if (!A) return;
+  const k = clamp(A.t / ASH_LIFE, 0, 1), a = (1 - k * k) * 0.75;
   if (a <= 0.01) return;
-  const r = T.pile.r * (1 + k * 0.5);
+  const r = A.r * (1 + k * 0.5);
   ctx.save();
   ctx.globalAlpha = a;
   ctx.fillStyle = '#6d6963';
   ctx.beginPath();
-  ctx.moveTo(T.pile.x - r, T.pile.y);
-  ctx.quadraticCurveTo(T.pile.x - r * 0.4, T.pile.y - r * 0.85, T.pile.x, T.pile.y - r * 0.6);
-  ctx.quadraticCurveTo(T.pile.x + r * 0.5, T.pile.y - r * 0.9, T.pile.x + r, T.pile.y);
+  ctx.moveTo(A.x - r, A.y);
+  ctx.quadraticCurveTo(A.x - r * 0.4, A.y - r * 0.85, A.x, A.y - r * 0.6);
+  ctx.quadraticCurveTo(A.x + r * 0.5, A.y - r * 0.9, A.x + r, A.y);
   ctx.closePath(); ctx.fill();
   ctx.fillStyle = 'rgba(220,214,206,0.35)';        // still glowing, a little
-  ctx.beginPath(); ctx.ellipse(T.pile.x - r * 0.2, T.pile.y - r * 0.36, r * 0.28, r * 0.14, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(A.x - r * 0.2, A.y - r * 0.36, r * 0.28, r * 0.14, 0, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
+}
+
+/* ---------------- COUNSEL FOR THE INVESTORS ----------------
+   The other thing everybody remembers. A tyrannosaur walks the whole length of
+   the paddock at an outhouse, takes the front of it off, and finds the lawyer
+   sitting on the toilet with his hands in the air. Then it picks him up off it.
+
+   The eating itself is NOT reimplemented here: at the right moment he is handed
+   to the ordinary menu eat timeline, the same one every other visitor goes
+   through, so the lift, the thrashing and the gulp are the shipping animation
+   rather than a second copy of it. */
+let menuLoo = null;              // the running scene
+let menuLooWreck = 0;            // seconds the outhouse stays in pieces afterwards
+const LOO_CLOSE = 3.4, LOO_REVEAL = 1.9;
+function updateMenuLoo(dt, w, h, o){
+  menuLooWreck = Math.max(0, menuLooWreck - dt);
+  if (!menuLoo) return;
+  const L = menuLoo, tr = L.tr, d = L.d;
+  // the animal wandered off or the stage was reset — strike the set
+  if (!d || !menuDinos.includes(d)) return endMenuLoo();
+  L.t += dt;
+
+  if (L.stage === 'close'){
+    /* It comes in from the far side and crosses to the door on a clock. The
+       walk is the build-up: the hut starts rocking as it gets close, which is
+       the only warning the audience gets that anybody is in there. */
+    const k = clamp(L.t / LOO_CLOSE, 0, 1);
+    d.x = L.x0 + (L.mark - L.x0) * (1 - Math.pow(1 - k, 2));
+    d.phase += dt * d.stride * (1 + k * 0.9);
+    L.rock = k * k;
+    if (k >= 1){
+      /* THE FRONT COMES OFF. */
+      L.stage = 'reveal'; L.t = 0; L.rock = 0;
+      menuLooWreck = 1e9;                          // stays open until the scene ends
+      tr.hidden = false;                           // and there he is
+      tr.look.shock = true; tr.look.shockT = 0;
+      tr.sayT = LOO_REVEAL;                        // "We're gonna make a fortune..."
+      for (let i = 0; i < 14; i++){                // the door and the roof, in pieces
+        menuProps.push({kind: 'plank', x: o.x + rand(-o.w * 0.5, o.w * 0.5), y: o.y - rand(0, o.h),
+                        vx: rand(-30, 190), vy: rand(-230, -60),
+                        rot: rand(-1, 1), spin: rand(-9, 9), restRot: rand(-0.1, 0.1),
+                        s: o.h * rand(0.1, 0.22), ground: o.y, t: 0, dur: rand(2.6, 5)});
+      }
+      for (let i = 0; i < 16; i++){
+        menuPuffs.push({x: o.x + rand(-o.w * 0.7, o.w * 0.7), y: o.y - rand(0, o.h * 0.9),
+                        vx: rand(-70, 70), vy: rand(-70, 10),
+                        t: 0, dur: rand(0.5, 1.2), r: rand(3, 7), c: '150,138,112'});
+      }
+    }
+  } else if (L.stage === 'reveal'){
+    // held, so the shot lands: him on the toilet, hands up, it looking at him
+    if (L.t >= LOO_REVEAL){
+      L.stage = 'eaten'; L.t = 0;
+      tr.caught = true;                            // ...and off the toilet he comes
+      d.eat = {t: 0, tr};
+    }
+  } else {
+    // the ordinary eat timeline owns him now; wait for it to finish its meal
+    if (!d.eat) endMenuLoo();
+  }
+}
+function endMenuLoo(){
+  if (menuLoo){
+    const d = menuLoo.d, tr = menuLoo.tr;
+    if (d) d.toLoo = false;
+    if (tr && !tr.dead && tr.hidden) tr.dead = true;   // never revealed; just remove him
+    menuLooWreck = 14;                                 // the wreck lies there a while
+  }
+  menuLoo = null;
 }
 
 /* Is a showstopper on stage right now? Cleared the moment the boy leaves the
@@ -4046,11 +4242,12 @@ function drawMenuAsh(ctx, T){
    time anyway — and the moment Blue has her man. Both self-clear if their
    actors wander off the edge, so this can never wedge the backdrop shut. */
 function menuStageBusy(){
-  if (menuTimmy) return menuTimmy.stage !== 'fly' && menuTimmy.stage !== 'ash';
-  // ...including the long walk-on before the boy is handed over. The scene has
-  // no state yet at that point, and without this Blue slips on during it and
-  // the two run on top of each other after all.
-  for (const d of menuDinos) if (d.toFence) return true;
+  if (menuTimmy) return menuTimmy.stage !== 'fly';
+  if (menuLoo) return true;                 // the outhouse holds the stage to the last gulp
+  // ...including the long walk-on before either man is handed over. Those
+  // scenes have no state yet at that point, and without this the next one
+  // slips on during it and they run on top of each other after all.
+  for (const d of menuDinos) if (d.toFence || d.toLoo) return true;
   for (const tr of menuTourists){
     if (tr.hero !== 'muldoon' || tr.dead) continue;
     if (tr.prey && menuDinos.includes(tr.prey)) return true;
@@ -4104,10 +4301,40 @@ function menuScene(dt){
     menuTimmy = {stage: 'run', t: 0, tr, d, power: 0, dx0: d.x, climbX};
     break;
   }
+  /* Same for the outhouse: seat the lawyer the moment the tyrannosaur is
+     properly on screen. He is hidden behind the door until there is no door,
+     so nothing about him has to fade in. */
+  const loo = menuLooAt(w, h);
+  for (const d of menuDinos){
+    if (!d.toLoo || menuLoo || d.x > w * 0.95) continue;
+    const look = gennaroLook(loo.h * LOO_MAN);     // sized to fit the hut, not the herd
+    const tr = {
+      // ON the seat and facing the door: the seated pose measures from the
+      // floor, so this is the floor, and the porcelain is drawn to match
+      x: loo.x + loo.w * LOO_SEAT_X, y: loo.y,
+      vx: 0, dir: 1, size: loo.h * 0.46, phase: rand(0, 6.28),
+      fate: 'seated', doomed: false, tripT: 0, stand: true,
+      look, shirt: look.shirt, hero: 'gennaro',
+      alpha: 0.9, prey: d, seated: true, hidden: true,
+    };
+    menuTourists.push(tr);
+    /* Where it pulls up: measured from its JAWS, not its body, so it ends up
+       actually over him. Sized off the body it stopped a head short and read
+       as a tyrannosaur losing interest. A little slack is left so the lean-in
+       when it takes him is still a movement. */
+    menuLoo = {stage: 'close', t: 0, rock: 0, tr, d,
+               x0: d.x, mark: tr.x + menuMouthReach(d) * 1.12};
+    break;
+  }
   updateMenuTimmy(dt, w, h, fence);
+  updateMenuLoo(dt, w, h, loo);
+  if (menuAsh && (menuAsh.t += dt) >= ASH_LIFE) menuAsh = null;
   // dinos: hungry sprint bursts, movement, and the eat-sequence timeline
   for (const d of menuDinos){
-    if (d.toFence && menuTimmy && menuTimmy.stage !== 'ash') continue;  // the set piece drives it
+    if (d.toFence && menuTimmy) continue;                  // the set piece drives it
+    // ...and the outhouse drives its own up to the moment it starts eating,
+    // after which the ordinary meal timeline below takes the animal back
+    if (d.toLoo && menuLoo && menuLoo.stage !== 'eaten') continue;
     /* BLUE & MULDOON. She doesn't simply run him down like the others: she
        closes, coils, lets him get his line out, then leaps. The landing puts
        him on the ground and hands off to the ordinary eat timeline. */
@@ -4241,7 +4468,7 @@ function menuScene(dt){
     if (!tr.caught && !tr.dead){
       if (tr.tripped){
         // scrabbling backward away from it in little shoves — not nearly fast enough
-        tr.x += tr.dir * (10 + Math.max(0, Math.sin(G.time * 7)) * 26) * dt;
+        tr.x += tr.dir * (10 + Math.max(0, Math.sin(menuT * 7)) * 26) * dt;
         tr.look.shockT += dt;                            // the eyes keep quivering
       } else if (tr.stand){
         // Muldoon planted, facing her down. No running legs — he isn't running.
@@ -4281,7 +4508,12 @@ function menuScene(dt){
   for (const p of menuProps){
     if (p.y < p.ground){
       p.vy += 420 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.spin * dt;
-      if (p.y >= p.ground){ p.y = p.ground; p.vx *= 0.3; p.vy = 0; p.spin = 0; p.rot = 1.62; }
+      // settle flat. `restRot` per prop: the rifle is drawn down its own length
+      // and lies at 1.62, a plank is drawn across and lies at roughly nothing
+      if (p.y >= p.ground){
+        p.y = p.ground; p.vx *= 0.3; p.vy = 0; p.spin = 0;
+        p.rot = p.restRot !== undefined ? p.restRot : 1.62;
+      }
     }
   }
   // short-lived sprays: red where a tourist used to be, dust where one fell
@@ -4301,15 +4533,22 @@ function menuScene(dt){
   const footing = tr => (tr.prey && menuDinos.includes(tr.prey) ? tr.prey.y : tr.y);
   const drawBand = (behind) => {
     // tourists first: drawn under the dinos so a catch overlaps
-    for (const tr of menuTourists) if (!tr.dead && (footing(tr) < fence.y) === behind) drawMenuTourist(ctx, tr);
+    for (const tr of menuTourists){
+      if (tr.dead || tr.hidden) continue;          // still behind a door
+      if ((footing(tr) < fence.y) === behind) drawMenuTourist(ctx, tr);
+    }
     for (const d of menuDinos) if ((d.y < fence.y) === behind) drawMenuDino(ctx, d);
     for (const p of menuProps) if ((p.ground < fence.y) === behind) drawMenuProp(ctx, p);
     for (const pf of menuPuffs) if ((pf.y < fence.y) === behind) drawMenuPuff(ctx, pf);
   };
   drawBand(true);
+  /* The two structures sit between the bands, on their shared ground line. The
+     man in the outhouse is drawn with the front band, i.e. AFTER this — which
+     is only correct because he stays hidden while the door is still on. */
   drawMenuFence(ctx, fence, menuFence, menuT);
+  drawMenuLoo(ctx, loo, menuLooWreck > 0, menuLoo ? menuLoo.rock : 0, menuT);
   drawBand(false);
-  drawMenuAsh(ctx, menuTimmy && menuTimmy.stage === 'ash' ? menuTimmy : null);
+  drawMenuAsh(ctx, menuAsh);
   // celebrity one-liners float on top of everything, while they're still running.
   // Muldoon and Tim are the exceptions: theirs land on cue — his as he turns and
   // sees her, the boy's as he gets his hands on the wire — and would be
@@ -4324,8 +4563,16 @@ function menuScene(dt){
 function drawMenuProp(ctx, p){
   ctx.save();
   ctx.globalAlpha = Math.min(1, (p.dur - p.t) / 0.9) * 0.9;
-  ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.scale(p.s, p.s);
-  touristRifle(ctx);
+  ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+  if (p.kind === 'plank'){                         // splintered outhouse siding
+    ctx.fillStyle = '#5c4630';
+    ctx.fillRect(-p.s * 0.5, -p.s * 0.11, p.s, p.s * 0.22);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.fillRect(-p.s * 0.5, p.s * 0.04, p.s, p.s * 0.07);
+  } else {
+    ctx.scale(p.s, p.s);
+    touristRifle(ctx);
+  }
   ctx.restore();
 }
 function drawMenuPuff(ctx, pf){
@@ -7521,6 +7768,31 @@ if (new URLSearchParams(location.search).has('menudino')){ // seed roaming menu 
     if (mdMode === 'trip' && d){ tr.doomed = false; tr.fate = 'trip'; tr.tripT = 0.05; tr.x = d.x + d.dir * d.size * 2.6; } // imminent stumble
   }
 }
+if (new URLSearchParams(location.search).has('menuloo')){
+  /* The outhouse and the lawyer: ?menuloo=SECONDS plays the set piece that far
+     in and freezes on that frame (0 shows just the scenery). Same reasoning as
+     ?menufence — menuScene is called DIRECTLY, because the main loop swallows
+     exceptions, and Math.random is seeded so two staged times are one scene. */
+  const looCv = document.getElementById('menuDinos');
+  const lw = looCv.clientWidth, lh = looCv.clientHeight;
+  const lsecs = parseFloat(new URLSearchParams(location.search).get('menuloo')) || 0;
+  menuSpawnT = 1e9;
+  const looRandom = Math.random;
+  let lseed = 20260728;
+  Math.random = () => (lseed = (lseed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  if (lsecs > 0){
+    spawnMenuDino(lw, lh, undefined, 'lawyer');
+    menuDinos[0].x = lw * 0.88;        // already walked in: the lawyer is seated at once
+  }
+  for (let s = 0; s < lsecs; s += 1 / 60) menuScene(1 / 60);
+  if (!lsecs) menuScene(1 / 60);
+  Math.random = looRandom;
+  const lst = menuLoo ? menuLoo.stage : 'none';
+  const el = $('#errbox'); el.classList.remove('hidden');
+  el.textContent = `LOO t=${lsecs}s · stage=${lst} · wrecked=${menuLooWreck > 0}`
+    + ` · seated=${menuTourists.some(t => t.hero === 'gennaro' && !t.hidden && !t.caught)}`;
+  G.state = 'menufrozen';
+}
 if (new URLSearchParams(location.search).has('menufence')){
   /* The home-screen fence, and the boy who goes over it: ?menufence=SECONDS
      plays the set piece that far in and freezes on that frame (0 shows just the
@@ -7538,7 +7810,7 @@ if (new URLSearchParams(location.search).has('menufence')){
   let seed = 20260728;
   Math.random = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
   if (secs > 0){
-    spawnMenuDino(fw, fh, 'trex', true);
+    spawnMenuDino(fw, fh, 'trex', 'timmy');
     menuDinos[0].x = fw * 0.12;         // already walked in: the boy is handed over at once
   }
   for (let s = 0; s < secs; s += 1 / 60) menuScene(1 / 60);

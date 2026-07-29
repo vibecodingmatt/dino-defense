@@ -1564,6 +1564,16 @@ function touristBody(ctx, u, ph){
     ctx.fillStyle = shade(u.shirt, -0.07);
     ctx.beginPath(); ctx.ellipse(0.09 * bw, hipY - 0.14, 0.12 * bw, 0.15, 0.2, 0, Math.PI * 2); ctx.fill();
   }
+  if (u.tie){    // knotted at the collar, flying back over the shoulder at a run
+    const fl = Math.sin(ph * 1.3) * 0.05;
+    ctx.fillStyle = u.tie;
+    ctx.beginPath();
+    ctx.moveTo(0.0, shY + 0.06); ctx.lineTo(0.08, shY + 0.06);
+    ctx.quadraticCurveTo(0.05 + fl, shY + 0.3, 0.02 + fl * 1.6, shY + 0.46);
+    ctx.lineTo(-0.02 + fl * 1.6, shY + 0.44);
+    ctx.quadraticCurveTo(-0.01 + fl, shY + 0.28, -0.02, shY + 0.08);
+    ctx.closePath(); ctx.fill();
+  }
   if (u.floral){ // the loudest vacation shirt on the island
     ctx.fillStyle = shade(u.shirt, 0.5);
     for (let i = 0; i < 6; i++){
@@ -1963,6 +1973,77 @@ function climbLeg(ctx, u, hipX, hipY, footX, footY, far){
   ctx.beginPath(); ctx.moveTo(kx, ky); ctx.lineTo(footX, footY); ctx.stroke();
   ctx.fillStyle = far ? shade(u.shoeC || '#2e2e34', -0.3) : (u.shoeC || '#2e2e34');
   ctx.beginPath(); ctx.ellipse(footX + 0.02, footY, 0.082, 0.04, -0.1, 0, Math.PI * 2); ctx.fill();
+}
+
+/* Caught on the toilet with both hands in the air. Seen in profile, origin on
+   the floor beneath him, facing +x — pass dir pointing at whatever has just
+   removed the wall. `t` drives the terrified quiver; the trousers around the
+   ankles do most of the work of explaining the pose. */
+function drawTouristSeated(ctx, u, x, y, dir, t, alpha){
+  if (alpha <= 0) return;
+  const s = u.size, bw = u.build, tl = u.tall, skin = u.skin;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(x, y);
+  ctx.scale(dir * s, s);
+  ctx.lineCap = 'round';
+  const shiver = Math.sin(t * 22) * 0.012;
+  ctx.translate(shiver, 0);
+
+  const seatY = -0.52 * tl, hipY = seatY - 0.06, shY = -1.12 * tl;
+  const thC = skin, shC = skin;                    // bare legs: the trousers are down
+
+  // FAR LEG first — thigh out level off the seat, shin dropping to the floor
+  ctx.strokeStyle = shade(thC, -0.3); ctx.lineWidth = 0.135 * bw;
+  ctx.beginPath(); ctx.moveTo(-0.02, hipY); ctx.lineTo(0.24, hipY + 0.03); ctx.stroke();
+  ctx.strokeStyle = shade(shC, -0.3); ctx.lineWidth = 0.105 * bw;
+  ctx.beginPath(); ctx.moveTo(0.24, hipY + 0.03); ctx.lineTo(0.27, -0.07); ctx.stroke();
+  ctx.fillStyle = shade(u.shoeC || '#2e2e34', -0.3);
+  ctx.beginPath(); ctx.ellipse(0.31, -0.03, 0.08, 0.04, 0, 0, Math.PI * 2); ctx.fill();
+
+  // torso, sat bolt upright
+  ctx.fillStyle = skin;
+  ctx.fillRect(0.01, shY - 0.02, 0.1, 0.16);       // neck
+  ctx.fillStyle = u.shirt;
+  ctx.beginPath();
+  ctx.ellipse(0.02, (hipY + shY) / 2, 0.175 * bw, (hipY - shY) / 2 + 0.06, 0, 0, Math.PI * 2);
+  ctx.fill();
+  if (u.tie){                                      // loosened, hanging straight down
+    ctx.fillStyle = u.tie;
+    ctx.beginPath();
+    ctx.moveTo(0.09, shY + 0.08); ctx.lineTo(0.16, shY + 0.1);
+    ctx.lineTo(0.15, shY + 0.42); ctx.lineTo(0.1, shY + 0.42);
+    ctx.closePath(); ctx.fill();
+  }
+
+  /* BOTH ARMS UP — the whole point of the pose, so they are thrown out into a
+     clear V. Drawn on top of each other they merge into one arm at this size
+     and the surrender reads as a wave. */
+  for (const i of [0, 1]){
+    const wob = Math.sin(t * 9 + i * 1.7) * 0.045;
+    const elbowX = i ? 0.14 : -0.10, handX = (i ? 0.2 : -0.18) + wob;
+    ctx.strokeStyle = i ? u.shirt : shade(u.shirt, -0.28); ctx.lineWidth = 0.1 * bw;
+    ctx.beginPath(); ctx.moveTo(0.02, shY + 0.04); ctx.lineTo(elbowX, shY - 0.3); ctx.stroke();
+    ctx.strokeStyle = i ? skin : shade(skin, -0.2); ctx.lineWidth = 0.08 * bw;
+    ctx.beginPath(); ctx.moveTo(elbowX, shY - 0.3); ctx.lineTo(handX, shY - 0.64); ctx.stroke();
+    ctx.fillStyle = i ? skin : shade(skin, -0.2);
+    ctx.beginPath(); ctx.arc(handX, shY - 0.68, 0.055, 0, Math.PI * 2); ctx.fill();
+  }
+
+  touristHead(ctx, u, t * 3, 0.06, shY - 0.28, 1);
+
+  // NEAR LEG over the top, and the trousers pooled around the ankle
+  ctx.strokeStyle = thC; ctx.lineWidth = 0.15 * bw;
+  ctx.beginPath(); ctx.moveTo(0.02, hipY); ctx.lineTo(0.3, hipY + 0.04); ctx.stroke();
+  ctx.strokeStyle = shC; ctx.lineWidth = 0.117 * bw;
+  ctx.beginPath(); ctx.moveTo(0.3, hipY + 0.04); ctx.lineTo(0.34, -0.07); ctx.stroke();
+  ctx.fillStyle = u.bottom;                        // the trousers, around the ankles
+  ctx.beginPath(); ctx.ellipse(0.33, -0.1, 0.11, 0.075, 0.1, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = shade(u.bottom, -0.25);
+  ctx.beginPath(); ctx.ellipse(0.26, -0.09, 0.075, 0.055, 0.1, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = u.shoeC || '#2e2e34';
+  ctx.beginPath(); ctx.ellipse(0.38, -0.03, 0.085, 0.042, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
 }
 
 /* Ten thousand volts, mid-flight. Every joint locks at once, so this is one
