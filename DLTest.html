@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
+  >
+  <meta name="theme-color" content="#0a1419">
+  <meta
+    name="description"
+    content="A private, client-side test harness comparing live camera and still-photo PDF417 driver-license capture."
+  >
+  <title>DLTest — PDF417 Capture Lab</title>
+  <link rel="stylesheet" href="dltest.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230a1419'/%3E%3Cpath d='M15 19h34v26H15z' fill='none' stroke='%236be7bd' stroke-width='3'/%3E%3Cpath d='M21 26h11M21 32h18M21 38h14M42 25v14M46 25v14' stroke='%23fff' stroke-width='2'/%3E%3C/svg%3E">
+</head>
+<body>
+  <a class="skip-link" href="#captureLab">Skip to capture tests</a>
+
+  <header class="site-header">
+    <a class="brand" href="DLTest.html" aria-label="DLTest home">
+      <span class="brand-mark" aria-hidden="true">
+        <span></span><span></span><span></span><span></span>
+      </span>
+      <span>
+        <strong>DLTest</strong>
+        <small>PDF417 capture lab</small>
+      </span>
+    </a>
+    <div class="header-badges" aria-label="Application properties">
+      <span class="header-badge"><i class="status-dot"></i> Browser only</span>
+      <span class="header-badge muted" id="engineBadge">Engine loading</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="pageTitle">
+      <div class="hero-copy">
+        <p class="eyebrow">LIVE CAMERA <span>/</span> STILL PHOTO</p>
+        <h1 id="pageTitle">Which capture method<br><em>holds up?</em></h1>
+        <p class="hero-lede">
+          Run repeatable, on-device PDF417 trials and compare decoder success,
+          media-ready time-to-read, and field consistency. Both paths use the same decoder
+          and the same AAMVA mapping, so the capture method is the variable.
+        </p>
+      </div>
+      <aside class="privacy-card" aria-label="Privacy information">
+        <div class="privacy-icon" aria-hidden="true">
+          <svg viewBox="0 0 32 32" role="img">
+            <path d="M16 3 27 7v8c0 7.1-4.6 11.7-11 14-6.4-2.3-11-6.9-11-14V7l11-4Z"></path>
+            <path d="m11.2 16.1 3.1 3.1 6.7-7"></path>
+          </svg>
+        </div>
+        <div>
+          <strong>Your ID stays on this device</strong>
+          <p>Images and decoded data are held in memory only. No upload, analytics, storage, or network API is used.</p>
+        </div>
+      </aside>
+    </section>
+
+    <div class="environment-warning" id="environmentWarning" role="alert" hidden>
+      <strong>Live camera needs HTTPS or localhost.</strong>
+      Photo decoding can still work over HTTP, but browsers block camera access on an insecure origin.
+    </div>
+
+    <section class="capture-section" id="captureLab" aria-labelledby="captureTitle">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">A / B CAPTURE TEST</p>
+          <h2 id="captureTitle">Same engine. Two ways in.</h2>
+        </div>
+        <p>Complete several trials with the same card, device, distance, and lighting. Alternate methods to reduce order bias.</p>
+      </div>
+
+      <div class="method-grid">
+        <article class="method-card live-card">
+          <div class="method-head">
+            <span class="method-number">01</span>
+            <div>
+              <p class="method-label">Repeated frames</p>
+              <h3>Live camera scan</h3>
+            </div>
+            <span class="mode-chip live">LIVE</span>
+          </div>
+          <p class="method-description">
+            The decoder samples the camera up to four times per second until it
+            gets one recognized line-based AAMVA payload or the trial timer ends.
+          </p>
+
+          <div class="camera-stage" id="cameraStage">
+            <video id="cameraVideo" muted playsinline aria-label="Live camera preview"></video>
+            <div class="camera-placeholder" id="cameraPlaceholder">
+              <span class="placeholder-icon" aria-hidden="true"></span>
+              <strong>Camera is off</strong>
+              <small>Start a trial to request permission</small>
+            </div>
+            <div class="scan-guide" aria-hidden="true">
+              <i class="corner tl"></i><i class="corner tr"></i>
+              <i class="corner bl"></i><i class="corner br"></i>
+              <span class="scan-line"></span>
+              <span class="guide-label">ALIGN THE WIDE PDF417 BARCODE</span>
+            </div>
+            <span class="timer-chip" id="liveTimer" hidden>15.0s</span>
+          </div>
+
+          <div class="status-line idle" id="liveStatus" role="status" aria-live="polite">
+            <i></i><span>Ready for a live trial</span>
+          </div>
+
+          <div class="control-row settings-row">
+            <label class="control-field">
+              <span>Camera</span>
+              <select id="cameraSelect" aria-label="Camera">
+                <option value="">Automatic rear camera</option>
+              </select>
+            </label>
+            <label class="control-field compact">
+              <span>Trial</span>
+              <select id="trialLength" aria-label="Live trial duration">
+                <option value="10000">10 sec</option>
+                <option value="15000" selected>15 sec</option>
+                <option value="30000">30 sec</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="control-row button-row">
+            <button class="button primary" id="startLive" type="button">
+              <span class="button-icon camera" aria-hidden="true"></span>
+              Start live trial
+            </button>
+            <button class="button secondary" id="stopLive" type="button" disabled>Stop</button>
+            <button class="button icon-button" id="toggleTorch" type="button" aria-label="Toggle camera torch" aria-pressed="false" title="Toggle torch" hidden>
+              <span class="torch-icon" aria-hidden="true"></span>
+            </button>
+          </div>
+
+          <dl class="method-stats" aria-label="Latest live trial statistics">
+            <div><dt>Last read</dt><dd id="liveLastTime">—</dd></div>
+            <div><dt>Frames tried</dt><dd id="liveAttempts">0</dd></div>
+            <div><dt>Camera</dt><dd id="liveResolution">—</dd></div>
+          </dl>
+
+          <p class="capture-tip">
+            <strong>Best results:</strong> fill most of the guide, keep all four
+            barcode edges visible, and tilt slightly to move glare.
+          </p>
+        </article>
+
+        <article class="method-card photo-card">
+          <div class="method-head">
+            <span class="method-number">02</span>
+            <div>
+              <p class="method-label">Single full-resolution image</p>
+              <h3>Photo scan</h3>
+            </div>
+            <span class="mode-chip photo">PHOTO</span>
+          </div>
+          <p class="method-description">
+            Take or choose one photo. The original image is decoded locally in
+            a single trial, with no camera permission required.
+          </p>
+
+          <input id="photoInput" class="visually-hidden" type="file" accept="image/*" capture="environment">
+          <div
+            class="drop-zone"
+            id="photoDrop"
+            role="button"
+            tabindex="0"
+            aria-disabled="true"
+            aria-controls="photoInput"
+            aria-describedby="photoHelp"
+          >
+            <img id="photoPreview" alt="Selected license barcode preview" hidden>
+            <div class="drop-prompt" id="dropPrompt">
+              <span class="upload-icon" aria-hidden="true"></span>
+              <strong>Take or choose a photo</strong>
+              <span>Tap here, or drop an image</span>
+              <small id="photoHelp">JPEG, PNG, or another browser-readable image</small>
+            </div>
+            <span class="photo-source-chip" id="photoSourceChip" hidden></span>
+          </div>
+
+          <div class="status-line idle" id="photoStatus" role="status" aria-live="polite">
+            <i></i><span>Ready for a photo trial</span>
+          </div>
+
+          <div class="control-row button-row">
+            <button class="button primary photo-button" id="choosePhoto" type="button">
+              <span class="button-icon image" aria-hidden="true"></span>
+              Take / choose photo
+            </button>
+            <button class="button secondary" id="clearPhoto" type="button" disabled>Clear</button>
+          </div>
+
+          <dl class="method-stats" aria-label="Latest photo trial statistics">
+            <div><dt>Last read</dt><dd id="photoLastTime">—</dd></div>
+            <div><dt>Decode passes</dt><dd id="photoAttempts">0</dd></div>
+            <div><dt>Image</dt><dd id="photoResolution">—</dd></div>
+          </dl>
+
+          <p class="capture-tip">
+            <strong>Best results:</strong> use the original photo, avoid portrait
+            blur, preserve the barcode’s white border, and keep glare off the bars.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section class="results-section" aria-labelledby="resultsTitle">
+      <div class="section-heading results-heading">
+        <div>
+          <p class="section-kicker">SHARED OUTPUT</p>
+          <h2 id="resultsTitle">Populated license data</h2>
+        </div>
+        <div class="result-actions">
+          <span class="result-badge empty" id="resultBadge">No scan yet</span>
+          <button class="text-button danger" id="clearSensitive" type="button" disabled>Clear ID data</button>
+        </div>
+      </div>
+
+      <div class="result-notice" id="resultNotice">
+        A successful scan populates these editable fields. A barcode copies data; it does not prove that an ID is genuine.
+      </div>
+      <div class="parse-warnings" id="parseWarnings" role="alert" hidden></div>
+
+      <form id="licenseForm" autocomplete="off">
+        <fieldset>
+          <legend><span>01</span> Identity</legend>
+          <div class="form-grid">
+            <label>
+              <span>First / given name(s)</span>
+              <input id="firstName" type="text" autocomplete="off" placeholder="—">
+            </label>
+            <label>
+              <span>Middle name(s)</span>
+              <input id="middleName" type="text" autocomplete="off" placeholder="—">
+            </label>
+            <label>
+              <span>Family / last name</span>
+              <input id="lastName" type="text" autocomplete="off" placeholder="—">
+            </label>
+            <label>
+              <span>Suffix</span>
+              <select id="suffix">
+                <option value="">—</option>
+                <option>JR</option><option>SR</option><option>I</option><option>II</option>
+                <option>III</option><option>IV</option><option>V</option><option>VI</option>
+                <option>VII</option><option>VIII</option><option>IX</option>
+              </select>
+            </label>
+            <label>
+              <span>Date of birth</span>
+              <input id="dateOfBirth" type="date">
+            </label>
+            <label>
+              <span>Sex</span>
+              <select id="sex">
+                <option value="">—</option>
+                <option value="1">Male</option>
+                <option value="2">Female</option>
+                <option value="9">Not specified / other</option>
+              </select>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend><span>02</span> Address</legend>
+          <div class="form-grid">
+            <label class="span-2">
+              <span>Street address</span>
+              <input id="streetAddress" type="text" autocomplete="off" placeholder="—">
+            </label>
+            <label>
+              <span>Address line 2</span>
+              <input id="streetAddress2" type="text" autocomplete="off" placeholder="—">
+            </label>
+            <label>
+              <span>City</span>
+              <input id="city" type="text" autocomplete="off" placeholder="—">
+            </label>
+            <label>
+              <span>State / province</span>
+              <select id="jurisdiction">
+                <option value="">—</option>
+              </select>
+            </label>
+            <label>
+              <span>Postal code</span>
+              <input id="postalCode" type="text" inputmode="text" autocomplete="off" placeholder="—">
+            </label>
+            <label>
+              <span>Issuing country</span>
+              <select id="country">
+                <option value="">—</option>
+                <option value="USA">United States</option>
+                <option value="CAN">Canada</option>
+              </select>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend><span>03</span> Credential</legend>
+          <div class="form-grid">
+            <label>
+              <span>License / customer ID</span>
+              <input id="licenseNumber" type="text" autocomplete="off" placeholder="—">
+            </label>
+            <label>
+              <span>Document type</span>
+              <select id="documentType">
+                <option value="">—</option>
+                <option value="DL">Driver license</option>
+                <option value="ID">Identification card</option>
+                <option value="EN">Enhanced driver license (v10)</option>
+              </select>
+            </label>
+            <label>
+              <span>Issue date</span>
+              <input id="issueDate" type="date">
+            </label>
+            <label>
+              <span>Expiration date</span>
+              <input id="expirationDate" type="date">
+            </label>
+            <label>
+              <span>Vehicle class</span>
+              <input id="vehicleClass" type="text" autocomplete="off" placeholder="—">
+            </label>
+            <label>
+              <span>Restrictions</span>
+              <input id="restrictions" type="text" autocomplete="off" placeholder="—">
+            </label>
+            <label>
+              <span>Endorsements</span>
+              <input id="endorsements" type="text" autocomplete="off" placeholder="—">
+            </label>
+            <label>
+              <span>Document discriminator</span>
+              <input id="documentDiscriminator" type="text" autocomplete="off" placeholder="—">
+            </label>
+            <label>
+              <span>REAL ID compliance</span>
+              <select id="complianceType">
+                <option value="">—</option>
+                <option value="F">Compliant</option>
+                <option value="N">Non-compliant</option>
+              </select>
+            </label>
+            <label>
+              <span>AAMVA version</span>
+              <input id="aamvaVersion" type="text" readonly placeholder="—">
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend><span>04</span> Physical description</legend>
+          <div class="form-grid">
+            <label>
+              <span>Eye color</span>
+              <select id="eyeColor">
+                <option value="">—</option>
+                <option value="BLK">Black</option><option value="BLU">Blue</option>
+                <option value="BRO">Brown</option><option value="GRY">Gray</option>
+                <option value="GRN">Green</option><option value="HAZ">Hazel</option>
+                <option value="MAR">Maroon</option><option value="PNK">Pink</option>
+                <option value="DIC">Dichromatic</option><option value="UNK">Unknown</option>
+              </select>
+            </label>
+            <label>
+              <span>Hair color</span>
+              <select id="hairColor">
+                <option value="">—</option>
+                <option value="BAL">Bald</option><option value="BLK">Black</option>
+                <option value="BLN">Blond</option><option value="BRO">Brown</option>
+                <option value="GRY">Gray</option><option value="RED">Red / auburn</option>
+                <option value="SDY">Sandy</option><option value="WHI">White</option>
+                <option value="UNK">Unknown</option>
+              </select>
+            </label>
+            <label>
+              <span>Height</span>
+              <input id="height" type="text" readonly placeholder="—">
+            </label>
+            <label>
+              <span>Weight</span>
+              <input id="weight" type="text" readonly placeholder="—">
+            </label>
+          </div>
+        </fieldset>
+      </form>
+
+      <details class="diagnostics" id="diagnostics">
+        <summary>
+          <span>
+            <strong>Barcode diagnostics</strong>
+            <small>Header, element IDs, and raw payload</small>
+          </span>
+          <span class="summary-action">Open</span>
+        </summary>
+        <div class="diagnostics-body">
+          <div class="diagnostic-toolbar">
+            <p>Sensitive values remain concealed until you explicitly reveal them.</p>
+            <button class="button secondary small" id="revealSensitive" type="button" aria-pressed="false" disabled>Reveal sensitive data</button>
+          </div>
+          <div id="sensitiveInspector" hidden>
+            <div class="header-facts" id="headerFacts"></div>
+            <div class="table-scroll element-scroll">
+              <table class="element-table">
+                <thead><tr><th>Element</th><th>Meaning</th><th>Decoded value</th></tr></thead>
+                <tbody id="elementRows"></tbody>
+              </table>
+            </div>
+            <h3 class="raw-heading">Raw decoder payload</h3>
+            <pre id="rawOutput"></pre>
+          </div>
+          <div class="concealed-state" id="concealedState">Sensitive diagnostics concealed</div>
+        </div>
+      </details>
+    </section>
+
+    <section class="comparison-section" aria-labelledby="comparisonTitle">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">SESSION METRICS</p>
+          <h2 id="comparisonTitle">Compare the trials</h2>
+        </div>
+        <button class="text-button" id="clearHistory" type="button" disabled>Reset session</button>
+      </div>
+
+      <div class="score-grid">
+        <article class="score-card">
+          <span class="score-label"><i class="live-dot"></i> Live task success</span>
+          <strong id="liveSuccessRate">—</strong>
+          <small id="liveSuccessDetail">No completed trials</small>
+        </article>
+        <article class="score-card">
+          <span class="score-label"><i class="photo-dot"></i> Photo task success</span>
+          <strong id="photoSuccessRate">—</strong>
+          <small id="photoSuccessDetail">No completed trials</small>
+        </article>
+        <article class="score-card">
+          <span class="score-label"><i class="match-dot"></i> Successful agreement</span>
+          <strong id="agreementRate">—</strong>
+          <small id="agreementDetail">First success becomes baseline</small>
+        </article>
+      </div>
+
+      <div class="table-scroll run-scroll">
+        <table class="run-table">
+          <thead>
+            <tr>
+              <th>Run</th>
+              <th>Method</th>
+              <th>Outcome</th>
+              <th>Time</th>
+              <th>Attempts</th>
+              <th>Fields</th>
+              <th>Baseline</th>
+            </tr>
+          </thead>
+          <tbody id="runRows">
+            <tr class="empty-row"><td colspan="7">Completed live and photo trials will appear here.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="metric-note">
+        “Success” means a recognized line-based AAMVA payload was decoded and parsed within the task.
+        Live attempts are sampled frames; a photo is one decode pass. Canceled trials do not affect success rates.
+        Timers begin after camera video or the selected image is ready; permission prompts and taking or choosing a photo are excluded.
+      </p>
+    </section>
+
+    <section class="sandbox-section" aria-labelledby="sandboxTitle">
+      <details class="sandbox">
+        <summary>
+          <span>
+            <span class="section-kicker">PARSER SANDBOX</span>
+            <strong id="sandboxTitle">Test field mapping without a camera</strong>
+          </span>
+          <span class="summary-action">Open</span>
+        </summary>
+        <div class="sandbox-body">
+          <p>
+            Paste an already-decoded AAMVA payload, or load the fabricated sample.
+            Manual parses populate the form but are excluded from capture metrics.
+          </p>
+          <label for="rawInput">Decoded PDF417 text</label>
+          <textarea id="rawInput" rows="9" autocomplete="off" spellcheck="false" placeholder="Paste decoded AAMVA text here…"></textarea>
+          <div class="status-line idle sandbox-status" id="rawStatus" role="status" aria-live="polite">
+            <i></i><span>Manual parser is ready.</span>
+          </div>
+          <div class="control-row button-row">
+            <button class="button primary" id="parseRaw" type="button">Parse text</button>
+            <button class="button secondary" id="loadSample" type="button">Load fabricated sample</button>
+            <button class="text-button danger" id="clearRawInput" type="button">Clear</button>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <section class="research-section" aria-labelledby="researchTitle">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">OPEN-SOURCE REVIEW · JULY 2026</p>
+          <h2 id="researchTitle">Why this stack</h2>
+        </div>
+        <p>The selected components are pinned and served locally. Scanner code can load without a CDN, and license images never leave the page.</p>
+      </div>
+
+      <div class="research-grid">
+        <article class="research-card selected">
+          <div class="research-top">
+            <span class="research-status">SELECTED</span>
+            <span class="license-chip">MIT + Apache-2.0</span>
+          </div>
+          <h3>barcode-detector + ZXing-C++ WASM</h3>
+          <p>
+            A current Barcode Detection API ponyfill backed by ZXing-C++. It
+            supports PDF417, image files, video frames, rotation, inversion,
+            and downscaling. The explicit ponyfill avoids browser-native format differences.
+          </p>
+          <div class="research-links">
+            <a href="https://github.com/Sec-ant/barcode-detector" target="_blank" rel="noreferrer">barcode-detector</a>
+            <a href="https://github.com/Sec-ant/zxing-wasm" target="_blank" rel="noreferrer">zxing-wasm</a>
+          </div>
+        </article>
+
+        <article class="research-card">
+          <div class="research-top">
+            <span class="research-status neutral">EVALUATED</span>
+            <span class="license-chip">MIT</span>
+          </div>
+          <h3>@zxing/browser</h3>
+          <p>
+            A convenient and actively released browser wrapper with a dedicated
+            PDF417 reader and direct camera helpers. Its JavaScript decoding core
+            is in maintenance mode, so the C++/WASM path was favored for this lab.
+          </p>
+          <div class="research-links">
+            <a href="https://github.com/zxing-js/browser" target="_blank" rel="noreferrer">Project and API</a>
+          </div>
+        </article>
+
+        <article class="research-card">
+          <div class="research-top">
+            <span class="research-status neutral">EVALUATED</span>
+            <span class="license-chip">Apache-2.0</span>
+          </div>
+          <h3>html5-qrcode</h3>
+          <p>
+            A widely used turnkey scanner that supports PDF417, cameras, and
+            local files. It is a useful rapid-integration option, but is currently
+            in maintenance mode and its latest release is several years old.
+          </p>
+          <div class="research-links">
+            <a href="https://github.com/mebjas/html5-qrcode" target="_blank" rel="noreferrer">Project and formats</a>
+          </div>
+        </article>
+
+        <article class="research-card parser-card">
+          <div class="research-top">
+            <span class="research-status">SELECTED PARSER</span>
+            <span class="license-chip">Local code</span>
+          </div>
+          <h3>Spec-derived AAMVA mapping</h3>
+          <p>
+            One small parser handles both paths, preserves unknown elements,
+            respects U.S. versus Canadian date order, and covers AAMVA versions
+            through the 2025 standard. Current OSS parsers were reviewed but had
+            version or date-handling gaps that could distort the experiment.
+          </p>
+          <div class="research-links">
+            <a href="https://www.aamva.org/getmedia/81af105d-8b1b-45e1-aa46-f1800a259ed1/AAMVADLIDCardDesignStandard2025.pdf" target="_blank" rel="noreferrer">2025 AAMVA standard</a>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="protocol-section" aria-labelledby="protocolTitle">
+      <div class="protocol-copy">
+        <p class="section-kicker">SUGGESTED PROTOCOL</p>
+        <h2 id="protocolTitle">Make the comparison useful</h2>
+        <ol>
+          <li><span>01</span><p><strong>Control the scene.</strong> Use the same device, card, lighting, background, and approximate distance.</p></li>
+          <li><span>02</span><p><strong>Alternate methods.</strong> Run live, then photo, and repeat for at least ten completed trials per method.</p></li>
+          <li><span>03</span><p><strong>Vary one condition.</strong> Repeat the set under glare, lower light, older cards, or different phones.</p></li>
+          <li><span>04</span><p><strong>Use the measured outcomes.</strong> Compare decode success, media-ready time, populated-field count, and payload agreement—not live per-frame misses.</p></li>
+        </ol>
+      </div>
+      <aside class="limitation-card">
+        <span class="warning-mark" aria-hidden="true">!</span>
+        <div>
+          <h3>Data capture is not ID verification</h3>
+          <p>
+            PDF417 error correction can recover barcode data, but it cannot prove
+            the physical credential is authentic, unaltered, current, or owned by
+            the presenter. Do not use this prototype as a fraud decision engine.
+          </p>
+          <a href="https://www.aamva.org/topics/driver-license-and-identification-standards" target="_blank" rel="noreferrer">AAMVA DL/ID standards</a>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <footer>
+    <p>DLTest · client-side PDF417 capture experiment</p>
+    <div>
+      <a href="js/barcode-detector-LICENSE.txt">barcode-detector license</a>
+      <a href="js/zxing-wasm-LICENSE.txt">zxing-wasm license</a>
+      <a href="js/zxing-cpp-LICENSE.txt">ZXing-C++ license</a>
+    </div>
+  </footer>
+
+  <script src="js/barcode-detector-3.2.1.js" defer></script>
+  <script src="js/dltest.js" defer></script>
+</body>
+</html>
