@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.59.3';
+const VERSION = '1.59.4';
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -18,63 +18,117 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
 /* Player-facing changelog — read .claude/skills/whats-new/SKILL.md before editing.
    ONE entry per DAY, newest first: never two entries carrying the same date.
    `v` is the last version shipped that day.
-   `items` holds EXACTLY ONE short, high-level line — never a list. Say the one
-   thing a player would notice and let the rest go unmentioned; '🐛 Bug fixes and
-   improvements.' is a perfectly good line when nothing else stands out. No
-   internal detail, no enumerating, no version numbers in the text.
+   ONE BULLET PER ENHANCEMENT — not per change. Four things a player would care
+   about get four bullets, but one scene, weapon or screen gets ONE bullet no
+   matter how many parts it had. If two bullets name the same thing, merge them.
+   Only what a player would notice; sweep the rest into a single 🐛 fixes line.
+   One short sentence each, the WHAT not the HOW, no internal detail.
    Date each entry with the ACTUAL current calendar date — check it, never copy
    the entry above. Same-day reship: edit that day's entry and bump its `v`. */
 const CHANGELOG = [
   {v: '1.59.1', date: 'Jul 28, 2026', items: [
-    '🎬 New film cameos on the home screen, and a backdrop rebuilt for phones.',
+    '⚡ A new home-screen scene: the power cuts out, and Tim Murphy makes a run at the electric fence.',
+    '🚽 A tyrannosaur takes the front off the park outhouse and lifts the lawyer clean off the toilet.',
+    '🎞️ Every visit now opens with the full cameo card in order, and the scenes never overlap.',
+    '📱 The backdrop was rebuilt for phones, with bigger giants and scenery sized to the screen.',
+    '🐛 Fixed frozen home-screen animation.',
   ]},
   {v: '1.57.0', date: 'Jul 27, 2026', items: [
-    '🦖 Blue and Muldoon arrive on the home screen, and wave 10 opens with their showdown.',
+    '🦖 Blue now prowls the home screen, stalking Robert Muldoon down for one last "Clever girl!"',
+    '🎬 Wave 10 opens with that showdown for real, and Blue can\'t be shot until it\'s over.',
   ]},
   {v: '1.55.0', date: 'Jul 26, 2026', items: [
-    '🦖 The D-Rex has been completely redrawn, with a new walk and a spectacular finish.',
+    '🦖 The D-Rex has been completely redrawn from the film reference, right down to its knuckle-walk.',
+    '🍽️ On the island map it now runs visitors down and swallows them whole.',
+    '💥 Its wave-100 death is a full extinction event.',
   ]},
   {v: '1.54.0', date: 'Jul 21, 2026', items: [
-    '🎼 A full-length orchestral score, performed by a rebuilt browser orchestra.',
+    '🎼 Background music is now a full-length orchestral score, played by a rebuilt browser orchestra.',
+    '🔇 It starts reliably on the first interaction and stops cleanly when switched off.',
   ]},
   {v: '1.53.0', date: 'Jul 20, 2026', items: [
-    '🗺️ All seven maps rebuilt with bold new art direction — same paths, same balance.',
+    '🗺️ All seven maps rebuilt with bold new art direction — paths, build spaces and balance unchanged.',
   ]},
   {v: '1.52.0', date: 'Jul 19, 2026', items: [
-    '🎬 Every boss now has its own look and its own spectacular death.',
+    '🎬 Every boss now goes down differently, with torn limbs, shattered sails, and anatomy that stays gone.',
+    '🦖 Every boss also has a more distinctive, movie-inspired silhouette.',
+    '🏞️ Every map now hides its own cinematic landmarks and park relics.',
   ]},
   {v: '1.47.2', date: 'Jul 17, 2026', items: [
     '🦖 Welcome to DINO DEFENSE — a new name, with all your progress preserved.',
+    '🎩 Dennis Nedry and John Hammond now make special home-screen appearances.',
+    '🎨 Dinosaurs and fleeing visitors got a visual and animation polish pass.',
   ]},
   {v: '1.42.0', date: 'Jul 16, 2026', items: [
-    '🏃 Park visitors now evacuate as the first wave begins, to a new cinematic theme.',
+    '🏃 Park visitors now evacuate as the first wave begins — one of them may not make it.',
+    '🎻 A new cinematic orchestral theme brings the island to life.',
   ]},
   {v: '1.37.1', date: 'Jul 15, 2026', items: [
-    '🎨 Design your own dinosaurs, collect takedown stickers, and watch every weapon sign its kills.',
+    '🎨 New: DINO STUDIO — design up to three dinosaurs of your own, and each joins the invasion.',
+    '📖 New: STICKER BOOK — earn a sticker for every dinosaur with every weapon, and flip each into a trading card.',
+    '🎬 Every weapon now signs its kills with its own animation.',
+    '🏠 The home screen was redesigned around a tile dock with live tallies.',
+    '🎖 Weapon mastery: career kills earn each weapon bronze, silver, and gold laurels.',
+    '⏩ Rush bonus: start the next wave early and pocket extra cash.',
+    '🔭 The HUD previews the next wave and warns when flyers are coming, with a new flyers-first targeting mode.',
+    '💥 Multi-kill callouts when one weapon wipes a whole pack at once.',
+    '💓 Last stand: time briefly slows when a dinosaur closes on a nearly-dead base.',
+    '🐛 Fixes: the map no longer appears to zoom mid-game, and weapons no longer shake the screen.',
   ]},
   {v: '1.32.0', date: 'Jul 14, 2026', items: [
-    '⚡ The Tesla Coil got a dramatic overhaul — chained lightning, skeletons, and its own storm.',
+    '⚡ The Tesla Coil got a dramatic overhaul — lightning races down the chain and leaves smoking skeletons.',
+    '🌩️ A fully-maxed one brews its own storm cloud that dims the whole island with every strike.',
   ]},
   {v: '1.31.6', date: 'Jul 9, 2026', items: [
-    '📱 The game can now be installed to your phone, with pan and pinch-to-zoom on the map.',
+    '📱 The game can now be installed to your phone to play full-screen and offline.',
+    '🗺️ Drag to pan the map and pinch to zoom, with a zoom slider on phones.',
+    '👆 On touch, the weapon and its range float above your fingertip while you place it.',
+    '💥 Toned down the screen shake from explosions.',
   ]},
   {v: '1.31.0', date: 'Jul 8, 2026', items: [
-    '🔲 The Proving Grounds is now a true build grid — lock your weapons together into walls.',
+    '🔲 The Proving Grounds is now a true build grid — weapons snap to it and lock together into solid walls.',
+    '🧱 Dinosaurs march in single file along the shortest route, shown live by a dashed guide line.',
+    '❄️ The Cryo Cannon is now available from wave 1.',
   ]},
   {v: '1.28.0', date: 'Jul 7, 2026', items: [
-    '🌊 Two new maps — the Proving Grounds and Mosasaur Lagoon — plus a new flying boss.',
+    '🧱 NEW MAP: THE PROVING GROUNDS — an open battlefield with no road, where your weapons are the walls.',
+    '🌊 NEW MAP: MOSASAUR LAGOON — a river of all-new aquatic dinosaurs, ruled by the MOSASAURUS.',
+    '🦅 New boss: THE WHITE PTERANODON — only air-capable weapons can hurt it.',
+    '🤖 Omega redesigned as a true robot T-Rex.',
+    '🔫 Weapons look bigger and meaner with every upgrade, and change colour entirely when maxed.',
+    '🏞️ Map makeover: skeletons, a wrecked gyrosphere, fallen logs — and a hidden movie easter egg on each.',
+    '🏃 The home-screen giants now chase fleeing tourists.',
+    '🔥 Dinosaurs hit by the Flame Thrower now visibly catch fire.',
+    '🦖 All ground bosses now move twice as fast.',
   ]},
   {v: '1.22.2', date: 'Jul 6, 2026', items: [
-    '✨ An all-new animated home screen, plus a major weapon range rebalance.',
+    '✨ An all-new animated home screen with live map previews, a day/night toggle, and giants roaming behind it.',
+    '🎯 Research Lab: a new one-time range unlock for every weapon.',
+    '💰 Selling a weapon now refunds part of its cost, and a new lab unlock doubles that.',
+    '📏 Major range rebalance: cheap guns are short-reach, heavy ordnance reaches far.',
+    '🐛 Fixes: a home-screen crash, hard-to-read menu buttons, and a victory screen that shook forever.',
   ]},
   {v: '1.18.1', date: 'Jul 5, 2026', items: [
-    '🦾 OMEGA, a colossal robot T-Rex, joins your arsenal — plus streak bonuses and new trophies.',
+    '🦾 NEW: OMEGA — unleash a colossal robot T-Rex once per run. (Mason\'s idea!)',
+    '🦖 The Indominus Rex now turns fully invisible — only a Sonic Emitter can reveal and hurt it.',
+    '🔥 New clean-play streak: clear waves without leaks to grow a DNA multiplier.',
+    '🏁 Victory bonuses and a full end-of-run recap screen.',
+    '🏆 New trophies, plus a one-tap rematch at the next difficulty after every win.',
+    '📱 Big mobile improvements: a stable top bar, better landscape layout, and smoother shop scrolling.',
+    '⏩ New 10× game speed.',
   ]},
   {v: '1.15.2', date: 'Jul 4, 2026', items: [
-    '☣️ New weapon MASON\'S GAS, a reworked Research Lab, and 25 achievements to earn.',
+    '☣️ New weapon: MASON\'S GAS — a lingering poison cloud that melts packs of ground dinos. (Mason, age 9.)',
+    '🎚️ New progression: play any map at any difficulty, unlocking more as you win.',
+    '🧬 Research Lab reworked with uncapped upgrades — DNA now drops from every kill and wave.',
+    '🏆 25 achievements, each paying a DNA reward.',
+    '💥 Air Strike reworked into a full-zone cluster bomb.',
+    '🦖 Tougher bosses, a redrawn wave-100 finale, and a friendlier first level.',
+    '💾 Automatic save backup, plus copy/paste save codes in Settings.',
   ]},
   {v: '1.2.0', date: 'Jul 3, 2026', items: [
     '🦖 Initial release: five maps, 26 dinosaurs, eight weapons, and a DNA research lab.',
+    '🌐 Published to the web, with run-resume so you can pick up where you left off.',
   ]},
 ];
 
