@@ -719,6 +719,49 @@ main {
   color: var(--mint);
 }
 
+.camera-adaptation {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(112, 216, 232, 0.18);
+  border-radius: 9px;
+  background: rgba(112, 216, 232, 0.045);
+  color: var(--muted);
+  font-size: 0.69rem;
+  line-height: 1.45;
+}
+
+.camera-adaptation[hidden] {
+  display: none;
+}
+
+.camera-adaptation strong {
+  color: var(--cyan);
+  font-family: var(--mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.camera-adaptation.warning {
+  border-color: rgba(255, 201, 120, 0.24);
+  background: rgba(255, 201, 120, 0.055);
+}
+
+.camera-adaptation.warning strong {
+  color: var(--amber);
+}
+
+.camera-adaptation.good {
+  border-color: rgba(105, 229, 186, 0.22);
+  background: rgba(105, 229, 186, 0.045);
+}
+
+.camera-adaptation.good strong {
+  color: var(--mint);
+}
+
 .drop-zone {
   cursor: pointer;
   border-style: dashed;

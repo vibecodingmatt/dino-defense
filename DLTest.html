@@ -68,7 +68,7 @@
     <section class="capture-section" id="captureLab" aria-labelledby="captureTitle">
       <div class="section-heading">
         <div>
-          <p class="section-kicker">BARCODE TEST + LOCAL FALLBACK</p>
+          <p class="section-kicker">BARCODE CAPTURE TEST</p>
           <h2 id="captureTitle">Compare live and photo barcode capture.</h2>
         </div>
         <p>Complete several trials with the same card, device, distance, and lighting. Alternate methods to reduce order bias.</p>
@@ -85,8 +85,8 @@
             <span class="mode-chip live">LIVE</span>
           </div>
           <p class="method-description">
-            A 1080p latest-frame loop searches the larger guide for connected
-            PDF417 regions, then applies local recovery passes in a worker.
+            A capability-aware latest-frame loop selects and tunes the strongest
+            available camera, then adapts local PDF417 recovery passes in a worker.
           </p>
 
           <div class="camera-stage" id="cameraStage">
@@ -100,7 +100,7 @@
               <i class="corner tl"></i><i class="corner tr"></i>
               <i class="corner bl"></i><i class="corner br"></i>
               <span class="scan-line"></span>
-              <span class="guide-label">KEEP THE PDF417 BARCODE INSIDE · TAP TO FOCUS</span>
+              <span class="guide-label" id="guideLabel">KEEP THE PDF417 BARCODE INSIDE · TAP TO FOCUS</span>
             </div>
             <span class="focus-target" id="focusTarget" aria-hidden="true"></span>
             <span class="timer-chip" id="liveTimer" hidden>15.0s</span>
@@ -111,11 +111,16 @@
             <i></i><span>Ready for a live trial</span>
           </div>
 
+          <div class="camera-adaptation" id="cameraAdaptation" hidden>
+            <strong id="cameraProfile">Adaptive camera</strong>
+            <span id="cameraHint">Camera capabilities will be detected after permission is granted.</span>
+          </div>
+
           <div class="control-row settings-row">
             <label class="control-field">
               <span>Camera</span>
               <select id="cameraSelect" aria-label="Camera">
-                <option value="">Automatic rear camera</option>
+                <option value="">Automatic best camera</option>
               </select>
             </label>
             <label class="control-field compact">
@@ -158,8 +163,9 @@
           <p class="capture-tip">
             <strong>Best results:</strong> keep the entire barcode inside the guide
             with space at both ends. Tap the barcode to set the focus point, or use
-            the target button to force a full focus cycle. On Galaxy devices, automatic
-            mode prefers an exposed rear-right/main lens. Tilt slightly to move glare.
+            the target button when focus control is available. For fixed-focus laptop
+            cameras, move the license farther away until the bars look crisp; the scanner
+            will widen and upscale the search automatically. Tilt slightly to move glare.
           </p>
         </article>
 

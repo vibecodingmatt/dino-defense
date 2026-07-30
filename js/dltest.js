@@ -10,7 +10,11 @@
     cameraVideo: $("cameraVideo"),
     cameraPlaceholder: $("cameraPlaceholder"),
     scanGuide: $("scanGuide"),
+    guideLabel: $("guideLabel"),
     focusTarget: $("focusTarget"),
+    cameraAdaptation: $("cameraAdaptation"),
+    cameraProfile: $("cameraProfile"),
+    cameraHint: $("cameraHint"),
     cameraSelect: $("cameraSelect"),
     trialLength: $("trialLength"),
     startLive: $("startLive"),
@@ -107,6 +111,11 @@
   const BLUR_REFOCUS_THRESHOLD = 11;
   const BLUR_FRAMES_BEFORE_REFOCUS = 2;
   const NO_REGION_FRAMES_BEFORE_REFOCUS = 3;
+  const CAMERA_HINT_INTERVAL_MS = 1200;
+  const EXPOSURE_TUNE_INTERVAL_MS = 2600;
+  const MAX_ADAPTIVE_VIDEO_WIDTH = 2560;
+  const MAX_ADAPTIVE_VIDEO_HEIGHT = 1440;
+  const DESKTOP_CAMERA_SWITCH_MARGIN = 90;
 
   const READER_OPTIONS = {
     formats: ["PDF417"],
@@ -272,6 +281,7 @@
     bindEvents();
     elements.licenseForm.addEventListener("submit", (event) => event.preventDefault());
     runParserSelfTest();
+    runCameraPolicySelfTest();
 
     const secureForCamera = isCameraOriginSupported();
     if (!secureForCamera) {
@@ -476,7 +486,7 @@
     const devices = await getVideoInputDevices();
     const prior = selectedId || elements.cameraSelect.value;
     elements.cameraSelect.replaceChildren();
-    elements.cameraSelect.add(new Option("Automatic rear camera", ""));
+    elements.cameraSelect.add(new Option("Automatic best camera", ""));
     devices.forEach((device, index) => {
       elements.cameraSelect.add(new Option(device.label || `Camera ${index + 1}`, device.deviceId));
     });
@@ -491,10 +501,202 @@
       .filter((device) => device.kind === "videoinput" && device.deviceId);
   }
 
+  async function describeVideoDevices(devices) {
+    return Promise.all(devices.map(async (device) => {
+      let capabilities = {};
+      try {
+        capabilities = await device.getCapabilities?.() || {};
+      } catch {
+        // Per-device capabilities are optional; the active track is still inspected later.
+      }
+      return {
+        device,
+        capabilities,
+        score: scoreCameraDevice(device, capabilities),
+      };
+    }));
+  }
+
+  function scoreCameraDevice(device, capabilities = {}) {
+    const label = String(device?.label || "").toLowerCase();
+    if (/\b(virtual|obs|snap camera|screen capture|broadcast)\b/.test(label)) return -1000;
+
+    const maxWidth = Number(capabilities.width?.max) || 0;
+    const maxHeight = Number(capabilities.height?.max) || 0;
+    const focusModes = normalizeFocusModes(capabilities.focusMode);
+    let score =
+      Math.min(maxWidth, 3840) / 8 +
+      Math.min(maxHeight, 2160) / 12;
+    if (focusModes.includes("continuous")) score += 280;
+    if (focusModes.includes("single-shot")) score += 140;
+    if (focusModes.includes("manual") || capabilities.focusDistance) score += 120;
+    if (capabilities.zoom?.max > capabilities.zoom?.min) score += 70;
+    if (/\b(usb|external|document|4k|uhd)\b/.test(label)) score += 35;
+    if (/\b(ir|infrared|depth)\b/.test(label)) score -= 500;
+    return score;
+  }
+
+  function selectBestDesktopCamera(descriptions, activeId, desktopContext) {
+    if (!desktopContext || descriptions.length < 2) return null;
+    const usable = descriptions.filter((item) => item.score >= 0);
+    if (!usable.length) return null;
+    const best = [...usable].sort((a, b) => b.score - a.score)[0];
+    const active = usable.find((item) => item.device.deviceId === activeId);
+    if (!best || best.device.deviceId === activeId) return null;
+    if (!Object.keys(best.capabilities).length) return null;
+    const activeScore = active?.score ?? 0;
+    return best.score >= activeScore + DESKTOP_CAMERA_SWITCH_MARGIN ? best : null;
+  }
+
+  function isLikelyDesktopEnvironment() {
+    if (navigator.userAgentData && typeof navigator.userAgentData.mobile === "boolean") {
+      return !navigator.userAgentData.mobile;
+    }
+    const userAgent = navigator.userAgent || "";
+    return !/\b(Android|iPhone|iPad|iPod|Mobile)\b/i.test(userAgent) &&
+      /\b(Windows|Macintosh|X11|Linux)\b/i.test(userAgent);
+  }
+
+  function capabilityIncludes(value, expected) {
+    const values = Array.isArray(value) ? value : value ? [value] : [];
+    return values.includes(expected);
+  }
+
+  function buildCameraProfile(settings = {}, capabilities = {}, label = "", desktopContext = false) {
+    const focusModes = normalizeFocusModes(capabilities.focusMode);
+    const capabilitiesKnown = Object.keys(capabilities).length > 0;
+    const hasFocusControl =
+      focusModes.length > 0 ||
+      Boolean(normalizeFocusDistanceRange(capabilities.focusDistance));
+    const width = Number(settings.width) || Number(capabilities.width?.max) || 0;
+    const height = Number(settings.height) || Number(capabilities.height?.max) || 0;
+    const maximumWidth = Number(capabilities.width?.max) || width;
+    const facingMode = String(settings.facingMode || "");
+    const desktopLike =
+      desktopContext &&
+      facingMode !== "environment";
+    const fixedFocus = desktopLike && capabilitiesKnown && !hasFocusControl;
+    const lowResolution =
+      Boolean(width && width < 1600) ||
+      Boolean(maximumWidth && maximumWidth < 1600);
+
+    let kind = "adaptive camera";
+    if (desktopLike && fixedFocus) kind = "desktop fixed-focus";
+    else if (desktopLike && hasFocusControl) kind = "desktop autofocus";
+    else if (desktopLike) kind = "desktop camera";
+    else if (facingMode === "environment") kind = "mobile rear camera";
+
+    const decodeScale = lowResolution ? 1.8 : fixedFocus ? 1.5 : desktopLike ? 1.3 : 1;
+    return {
+      kind,
+      label: String(label || ""),
+      width,
+      height,
+      desktopLike,
+      fixedFocus,
+      hasFocusControl,
+      lowResolution,
+      broadSearch: desktopLike || fixedFocus || lowResolution,
+      decodeScale,
+    };
+  }
+
+  function buildOptimalVideoConstraints(capabilities = {}) {
+    const constraints = {};
+    const advanced = [];
+    const maxWidth = Number(capabilities.width?.max);
+    const maxHeight = Number(capabilities.height?.max);
+    const maxFrameRate = Number(capabilities.frameRate?.max);
+
+    if (Number.isFinite(maxWidth)) {
+      constraints.width = { ideal: Math.min(maxWidth, MAX_ADAPTIVE_VIDEO_WIDTH) };
+    }
+    if (Number.isFinite(maxHeight)) {
+      constraints.height = { ideal: Math.min(maxHeight, MAX_ADAPTIVE_VIDEO_HEIGHT) };
+    }
+    if (Number.isFinite(maxFrameRate)) {
+      constraints.frameRate = { ideal: Math.min(maxFrameRate, 30) };
+    }
+    if (capabilityIncludes(capabilities.resizeMode, "none")) {
+      constraints.resizeMode = { ideal: "none" };
+    }
+    if (capabilityIncludes(capabilities.exposureMode, "continuous")) {
+      advanced.push({ exposureMode: "continuous" });
+    }
+    if (capabilityIncludes(capabilities.whiteBalanceMode, "continuous")) {
+      advanced.push({ whiteBalanceMode: "continuous" });
+    }
+    if (
+      Number.isFinite(capabilities.sharpness?.min) &&
+      Number.isFinite(capabilities.sharpness?.max) &&
+      capabilities.sharpness.max > capabilities.sharpness.min
+    ) {
+      const range = capabilities.sharpness.max - capabilities.sharpness.min;
+      advanced.push({ sharpness: capabilities.sharpness.min + range * 0.72 });
+    }
+    if (advanced.length) constraints.advanced = advanced;
+    return constraints;
+  }
+
+  async function optimizeVideoTrack(track, capabilities) {
+    if (!track?.applyConstraints) return [];
+    const recommended = buildOptimalVideoConstraints(capabilities);
+    if (!Object.keys(recommended).length) return [];
+    const current = track.getConstraints?.() || {};
+    const currentAdvanced = Array.isArray(current.advanced) ? current.advanced : [];
+    const recommendedAdvanced = Array.isArray(recommended.advanced) ? recommended.advanced : [];
+    const next = {
+      ...current,
+      ...recommended,
+      advanced: [...currentAdvanced, ...recommendedAdvanced],
+    };
+    if (!next.advanced.length) delete next.advanced;
+
+    try {
+      await track.applyConstraints(next);
+      return cameraOptimizationLabels(recommended, track.getSettings?.() || {});
+    } catch {
+      const core = { ...next };
+      delete core.advanced;
+      try {
+        await track.applyConstraints(core);
+        return cameraOptimizationLabels(core, track.getSettings?.() || {});
+      } catch {
+        return [];
+      }
+    }
+  }
+
+  function cameraOptimizationLabels(constraints, settings = {}) {
+    const labels = [];
+    if (
+      constraints.width &&
+      Number(settings.width) >= Math.min(1280, Number(constraints.width.ideal) || 1280)
+    ) {
+      labels.push("high-resolution video");
+    }
+    if (constraints.frameRate && Number(settings.frameRate) > 0) labels.push("stable frame rate");
+    const advanced = Array.isArray(constraints.advanced) ? constraints.advanced : [];
+    if (
+      settings.exposureMode === "continuous" &&
+      advanced.some((entry) => entry.exposureMode)
+    ) labels.push("continuous exposure");
+    if (
+      settings.whiteBalanceMode === "continuous" &&
+      advanced.some((entry) => entry.whiteBalanceMode)
+    ) labels.push("continuous white balance");
+    if (
+      Number.isFinite(settings.sharpness) &&
+      advanced.some((entry) => Number.isFinite(entry.sharpness))
+    ) labels.push("barcode sharpening");
+    return labels;
+  }
+
   function cameraVideoConstraints(deviceId = "") {
     const common = {
       width: { ideal: 1920 },
       height: { ideal: 1080 },
+      frameRate: { ideal: 30 },
       resizeMode: { ideal: "none" },
       advanced: [{ focusMode: "continuous" }],
     };
@@ -543,21 +745,36 @@
     return null;
   }
 
-  async function applySamsungCameraPreference(stream, pending) {
-    if (!(await isSamsungGalaxyDevice())) return { stream, preference: null };
+  async function applyAutomaticCameraPreference(stream, pending) {
     if (pending.canceled) return { stream, preference: null };
-
     const devices = await getVideoInputDevices();
-    const preference = selectSamsungPreferredCamera(devices);
+    const activeId = stream.getVideoTracks()[0]?.getSettings?.().deviceId || "";
+    const samsungPreference = await isSamsungGalaxyDevice()
+      ? selectSamsungPreferredCamera(devices)
+      : null;
+    let preference = samsungPreference;
+    if (!preference) {
+      const descriptions = await describeVideoDevices(devices);
+      const desktopPreference = selectBestDesktopCamera(
+        descriptions,
+        activeId,
+        isLikelyDesktopEnvironment()
+      );
+      if (desktopPreference) {
+        preference = {
+          device: desktopPreference.device,
+          reason: "higher camera resolution or focus capability",
+        };
+      }
+    }
     if (!preference) return { stream, preference: null };
 
-    const activeId = stream.getVideoTracks()[0]?.getSettings?.().deviceId || "";
     if (activeId === preference.device.deviceId) return { stream, preference };
 
     setStatus(
       elements.liveStatus,
       "working",
-      `Selecting preferred Galaxy rear lens: ${preference.device.label}…`
+      `Selecting stronger camera: ${preference.device.label}…`
     );
     stream.getTracks().forEach((track) => track.stop());
 
@@ -618,7 +835,7 @@
         return;
       }
       if (!selectedDevice) {
-        const preferred = await applySamsungCameraPreference(stream, pending);
+        const preferred = await applyAutomaticCameraPreference(stream, pending);
         stream = preferred.stream;
         cameraPreference = preferred.preference;
       }
@@ -631,6 +848,8 @@
       }
 
       const track = stream.getVideoTracks()[0];
+      const capabilities = track.getCapabilities?.() || {};
+      const cameraOptimizations = await optimizeVideoTrack(track, capabilities);
       elements.cameraVideo.srcObject = stream;
       await elements.cameraVideo.play();
       await waitForVideo(elements.cameraVideo);
@@ -645,6 +864,12 @@
       }
 
       const settings = track.getSettings?.() || {};
+      const cameraProfile = buildCameraProfile(
+        settings,
+        capabilities,
+        track.label || cameraPreference?.device.label || "",
+        isLikelyDesktopEnvironment()
+      );
       const run = {
         active: true,
         stream,
@@ -661,7 +886,9 @@
         clockTimer: 0,
         timeoutTimer: 0,
         torchOn: false,
-        capabilities: {},
+        capabilities,
+        cameraProfile,
+        cameraOptimizations,
         focusModes: [],
         focusMode: "",
         focusDistanceRange: null,
@@ -674,6 +901,14 @@
         noRegionStreak: 0,
         lastSharpness: 0,
         lastLocalized: false,
+        lastHintAt: 0,
+        lastHintKey: "",
+        dimStreak: 0,
+        glareStreak: 0,
+        lastExposureTuneAt: 0,
+        exposureTuneCount: 0,
+        exposureCompensationRange: normalizeNumericRange(capabilities.exposureCompensation),
+        tuningPending: false,
         cameraPreference,
         imageCapture: null,
         capturePending: false,
@@ -688,17 +923,20 @@
       elements.liveAttempts.textContent = "0";
       elements.liveResolution.textContent =
         settings.width && settings.height ? `${settings.width}×${settings.height}` : "Active";
-      elements.liveResolution.title = cameraPreference?.device.label || "";
+      elements.liveResolution.title = [
+        track.label || cameraPreference?.device.label || "",
+        cameraProfile.kind,
+        ...cameraOptimizations,
+      ].filter(Boolean).join(" · ");
+      showInitialCameraAdaptation(run);
       setStatus(
         elements.liveStatus,
         "working",
         cameraPreference
-          ? `Scanning with preferred Galaxy lens: ${cameraPreference.device.label}…`
+          ? `Scanning with preferred camera: ${cameraPreference.device.label}…`
           : "Scanning the latest frame for a PDF417 license barcode…"
       );
 
-      const capabilities = track.getCapabilities?.() || {};
-      run.capabilities = capabilities;
       if (capabilities.torch) {
         elements.toggleTorch.hidden = false;
         elements.toggleTorch.disabled = false;
@@ -770,7 +1008,7 @@
 
   async function scanLiveFrame(run) {
     if (state.live !== run || !run.active) return;
-    if (run.focusPending || run.capturePending) {
+    if (run.focusPending || run.capturePending || run.tuningPending) {
       scheduleLiveFrame(run, 80);
       return;
     }
@@ -779,16 +1017,32 @@
 
     try {
       const crop = captureGuideCanvas(elements.cameraVideo);
-      const sharpness = measureSharpness(crop);
+      const quality = analyzeFrameQuality(crop);
+      const sharpness = quality.sharpness;
       run.lastSharpness = sharpness;
       const localized = locatePdf417Candidates(crop, MAX_LIVE_LOCALIZED_CANDIDATES);
-      run.lastLocalized = localized.length > 0;
-      if (localized.length) run.localizedFrames += 1;
+      const broad = run.cameraProfile?.broadSearch && run.attempts % 3 === 0
+        ? captureCenteredVideoCanvas(elements.cameraVideo)
+        : null;
+      const broadLocalized = broad
+        ? locatePdf417Candidates(broad, MAX_LIVE_LOCALIZED_CANDIDATES)
+        : [];
+      run.lastLocalized = localized.length > 0 || broadLocalized.length > 0;
+      if (run.lastLocalized) run.localizedFrames += 1;
       const phase = (run.attempts - 1) % LIVE_PASSES.length;
-      const passes = buildLiveDecodePlan(crop, localized, phase);
+      const passes = buildLiveDecodePlan(
+        crop,
+        localized,
+        phase,
+        run,
+        broad,
+        broadLocalized
+      );
       elements.liveQuality.textContent =
-        `${sharpnessLabel(sharpness)} ${Math.round(sharpness)} · ${crop.width}×${crop.height} · ` +
-        `${localized.length ? "PDF417 region found" : "searching full ROI"}`;
+        `${sharpnessLabel(sharpness)} ${Math.round(sharpness)} · ${lightLabel(quality)} · ` +
+        `${crop.width}×${crop.height} · ${run.lastLocalized ? "region found" : "adaptive search"}`;
+      updateAdaptiveCameraGuidance(run, quality, run.lastLocalized);
+      maybeTuneExposure(run, quality);
       const hit = await decodePlan(passes, run);
       if (state.live !== run || !run.active) return;
       if (hit) {
@@ -842,18 +1096,72 @@
     });
   }
 
-  function buildLiveDecodePlan(crop, localized, phase) {
+  function buildLiveDecodePlan(crop, localized, phase, run, broad = null, broadLocalized = []) {
     const primary = localized[0]?.canvas;
+    const broadPrimary = broadLocalized[0]?.canvas;
+    const enhance = (source, pass) => adaptiveLivePass(source, pass, run.cameraProfile);
     if (!primary) {
-      return [{ source: crop, pass: LIVE_PASSES[phase] }];
+      const plan = [{ source: crop, pass: enhance(crop, LIVE_PASSES[phase]) }];
+      if (broadPrimary) {
+        plan.push({
+          source: broadPrimary,
+          pass: enhance(broadPrimary, {
+            name: "wide localized · local",
+            binarizer: "LocalAverage",
+            contrast: true,
+          }),
+        });
+      } else if (broad) {
+        plan.push({
+          source: broad,
+          pass: enhance(broad, {
+            ...LIVE_PASSES[phase],
+            name: `wide · ${LIVE_PASSES[phase].name.replace("ROI ", "")}`,
+          }),
+        });
+      }
+      return plan;
     }
 
     const recoveryPass = LIVE_PASSES[(phase % (LIVE_PASSES.length - 1)) + 1];
-    return [
-      { source: primary, pass: { name: "localized · local", binarizer: "LocalAverage" } },
-      { source: primary, pass: { ...recoveryPass, name: `localized · ${recoveryPass.name.replace("ROI ", "")}` } },
-      { source: crop, pass: LIVE_PASSES[phase] },
+    const plan = [
+      {
+        source: primary,
+        pass: enhance(primary, { name: "localized · local", binarizer: "LocalAverage" }),
+      },
+      {
+        source: primary,
+        pass: enhance(primary, {
+          ...recoveryPass,
+          name: `localized · ${recoveryPass.name.replace("ROI ", "")}`,
+        }),
+      },
+      { source: crop, pass: enhance(crop, LIVE_PASSES[phase]) },
     ];
+    if (broadPrimary) {
+      plan.push({
+        source: broadPrimary,
+        pass: enhance(broadPrimary, {
+          name: "wide localized · contrast",
+          binarizer: "LocalAverage",
+          contrast: true,
+        }),
+      });
+    }
+    return plan;
+  }
+
+  function adaptiveLivePass(source, pass, profile) {
+    if (!profile || (!profile.desktopLike && !profile.lowResolution)) return pass;
+    const enhanced = {
+      ...pass,
+      upscaleTarget: 1800,
+      maxScale: 3,
+    };
+    if (profile.decodeScale > 1 && source.width >= 700) {
+      enhanced.scale = Math.max(Number(pass.scale) || 1, profile.decodeScale);
+    }
+    return enhanced;
   }
 
   async function decodePlan(plan, run = null) {
@@ -893,6 +1201,22 @@
     const width = (guideRect.width + paddingX * 2) / displayScale;
     const height = (guideRect.height + paddingY * 2) / displayScale;
     return drawSourceRegion(video, videoWidth, videoHeight, { x, y, width, height });
+  }
+
+  function captureCenteredVideoCanvas(video) {
+    const width = video.videoWidth;
+    const height = video.videoHeight;
+    if (!width || !height) {
+      throw new DOMException("The camera frame is not ready.", "InvalidStateError");
+    }
+    const regionWidth = width * 0.96;
+    const regionHeight = height * 0.84;
+    return drawSourceRegion(video, width, height, {
+      x: (width - regionWidth) / 2,
+      y: (height - regionHeight) / 2,
+      width: regionWidth,
+      height: regionHeight,
+    });
   }
 
   function drawSourceRegion(source, sourceWidth, sourceHeight, region) {
@@ -1080,8 +1404,12 @@
   }
 
   function renderDecodeVariant(source, pass) {
-    const requestedScale =
-      pass.scale || (source.width < 900 ? Math.min(2, 1400 / source.width) : 1);
+    const upscaleTarget = Number(pass.upscaleTarget) || 1400;
+    const maxScale = Number(pass.maxScale) || 2;
+    const automaticScale = source.width < upscaleTarget
+      ? Math.min(maxScale, upscaleTarget / source.width)
+      : 1;
+    const requestedScale = Math.max(Number(pass.scale) || 1, automaticScale);
     const radians = (pass.rotation || 0) * Math.PI / 180;
     const cosine = Math.abs(Math.cos(radians));
     const sine = Math.abs(Math.sin(radians));
@@ -1155,12 +1483,16 @@
     }
   }
 
-  function measureSharpness(canvas) {
+  function analyzeFrameQuality(canvas) {
     const context = canvas.getContext("2d", { willReadFrequently: true });
     const { width, height } = canvas;
     const data = context.getImageData(0, 0, width, height).data;
     const step = Math.max(2, Math.floor(Math.max(width, height) / 420));
     let total = 0;
+    let luminanceTotal = 0;
+    let luminanceSquaredTotal = 0;
+    let clippedDark = 0;
+    let clippedLight = 0;
     let samples = 0;
     const luminanceAt = (x, y) => {
       const index = (y * width + x) * 4;
@@ -1172,16 +1504,42 @@
         const horizontal = Math.abs(2 * center - luminanceAt(x - step, y) - luminanceAt(x + step, y));
         const vertical = Math.abs(2 * center - luminanceAt(x, y - step) - luminanceAt(x, y + step));
         total += (horizontal + vertical) / 2;
+        luminanceTotal += center;
+        luminanceSquaredTotal += center * center;
+        if (center < 24) clippedDark += 1;
+        if (center > 242) clippedLight += 1;
         samples += 1;
       }
     }
-    return samples ? total / samples : 0;
+    if (!samples) {
+      return { sharpness: 0, luminance: 0, contrast: 0, clippedDark: 0, clippedLight: 0 };
+    }
+    const luminance = luminanceTotal / samples;
+    const variance = Math.max(0, luminanceSquaredTotal / samples - luminance * luminance);
+    return {
+      sharpness: total / samples,
+      luminance,
+      contrast: Math.sqrt(variance),
+      clippedDark: clippedDark / samples,
+      clippedLight: clippedLight / samples,
+    };
+  }
+
+  function measureSharpness(canvas) {
+    return analyzeFrameQuality(canvas).sharpness;
   }
 
   function sharpnessLabel(score) {
     if (score < BLUR_REFOCUS_THRESHOLD) return "Soft";
     if (score < BLUR_REFOCUS_THRESHOLD * 1.8) return "Usable";
     return "Sharp";
+  }
+
+  function lightLabel(quality) {
+    if (quality.luminance < 58 || quality.clippedDark > 0.38) return "Dim";
+    if (quality.luminance > 205 || quality.clippedLight > 0.42) return "Glare";
+    if (quality.contrast < 28) return "Flat light";
+    return "Balanced";
   }
 
   async function decodeCanvasPass(source, pass) {
@@ -1217,9 +1575,14 @@
       : run.localizedFrames
         ? `A PDF417-like region was isolated in ${run.localizedFrames} frame${run.localizedFrames === 1 ? "" : "s"}, but ZXing could not recover a payload.`
       : "No recognized AAMVA PDF417 read before the timer ended.";
+    const advice = run.cameraProfile?.fixedFocus
+      ? " This webcam is fixed-focus; move the license farther away until the bars look crisp, then retry in brighter diffuse light."
+      : run.cameraProfile?.lowResolution
+        ? " This is a low-resolution feed; keep the barcode wide in the guide and use the high-resolution capture button if offered."
+        : " Try changing angle, distance, or light.";
     releaseLive(run);
     elements.liveLastTime.textContent = "No read";
-    setStatus(elements.liveStatus, "error", `${detail} Try changing angle, distance, or light.`);
+    setStatus(elements.liveStatus, "error", `${detail}${advice}`);
     addRun({
       mode: "live",
       outcome: "failure",
@@ -1276,6 +1639,9 @@
     elements.cameraVideo.srcObject = null;
     elements.cameraStage.classList.remove("active");
     elements.cameraPlaceholder.hidden = false;
+    elements.cameraAdaptation.hidden = true;
+    elements.cameraAdaptation.className = "camera-adaptation";
+    elements.guideLabel.textContent = "KEEP THE PDF417 BARCODE INSIDE · TAP TO FOCUS";
     elements.liveTimer.hidden = true;
     elements.focusChip.hidden = true;
     elements.refocus.hidden = true;
@@ -1406,23 +1772,144 @@
     }
   }
 
+  function showInitialCameraAdaptation(run) {
+    const profile = run.cameraProfile;
+    if (!profile) return;
+    const dimensions = profile.width && profile.height
+      ? ` · ${profile.width}×${profile.height}`
+      : "";
+    let hint = run.cameraOptimizations.length
+      ? `Applied ${run.cameraOptimizations.join(", ")}.`
+      : "Using the camera settings exposed by this browser.";
+    let tone = "good";
+
+    if (profile.fixedFocus) {
+      hint = "No focus control is exposed. Start farther from the lens and move slowly until the barcode bars look crisp.";
+      tone = "warning";
+      elements.guideLabel.textContent = "FIXED FOCUS · MOVE BACK UNTIL THE BARS LOOK CRISP";
+    } else if (profile.lowResolution) {
+      hint += " Low-resolution recovery will widen and upscale the barcode search.";
+      tone = "warning";
+    } else {
+      elements.guideLabel.textContent = profile.hasFocusControl
+        ? "KEEP THE PDF417 BARCODE INSIDE · TAP TO FOCUS"
+        : "KEEP THE PDF417 BARCODE INSIDE · HOLD STEADY";
+    }
+    setCameraAdaptation(run, `${profile.kind}${dimensions}`, hint, tone);
+  }
+
+  function updateAdaptiveCameraGuidance(run, quality, localized) {
+    if (state.live !== run || !run.active) return;
+    const now = performance.now();
+    const profile = run.cameraProfile || {};
+    let key = "scanning";
+    let hint = "Adaptive barcode search is active. Keep the bars level and inside the guide.";
+    let tone = "good";
+
+    if (quality.sharpness < BLUR_REFOCUS_THRESHOLD && profile.fixedFocus) {
+      key = "fixed-soft";
+      hint = "The barcode is soft and this webcam is fixed-focus. Move the license farther away, then hold still when the bars sharpen.";
+      tone = "warning";
+    } else if (quality.sharpness < BLUR_REFOCUS_THRESHOLD) {
+      key = "autofocus-soft";
+      hint = "The barcode is soft. Hold the license still; automatic refocus and enhanced decode passes are running.";
+      tone = "warning";
+    } else if (quality.luminance < 58 || quality.clippedDark > 0.38) {
+      key = "dim";
+      hint = "The image is dim. Add diffuse light in front of the license without shining directly into the camera.";
+      tone = "warning";
+    } else if (quality.luminance > 205 || quality.clippedLight > 0.42) {
+      key = "glare";
+      hint = "Bright clipping or glare is hiding bars. Tilt the license slightly or move the light off-axis.";
+      tone = "warning";
+    } else if (localized) {
+      key = "localized";
+      hint = "A PDF417-like region is visible. Hold position while local contrast and threshold passes retry it.";
+    } else if (profile.lowResolution) {
+      key = "low-resolution";
+      hint = "Low-resolution camera detected. Keep the barcode wide in the guide while staying beyond the camera's minimum focus distance.";
+      tone = "warning";
+    }
+
+    if (key === run.lastHintKey && now - run.lastHintAt < CAMERA_HINT_INTERVAL_MS) return;
+    if (key !== run.lastHintKey || now - run.lastHintAt >= CAMERA_HINT_INTERVAL_MS) {
+      run.lastHintKey = key;
+      run.lastHintAt = now;
+      const title = `${profile.kind || "adaptive camera"} · ${lightLabel(quality)} · ${sharpnessLabel(quality.sharpness)}`;
+      setCameraAdaptation(run, title, hint, tone);
+    }
+  }
+
+  function maybeTuneExposure(run, quality) {
+    const range = run.exposureCompensationRange;
+    if (!range || !run.track?.applyConstraints || run.exposureTuneCount >= 2) return;
+
+    if (quality.luminance < 48 || quality.clippedDark > 0.5) run.dimStreak += 1;
+    else run.dimStreak = 0;
+    if (quality.luminance > 215 || quality.clippedLight > 0.52) run.glareStreak += 1;
+    else run.glareStreak = 0;
+
+    const direction = run.dimStreak >= 2 ? 1 : run.glareStreak >= 2 ? -1 : 0;
+    if (
+      !direction ||
+      run.tuningPending ||
+      performance.now() - run.lastExposureTuneAt < EXPOSURE_TUNE_INTERVAL_MS
+    ) return;
+
+    const settings = run.track.getSettings?.() || {};
+    const current = Number(settings.exposureCompensation);
+    const startingValue = Number.isFinite(current)
+      ? current
+      : range.min + (range.max - range.min) / 2;
+    const step = range.step || Math.max(0.1, (range.max - range.min) / 6);
+    const target = Math.max(range.min, Math.min(range.max, startingValue + direction * step));
+    if (Math.abs(target - startingValue) < 0.000001) return;
+
+    run.tuningPending = true;
+    run.lastExposureTuneAt = performance.now();
+    run.exposureTuneCount += 1;
+    run.dimStreak = 0;
+    run.glareStreak = 0;
+    applyCameraControls(run, { exposureCompensation: target })
+      .catch(() => {
+        run.exposureCompensationRange = null;
+      })
+      .finally(() => {
+        if (state.live === run && run.active) run.tuningPending = false;
+      });
+  }
+
+  function setCameraAdaptation(run, title, hint, tone = "") {
+    if (state.live !== run || !run.active) return;
+    elements.cameraProfile.textContent = title;
+    elements.cameraHint.textContent = hint;
+    elements.cameraAdaptation.className = `camera-adaptation${tone ? ` ${tone}` : ""}`;
+    elements.cameraAdaptation.hidden = false;
+  }
+
   async function configureAutofocus(run, capabilities) {
     const reportedModes = normalizeFocusModes(capabilities.focusMode);
     const supported = navigator.mediaDevices.getSupportedConstraints?.() || {};
     const focusConstraintKnown = supported.focusMode === true;
+    const capabilitiesKnown = Object.keys(capabilities).length > 0;
     run.focusModes = reportedModes.length
       ? reportedModes
-      : focusConstraintKnown
+      : !capabilitiesKnown && focusConstraintKnown
         ? ["continuous"]
         : [];
     run.focusDistanceRange = normalizeFocusDistanceRange(capabilities.focusDistance);
-    run.focusPointSupported = supported.pointsOfInterest === true;
+    run.focusPointSupported =
+      !run.cameraProfile?.fixedFocus &&
+      supported.pointsOfInterest === true;
 
     elements.focusChip.hidden = false;
     const hasFocusControl =
       run.focusModes.length || run.focusDistanceRange || run.focusPointSupported;
     if (!hasFocusControl || !run.track?.applyConstraints) {
-      setFocusChip(run, "AF device-managed");
+      setFocusChip(
+        run,
+        run.cameraProfile?.fixedFocus ? "Fixed focus · move farther" : "AF device-managed"
+      );
       return;
     }
 
@@ -1476,6 +1963,10 @@
   }
 
   function normalizeFocusDistanceRange(value) {
+    return normalizeNumericRange(value);
+  }
+
+  function normalizeNumericRange(value) {
     if (
       !value ||
       !Number.isFinite(value.min) ||
@@ -1784,6 +2275,9 @@
         next.pointsOfInterest = { ideal: controls.pointsOfInterest };
       }
       if (Number.isFinite(controls.zoom)) next.zoom = controls.zoom;
+      if (Number.isFinite(controls.exposureCompensation)) {
+        next.exposureCompensation = controls.exposureCompensation;
+      }
       if (run.capabilities.torch) {
         advanced.push({ torch: controls.torch ?? run.torchOn });
       }
@@ -2872,6 +3366,77 @@
     }
   }
 
+  function runCameraPolicySelfTest() {
+    const integrated = {
+      device: { deviceId: "integrated", label: "Integrated Camera" },
+      capabilities: {
+        width: { min: 320, max: 1280 },
+        height: { min: 240, max: 720 },
+        focusMode: [],
+      },
+    };
+    integrated.score = scoreCameraDevice(integrated.device, integrated.capabilities);
+    const external = {
+      device: { deviceId: "external", label: "External USB Camera" },
+      capabilities: {
+        width: { min: 320, max: 3840 },
+        height: { min: 240, max: 2160 },
+        focusMode: ["continuous", "single-shot"],
+        zoom: { min: 1, max: 4 },
+      },
+    };
+    external.score = scoreCameraDevice(external.device, external.capabilities);
+
+    const selected = selectBestDesktopCamera([integrated, external], "integrated", true);
+    const fixedProfile = buildCameraProfile(
+      { width: 1280, height: 720, facingMode: "user" },
+      integrated.capabilities,
+      integrated.device.label,
+      true
+    );
+    const autofocusProfile = buildCameraProfile(
+      { width: 1920, height: 1080 },
+      external.capabilities,
+      external.device.label,
+      true
+    );
+    const mobileProfile = buildCameraProfile(
+      { width: 1920, height: 1080, facingMode: "environment" },
+      external.capabilities,
+      "Rear Camera",
+      false
+    );
+    const optimal = buildOptimalVideoConstraints({
+      width: { min: 320, max: 3840 },
+      height: { min: 240, max: 2160 },
+      frameRate: { min: 1, max: 60 },
+      resizeMode: ["none", "crop-and-scale"],
+      exposureMode: ["manual", "continuous"],
+      whiteBalanceMode: ["continuous"],
+      sharpness: { min: 0, max: 100 },
+    });
+    const passed =
+      selected?.device.deviceId === "external" &&
+      fixedProfile.fixedFocus &&
+      fixedProfile.lowResolution &&
+      fixedProfile.broadSearch &&
+      fixedProfile.decodeScale > 1 &&
+      autofocusProfile.hasFocusControl &&
+      !autofocusProfile.fixedFocus &&
+      mobileProfile.kind === "mobile rear camera" &&
+      !mobileProfile.desktopLike &&
+      mobileProfile.decodeScale === 1 &&
+      optimal.width?.ideal === MAX_ADAPTIVE_VIDEO_WIDTH &&
+      optimal.height?.ideal === MAX_ADAPTIVE_VIDEO_HEIGHT &&
+      optimal.frameRate?.ideal === 30 &&
+      optimal.advanced?.some((entry) => entry.exposureMode === "continuous");
+    document.documentElement.dataset.cameraPolicySelfTest = passed ? "pass" : "fail";
+    document.documentElement.dataset.cameraPolicyVectors = "5";
+    if (!passed) {
+      throw new Error("The built-in adaptive camera policy self-test failed.");
+    }
+  }
+
 
   function populateJurisdictions() {
     const select = $("jurisdiction");
@@ -2941,7 +3506,7 @@
       case "NotReadableError":
         return "The camera is busy in another app or could not be started.";
       case "OverconstrainedError":
-        return "The selected camera is no longer available. Choose Automatic rear camera.";
+        return "The selected camera is no longer available. Choose Automatic best camera.";
       default:
         return `Camera could not start: ${friendlyError(error)}`;
     }
