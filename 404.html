@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'"
+  >
+  <title>Page not found · Dino Defense</title>
+  <script>
+    (() => {
+      const target = new URL(window.location.href);
+      const parts = target.pathname.split("/");
+      const requestedName = parts.pop() || "";
+      if (requestedName.toLowerCase() === "dltest.html" || requestedName.toLowerCase() === "dltest") {
+        parts.push("DLTest.html");
+        target.pathname = parts.join("/");
+        window.location.replace(target.href);
+      }
+    })();
+  </script>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: system-ui, sans-serif;
+      background: #071014;
+      color: #dcebe6;
+    }
+
+    body {
+      display: grid;
+      min-height: 100vh;
+      margin: 0;
+      place-items: center;
+    }
+
+    main {
+      max-width: 34rem;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    a { color: #69e5ba; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Page not found</h1>
+    <p>The requested page does not exist.</p>
+    <p><a href="./">Return to Dino Defense</a></p>
+  </main>
+</body>
+</html>

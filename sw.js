@@ -3,10 +3,11 @@
    Strategy: network-first for the app shell (so pushed updates show up as soon
    as you're online), cache-first for the icons, and a cached fallback whenever
    the network is unavailable. Bump CACHE to force a clean re-precache. */
-const CACHE = 'dino-defense-v36';
+const CACHE = 'dino-defense-v37';
 const SHELL = [
   './',
   'index.html',
+  '404.html',
   'DLTest.html',
   'boss-death-lab.html',
   'boss-lab.html',
@@ -51,6 +52,17 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // let cross-origin (e.g. analytics) pass through
+
+  const pathParts = url.pathname.split('/');
+  const requestedName = pathParts.pop() || '';
+  if (requestedName.toLowerCase() === 'dltest.html' || requestedName.toLowerCase() === 'dltest') {
+    if (requestedName !== 'DLTest.html') {
+      pathParts.push('DLTest.html');
+      url.pathname = pathParts.join('/');
+      e.respondWith(Promise.resolve(Response.redirect(url.href, 302)));
+      return;
+    }
+  }
 
   // icons never really change → serve them from cache first for speed
   if (url.pathname.includes('/icons/')) {
