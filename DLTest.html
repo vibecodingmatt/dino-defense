@@ -10,7 +10,7 @@
   <meta name="theme-color" content="#0a1419">
   <meta
     name="description"
-    content="A private, client-side driver-license capture lab with live PDF417, still-photo PDF417, and local front-side OCR."
+    content="A private, client-side driver-license capture lab comparing live and still-photo PDF417 scanning."
   >
   <title>DLTest — PDF417 Capture Lab</title>
   <link rel="stylesheet" href="dltest.css">
@@ -38,12 +38,12 @@
   <main>
     <section class="hero" aria-labelledby="pageTitle">
       <div class="hero-copy">
-        <p class="eyebrow">LIVE PDF417 <span>/</span> PHOTO PDF417 <span>/</span> FRONT OCR</p>
+        <p class="eyebrow">LIVE PDF417 <span>/</span> PHOTO PDF417</p>
         <h1 id="pageTitle">Which capture method<br><em>holds up?</em></h1>
         <p class="hero-lede">
           Run repeatable, on-device PDF417 trials and compare decoder success,
-          media-ready time-to-read, and field consistency. When a physical barcode
-          cannot be recovered, optional front-side OCR provides a local fallback for review.
+          media-ready time-to-read, and field consistency between live video and
+          still-photo capture.
         </p>
       </div>
       <aside class="privacy-card" aria-label="Privacy information">
@@ -55,7 +55,7 @@
         </div>
         <div>
           <strong>Your ID stays on this device</strong>
-          <p>Images and decoded data are held in memory only. The barcode and OCR engines, workers, models, and WASM are served by this site; no upload, analytics, storage, cloud OCR, or third-party API is used.</p>
+          <p>Images and decoded data are held in memory only. The barcode engine, worker, and WASM are served by this site; no upload, analytics, storage, or third-party API is used.</p>
         </div>
       </aside>
     </section>
@@ -69,7 +69,7 @@
       <div class="section-heading">
         <div>
           <p class="section-kicker">BARCODE TEST + LOCAL FALLBACK</p>
-          <h2 id="captureTitle">Try the barcode first. OCR when needed.</h2>
+          <h2 id="captureTitle">Compare live and photo barcode capture.</h2>
         </div>
         <p>Complete several trials with the same card, device, distance, and lighting. Alternate methods to reduce order bias.</p>
       </div>
@@ -221,80 +221,7 @@
           </p>
         </article>
 
-        <article class="method-card ocr-card">
-          <div class="method-head">
-            <span class="method-number">03</span>
-            <div>
-              <p class="method-label">Fallback for an unreadable barcode</p>
-              <h3>Front-side OCR</h3>
-            </div>
-            <span class="mode-chip ocr">OCR ESTIMATE</span>
-          </div>
 
-          <div class="ocr-layout">
-            <div>
-              <p class="method-description">
-                Take or choose a clear photo of the license front. Tesseract reads
-                visible labels and text entirely on this device, then conservatively
-                maps only recognized fields into the form.
-              </p>
-
-              <input id="ocrInput" class="visually-hidden" type="file" accept="image/*" capture="environment">
-              <div
-                class="drop-zone ocr-drop-zone"
-                id="ocrDrop"
-                role="button"
-                tabindex="0"
-                aria-controls="ocrInput"
-                aria-describedby="ocrHelp"
-              >
-                <img id="ocrPreview" class="media-preview" alt="Selected license front preview" hidden>
-                <div class="drop-prompt" id="ocrPrompt">
-                  <span class="ocr-icon" aria-hidden="true">Aa</span>
-                  <strong>Take or choose a front photo</strong>
-                  <span>Keep all four card edges visible</span>
-                  <small id="ocrHelp">The local OCR model loads only after you choose an image</small>
-                </div>
-                <span class="photo-source-chip" id="ocrSourceChip" hidden></span>
-              </div>
-            </div>
-
-            <div class="ocr-controls">
-              <div class="ocr-caution">
-                <strong>Review every populated value</strong>
-                <p>OCR can confuse characters such as 0/O, 1/I, and 5/S. It is a form-filling fallback, not proof that the credential is authentic.</p>
-              </div>
-
-              <div class="status-line idle" id="ocrStatus" role="status" aria-live="polite">
-                <i></i><span>Ready for a front-side OCR fallback</span>
-              </div>
-
-              <div class="ocr-progress" id="ocrProgress" hidden aria-hidden="true">
-                <span id="ocrProgressBar"></span>
-              </div>
-
-              <div class="control-row button-row">
-                <button class="button primary ocr-button" id="chooseOcr" type="button">
-                  <span class="button-icon image" aria-hidden="true"></span>
-                  Take / choose front
-                </button>
-                <button class="button secondary" id="clearOcr" type="button" disabled>Clear</button>
-              </div>
-
-              <dl class="method-stats ocr-stats" aria-label="Latest OCR fallback statistics">
-                <div><dt>Last read</dt><dd id="ocrLastTime">—</dd></div>
-                <div><dt>Fields found</dt><dd id="ocrFieldCount">0</dd></div>
-                <div><dt>Confidence</dt><dd id="ocrConfidence">—</dd></div>
-                <div><dt>Image</dt><dd id="ocrResolution">—</dd></div>
-              </dl>
-
-              <p class="capture-tip">
-                <strong>Best results:</strong> photograph the complete front straight
-                on, fill the frame, use diffuse light, and confirm the mapped values manually.
-              </p>
-            </div>
-          </div>
-        </article>
       </div>
     </section>
 
@@ -311,7 +238,7 @@
       </div>
 
       <div class="result-notice" id="resultNotice">
-        A successful barcode scan or front-side OCR fallback populates these editable fields. Captured data does not prove that an ID is genuine.
+        A successful live or photo barcode scan populates these editable fields. Captured data does not prove that an ID is genuine.
       </div>
       <div class="parse-warnings" id="parseWarnings" role="alert" hidden></div>
 
@@ -658,7 +585,7 @@
           </div>
           <h3>Spec-derived AAMVA mapping</h3>
           <p>
-            One small parser handles both paths, preserves unknown elements,
+            One small parser handles both barcode paths, preserves unknown elements,
             respects U.S. versus Canadian date order, and covers AAMVA versions
             through the 2025 standard. Current OSS parsers were reviewed but had
             version or date-handling gaps that could distort the experiment.
@@ -668,21 +595,7 @@
           </div>
         </article>
 
-        <article class="research-card selected">
-          <div class="research-top">
-            <span class="research-status">LOCAL OCR FALLBACK</span>
-            <span class="license-chip">Apache-2.0 + MIT data</span>
-          </div>
-          <h3>Tesseract.js 7</h3>
-          <p>
-            The browser library, worker, WebAssembly core, and English recognition
-            model are pinned and self-hosted. OCR starts only when selected and
-            the worker is terminated after each read so no license image is retained there.
-          </p>
-          <div class="research-links">
-            <a href="https://github.com/naptha/tesseract.js" target="_blank" rel="noreferrer">Tesseract.js</a>
-          </div>
-        </article>
+
       </div>
     </section>
 
@@ -717,13 +630,10 @@
     <div>
       <a href="js/zxing-wasm-LICENSE.txt">zxing-wasm license</a>
       <a href="js/zxing-cpp-LICENSE.txt">ZXing-C++ license</a>
-      <a href="js/tesseract-LICENSE.txt">Tesseract.js license</a>
-      <a href="assets/tesseract/NOTICE.txt">OCR language-data notice</a>
     </div>
   </footer>
 
   <script src="js/zxing-reader-3.1.1.js" defer></script>
-  <script src="js/tesseract-7.0.0.min.js" defer></script>
   <script src="js/dltest.js" defer></script>
 </body>
 </html>

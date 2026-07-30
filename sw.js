@@ -3,7 +3,7 @@
    Strategy: network-first for the app shell (so pushed updates show up as soon
    as you're online), cache-first for the icons, and a cached fallback whenever
    the network is unavailable. Bump CACHE to force a clean re-precache. */
-const CACHE = 'dino-defense-v38';
+const CACHE = 'dino-defense-v39';
 const SHELL = [
   './',
   'index.html',
@@ -19,13 +19,9 @@ const SHELL = [
   'js/drex.js',
   'js/game.js',
   'js/zxing-reader-3.1.1.js',
-  'js/tesseract-7.0.0.min.js',
-  'js/tesseract-worker-7.0.0.min.js',
-  'js/tesseract-core-lstm-7.0.0.wasm.js',
   'js/dltest.js',
   'js/dltest-scanner-worker.js',
   'js/zxing-reader-3.1.1.wasm',
-  'assets/tesseract/eng.traineddata.gz',
   'assets/Jurassic2.mid',
   'assets/theme.mid',
   'manifest.json',

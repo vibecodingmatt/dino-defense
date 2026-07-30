@@ -39,20 +39,6 @@
     photoLastTime: $("photoLastTime"),
     photoAttempts: $("photoAttempts"),
     photoResolution: $("photoResolution"),
-    ocrInput: $("ocrInput"),
-    ocrDrop: $("ocrDrop"),
-    ocrPreview: $("ocrPreview"),
-    ocrPrompt: $("ocrPrompt"),
-    ocrSourceChip: $("ocrSourceChip"),
-    chooseOcr: $("chooseOcr"),
-    clearOcr: $("clearOcr"),
-    ocrStatus: $("ocrStatus"),
-    ocrProgress: $("ocrProgress"),
-    ocrProgressBar: $("ocrProgressBar"),
-    ocrLastTime: $("ocrLastTime"),
-    ocrFieldCount: $("ocrFieldCount"),
-    ocrConfidence: $("ocrConfidence"),
-    ocrResolution: $("ocrResolution"),
     licenseForm: $("licenseForm"),
     resultBadge: $("resultBadge"),
     resultNotice: $("resultNotice"),
@@ -121,7 +107,6 @@
   const BLUR_REFOCUS_THRESHOLD = 11;
   const BLUR_FRAMES_BEFORE_REFOCUS = 2;
   const NO_REGION_FRAMES_BEFORE_REFOCUS = 3;
-  const OCR_MAX_DIMENSION = 2800;
 
   const READER_OPTIONS = {
     formats: ["PDF417"],
@@ -275,8 +260,6 @@
     pendingLive: null,
     photoRun: null,
     photoUrl: "",
-    ocrRun: null,
-    ocrUrl: "",
     currentResult: null,
     baseline: null,
     runs: [],
@@ -289,7 +272,6 @@
     bindEvents();
     elements.licenseForm.addEventListener("submit", (event) => event.preventDefault());
     runParserSelfTest();
-    runOcrParserSelfTest();
 
     const secureForCamera = isCameraOriginSupported();
     if (!secureForCamera) {
@@ -299,11 +281,6 @@
 
     elements.startLive.disabled = true;
     elements.choosePhoto.disabled = true;
-    if (!window.Tesseract?.createWorker) {
-      elements.chooseOcr.disabled = true;
-      elements.ocrDrop.setAttribute("aria-disabled", "true");
-      setStatus(elements.ocrStatus, "error", "The local OCR loader is unavailable.");
-    }
     setStatus(elements.liveStatus, "working", "Loading the local PDF417 engine…");
     setStatus(elements.photoStatus, "working", "Loading the local PDF417 engine…");
     state.readyPromise = prepareScanner();
@@ -363,39 +340,6 @@
       if (file) runPhotoTrial(file);
     });
     elements.clearPhoto.addEventListener("click", () => clearPhotoPreview());
-    elements.chooseOcr.addEventListener("click", () => elements.ocrInput.click());
-    elements.ocrDrop.addEventListener("click", () => {
-      if (!state.ocrRun && window.Tesseract?.createWorker) elements.ocrInput.click();
-    });
-    elements.ocrDrop.addEventListener("keydown", (event) => {
-      if (!state.ocrRun && window.Tesseract?.createWorker && (event.key === "Enter" || event.key === " ")) {
-        event.preventDefault();
-        elements.ocrInput.click();
-      }
-    });
-    elements.ocrInput.addEventListener("change", (event) => {
-      const [file] = event.target.files || [];
-      if (file) runOcrTrial(file);
-      event.target.value = "";
-    });
-    ["dragenter", "dragover"].forEach((type) => {
-      elements.ocrDrop.addEventListener(type, (event) => {
-        event.preventDefault();
-        if (!state.ocrRun) elements.ocrDrop.classList.add("dragging");
-      });
-    });
-    ["dragleave", "drop"].forEach((type) => {
-      elements.ocrDrop.addEventListener(type, (event) => {
-        event.preventDefault();
-        elements.ocrDrop.classList.remove("dragging");
-      });
-    });
-    elements.ocrDrop.addEventListener("drop", (event) => {
-      if (state.ocrRun || !window.Tesseract?.createWorker) return;
-      const [file] = event.dataTransfer.files || [];
-      if (file) runOcrTrial(file);
-    });
-    elements.clearOcr.addEventListener("click", () => clearOcrPreview());
     elements.clearSensitive.addEventListener("click", clearSensitiveData);
     elements.revealSensitive.addEventListener("click", toggleSensitiveInspector);
     elements.clearHistory.addEventListener("click", clearHistory);
@@ -2126,486 +2070,6 @@
     elements.photoDrop.removeAttribute("aria-disabled");
   }
 
-  async function runOcrTrial(file) {
-    if (state.ocrRun) {
-      setStatus(elements.ocrStatus, "warning", "A local OCR read is already running.");
-      return;
-    }
-    if (!window.Tesseract?.createWorker) {
-      setStatus(elements.ocrStatus, "error", "The local OCR loader is unavailable.");
-      return;
-    }
-    if (!file || (!file.type.startsWith("image/") && !/\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(file.name))) {
-      setStatus(elements.ocrStatus, "error", "Choose an image of the front of the license.");
-      return;
-    }
-    if (file.size > 50 * 1024 * 1024) {
-      setStatus(elements.ocrStatus, "error", "This image is over 50 MB. Choose a smaller original photo.");
-      return;
-    }
-
-    clearOcrPreview(false);
-    const run = { canceled: false, worker: null, rejectPreview: null };
-    state.ocrRun = run;
-    const previewReady = showOcrPreview(file, run);
-    elements.chooseOcr.disabled = true;
-    elements.ocrDrop.setAttribute("aria-busy", "true");
-    elements.ocrProgress.hidden = false;
-    elements.ocrProgressBar.style.width = "2%";
-    elements.ocrFieldCount.textContent = "0";
-    elements.ocrConfidence.textContent = "—";
-    setStatus(elements.ocrStatus, "working", "Preparing the front image in private memory…");
-    const started = performance.now();
-
-    try {
-      await previewReady;
-      if (run.canceled || state.ocrRun !== run) return;
-      const source = createOcrCanvas(elements.ocrPreview);
-      run.worker = await createLocalOcrWorker(run);
-      if (run.canceled || state.ocrRun !== run) return;
-
-      await run.worker.setParameters({
-        tessedit_pageseg_mode: String(window.Tesseract.PSM.AUTO),
-        preserve_interword_spaces: "1",
-        user_defined_dpi: "300",
-      });
-      const result = await run.worker.recognize(source);
-      if (run.canceled || state.ocrRun !== run) return;
-
-      const confidence = Math.max(0, Math.min(100, Number(result?.data?.confidence) || 0));
-      const fields = parseOcrFront(result?.data?.text || "");
-      const fieldCount = Object.values(fields).filter(Boolean).length;
-      const elapsed = performance.now() - started;
-      elements.ocrLastTime.textContent = formatDuration(elapsed);
-      elements.ocrFieldCount.textContent = `${fieldCount}/${FORM_FIELD_IDS.length}`;
-      elements.ocrConfidence.textContent = `${Math.round(confidence)}%`;
-      elements.ocrProgressBar.style.width = "100%";
-
-      if (!fieldCount) {
-        setStatus(
-          elements.ocrStatus,
-          "error",
-          "No supported fields were recognized. Retake the complete front closer, straight, and without glare."
-        );
-        return;
-      }
-
-      acceptOcrResult(fields, confidence);
-      setStatus(
-        elements.ocrStatus,
-        confidence >= 60 ? "success" : "warning",
-        `OCR estimated ${fieldCount} fields in ${formatDuration(elapsed)}. Review every populated value.`
-      );
-      document.querySelector(".results-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    } catch (error) {
-      if (run.canceled || state.ocrRun !== run) return;
-      elements.ocrLastTime.textContent = "Error";
-      setStatus(elements.ocrStatus, "error", `Local OCR could not finish: ${friendlyError(error)}`);
-    } finally {
-      if (run.worker) {
-        try {
-          await run.worker.terminate();
-        } catch {
-          // Termination is best-effort after the in-memory recognition result is copied.
-        }
-        run.worker = null;
-      }
-      if (state.ocrRun === run) {
-        state.ocrRun = null;
-        elements.chooseOcr.disabled = false;
-        elements.ocrDrop.removeAttribute("aria-busy");
-        window.setTimeout(() => {
-          if (!state.ocrRun) elements.ocrProgress.hidden = true;
-        }, 450);
-      }
-    }
-  }
-
-  async function createLocalOcrWorker(run) {
-    const base = new URL(".", window.location.href);
-    return window.Tesseract.createWorker("eng", window.Tesseract.OEM.LSTM_ONLY, {
-      workerPath: new URL("js/tesseract-worker-7.0.0.min.js", base).href,
-      corePath: new URL("js/tesseract-core-lstm-7.0.0.wasm.js", base).href,
-      langPath: new URL("assets/tesseract/", base).href,
-      gzip: true,
-      logger: (message) => updateOcrProgress(run, message),
-    });
-  }
-
-  function updateOcrProgress(run, message) {
-    if (state.ocrRun !== run || run.canceled) return;
-    const progress = Math.max(0, Math.min(1, Number(message?.progress) || 0));
-    const phase = String(message?.status || "").toLowerCase();
-    const phaseLabels = {
-      "loading tesseract core": "Loading the self-hosted OCR core…",
-      "loading language traineddata": "Loading the self-hosted English model…",
-      "initializing api": "Initializing local text recognition…",
-      "recognizing text": `Reading visible front text locally… ${Math.round(progress * 100)}%`,
-    };
-    const label = phaseLabels[phase] || "Running local OCR…";
-    const baseProgress = phase === "recognizing text" ? 0.42 : phase.includes("language") ? 0.2 : 0.08;
-    const displayed = phase === "recognizing text"
-      ? baseProgress + progress * 0.55
-      : Math.max(baseProgress, progress * 0.35);
-    elements.ocrProgressBar.style.width = `${Math.round(Math.min(0.97, displayed) * 100)}%`;
-    setStatus(elements.ocrStatus, "working", label);
-  }
-
-  function createOcrCanvas(image) {
-    const width = image.naturalWidth;
-    const height = image.naturalHeight;
-    const scale = Math.min(1, OCR_MAX_DIMENSION / Math.max(width, height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(width * scale));
-    canvas.height = Math.max(1, Math.round(height * scale));
-    const context = canvas.getContext("2d", { willReadFrequently: true });
-    context.fillStyle = "#fff";
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.imageSmoothingEnabled = scale < 1;
-    context.imageSmoothingQuality = "high";
-    context.drawImage(image, 0, 0, canvas.width, canvas.height);
-    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-    stretchGrayscaleContrast(imageData);
-    context.putImageData(imageData, 0, 0);
-    return canvas;
-  }
-
-  function showOcrPreview(file, run) {
-    state.ocrUrl = URL.createObjectURL(file);
-    elements.ocrPreview.hidden = false;
-    elements.ocrPrompt.hidden = true;
-    elements.ocrDrop.classList.add("has-image");
-    elements.ocrSourceChip.textContent = humanFileSize(file.size);
-    elements.ocrSourceChip.hidden = false;
-    elements.clearOcr.disabled = false;
-    const ready = new Promise((resolve, reject) => {
-      run.rejectPreview = reject;
-      elements.ocrPreview.onload = () => {
-        const dimensions = {
-          width: elements.ocrPreview.naturalWidth,
-          height: elements.ocrPreview.naturalHeight,
-        };
-        elements.ocrResolution.textContent = `${dimensions.width}×${dimensions.height}`;
-        elements.ocrPreview.onload = null;
-        elements.ocrPreview.onerror = null;
-        run.rejectPreview = null;
-        resolve(dimensions);
-      };
-      elements.ocrPreview.onerror = () => {
-        elements.ocrPreview.onload = null;
-        elements.ocrPreview.onerror = null;
-        run.rejectPreview = null;
-        reject(new Error("The browser could not open this image format."));
-      };
-    });
-    elements.ocrPreview.src = state.ocrUrl;
-    return ready;
-  }
-
-  function clearOcrPreview(resetStatus = true) {
-    cancelOcrRun();
-    elements.ocrPreview.onload = null;
-    elements.ocrPreview.onerror = null;
-    if (state.ocrUrl) URL.revokeObjectURL(state.ocrUrl);
-    state.ocrUrl = "";
-    elements.ocrPreview.removeAttribute("src");
-    elements.ocrPreview.hidden = true;
-    elements.ocrPrompt.hidden = false;
-    elements.ocrDrop.classList.remove("has-image", "dragging");
-    elements.ocrSourceChip.hidden = true;
-    elements.clearOcr.disabled = true;
-    elements.ocrResolution.textContent = "—";
-    elements.ocrProgress.hidden = true;
-    elements.ocrProgressBar.style.width = "0";
-    if (resetStatus) {
-      elements.ocrLastTime.textContent = "—";
-      elements.ocrFieldCount.textContent = "0";
-      elements.ocrConfidence.textContent = "—";
-      setStatus(elements.ocrStatus, "idle", "Ready for a front-side OCR fallback");
-    }
-  }
-
-  function cancelOcrRun() {
-    const run = state.ocrRun;
-    if (!run) return;
-    run.canceled = true;
-    run.rejectPreview?.(new DOMException("OCR canceled.", "AbortError"));
-    run.rejectPreview = null;
-    run.worker?.terminate().catch(() => {});
-    run.worker = null;
-    state.ocrRun = null;
-    elements.chooseOcr.disabled = !window.Tesseract?.createWorker;
-    elements.ocrDrop.removeAttribute("aria-busy");
-  }
-
-  function acceptOcrResult(fields, confidence) {
-    const fieldCount = populateForm(fields);
-    state.currentResult = null;
-    state.sensitiveVisible = false;
-    renderDiagnostics({});
-    elements.revealSensitive.disabled = true;
-    elements.clearSensitive.disabled = false;
-    elements.resultBadge.textContent = `OCR estimate · ${fieldCount}/${FORM_FIELD_IDS.length} fields`;
-    elements.resultBadge.className = "result-badge warning";
-    elements.resultNotice.textContent =
-      "Front-side OCR populated an editable estimate in memory only. Confirm every value against the physical card; OCR is not barcode data or authenticity verification.";
-    elements.parseWarnings.hidden = false;
-    elements.parseWarnings.replaceChildren();
-    const strong = document.createElement("strong");
-    strong.textContent = "Review required: ";
-    const confidenceWarning = confidence < 60
-      ? `Overall OCR confidence was ${Math.round(confidence)}%. `
-      : "";
-    elements.parseWarnings.append(
-      strong,
-      document.createTextNode(`${confidenceWarning}Characters such as 0/O, 1/I, and 5/S may be confused. Blank fields were not inferred.`)
-    );
-  }
-
-  function parseOcrFront(rawText) {
-    const lines = String(rawText || "")
-      .replace(/\r/g, "\n")
-      .split(/\n+/)
-      .map(normalizeOcrLine)
-      .filter(Boolean);
-    const joined = lines.join("\n");
-    const fields = {};
-
-    const jurisdiction = inferOcrJurisdiction(lines);
-    if (jurisdiction) {
-      fields.jurisdiction = jurisdiction;
-      fields.country = CANADIAN_PROVINCES.has(jurisdiction) ? "CAN" : "USA";
-    }
-
-    if (/\bIDENTIFICATION\s+CARD\b|\bIDENTIFICATION\s+LICENSE\b/.test(joined)) {
-      fields.documentType = "ID";
-    } else if (/\bDRIVER'?S?\s+LICENSE\b|\bDRIVING\s+LICENSE\b|\bCLASS\s+[A-Z0-9]/.test(joined)) {
-      fields.documentType = "DL";
-    }
-
-    fields.dateOfBirth = findOcrDate(lines, /\b(?:3\s*)?(?:DOB|DATE\s+OF\s+BIRTH)\b/);
-    fields.issueDate = findOcrDate(lines, /\b(?:4A\s*)?(?:ISS|ISSUED|ISSUE\s+DATE)\b|\b4A\b/);
-    fields.expirationDate = findOcrDate(lines, /\b(?:4B\s*)?(?:EXP|EXPIRES?|EXPIRATION)\b|\b4B\b/);
-
-    const licenseNumber = findOcrLicenseNumber(lines);
-    if (licenseNumber) fields.licenseNumber = licenseNumber;
-
-    const lastName = extractOcrLabeledValue(lines, [
-      /^(?:1\s+)?(?:LN|LAST\s+NAME|FAMILY\s+NAME)\s*[:#-]?\s+(.+)$/,
-      /^1\s+([A-Z][A-Z' -]{1,39})$/,
-    ]);
-    const givenNames = extractOcrLabeledValue(lines, [
-      /^(?:2\s+)?(?:FN|FIRST\s+NAME|GIVEN\s+NAMES?)\s*[:#-]?\s+(.+)$/,
-      /^2\s+([A-Z][A-Z' -]{1,59})$/,
-    ]);
-    const cleanedLast = cleanOcrName(lastName);
-    if (cleanedLast) fields.lastName = cleanedLast;
-    const given = splitOcrGivenNames(givenNames);
-    if (given.firstName) fields.firstName = given.firstName;
-    if (given.middleName) fields.middleName = given.middleName;
-    if (given.suffix) fields.suffix = given.suffix;
-
-    const address = extractOcrAddress(lines);
-    Object.assign(fields, address);
-
-    const sex = firstOcrCapture(lines, /(?:^|\s)(?:15\s+|SEX\s*[:#-]?\s*)([MFX129])(?:\s|$)/);
-    if (sex) fields.sex = sex === "M" || sex === "1" ? "1" : sex === "F" || sex === "2" ? "2" : "9";
-
-    const heightLine = lines.find((line) => /\b(?:16|HGT|HEIGHT)\b/.test(line)) || "";
-    const height = parseOcrHeight(heightLine);
-    if (height) fields.height = height;
-
-    const vehicleClass = firstOcrCapture(lines, /\b(?:9\s+)?(?:CLASS|CLS)\s*[:#-]?\s*([A-Z0-9]{1,4})\b/);
-    if (vehicleClass) fields.vehicleClass = vehicleClass;
-    const restrictions = firstOcrCapture(lines, /\b(?:12\s+)?(?:RESTR|RESTRICTIONS?)\s*[:#-]?\s*([A-Z0-9, -]{1,20})/);
-    if (restrictions) fields.restrictions = cleanOcrValue(restrictions);
-    const endorsements = firstOcrCapture(lines, /\b(?:9A\s+)?(?:END|ENDORSEMENTS?)\s*[:#-]?\s*([A-Z0-9, -]{1,20})/);
-    if (endorsements) fields.endorsements = cleanOcrValue(endorsements);
-
-    const eye = firstOcrCapture(lines, /\b(?:EYES?|EYE\s+COLOR)\s*[:#-]?\s*(BLK|BLU|BRO|BRN|GRY|GRA|GRN|HAZ|MAR|PNK|DIC|UNK)\b/);
-    if (eye) fields.eyeColor = normalizeOcrEyeColor(eye);
-
-    const discriminator = firstOcrCapture(lines, /(?:^|\s)(?:5\s+|DD\s*[:#-]?\s*|DOC(?:UMENT)?\s*(?:DISC(?:RIMINATOR)?)?\s*[:#-]?\s*)([A-Z0-9-]{8,25})\b/);
-    if (discriminator && discriminator !== licenseNumber) {
-      fields.documentDiscriminator = discriminator.replace(/-/g, "");
-    }
-
-    return Object.fromEntries(
-      Object.entries(fields).filter(([, value]) => Boolean(String(value || "").trim()))
-    );
-  }
-
-  function normalizeOcrLine(value) {
-    return String(value || "")
-      .normalize("NFKC")
-      .toUpperCase()
-      .replace(/[|]/g, "I")
-      .replace(/[“”]/g, "\"")
-      .replace(/[‘’`]/g, "'")
-      .replace(/[^\p{L}\p{N}#.,:/+\-'"\s]/gu, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-  }
-
-  function cleanOcrValue(value) {
-    return String(value || "")
-      .replace(/\s+/g, " ")
-      .replace(/^[\s:;,.#-]+|[\s:;,.#-]+$/g, "")
-      .trim();
-  }
-
-  function cleanOcrName(value) {
-    const cleaned = cleanOcrValue(value)
-      .replace(/\b(?:DOB|EXP|ISS|SEX|HGT|CLASS)\b.*$/, "")
-      .replace(/[^A-Z' -]/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
-    if (!cleaned || cleaned === "NONE" || cleaned.length < 2) return "";
-    return cleaned;
-  }
-
-  function splitOcrGivenNames(value) {
-    const cleaned = cleanOcrName(value);
-    if (!cleaned) return { firstName: "", middleName: "", suffix: "" };
-    const tokens = cleaned.split(" ").filter(Boolean);
-    let suffix = "";
-    const last = tokens[tokens.length - 1];
-    if (/^(?:JR|SR|I|II|III|IV|V|VI|VII|VIII|IX)$/.test(last)) {
-      suffix = tokens.pop();
-    }
-    const firstName = tokens.shift() || "";
-    const middleName = tokens.filter((token) => token !== "NONE").join(" ");
-    return { firstName, middleName, suffix };
-  }
-
-  function extractOcrLabeledValue(lines, expressions) {
-    for (const line of lines) {
-      for (const expression of expressions) {
-        const match = line.match(expression);
-        if (match?.[1]) return cleanOcrValue(match[1]);
-      }
-    }
-    return "";
-  }
-
-  function firstOcrCapture(lines, expression) {
-    for (const line of lines) {
-      const match = line.match(expression);
-      if (match?.[1]) return cleanOcrValue(match[1]);
-    }
-    return "";
-  }
-
-  function findOcrDate(lines, labelExpression) {
-    for (let index = 0; index < lines.length; index += 1) {
-      if (!labelExpression.test(lines[index])) continue;
-      const sameLine = parseOcrDateToken(lines[index]);
-      if (sameLine) return sameLine;
-      const nextLine = parseOcrDateToken(lines[index + 1] || "");
-      if (nextLine) return nextLine;
-    }
-    return "";
-  }
-
-  function parseOcrDateToken(value) {
-    const separated = String(value || "").match(/\b(0?[1-9]|1[0-2])[./-](0?[1-9]|[12]\d|3[01])[./-]((?:19|20)\d{2})\b/);
-    if (separated) {
-      return validateOcrDate(Number(separated[3]), Number(separated[1]), Number(separated[2]));
-    }
-    const compact = String(value || "").match(/\b((?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])(?:19|20)\d{2})\b/);
-    if (!compact) return "";
-    return validateOcrDate(
-      Number(compact[1].slice(4, 8)),
-      Number(compact[1].slice(0, 2)),
-      Number(compact[1].slice(2, 4))
-    );
-  }
-
-  function validateOcrDate(year, month, day) {
-    const date = new Date(Date.UTC(year, month - 1, day));
-    if (
-      date.getUTCFullYear() !== year ||
-      date.getUTCMonth() !== month - 1 ||
-      date.getUTCDate() !== day
-    ) return "";
-    return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-  }
-
-  function findOcrLicenseNumber(lines) {
-    const floridaPattern = /\b([A-Z](?:[- ]?\d){12})\b/;
-    for (const line of lines) {
-      const match = line.match(floridaPattern);
-      if (match) return match[1].replace(/[- ]/g, "");
-    }
-
-    for (let index = 0; index < lines.length; index += 1) {
-      const line = lines[index];
-      const label = line.match(/\b(?:4D|DLN?|LIC(?:ENSE)?\s*(?:NO|NUMBER|#)?)\b\s*[:#-]?\s*(.*)$/);
-      if (!label) continue;
-      const candidateText = label[1] || lines[index + 1] || "";
-      const candidate = candidateText.replace(/[^A-Z0-9]/g, "");
-      if (/^(?=.*\d)[A-Z0-9]{5,20}$/.test(candidate)) return candidate;
-    }
-    return "";
-  }
-
-  function inferOcrJurisdiction(lines) {
-    const joined = lines.join(" ");
-    if (/\bFLORIDA\b/.test(joined)) return "FL";
-    const knownCodes = new Set(Object.values(JURISDICTIONS).flat().map(([code]) => code));
-    for (const line of lines) {
-      const addressMatch = line.match(/\b([A-Z]{2})\s+\d{5}(?:[- ]?\d{4})?\b/);
-      if (addressMatch && knownCodes.has(addressMatch[1])) return addressMatch[1];
-    }
-    return "";
-  }
-
-  function extractOcrAddress(lines) {
-    const result = {};
-    let cityLineIndex = -1;
-    for (let index = 0; index < lines.length; index += 1) {
-      const match = lines[index].match(/^(.{2,30}?)[, ]+\b([A-Z]{2})\s+(\d{5}(?:[- ]?\d{4})?)\b/);
-      if (!match) continue;
-      result.city = cleanOcrValue(match[1]).replace(/^\d+\s+/, "");
-      result.jurisdiction = match[2];
-      result.postalCode = match[3].replace(/\s/g, "-");
-      result.country = CANADIAN_PROVINCES.has(match[2]) ? "CAN" : "USA";
-      cityLineIndex = index;
-      break;
-    }
-
-    let street = extractOcrLabeledValue(lines, [
-      /^(?:8\s+)?(?:ADDRESS|ADDR)\s*[:#-]?\s+(.+)$/,
-      /^8\s+(\d{1,6}\s+.+)$/,
-    ]);
-    if (!street && cityLineIndex > 0) {
-      for (let index = cityLineIndex - 1; index >= Math.max(0, cityLineIndex - 3); index -= 1) {
-        const candidate = lines[index].replace(/^8\s+/, "");
-        if (/^\d{1,6}\s+[A-Z0-9][A-Z0-9 .#'-]{2,40}$/.test(candidate)) {
-          street = candidate;
-          break;
-        }
-      }
-    }
-    if (street) result.streetAddress = cleanOcrValue(street);
-    return result;
-  }
-
-  function parseOcrHeight(value) {
-    const feet = String(value || "").match(/\b([4-7])\s*['′]\s*[- ]?\s*(\d{1,2})\s*(?:"|IN)?\b/);
-    if (feet && Number(feet[2]) < 12) return `${feet[1]} ft ${Number(feet[2])} in`;
-    const inches = String(value || "").match(/\b(\d{2,3})\s*(?:IN|")\b/);
-    if (!inches) return "";
-    const total = Number(inches[1]);
-    if (total < 48 || total > 96) return "";
-    return `${Math.floor(total / 12)} ft ${total % 12} in`;
-  }
-
-  function normalizeOcrEyeColor(value) {
-    const aliases = { BRN: "BRO", GRA: "GRY" };
-    return aliases[value] || value;
-  }
-
   function parseAamva(rawValue) {
     const raw = typeof rawValue === "string" ? rawValue.replace(/\u0000/g, "") : "";
     const warnings = [];
@@ -3146,7 +2610,6 @@
     if (state.live) releaseLive(state.live);
     clearForm();
     clearPhotoPreview();
-    clearOcrPreview();
     elements.rawInput.value = "";
     setStatus(elements.rawStatus, "idle", "Manual parser is ready.");
     state.currentResult = null;
@@ -3155,7 +2618,7 @@
     elements.resultBadge.textContent = "No scan yet";
     elements.resultBadge.className = "result-badge empty";
     elements.resultNotice.textContent =
-      "A successful barcode scan or front-side OCR fallback populates these editable fields. Captured data does not prove that an ID is genuine.";
+      "A successful live or photo barcode scan populates these editable fields. Captured data does not prove that an ID is genuine.";
     elements.parseWarnings.hidden = true;
     elements.parseWarnings.textContent = "";
     elements.sensitiveInspector.hidden = true;
@@ -3409,44 +2872,6 @@
     }
   }
 
-  function runOcrParserSelfTest() {
-    const fabricatedFloridaFront = [
-      "FLORIDA DRIVER LICENSE",
-      "4d S123-456-57-901-0",
-      "1 SAMPLE",
-      "2 NICK NONE",
-      "3 DOB 01/12/1957",
-      "4a ISS 07/27/2016",
-      "4b EXP 01/12/2024",
-      "8 123 MAIN STREET",
-      "TALLAHASSEE FL 32301",
-      "9 CLASS E",
-      "15 SEX M",
-      "16 HGT 5'-10\"",
-    ].join("\n");
-    const parsed = parseOcrFront(fabricatedFloridaFront);
-    const passed =
-      parsed.documentType === "DL" &&
-      parsed.licenseNumber === "S123456579010" &&
-      parsed.lastName === "SAMPLE" &&
-      parsed.firstName === "NICK" &&
-      !parsed.middleName &&
-      parsed.dateOfBirth === "1957-01-12" &&
-      parsed.issueDate === "2016-07-27" &&
-      parsed.expirationDate === "2024-01-12" &&
-      parsed.streetAddress === "123 MAIN STREET" &&
-      parsed.city === "TALLAHASSEE" &&
-      parsed.jurisdiction === "FL" &&
-      parsed.postalCode === "32301" &&
-      parsed.sex === "1" &&
-      parsed.height === "5 ft 10 in" &&
-      parsed.vehicleClass === "E";
-    document.documentElement.dataset.ocrParserSelfTest = passed ? "pass" : "fail";
-    document.documentElement.dataset.ocrParserVectors = "1";
-    if (!passed) {
-      throw new Error("The built-in front OCR mapping self-test failed.");
-    }
-  }
 
   function populateJurisdictions() {
     const select = $("jurisdiction");
@@ -3535,13 +2960,6 @@
       elements.liveStatus,
       state.reader ? "idle" : "error",
       state.reader ? "Ready for a live trial" : "Scanner is unavailable"
-    );
-    setStatus(
-      elements.ocrStatus,
-      window.Tesseract?.createWorker ? "idle" : "error",
-      window.Tesseract?.createWorker
-        ? "Ready for a front-side OCR fallback"
-        : "The local OCR loader is unavailable."
     );
   }
 
