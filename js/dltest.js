@@ -529,8 +529,7 @@
 
   async function refreshCameraDevices(selectedId = "") {
     if (!navigator.mediaDevices?.enumerateDevices) return;
-    const devices = (await navigator.mediaDevices.enumerateDevices())
-      .filter((device) => device.kind === "videoinput");
+    const devices = await getVideoInputDevices();
     const prior = selectedId || elements.cameraSelect.value;
     elements.cameraSelect.replaceChildren();
     elements.cameraSelect.add(new Option("Automatic rear camera", ""));
@@ -539,6 +538,98 @@
     });
     if (prior && devices.some((device) => device.deviceId === prior)) {
       elements.cameraSelect.value = prior;
+    }
+  }
+
+  async function getVideoInputDevices() {
+    if (!navigator.mediaDevices?.enumerateDevices) return [];
+    return (await navigator.mediaDevices.enumerateDevices())
+      .filter((device) => device.kind === "videoinput" && device.deviceId);
+  }
+
+  function cameraVideoConstraints(deviceId = "") {
+    const common = {
+      width: { ideal: 1920 },
+      height: { ideal: 1080 },
+      resizeMode: { ideal: "none" },
+      advanced: [{ focusMode: "continuous" }],
+    };
+    return deviceId
+      ? { ...common, deviceId: { exact: deviceId } }
+      : { ...common, facingMode: { ideal: "environment" } };
+  }
+
+  async function isSamsungGalaxyDevice() {
+    const userAgent = navigator.userAgent || "";
+    if (/SamsungBrowser|SM-[A-Z0-9-]+/i.test(userAgent)) return true;
+    try {
+      const hints = await navigator.userAgentData?.getHighEntropyValues?.(["model"]);
+      return /^SM-[A-Z0-9-]+$/i.test(hints?.model || "");
+    } catch {
+      return false;
+    }
+  }
+
+  function selectSamsungPreferredCamera(devices) {
+    const rearCameras = devices.filter((device) => {
+      const label = device.label.toLowerCase();
+      return /\b(back|rear|environment)\b/.test(label) && !/\b(front|user)\b/.test(label);
+    });
+    if (!rearCameras.length) return null;
+
+    const explicitRight = rearCameras.find((device) => {
+      const label = device.label.toLowerCase();
+      return (
+        /\b(back|rear)\b.*\bright\b/.test(label) ||
+        /\bright\b.*\b(back|rear)\b/.test(label)
+      );
+    });
+    if (explicitRight) {
+      return { device: explicitRight, reason: "rear-right label" };
+    }
+
+    if (rearCameras.length > 1) {
+      const samsungMain = rearCameras.find((device) =>
+        /\bcamera2\s*0\b/i.test(device.label)
+      );
+      if (samsungMain) {
+        return { device: samsungMain, reason: "Samsung main-rear camera 0" };
+      }
+    }
+    return null;
+  }
+
+  async function applySamsungCameraPreference(stream, pending) {
+    if (!(await isSamsungGalaxyDevice())) return { stream, preference: null };
+    if (pending.canceled) return { stream, preference: null };
+
+    const devices = await getVideoInputDevices();
+    const preference = selectSamsungPreferredCamera(devices);
+    if (!preference) return { stream, preference: null };
+
+    const activeId = stream.getVideoTracks()[0]?.getSettings?.().deviceId || "";
+    if (activeId === preference.device.deviceId) return { stream, preference };
+
+    setStatus(
+      elements.liveStatus,
+      "working",
+      `Selecting preferred Galaxy rear lens: ${preference.device.label}…`
+    );
+    stream.getTracks().forEach((track) => track.stop());
+
+    try {
+      const preferredStream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: cameraVideoConstraints(preference.device.deviceId),
+      });
+      return { stream: preferredStream, preference };
+    } catch {
+      if (pending.canceled) return { stream: null, preference: null };
+      const fallbackStream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: cameraVideoConstraints(),
+      });
+      return { stream: fallbackStream, preference: null };
     }
   }
 
@@ -561,21 +652,7 @@
 
     const duration = Number(elements.trialLength.value) || 15000;
     const selectedDevice = elements.cameraSelect.value;
-    const video = selectedDevice
-      ? {
-          deviceId: { exact: selectedDevice },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-          resizeMode: { ideal: "none" },
-          advanced: [{ focusMode: "continuous" }],
-        }
-      : {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-          resizeMode: { ideal: "none" },
-          advanced: [{ focusMode: "continuous" }],
-        };
+    const video = cameraVideoConstraints(selectedDevice);
 
     elements.startLive.disabled = true;
     elements.stopLive.disabled = false;
@@ -586,6 +663,7 @@
     const pending = { canceled: false };
     state.pendingLive = pending;
     let stream = null;
+    let cameraPreference = null;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: false, video });
       if (pending.canceled) {
@@ -595,6 +673,19 @@
         setStatus(elements.liveStatus, "warning", "Camera start canceled.");
         return;
       }
+      if (!selectedDevice) {
+        const preferred = await applySamsungCameraPreference(stream, pending);
+        stream = preferred.stream;
+        cameraPreference = preferred.preference;
+      }
+      if (!stream || pending.canceled) {
+        stream?.getTracks().forEach((track) => track.stop());
+        state.pendingLive = null;
+        restoreLiveControls();
+        setStatus(elements.liveStatus, "warning", "Camera start canceled.");
+        return;
+      }
+
       const track = stream.getVideoTracks()[0];
       elements.cameraVideo.srcObject = stream;
       await elements.cameraVideo.play();
@@ -639,6 +730,7 @@
         noRegionStreak: 0,
         lastSharpness: 0,
         lastLocalized: false,
+        cameraPreference,
         imageCapture: null,
         capturePending: false,
         controlChain: Promise.resolve(),
@@ -652,7 +744,14 @@
       elements.liveAttempts.textContent = "0";
       elements.liveResolution.textContent =
         settings.width && settings.height ? `${settings.width}×${settings.height}` : "Active";
-      setStatus(elements.liveStatus, "working", "Scanning the latest frame for a PDF417 license barcode…");
+      elements.liveResolution.title = cameraPreference?.device.label || "";
+      setStatus(
+        elements.liveStatus,
+        "working",
+        cameraPreference
+          ? `Scanning with preferred Galaxy lens: ${cameraPreference.device.label}…`
+          : "Scanning the latest frame for a PDF417 license barcode…"
+      );
 
       const capabilities = track.getCapabilities?.() || {};
       run.capabilities = capabilities;
