@@ -762,6 +762,59 @@ main {
   color: var(--mint);
 }
 
+.decoder-diagnostic {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid rgba(105, 229, 186, 0.2);
+  border-radius: 10px;
+  background: rgba(4, 12, 15, 0.72);
+}
+
+.decoder-diagnostic[hidden] {
+  display: none;
+}
+
+.decoder-diagnostic-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.decoder-diagnostic-head strong,
+.decoder-diagnostic-head span {
+  color: var(--mint);
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.decoder-diagnostic-head span {
+  color: var(--faint);
+  font-size: 0.52rem;
+}
+
+#decoderPreview {
+  display: block;
+  width: 100%;
+  max-height: 150px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 7px;
+  background: #fff;
+  image-rendering: auto;
+  object-fit: contain;
+}
+
+.decoder-diagnostic small {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  line-height: 1.45;
+}
+
 .drop-zone {
   cursor: pointer;
   border-style: dashed;

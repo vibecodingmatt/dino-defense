@@ -15,6 +15,9 @@
     cameraAdaptation: $("cameraAdaptation"),
     cameraProfile: $("cameraProfile"),
     cameraHint: $("cameraHint"),
+    decoderDiagnostic: $("decoderDiagnostic"),
+    decoderPreview: $("decoderPreview"),
+    decoderPreviewLabel: $("decoderPreviewLabel"),
     cameraSelect: $("cameraSelect"),
     trialLength: $("trialLength"),
     startLive: $("startLive"),
@@ -121,6 +124,8 @@
   const MAC_PRESET_BENCHMARK_ATTEMPTS = 4;
   const MAC_BURST_FRAME_COUNT = 3;
   const MAC_PRESET_SETTLE_FRAMES = 2;
+  const MAC_STILL_CAPTURE_INTERVAL_MS = 2200;
+  const MAC_STILL_CAPTURE_LIMIT = 5;
 
   const READER_OPTIONS = {
     formats: ["PDF417"],
@@ -565,7 +570,7 @@
   }
 
   function isLikelyMacEnvironment() {
-    const platform = navigator.userAgentData?.platform || navigator.platform || "";
+    const platform = navigator.platform || navigator.userAgentData?.platform || "";
     const userAgent = navigator.userAgent || "";
     return /\bMac/i.test(platform) || /\bMacintosh\b/i.test(userAgent);
   }
@@ -594,10 +599,16 @@
     const desktopLike =
       desktopContext &&
       facingMode !== "environment";
+    const normalizedLabel = String(label || "");
+    const explicitlyInternal =
+      /\b(facetime|macbook|built[- ]?in|internal)\b/i.test(normalizedLabel);
+    const explicitlyExternal =
+      /\b(usb|external|logitech|brio|continuity|iphone|obs|virtual|camo|epoccam|elgato|studio display)\b/i
+        .test(normalizedLabel);
     const macInternal =
       desktopLike &&
       macContext &&
-      /\b(facetime|macbook|built[- ]?in|internal)\b/i.test(String(label || ""));
+      (explicitlyInternal || !explicitlyExternal);
     const fixedFocus = desktopLike && capabilitiesKnown && !hasFocusControl;
     const lowResolution =
       Boolean(width && width < 1600) ||
@@ -734,11 +745,40 @@
     }
   }
 
-  function scoreMacPresetFrame(quality, settings = {}) {
+  function scoreMacPresetFrame(quality, settings = {}, evidence = {}) {
     const pixels = Math.max(0, Number(settings.width) * Number(settings.height));
     const resolutionBonus = Math.min(2.5, pixels / 1000000);
     const clippingPenalty = (quality.clippedDark + quality.clippedLight) * 18;
-    return quality.sharpness * 4 + quality.contrast * 0.25 + resolutionBonus - clippingPenalty;
+    const locatorScore = Math.log1p(Math.max(0, Number(evidence.locatorConfidence) || 0));
+    const decoderBonus = evidence.decoded ? 10000 : 0;
+    return decoderBonus +
+      (Number(evidence.barSignal) || 0) * 4 +
+      locatorScore * 8 +
+      quality.sharpness +
+      quality.contrast * 0.15 +
+      resolutionBonus -
+      clippingPenalty;
+  }
+
+  async function probeMacPreset(run, source) {
+    const passes = [
+      { name: "Mac preset · local", binarizer: "LocalAverage" },
+      { name: "Mac preset · pure", binarizer: "LocalAverage", isPure: true },
+      {
+        name: "Mac preset · pure mirror",
+        binarizer: "LocalAverage",
+        contrast: true,
+        isPure: true,
+        mirror: true,
+      },
+    ];
+    for (const pass of passes) {
+      if (state.live !== run || !run.active) return null;
+      run.decodePasses += 1;
+      const hit = await decodeCanvasPass(source, pass);
+      if (hit) return hit;
+    }
+    return null;
   }
 
   async function applyMacCameraPreset(track, preset) {
@@ -802,12 +842,27 @@
           if (state.live !== run || !run.active) return;
           const canvas = captureGuideCanvas(elements.cameraVideo);
           const quality = analyzeFrameQuality(canvas);
+          const localized = locatePdf417Candidates(canvas, MAX_LIVE_LOCALIZED_CANDIDATES);
+          const decodeSource = localized[0]?.canvas || canvas;
+          const signal = analyzePdf417Signal(decodeSource);
+          updateDecoderDiagnostic(
+            decodeSource,
+            `${preset.label} · ${localized.length ? "localized" : "guide"} · signal ${Math.round(signal.score)}`
+          );
+          const hit = await probeMacPreset(run, decodeSource);
           const actual = run.track.getSettings?.() || {};
           results.push({
             preset,
             actual,
             quality,
-            score: scoreMacPresetFrame(quality, actual),
+            hit,
+            signal,
+            locatorConfidence: localized[0]?.confidence || 0,
+            score: scoreMacPresetFrame(quality, actual, {
+              decoded: Boolean(hit),
+              barSignal: signal.score,
+              locatorConfidence: localized[0]?.confidence || 0,
+            }),
           });
         } catch {
           // A range may be advertised even when this exact width/rate combination is rejected.
@@ -826,12 +881,15 @@
         if (state.live !== run || !run.active) return;
         run.macSelectedPreset = best.preset;
         run.macBenchmarkResults = results;
+        run.macBenchmarkHit = best.hit || null;
         updateRunCameraProfile(run);
         const actual = run.track.getSettings?.() || best.actual;
         setCameraAdaptation(
           run,
           `${run.cameraProfile.kind} · ${actual.width || "?"}×${actual.height || "?"}`,
-          `Selected the sharpest of ${results.length} supported Mac presets. Keep Center Stage, Portrait, Studio Light, and Background off.`,
+          best.hit
+            ? `Selected a preset that produced a PDF417 read. Keep Center Stage, Portrait, Studio Light, and Background off.`
+            : `Selected the strongest barcode signal from ${results.length} supported Mac presets. Local still-image fallback is active.`,
           "good"
         );
       } else if (run.track.applyConstraints) {
@@ -1015,6 +1073,7 @@
     elements.stopLive.disabled = false;
     elements.cameraSelect.disabled = true;
     elements.trialLength.disabled = true;
+    clearDecoderDiagnostic();
     setStatus(elements.liveStatus, "working", "Requesting camera permission…");
 
     const pending = { canceled: false };
@@ -1110,6 +1169,11 @@
         macBenchmarkComplete: !cameraProfile.macInternal,
         macBenchmarkResults: [],
         macSelectedPreset: null,
+        macBenchmarkHit: null,
+        lastMacStillAt: 0,
+        macStillCaptureCount: 0,
+        macStillCaptureDisabled: false,
+        macPhotoSettings: undefined,
         cameraPreference,
         imageCapture: null,
         capturePending: false,
@@ -1259,6 +1323,31 @@
     return best ? { ...best, sampleCount } : null;
   }
 
+  function processLiveHit(run, hit) {
+    if (!hit || state.live !== run || !run.active) return false;
+    const parsed = parseAamva(hit.rawValue);
+    if (parsed.valid) {
+      const elapsed = performance.now() - run.startAt;
+      releaseLive(run);
+      const summary = acceptParsedResult(parsed, "live", elapsed, run.attempts);
+      elements.liveLastTime.textContent = formatDuration(elapsed);
+      setStatus(
+        elements.liveStatus,
+        "success",
+        `Captured ${summary.fields} fields in ${formatDuration(elapsed)}. Camera stopped.`
+      );
+      return true;
+    }
+
+    run.nonAamvaReads += 1;
+    setStatus(
+      elements.liveStatus,
+      "warning",
+      "PDF417 found, but it was not a recognized line-based AAMVA DL/ID payload. Still scanning…"
+    );
+    return false;
+  }
+
   async function scanLiveFrame(run) {
     if (state.live !== run || !run.active) return;
     if (run.focusPending || run.capturePending || run.tuningPending) {
@@ -1271,6 +1360,11 @@
       scheduleLiveFrame(run, 80);
       return;
     }
+    if (run.macBenchmarkHit) {
+      const benchmarkHit = run.macBenchmarkHit;
+      run.macBenchmarkHit = null;
+      if (processLiveHit(run, benchmarkHit)) return;
+    }
 
     try {
       const sample = await captureBestLiveFrame(run);
@@ -1280,7 +1374,8 @@
       const sharpness = quality.sharpness;
       run.lastSharpness = sharpness;
       const localized = locatePdf417Candidates(crop, MAX_LIVE_LOCALIZED_CANDIDATES);
-      const broad = run.cameraProfile?.broadSearch && run.attempts % 3 === 0
+      const broad = run.cameraProfile?.broadSearch &&
+        (run.cameraProfile.macInternal || run.attempts % 3 === 0)
         ? captureCenteredVideoCanvas(elements.cameraVideo)
         : null;
       const broadLocalized = broad
@@ -1302,36 +1397,24 @@
         broad,
         broadLocalized
       );
+      if (run.cameraProfile?.macInternal) {
+        const diagnosticSource = localized[0]?.canvas || broadLocalized[0]?.canvas || crop;
+        const signal = analyzePdf417Signal(diagnosticSource);
+        updateDecoderDiagnostic(
+          diagnosticSource,
+          `${localized.length || broadLocalized.length ? "Localized PDF417 candidate" : "Guide search"} · signal ${Math.round(signal.score)}`
+        );
+      }
       elements.liveQuality.textContent =
         `${sharpnessLabel(sharpness)} ${Math.round(sharpness)} · ${lightLabel(quality)} · ` +
         `${crop.width}×${crop.height} · ${run.lastLocalized ? "region found" : "adaptive search"}` +
         `${sample.sampleCount > 1 ? ` · best of ${sample.sampleCount}` : ""}`;
       updateAdaptiveCameraGuidance(run, quality, framing);
       maybeTuneExposure(run, quality);
-      const hit = await decodePlan(passes, run);
+      let hit = await decodePlan(passes, run);
+      if (!hit) hit = await maybeDecodeMacStill(run);
       if (state.live !== run || !run.active) return;
-      if (hit) {
-        const parsed = parseAamva(hit.rawValue);
-        if (parsed.valid) {
-          const elapsed = performance.now() - run.startAt;
-          releaseLive(run);
-          const summary = acceptParsedResult(parsed, "live", elapsed, run.attempts);
-          elements.liveLastTime.textContent = formatDuration(elapsed);
-          setStatus(
-            elements.liveStatus,
-            "success",
-            `Captured ${summary.fields} fields in ${formatDuration(elapsed)}. Camera stopped.`
-          );
-          return;
-        }
-
-        run.nonAamvaReads += 1;
-        setStatus(
-          elements.liveStatus,
-          "warning",
-          "PDF417 found, but it was not a recognized line-based AAMVA DL/ID payload. Still scanning…"
-        );
-      }
+      if (processLiveHit(run, hit)) return;
     } catch (error) {
       if (state.live !== run || !run.active) return;
       setStatus(elements.liveStatus, "warning", `Frame could not be read; retrying (${friendlyError(error)}).`);
@@ -1364,6 +1447,9 @@
   function buildLiveDecodePlan(crop, localized, phase, run, broad = null, broadLocalized = []) {
     const primary = localized[0]?.canvas;
     const broadPrimary = broadLocalized[0]?.canvas;
+    const paddedPrimary = localized[0] && run.cameraProfile?.macInternal
+      ? drawExpandedCandidate(crop, localized[0].bounds, 1.18, 1.12)
+      : null;
     const enhance = (source, pass) => adaptiveLivePass(source, pass, run.cameraProfile);
     if (!primary) {
       const plan = [{ source: crop, pass: enhance(crop, LIVE_PASSES[phase]) }];
@@ -1376,6 +1462,16 @@
             contrast: true,
           }),
         });
+        if (run.cameraProfile?.macInternal) {
+          plan.push({
+            source: broadPrimary,
+            pass: enhance(broadPrimary, {
+              name: "wide localized · pure",
+              binarizer: "LocalAverage",
+              isPure: true,
+            }),
+          });
+        }
       } else if (broad) {
         plan.push({
           source: broad,
@@ -1404,6 +1500,29 @@
       },
       { source: crop, pass: enhance(crop, LIVE_PASSES[phase]) },
     ];
+    if (run.cameraProfile?.macInternal) {
+      plan.splice(
+        1,
+        0,
+        {
+          source: primary,
+          pass: enhance(primary, {
+            name: "localized · pure",
+            binarizer: "LocalAverage",
+            isPure: true,
+          }),
+        },
+        {
+          source: paddedPrimary || primary,
+          pass: enhance(paddedPrimary || primary, {
+            name: "localized padded · pure contrast",
+            binarizer: "LocalAverage",
+            contrast: true,
+            isPure: true,
+          }),
+        }
+      );
+    }
     if (broadPrimary) {
       plan.push({
         source: broadPrimary,
@@ -1419,15 +1538,32 @@
   }
 
   function appendLiveMirrorRecovery(plan, source, run, label) {
-    if (!source || run.attempts % MIRROR_RECOVERY_INTERVAL !== 0) return;
+    if (
+      !source ||
+      (!run.cameraProfile?.macInternal && run.attempts % MIRROR_RECOVERY_INTERVAL !== 0)
+    ) return;
     plan.push({
       source,
       pass: adaptiveLivePass(source, {
         name: `${label} · mirror recovery`,
         binarizer: "LocalAverage",
         contrast: true,
+        isPure: Boolean(run.cameraProfile?.macInternal),
         mirror: true,
       }, run.cameraProfile),
+    });
+  }
+
+  function drawExpandedCandidate(source, bounds, widthFactor, heightFactor) {
+    const centerX = bounds.x + bounds.width / 2;
+    const centerY = bounds.y + bounds.height / 2;
+    const width = bounds.width * widthFactor;
+    const height = bounds.height * heightFactor;
+    return drawSourceRegion(source, source.width, source.height, {
+      x: centerX - width / 2,
+      y: centerY - height / 2,
+      width,
+      height,
     });
   }
 
@@ -1817,6 +1953,75 @@
     };
   }
 
+  function analyzePdf417Signal(canvas) {
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    const { width, height } = canvas;
+    if (width < 40 || height < 20) {
+      return { score: 0, transitions: 0, consistency: 0, directional: 0 };
+    }
+    const data = context.getImageData(0, 0, width, height).data;
+    const luminanceAt = (x, y) => {
+      const index = (y * width + x) * 4;
+      return 0.299 * data[index] + 0.587 * data[index + 1] + 0.114 * data[index + 2];
+    };
+    const rowCounts = [];
+    let horizontalEnergy = 0;
+    let verticalEnergy = 0;
+    const rowTotal = 7;
+    const xStep = Math.max(1, Math.floor(width / 900));
+    for (let row = 0; row < rowTotal; row += 1) {
+      const y = Math.max(1, Math.min(height - 2, Math.round(height * (0.18 + row * 0.105))));
+      let previous = luminanceAt(0, y);
+      let transitions = 0;
+      let lastTransitionX = -3;
+      for (let x = xStep; x < width - xStep; x += xStep) {
+        const current = luminanceAt(x, y);
+        const horizontal = Math.abs(current - previous);
+        const vertical = Math.abs(luminanceAt(x, y + 1) - luminanceAt(x, y - 1));
+        horizontalEnergy += horizontal;
+        verticalEnergy += vertical;
+        if (horizontal >= 22 && x - lastTransitionX >= xStep * 2) {
+          transitions += 1;
+          lastTransitionX = x;
+        }
+        previous = current;
+      }
+      rowCounts.push(transitions);
+    }
+    const transitions = rowCounts.reduce((sum, count) => sum + count, 0) / rowCounts.length;
+    const variance = rowCounts.reduce(
+      (sum, count) => sum + (count - transitions) ** 2,
+      0
+    ) / rowCounts.length;
+    const consistency = Math.max(0, Math.min(1, 1 - Math.sqrt(variance) / Math.max(12, transitions)));
+    const directional = Math.max(0, Math.min(3, horizontalEnergy / Math.max(1, verticalEnergy)));
+    const score = transitions * consistency * Math.min(2, directional);
+    return { score, transitions, consistency, directional };
+  }
+
+  function updateDecoderDiagnostic(source, label) {
+    if (!elements.decoderDiagnostic || !elements.decoderPreview || !source) return;
+    const scale = Math.min(1, 900 / Math.max(1, source.width));
+    const canvas = elements.decoderPreview;
+    canvas.width = Math.max(1, Math.round(source.width * scale));
+    canvas.height = Math.max(1, Math.round(source.height * scale));
+    const context = canvas.getContext("2d");
+    context.imageSmoothingEnabled = scale < 1;
+    context.imageSmoothingQuality = "high";
+    context.drawImage(source, 0, 0, canvas.width, canvas.height);
+    elements.decoderPreviewLabel.textContent =
+      `${label} · source ${source.width}×${source.height} · display-scaled, processed only in memory`;
+    elements.decoderDiagnostic.hidden = false;
+  }
+
+  function clearDecoderDiagnostic() {
+    if (!elements.decoderDiagnostic || !elements.decoderPreview) return;
+    elements.decoderDiagnostic.hidden = true;
+    elements.decoderPreview.width = 1;
+    elements.decoderPreview.height = 1;
+    elements.decoderPreviewLabel.textContent = "Waiting for a decoder region.";
+  }
+
   function measureSharpness(canvas) {
     return analyzeFrameQuality(canvas).sharpness;
   }
@@ -1844,6 +2049,7 @@
       tryDenoise: Boolean(pass.tryDenoise),
       tryDownscale: Boolean(pass.tryDownscale),
       tryRotate: Boolean(pass.tryRotate),
+      isPure: Boolean(pass.isPure),
     });
     const result = results.find((candidate) =>
       candidate.format === "PDF417" && candidate.text
@@ -1933,6 +2139,7 @@
     elements.cameraPlaceholder.hidden = false;
     elements.cameraAdaptation.hidden = true;
     elements.cameraAdaptation.className = "camera-adaptation";
+    clearDecoderDiagnostic();
     elements.guideLabel.textContent = "KEEP THE PDF417 BARCODE INSIDE · TAP TO FOCUS";
     elements.liveTimer.hidden = true;
     elements.focusChip.hidden = true;
@@ -2014,6 +2221,147 @@
     } catch {
       run.imageCapture = null;
       elements.captureStill.hidden = true;
+    }
+  }
+
+  async function resolveMacPhotoSettings(run) {
+    if (run.macPhotoSettings !== undefined) return run.macPhotoSettings;
+    run.macPhotoSettings = null;
+    try {
+      const capabilities = await run.imageCapture.getPhotoCapabilities?.();
+      if (capabilities?.imageWidth?.max && capabilities?.imageHeight?.max) {
+        run.macPhotoSettings = {
+          imageWidth: capabilities.imageWidth.max,
+          imageHeight: capabilities.imageHeight.max,
+        };
+      }
+    } catch {
+      // Default takePhoto() settings remain a useful local fallback.
+    }
+    return run.macPhotoSettings;
+  }
+
+  function buildMacStillDecodePlan(source) {
+    const localized = locatePdf417Candidates(source, 2);
+    const plan = localized.flatMap((candidate, index) => {
+      const padded = drawExpandedCandidate(source, candidate.bounds, 1.2, 1.14);
+      return [
+        {
+          source: candidate.canvas,
+          pass: {
+            name: `Mac still localized ${index + 1} · local`,
+            binarizer: "LocalAverage",
+          },
+        },
+        {
+          source: candidate.canvas,
+          pass: {
+            name: `Mac still localized ${index + 1} · pure`,
+            binarizer: "LocalAverage",
+            isPure: true,
+          },
+        },
+        {
+          source: padded,
+          pass: {
+            name: `Mac still localized ${index + 1} · padded pure`,
+            binarizer: "LocalAverage",
+            contrast: true,
+            isPure: true,
+          },
+        },
+        {
+          source: padded,
+          pass: {
+            name: `Mac still localized ${index + 1} · mirror`,
+            binarizer: "LocalAverage",
+            contrast: true,
+            isPure: true,
+            mirror: true,
+          },
+        },
+      ];
+    });
+    if (!plan.length) {
+      const center = createPhotoCrop(source, "center");
+      plan.push(
+        {
+          source: center,
+          pass: {
+            name: "Mac still center · local",
+            binarizer: "LocalAverage",
+            tryDenoise: true,
+          },
+        },
+        {
+          source,
+          pass: {
+            name: "Mac still full · downscale",
+            binarizer: "GlobalHistogram",
+            tryDownscale: true,
+            tryRotate: true,
+          },
+        },
+        {
+          source,
+          pass: {
+            name: "Mac still full · mirror",
+            binarizer: "LocalAverage",
+            contrast: true,
+            mirror: true,
+          },
+        }
+      );
+    }
+    return { plan, localized };
+  }
+
+  async function maybeDecodeMacStill(run) {
+    const now = performance.now();
+    if (
+      !run.cameraProfile?.macInternal ||
+      !run.macBenchmarkComplete ||
+      !run.imageCapture ||
+      run.macStillCaptureDisabled ||
+      run.macStillCaptureCount >= MAC_STILL_CAPTURE_LIMIT ||
+      now - run.lastMacStillAt < MAC_STILL_CAPTURE_INTERVAL_MS ||
+      typeof window.createImageBitmap !== "function"
+    ) return null;
+
+    run.lastMacStillAt = now;
+    run.macStillCaptureCount += 1;
+    run.capturePending = true;
+    elements.captureStill.disabled = true;
+    let bitmap = null;
+    try {
+      const settings = await resolveMacPhotoSettings(run);
+      const blob = await run.imageCapture.takePhoto(settings || undefined);
+      if (state.live !== run || !run.active) return null;
+      bitmap = await createImageBitmap(blob);
+      if (state.live !== run || !run.active) return null;
+      const source = drawSourceRegion(bitmap, bitmap.width, bitmap.height, {
+        x: 0,
+        y: 0,
+        width: bitmap.width,
+        height: bitmap.height,
+      });
+      const { plan, localized } = buildMacStillDecodePlan(source);
+      const diagnosticSource = localized[0]?.canvas || source;
+      const signal = analyzePdf417Signal(diagnosticSource);
+      updateDecoderDiagnostic(
+        diagnosticSource,
+        `Automatic Mac still ${run.macStillCaptureCount}/${MAC_STILL_CAPTURE_LIMIT} · signal ${Math.round(signal.score)}`
+      );
+      return await decodePlan(plan, run);
+    } catch {
+      run.macStillCaptureDisabled = true;
+      return null;
+    } finally {
+      bitmap?.close?.();
+      if (state.live === run && run.active) {
+        run.capturePending = false;
+        elements.captureStill.disabled = false;
+      }
     }
   }
 
@@ -3738,6 +4086,13 @@
       true,
       true
     );
+    const macExternalProfile = buildCameraProfile(
+      { width: 1920, height: 1080, facingMode: "user" },
+      external.capabilities,
+      "Logitech BRIO USB Camera",
+      true,
+      true
+    );
     const macPresets = buildMacCameraPresets(
       {
         width: { min: 640, max: 1920 },
@@ -3762,6 +4117,41 @@
       autofocusProfile,
       balancedQuality,
       { widthRatio: 0.3 }
+    );
+    const barcodeSignalCanvas = document.createElement("canvas");
+    barcodeSignalCanvas.width = 240;
+    barcodeSignalCanvas.height = 80;
+    const barcodeSignalContext = barcodeSignalCanvas.getContext("2d");
+    barcodeSignalContext.fillStyle = "#fff";
+    barcodeSignalContext.fillRect(0, 0, 240, 80);
+    barcodeSignalContext.fillStyle = "#000";
+    for (let x = 12; x < 228; x += 6) {
+      barcodeSignalContext.fillRect(x, 6, 3, 68);
+    }
+    const flatSignalCanvas = document.createElement("canvas");
+    flatSignalCanvas.width = 240;
+    flatSignalCanvas.height = 80;
+    flatSignalCanvas.getContext("2d").fillRect(0, 0, 240, 80);
+    const barcodeSignal = analyzePdf417Signal(barcodeSignalCanvas);
+    const flatSignal = analyzePdf417Signal(flatSignalCanvas);
+    const macPolicyRun = {
+      attempts: 1,
+      cameraProfile: {
+        macInternal: true,
+        desktopLike: true,
+        lowResolution: false,
+        decodeScale: 1.3,
+      },
+    };
+    const macPlan = buildLiveDecodePlan(
+      barcodeSignalCanvas,
+      [{
+        canvas: barcodeSignalCanvas,
+        bounds: { x: 8, y: 4, width: 224, height: 72 },
+        confidence: 500,
+      }],
+      0,
+      macPolicyRun
     );
     const optimal = buildOptimalVideoConstraints({
       width: { min: 320, max: 3840 },
@@ -3820,6 +4210,8 @@
       mobileProfile.decodeScale === 1 &&
       macProfile.macInternal &&
       macProfile.kind === "Mac internal fixed-focus" &&
+      !macExternalProfile.macInternal &&
+      macExternalProfile.kind === "desktop autofocus" &&
       macPresets.length === 3 &&
       macPresets[0].width === 1920 &&
       macPresets[0].frameRate === 24 &&
@@ -3829,6 +4221,17 @@
       tooFarHint.hint.includes("closer") &&
       scoreBurstFrame(balancedQuality) >
         scoreBurstFrame({ ...balancedQuality, sharpness: 5 }) &&
+      barcodeSignal.score > flatSignal.score + 20 &&
+      macPlan.some((item) => item.pass.isPure) &&
+      macPlan.some((item) => item.pass.mirror) &&
+      scoreMacPresetFrame(balancedQuality, { width: 1280, height: 720 }, {
+        decoded: true,
+        barSignal: barcodeSignal.score,
+      }) >
+        scoreMacPresetFrame(balancedQuality, { width: 1920, height: 1080 }, {
+          decoded: false,
+          barSignal: barcodeSignal.score,
+        }) &&
       optimal.width?.ideal === MAX_ADAPTIVE_VIDEO_WIDTH &&
       optimal.height?.ideal === MAX_ADAPTIVE_VIDEO_HEIGHT &&
       optimal.frameRate?.ideal === 30 &&
@@ -3836,7 +4239,7 @@
       mirrorTransformPassed &&
       mirrorSchedulePassed;
     document.documentElement.dataset.cameraPolicySelfTest = passed ? "pass" : "fail";
-    document.documentElement.dataset.cameraPolicyVectors = "12";
+    document.documentElement.dataset.cameraPolicyVectors = "17";
     if (!passed) {
       throw new Error("The built-in adaptive camera policy self-test failed.");
     }
