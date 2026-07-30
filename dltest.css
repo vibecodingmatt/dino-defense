@@ -571,12 +571,16 @@ main {
   z-index: 3;
   top: 50%;
   left: 50%;
-  width: min(83%, 430px);
-  aspect-ratio: 2.7 / 1;
+  width: 70%;
+  height: 50%;
   opacity: 0;
   transform: translate(-50%, -50%);
   transition: opacity 0.25s ease;
   pointer-events: none;
+}
+
+.camera-stage.active {
+  cursor: crosshair;
 }
 
 .camera-stage.active .scan-guide {
@@ -641,6 +645,13 @@ main {
   letter-spacing: 0.13em;
   transform: translateX(-50%);
   white-space: nowrap;
+}
+
+@media (orientation: portrait) {
+  .scan-guide {
+    width: 80%;
+    height: 36%;
+  }
 }
 
 @keyframes scan-line {

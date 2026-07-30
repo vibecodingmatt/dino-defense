@@ -85,8 +85,8 @@
             <span class="mode-chip live">LIVE</span>
           </div>
           <p class="method-description">
-            The decoder crops the guide at native camera resolution and cycles
-            through local enhancement passes until it reads an AAMVA payload.
+            A 1080p latest-frame loop searches the larger guide for connected
+            PDF417 regions, then applies local recovery passes in a worker.
           </p>
 
           <div class="camera-stage" id="cameraStage">
@@ -100,7 +100,7 @@
               <i class="corner tl"></i><i class="corner tr"></i>
               <i class="corner bl"></i><i class="corner br"></i>
               <span class="scan-line"></span>
-              <span class="guide-label">ALIGN THE WIDE PDF417 BARCODE</span>
+              <span class="guide-label">KEEP THE PDF417 BARCODE INSIDE · TAP TO FOCUS</span>
             </div>
             <span class="timer-chip" id="liveTimer" hidden>15.0s</span>
             <span class="focus-chip" id="focusChip" hidden>AF device-managed</span>
@@ -155,8 +155,8 @@
           </dl>
 
           <p class="capture-tip">
-            <strong>Best results:</strong> fill the guide with the barcode—not the
-            whole card. Keep both end patterns visible and tilt slightly to move glare.
+            <strong>Best results:</strong> keep the entire barcode inside the guide
+            with space at both ends. Tap the preview to refocus and tilt slightly to move glare.
           </p>
         </article>
 
@@ -170,8 +170,8 @@
             <span class="mode-chip photo">PHOTO</span>
           </div>
           <p class="method-description">
-            Take or choose one photo. Several crops, scales, rotations, and
-            contrast treatments are tried locally in memory.
+            Take or choose one photo. A connected-region locator isolates likely
+            PDF417 blocks before local crops, thresholds, rotations, and contrast passes.
           </p>
 
           <input id="photoInput" class="visually-hidden" type="file" accept="image/*" capture="environment">

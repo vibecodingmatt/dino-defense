@@ -110,6 +110,10 @@
 
   const SIGNATURE_FIELDS = [...FORM_FIELD_IDS];
   const MAX_DECODE_DIMENSION = 3200;
+  const PDF417_ANALYSIS_WIDTH = 720;
+  const PDF417_GRID_SIZE = 8;
+  const MAX_LIVE_LOCALIZED_CANDIDATES = 1;
+  const MAX_PHOTO_LOCALIZED_CANDIDATES = 3;
   const REFOCUS_INTERVAL_MS = 6000;
   const FOCUS_SWEEP_MS = 650;
   const BLUR_REFOCUS_THRESHOLD = 11;
@@ -127,12 +131,13 @@
   };
 
   const LIVE_PASSES = [
-    { name: "local", binarizer: "LocalAverage", tryDownscale: false, tryDenoise: false },
-    { name: "contrast", binarizer: "LocalAverage", tryDownscale: false, tryDenoise: false, contrast: true },
-    { name: "denoise", binarizer: "LocalAverage", tryDownscale: false, tryDenoise: true },
-    { name: "left tilt", binarizer: "LocalAverage", tryDownscale: false, tryDenoise: false, contrast: true, rotation: -2 },
-    { name: "right tilt", binarizer: "LocalAverage", tryDownscale: false, tryDenoise: false, contrast: true, rotation: 2 },
-    { name: "global", binarizer: "GlobalHistogram", tryDownscale: true, tryDenoise: false },
+    { name: "ROI local", binarizer: "LocalAverage" },
+    { name: "ROI contrast", binarizer: "LocalAverage", contrast: true },
+    { name: "ROI threshold", binarizer: "FixedThreshold", contrast: true },
+    { name: "ROI denoise", binarizer: "LocalAverage", tryDenoise: true },
+    { name: "ROI global", binarizer: "GlobalHistogram" },
+    { name: "ROI left tilt", binarizer: "LocalAverage", contrast: true, rotation: -2 },
+    { name: "ROI right tilt", binarizer: "LocalAverage", contrast: true, rotation: 2 },
   ];
 
   const PHOTO_PASSES = [
@@ -310,6 +315,10 @@
     elements.refocus.addEventListener("click", () => {
       if (state.live) requestRefocus(state.live, true).catch(() => {});
     });
+    elements.cameraStage.addEventListener("pointerup", (event) => {
+      if (!event.isPrimary || !state.live?.active) return;
+      requestRefocus(state.live, true).catch(() => {});
+    });
     elements.toggleTorch.addEventListener("click", toggleTorch);
     elements.cameraZoom.addEventListener("input", updateZoomLabel);
     elements.cameraZoom.addEventListener("change", applySelectedZoom);
@@ -406,15 +415,7 @@
       }
 
       elements.engineBadge.textContent = "Loading ZXing-C++";
-      const wasmUrl = new URL("js/zxing-reader-3.1.1.wasm", window.location.href).href;
-      await window.ZXingWASM.prepareZXingModule({
-        overrides: {
-          locateFile: (path, prefix) => path.endsWith(".wasm") ? wasmUrl : prefix + path,
-        },
-        fireImmediately: true,
-      });
-
-      state.reader = window.ZXingWASM;
+      state.reader = await prepareBarcodeReader();
 
       elements.engineBadge.textContent = "ZXing-C++ ready";
       elements.engineBadge.classList.add("ready");
@@ -438,6 +439,84 @@
       setStatus(elements.photoStatus, "error", message);
       throw error;
     }
+  }
+
+  async function prepareBarcodeReader() {
+    if (typeof window.Worker === "function") {
+      let proxy;
+      try {
+        proxy = createBarcodeWorkerProxy();
+        await proxy.prepare();
+        return proxy;
+      } catch (error) {
+        proxy?.dispose();
+        console.warn("The local barcode worker was unavailable; using the main-thread decoder.", error);
+      }
+    }
+
+    const wasmUrl = new URL("js/zxing-reader-3.1.1.wasm", window.location.href).href;
+    await window.ZXingWASM.prepareZXingModule({
+      overrides: {
+        locateFile: (path, prefix) => path.endsWith(".wasm") ? wasmUrl : prefix + path,
+      },
+      fireImmediately: true,
+    });
+    return window.ZXingWASM;
+  }
+
+  function createBarcodeWorkerProxy() {
+    const workerUrl = new URL("js/dltest-scanner-worker.js", window.location.href);
+    const worker = new Worker(workerUrl);
+    const pending = new Map();
+    let sequence = 0;
+    let closed = false;
+
+    const rejectAll = (error) => {
+      pending.forEach(({ reject }) => reject(error));
+      pending.clear();
+    };
+
+    worker.addEventListener("message", (event) => {
+      const message = event.data || {};
+      const request = pending.get(message.id);
+      if (!request) return;
+      pending.delete(message.id);
+      if (message.type === "error") request.reject(new Error(message.message || "Barcode worker failed."));
+      else request.resolve(message.results);
+    });
+    worker.addEventListener("error", (event) => {
+      closed = true;
+      rejectAll(new Error(event.message || "Barcode worker stopped unexpectedly."));
+    });
+
+    const request = (message, transfer = []) => new Promise((resolve, reject) => {
+      if (closed) {
+        reject(new Error("Barcode worker is unavailable."));
+        return;
+      }
+      sequence += 1;
+      pending.set(sequence, { resolve, reject });
+      worker.postMessage({ ...message, id: sequence }, transfer);
+    });
+
+    return {
+      prepare: () => request({ type: "init" }),
+      readBarcodes(imageData, options) {
+        const buffer = imageData.data.buffer;
+        return request({
+          type: "decode",
+          width: imageData.width,
+          height: imageData.height,
+          buffer,
+          options,
+        }, [buffer]);
+      },
+      dispose() {
+        closed = true;
+        rejectAll(new DOMException("Barcode worker disposed.", "AbortError"));
+        worker.terminate();
+      },
+    };
   }
 
   async function refreshCameraDevices(selectedId = "") {
@@ -477,15 +556,15 @@
     const video = selectedDevice
       ? {
           deviceId: { exact: selectedDevice },
-          width: { ideal: 3840 },
-          height: { ideal: 2160 },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
           resizeMode: { ideal: "none" },
           advanced: [{ focusMode: "continuous" }],
         }
       : {
           facingMode: { ideal: "environment" },
-          width: { ideal: 3840 },
-          height: { ideal: 2160 },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
           resizeMode: { ideal: "none" },
           advanced: [{ focusMode: "continuous" }],
         };
@@ -531,8 +610,11 @@
         deadline: performance.now() + duration,
         duration,
         attempts: 0,
+        decodePasses: 0,
+        localizedFrames: 0,
         nonAamvaReads: 0,
         scanTimer: 0,
+        frameCallback: 0,
         clockTimer: 0,
         timeoutTimer: 0,
         torchOn: false,
@@ -558,7 +640,7 @@
       elements.liveAttempts.textContent = "0";
       elements.liveResolution.textContent =
         settings.width && settings.height ? `${settings.width}×${settings.height}` : "Active";
-      setStatus(elements.liveStatus, "working", "Scanning for a PDF417 license barcode…");
+      setStatus(elements.liveStatus, "working", "Scanning the latest frame for a PDF417 license barcode…");
 
       const capabilities = track.getCapabilities?.() || {};
       run.capabilities = capabilities;
@@ -632,10 +714,9 @@
   async function scanLiveFrame(run) {
     if (state.live !== run || !run.active) return;
     if (run.focusPending || run.capturePending) {
-      run.scanTimer = window.setTimeout(() => scanLiveFrame(run), 100);
+      scheduleLiveFrame(run, 80);
       return;
     }
-    const attemptStarted = performance.now();
     run.attempts += 1;
     elements.liveAttempts.textContent = String(run.attempts);
 
@@ -643,10 +724,14 @@
       const crop = captureGuideCanvas(elements.cameraVideo);
       const sharpness = measureSharpness(crop);
       run.lastSharpness = sharpness;
-      const pass = LIVE_PASSES[(run.attempts - 1) % LIVE_PASSES.length];
+      const localized = locatePdf417Candidates(crop, MAX_LIVE_LOCALIZED_CANDIDATES);
+      if (localized.length) run.localizedFrames += 1;
+      const phase = (run.attempts - 1) % LIVE_PASSES.length;
+      const passes = buildLiveDecodePlan(crop, localized, phase);
       elements.liveQuality.textContent =
-        `${sharpnessLabel(sharpness)} ${Math.round(sharpness)} · ${crop.width}×${crop.height} · ${pass.name}`;
-      const hit = await decodeCanvasPass(crop, pass);
+        `${sharpnessLabel(sharpness)} ${Math.round(sharpness)} · ${crop.width}×${crop.height} · ` +
+        `${localized.length ? "PDF417 region found" : "searching full ROI"}`;
+      const hit = await decodePlan(passes, run);
       if (state.live !== run || !run.active) return;
       if (hit) {
         const parsed = parseAamva(hit.rawValue);
@@ -677,8 +762,50 @@
 
     if (state.live !== run || !run.active) return;
     maybeRequestRefocus(run, run.lastSharpness);
-    const spent = performance.now() - attemptStarted;
-    run.scanTimer = window.setTimeout(() => scanLiveFrame(run), Math.max(30, 250 - spent));
+    scheduleLiveFrame(run);
+  }
+
+  function scheduleLiveFrame(run, delay = 0) {
+    if (state.live !== run || !run.active) return;
+    clearTimeout(run.scanTimer);
+    if (run.frameCallback && elements.cameraVideo.cancelVideoFrameCallback) {
+      elements.cameraVideo.cancelVideoFrameCallback(run.frameCallback);
+      run.frameCallback = 0;
+    }
+
+    if (delay > 0 || !elements.cameraVideo.requestVideoFrameCallback) {
+      run.scanTimer = window.setTimeout(() => scanLiveFrame(run), Math.max(16, delay));
+      return;
+    }
+
+    run.frameCallback = elements.cameraVideo.requestVideoFrameCallback(() => {
+      run.frameCallback = 0;
+      scanLiveFrame(run);
+    });
+  }
+
+  function buildLiveDecodePlan(crop, localized, phase) {
+    const primary = localized[0]?.canvas;
+    if (!primary) {
+      return [{ source: crop, pass: LIVE_PASSES[phase] }];
+    }
+
+    const recoveryPass = LIVE_PASSES[(phase % (LIVE_PASSES.length - 1)) + 1];
+    return [
+      { source: primary, pass: { name: "localized · local", binarizer: "LocalAverage" } },
+      { source: primary, pass: { ...recoveryPass, name: `localized · ${recoveryPass.name.replace("ROI ", "")}` } },
+      { source: crop, pass: LIVE_PASSES[phase] },
+    ];
+  }
+
+  async function decodePlan(plan, run = null) {
+    for (const item of plan) {
+      if (run && (state.live !== run || !run.active)) return null;
+      if (run) run.decodePasses += 1;
+      const hit = await decodeCanvasPass(item.source, item.pass);
+      if (hit) return hit;
+    }
+    return null;
   }
 
   function captureGuideCanvas(video) {
@@ -700,8 +827,8 @@
     const hiddenY = (displayedHeight - stageRect.height) / 2;
     const guideX = guideRect.left - stageRect.left;
     const guideY = guideRect.top - stageRect.top;
-    const paddingX = guideRect.width * 0.055;
-    const paddingY = guideRect.height * 0.11;
+    const paddingX = guideRect.width * 0.02;
+    const paddingY = guideRect.height * 0.04;
 
     const x = (guideX - paddingX + hiddenX) / displayScale;
     const y = (guideY - paddingY + hiddenY) / displayScale;
@@ -724,6 +851,174 @@
     context.imageSmoothingQuality = "high";
     context.drawImage(source, x, y, width, height, 0, 0, canvas.width, canvas.height);
     return canvas;
+  }
+
+  function locatePdf417Candidates(source, limit) {
+    if (source.width < 80 || source.height < 40 || limit < 1) return [];
+    const scale = Math.min(1, PDF417_ANALYSIS_WIDTH / source.width);
+    const analysis = document.createElement("canvas");
+    analysis.width = Math.max(80, Math.round(source.width * scale));
+    analysis.height = Math.max(40, Math.round(source.height * scale));
+    const context = analysis.getContext("2d", { willReadFrequently: true });
+    context.imageSmoothingEnabled = scale < 1;
+    context.drawImage(source, 0, 0, analysis.width, analysis.height);
+
+    const { data } = context.getImageData(0, 0, analysis.width, analysis.height);
+    const cell = PDF417_GRID_SIZE;
+    const gridWidth = Math.floor(analysis.width / cell);
+    const gridHeight = Math.floor(analysis.height / cell);
+    if (gridWidth < 8 || gridHeight < 4) return [];
+
+    const scores = new Float32Array(gridWidth * gridHeight);
+    const luminance = (x, y) => {
+      const index = (y * analysis.width + x) * 4;
+      return (306 * data[index] + 601 * data[index + 1] + 117 * data[index + 2]) / 1024;
+    };
+
+    for (let y = 1; y < analysis.height - 1; y += 2) {
+      const gridY = Math.min(gridHeight - 1, Math.floor(y / cell));
+      for (let x = 1; x < analysis.width - 1; x += 2) {
+        const horizontal = Math.abs(luminance(x + 1, y) - luminance(x - 1, y));
+        const vertical = Math.abs(luminance(x, y + 1) - luminance(x, y - 1));
+        const directional = Math.max(0, horizontal - vertical * 0.38);
+        scores[gridY * gridWidth + Math.min(gridWidth - 1, Math.floor(x / cell))] += directional;
+      }
+    }
+
+    const ordered = Array.from(scores).sort((a, b) => a - b);
+    const median = ordered[Math.floor(ordered.length * 0.5)] || 0;
+    const upperQuartile = ordered[Math.floor(ordered.length * 0.76)] || 0;
+    const threshold = Math.max(upperQuartile, median * 1.8, 22);
+    const strong = new Uint8Array(scores.length);
+    scores.forEach((score, index) => {
+      if (score >= threshold) strong[index] = 1;
+    });
+
+    const horizontalClosed = new Uint8Array(strong.length);
+    for (let y = 0; y < gridHeight; y += 1) {
+      for (let x = 0; x < gridWidth; x += 1) {
+        for (let offset = -3; offset <= 3; offset += 1) {
+          const candidateX = x + offset;
+          if (candidateX >= 0 && candidateX < gridWidth && strong[y * gridWidth + candidateX]) {
+            horizontalClosed[y * gridWidth + x] = 1;
+            break;
+          }
+        }
+      }
+    }
+
+    const connected = new Uint8Array(strong.length);
+    for (let y = 0; y < gridHeight; y += 1) {
+      for (let x = 0; x < gridWidth; x += 1) {
+        for (let offset = -1; offset <= 1; offset += 1) {
+          const candidateY = y + offset;
+          if (
+            candidateY >= 0 &&
+            candidateY < gridHeight &&
+            horizontalClosed[candidateY * gridWidth + x]
+          ) {
+            connected[y * gridWidth + x] = 1;
+            break;
+          }
+        }
+      }
+    }
+
+    const visited = new Uint8Array(connected.length);
+    const components = [];
+    for (let start = 0; start < connected.length; start += 1) {
+      if (!connected[start] || visited[start]) continue;
+      const queue = [start];
+      visited[start] = 1;
+      let cursor = 0;
+      let minX = gridWidth;
+      let minY = gridHeight;
+      let maxX = 0;
+      let maxY = 0;
+      let count = 0;
+      let energy = 0;
+
+      while (cursor < queue.length) {
+        const index = queue[cursor];
+        cursor += 1;
+        const x = index % gridWidth;
+        const y = Math.floor(index / gridWidth);
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+        count += 1;
+        energy += scores[index];
+
+        for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
+          for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
+            if (!offsetX && !offsetY) continue;
+            const nextX = x + offsetX;
+            const nextY = y + offsetY;
+            if (nextX < 0 || nextX >= gridWidth || nextY < 0 || nextY >= gridHeight) continue;
+            const next = nextY * gridWidth + nextX;
+            if (connected[next] && !visited[next]) {
+              visited[next] = 1;
+              queue.push(next);
+            }
+          }
+        }
+      }
+
+      const width = maxX - minX + 1;
+      const height = maxY - minY + 1;
+      const aspect = width / height;
+      const area = width * height;
+      const density = count / area;
+      if (
+        width < gridWidth * 0.18 ||
+        height < 2 ||
+        aspect < 1.45 ||
+        aspect > 9 ||
+        density < 0.16
+      ) continue;
+
+      components.push({
+        minX,
+        minY,
+        maxX,
+        maxY,
+        score: energy * Math.sqrt(area) * Math.min(1, density * 2),
+      });
+    }
+
+    return components
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map((component) => {
+        const analysisX = component.minX * cell;
+        const analysisY = component.minY * cell;
+        const analysisWidth = Math.min(
+          analysis.width - analysisX,
+          (component.maxX - component.minX + 1) * cell
+        );
+        const analysisHeight = Math.min(
+          analysis.height - analysisY,
+          (component.maxY - component.minY + 1) * cell
+        );
+        const sourceX = analysisX / scale;
+        const sourceY = analysisY / scale;
+        const sourceWidth = analysisWidth / scale;
+        const sourceHeight = analysisHeight / scale;
+        const paddingX = Math.max(12, sourceWidth * 0.1);
+        const paddingY = Math.max(12, sourceHeight * 0.24);
+        const bounds = {
+          x: sourceX - paddingX,
+          y: sourceY - paddingY,
+          width: sourceWidth + paddingX * 2,
+          height: sourceHeight + paddingY * 2,
+        };
+        return {
+          bounds,
+          canvas: drawSourceRegion(source, source.width, source.height, bounds),
+          confidence: component.score,
+        };
+      });
   }
 
   function renderDecodeVariant(source, pass) {
@@ -861,6 +1156,8 @@
     const elapsed = performance.now() - run.startAt;
     const detail = run.nonAamvaReads
       ? "The trial found PDF417, but no recognized line-based AAMVA payload."
+      : run.localizedFrames
+        ? `A PDF417-like region was isolated in ${run.localizedFrames} frame${run.localizedFrames === 1 ? "" : "s"}, but ZXing could not recover a payload.`
       : "No recognized AAMVA PDF417 read before the timer ended.";
     releaseLive(run);
     elements.liveLastTime.textContent = "No read";
@@ -904,6 +1201,10 @@
   function releaseLive(run) {
     run.active = false;
     clearTimeout(run.scanTimer);
+    if (run.frameCallback && elements.cameraVideo.cancelVideoFrameCallback) {
+      elements.cameraVideo.cancelVideoFrameCallback(run.frameCallback);
+      run.frameCallback = 0;
+    }
     clearTimeout(run.timeoutTimer);
     clearTimeout(run.focusTimer);
     clearInterval(run.clockTimer);
@@ -1267,22 +1568,71 @@
       if (run.canceled || state.photoRun !== run) return;
       const source = createPhotoSourceCanvas(elements.photoPreview);
       const crops = new Map();
+      const localized = locatePdf417Candidates(source, MAX_PHOTO_LOCALIZED_CANDIDATES);
+      const localizedPasses = localized.flatMap((candidate, index) => {
+        const passes = [
+          {
+            source: candidate.canvas,
+            pass: { name: `localized ${index + 1} · local`, binarizer: "LocalAverage" },
+          },
+          {
+            source: candidate.canvas,
+            pass: {
+              name: `localized ${index + 1} · threshold`,
+              binarizer: "FixedThreshold",
+              contrast: true,
+            },
+          },
+        ];
+        if (index === 0) {
+          passes.push(
+            {
+              source: candidate.canvas,
+              pass: {
+                name: "localized 1 · left tilt",
+                binarizer: "LocalAverage",
+                contrast: true,
+                rotation: -2,
+              },
+            },
+            {
+              source: candidate.canvas,
+              pass: {
+                name: "localized 1 · right tilt",
+                binarizer: "LocalAverage",
+                contrast: true,
+                rotation: 2,
+              },
+            }
+          );
+        }
+        return passes;
+      });
+      const photoPlan = [
+        ...localizedPasses,
+        ...PHOTO_PASSES.map((pass) => ({ source: null, pass })),
+      ];
 
-      for (const pass of PHOTO_PASSES) {
+      for (const task of photoPlan) {
         if (run.canceled || state.photoRun !== run) return;
+        const { pass } = task;
         run.attempts += 1;
         elements.photoAttempts.textContent = String(run.attempts);
         setStatus(
           elements.photoStatus,
           "working",
-          `Local pass ${run.attempts}/${PHOTO_PASSES.length}: ${pass.name}`
+          `Local pass ${run.attempts}/${photoPlan.length}: ${pass.name}`
         );
         await nextPaint();
 
-        if (!crops.has(pass.crop)) {
-          crops.set(pass.crop, createPhotoCrop(source, pass.crop));
+        let decodeSource = task.source;
+        if (!decodeSource) {
+          if (!crops.has(pass.crop)) {
+            crops.set(pass.crop, createPhotoCrop(source, pass.crop));
+          }
+          decodeSource = crops.get(pass.crop);
         }
-        const hit = await decodeCanvasPass(crops.get(pass.crop), {
+        const hit = await decodeCanvasPass(decodeSource, {
           ...pass,
           tryRotate: true,
         });
