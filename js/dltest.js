@@ -113,6 +113,7 @@
   const NO_REGION_FRAMES_BEFORE_REFOCUS = 3;
   const CAMERA_HINT_INTERVAL_MS = 1200;
   const EXPOSURE_TUNE_INTERVAL_MS = 2600;
+  const MIRROR_RECOVERY_INTERVAL = 4;
   const MAX_ADAPTIVE_VIDEO_WIDTH = 2560;
   const MAX_ADAPTIVE_VIDEO_HEIGHT = 1440;
   const DESKTOP_CAMERA_SWITCH_MARGIN = 90;
@@ -148,6 +149,8 @@
     { name: "center · left tilt", crop: "center", binarizer: "LocalAverage", contrast: true, rotation: -2 },
     { name: "center · right tilt", crop: "center", binarizer: "LocalAverage", contrast: true, rotation: 2 },
     { name: "full · global", crop: "full", binarizer: "GlobalHistogram", tryDownscale: true },
+    { name: "center · mirror recovery", crop: "center", binarizer: "LocalAverage", contrast: true, mirror: true },
+    { name: "full · mirror recovery", crop: "full", binarizer: "LocalAverage", mirror: true },
   ];
 
   const CANADIAN_PROVINCES = new Set([
@@ -1120,6 +1123,7 @@
           }),
         });
       }
+      appendLiveMirrorRecovery(plan, broadPrimary || crop, run, broadPrimary ? "wide localized" : "ROI");
       return plan;
     }
 
@@ -1148,7 +1152,21 @@
         }),
       });
     }
+    appendLiveMirrorRecovery(plan, primary, run, "localized");
     return plan;
+  }
+
+  function appendLiveMirrorRecovery(plan, source, run, label) {
+    if (!source || run.attempts % MIRROR_RECOVERY_INTERVAL !== 0) return;
+    plan.push({
+      source,
+      pass: adaptiveLivePass(source, {
+        name: `${label} · mirror recovery`,
+        binarizer: "LocalAverage",
+        contrast: true,
+        mirror: true,
+      }, run.cameraProfile),
+    });
   }
 
   function adaptiveLivePass(source, pass, profile) {
@@ -1433,6 +1451,7 @@
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.translate(canvas.width / 2, canvas.height / 2);
     context.rotate(radians);
+    if (pass.mirror) context.scale(-1, 1);
     context.drawImage(source, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
     context.setTransform(1, 0, 0, 1, 0, 0);
 
@@ -1803,7 +1822,7 @@
     const now = performance.now();
     const profile = run.cameraProfile || {};
     let key = "scanning";
-    let hint = "Adaptive barcode search is active. Keep the bars level and inside the guide.";
+    let hint = "Adaptive barcode search and periodic mirror recovery are active. Keep the bars level and inside the guide.";
     let tone = "good";
 
     if (quality.sharpness < BLUR_REFOCUS_THRESHOLD && profile.fixedFocus) {
@@ -2359,6 +2378,15 @@
         ];
         if (index === 0) {
           passes.push(
+            {
+              source: candidate.canvas,
+              pass: {
+                name: "localized 1 · mirror recovery",
+                binarizer: "LocalAverage",
+                contrast: true,
+                mirror: true,
+              },
+            },
             {
               source: candidate.canvas,
               pass: {
@@ -3415,6 +3443,41 @@
       whiteBalanceMode: ["continuous"],
       sharpness: { min: 0, max: 100 },
     });
+    const transformSource = document.createElement("canvas");
+    transformSource.width = 4;
+    transformSource.height = 2;
+    const transformContext = transformSource.getContext("2d");
+    transformContext.fillStyle = "#f00";
+    transformContext.fillRect(0, 0, 2, 2);
+    transformContext.fillStyle = "#00f";
+    transformContext.fillRect(2, 0, 2, 2);
+    const mirrored = renderDecodeVariant(transformSource, {
+      name: "self-test mirror",
+      mirror: true,
+      scale: 1,
+      upscaleTarget: 1,
+      maxScale: 1,
+    });
+    const mirroredPixels = mirrored
+      .getContext("2d", { willReadFrequently: true })
+      .getImageData(0, 0, mirrored.width, mirrored.height).data;
+    const rightPixel = (mirrored.width - 1) * 4;
+    const mirrorTransformPassed =
+      mirroredPixels[2] > mirroredPixels[0] &&
+      mirroredPixels[rightPixel] > mirroredPixels[rightPixel + 2];
+    const mirrorRun = {
+      attempts: MIRROR_RECOVERY_INTERVAL,
+      cameraProfile: { desktopLike: true, lowResolution: false, decodeScale: 1.3 },
+    };
+    const normalRun = {
+      attempts: MIRROR_RECOVERY_INTERVAL - 1,
+      cameraProfile: mirrorRun.cameraProfile,
+    };
+    const mirrorPlan = buildLiveDecodePlan(transformSource, [], 0, mirrorRun);
+    const normalPlan = buildLiveDecodePlan(transformSource, [], 0, normalRun);
+    const mirrorSchedulePassed =
+      mirrorPlan.some((item) => item.pass.mirror) &&
+      !normalPlan.some((item) => item.pass.mirror);
     const passed =
       selected?.device.deviceId === "external" &&
       fixedProfile.fixedFocus &&
@@ -3429,9 +3492,11 @@
       optimal.width?.ideal === MAX_ADAPTIVE_VIDEO_WIDTH &&
       optimal.height?.ideal === MAX_ADAPTIVE_VIDEO_HEIGHT &&
       optimal.frameRate?.ideal === 30 &&
-      optimal.advanced?.some((entry) => entry.exposureMode === "continuous");
+      optimal.advanced?.some((entry) => entry.exposureMode === "continuous") &&
+      mirrorTransformPassed &&
+      mirrorSchedulePassed;
     document.documentElement.dataset.cameraPolicySelfTest = passed ? "pass" : "fail";
-    document.documentElement.dataset.cameraPolicyVectors = "5";
+    document.documentElement.dataset.cameraPolicyVectors = "7";
     if (!passed) {
       throw new Error("The built-in adaptive camera policy self-test failed.");
     }
