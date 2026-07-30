@@ -117,6 +117,10 @@
   const MAX_ADAPTIVE_VIDEO_WIDTH = 2560;
   const MAX_ADAPTIVE_VIDEO_HEIGHT = 1440;
   const DESKTOP_CAMERA_SWITCH_MARGIN = 90;
+  const MAC_PRESET_BENCHMARK_DELAY_MS = 900;
+  const MAC_PRESET_BENCHMARK_ATTEMPTS = 4;
+  const MAC_BURST_FRAME_COUNT = 3;
+  const MAC_PRESET_SETTLE_FRAMES = 2;
 
   const READER_OPTIONS = {
     formats: ["PDF417"],
@@ -560,12 +564,24 @@
       /\b(Windows|Macintosh|X11|Linux)\b/i.test(userAgent);
   }
 
+  function isLikelyMacEnvironment() {
+    const platform = navigator.userAgentData?.platform || navigator.platform || "";
+    const userAgent = navigator.userAgent || "";
+    return /\bMac/i.test(platform) || /\bMacintosh\b/i.test(userAgent);
+  }
+
   function capabilityIncludes(value, expected) {
     const values = Array.isArray(value) ? value : value ? [value] : [];
     return values.includes(expected);
   }
 
-  function buildCameraProfile(settings = {}, capabilities = {}, label = "", desktopContext = false) {
+  function buildCameraProfile(
+    settings = {},
+    capabilities = {},
+    label = "",
+    desktopContext = false,
+    macContext = false
+  ) {
     const focusModes = normalizeFocusModes(capabilities.focusMode);
     const capabilitiesKnown = Object.keys(capabilities).length > 0;
     const hasFocusControl =
@@ -578,13 +594,20 @@
     const desktopLike =
       desktopContext &&
       facingMode !== "environment";
+    const macInternal =
+      desktopLike &&
+      macContext &&
+      /\b(facetime|macbook|built[- ]?in|internal)\b/i.test(String(label || ""));
     const fixedFocus = desktopLike && capabilitiesKnown && !hasFocusControl;
     const lowResolution =
       Boolean(width && width < 1600) ||
       Boolean(maximumWidth && maximumWidth < 1600);
 
     let kind = "adaptive camera";
-    if (desktopLike && fixedFocus) kind = "desktop fixed-focus";
+    if (macInternal && fixedFocus) kind = "Mac internal fixed-focus";
+    else if (macInternal && hasFocusControl) kind = "Mac internal autofocus";
+    else if (macInternal) kind = "Mac internal camera";
+    else if (desktopLike && fixedFocus) kind = "desktop fixed-focus";
     else if (desktopLike && hasFocusControl) kind = "desktop autofocus";
     else if (desktopLike) kind = "desktop camera";
     else if (facingMode === "environment") kind = "mobile rear camera";
@@ -596,12 +619,53 @@
       width,
       height,
       desktopLike,
+      macInternal,
       fixedFocus,
       hasFocusControl,
       lowResolution,
       broadSearch: desktopLike || fixedFocus || lowResolution,
       decodeScale,
     };
+  }
+
+  function capabilitySupportsValue(range, value) {
+    if (!range || !Number.isFinite(value)) return true;
+    const minimum = Number(range.min);
+    const maximum = Number(range.max);
+    return (!Number.isFinite(minimum) || value >= minimum) &&
+      (!Number.isFinite(maximum) || value <= maximum);
+  }
+
+  function buildMacCameraPresets(capabilities = {}, settings = {}) {
+    const desired = [
+      { width: 1920, height: 1080, frameRate: 24, label: "1080p at 24 fps" },
+      { width: 1920, height: 1080, frameRate: 30, label: "1080p at 30 fps" },
+      { width: 1280, height: 720, frameRate: 30, label: "720p at 30 fps" },
+    ];
+    const supported = desired.filter((preset) =>
+      capabilitySupportsValue(capabilities.width, preset.width) &&
+      capabilitySupportsValue(capabilities.height, preset.height) &&
+      capabilitySupportsValue(capabilities.frameRate, preset.frameRate)
+    );
+    const currentWidth = Number(settings.width);
+    const currentHeight = Number(settings.height);
+    const currentFrameRate = Number(settings.frameRate);
+    if (currentWidth && currentHeight) {
+      supported.push({
+        width: currentWidth,
+        height: currentHeight,
+        frameRate: currentFrameRate || 30,
+        label: `${currentWidth}×${currentHeight} camera default`,
+        isDefault: true,
+      });
+    }
+    const seen = new Set();
+    return supported.filter((preset) => {
+      const key = `${preset.width}x${preset.height}@${Math.round(preset.frameRate)}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }
 
   function buildOptimalVideoConstraints(capabilities = {}) {
@@ -668,6 +732,135 @@
         return [];
       }
     }
+  }
+
+  function scoreMacPresetFrame(quality, settings = {}) {
+    const pixels = Math.max(0, Number(settings.width) * Number(settings.height));
+    const resolutionBonus = Math.min(2.5, pixels / 1000000);
+    const clippingPenalty = (quality.clippedDark + quality.clippedLight) * 18;
+    return quality.sharpness * 4 + quality.contrast * 0.25 + resolutionBonus - clippingPenalty;
+  }
+
+  async function applyMacCameraPreset(track, preset) {
+    const current = track.getConstraints?.() || {};
+    const next = { ...current };
+    delete next.width;
+    delete next.height;
+    delete next.frameRate;
+    next.width = { exact: preset.width };
+    next.height = { exact: preset.height };
+    next.frameRate = { ideal: preset.frameRate };
+    await track.applyConstraints(next);
+  }
+
+  function updateRunCameraProfile(run) {
+    const settings = run.track.getSettings?.() || {};
+    run.cameraProfile = buildCameraProfile(
+      settings,
+      run.capabilities,
+      run.track.label || run.cameraProfile?.label || "",
+      true,
+      true
+    );
+    elements.liveResolution.textContent =
+      settings.width && settings.height ? `${settings.width}×${settings.height}` : "Active";
+    elements.liveResolution.title = [
+      run.track.label || "",
+      run.cameraProfile.kind,
+      run.macSelectedPreset?.label || "",
+      ...run.cameraOptimizations,
+    ].filter(Boolean).join(" · ");
+  }
+
+  async function benchmarkMacCameraPresets(run) {
+    const initialConstraints = run.track.getConstraints?.() || {};
+    const initialSettings = run.track.getSettings?.() || {};
+    const presets = buildMacCameraPresets(run.capabilities, initialSettings);
+    const results = [];
+
+    try {
+      if (presets.length < 2) {
+        run.macSelectedPreset = presets[0] || null;
+        return;
+      }
+      for (let index = 0; index < presets.length; index += 1) {
+        if (state.live !== run || !run.active) return;
+        const preset = presets[index];
+        setCameraAdaptation(
+          run,
+          `Mac camera preset ${index + 1} of ${presets.length}`,
+          `Hold the barcode steady while ${preset.label} is measured locally for sharpness.`,
+          "good"
+        );
+        try {
+          await applyMacCameraPreset(run.track, preset);
+          await waitForFreshVideoFrames(
+            elements.cameraVideo,
+            MAC_PRESET_SETTLE_FRAMES,
+            900
+          );
+          if (state.live !== run || !run.active) return;
+          const canvas = captureGuideCanvas(elements.cameraVideo);
+          const quality = analyzeFrameQuality(canvas);
+          const actual = run.track.getSettings?.() || {};
+          results.push({
+            preset,
+            actual,
+            quality,
+            score: scoreMacPresetFrame(quality, actual),
+          });
+        } catch {
+          // A range may be advertised even when this exact width/rate combination is rejected.
+        }
+      }
+
+      if (state.live !== run || !run.active) return;
+      const best = [...results].sort((a, b) => b.score - a.score)[0];
+      if (best) {
+        await applyMacCameraPreset(run.track, best.preset);
+        await waitForFreshVideoFrames(
+          elements.cameraVideo,
+          MAC_PRESET_SETTLE_FRAMES,
+          900
+        );
+        if (state.live !== run || !run.active) return;
+        run.macSelectedPreset = best.preset;
+        run.macBenchmarkResults = results;
+        updateRunCameraProfile(run);
+        const actual = run.track.getSettings?.() || best.actual;
+        setCameraAdaptation(
+          run,
+          `${run.cameraProfile.kind} · ${actual.width || "?"}×${actual.height || "?"}`,
+          `Selected the sharpest of ${results.length} supported Mac presets. Keep Center Stage, Portrait, Studio Light, and Background off.`,
+          "good"
+        );
+      } else if (run.track.applyConstraints) {
+        await run.track.applyConstraints(initialConstraints).catch(() => {});
+      }
+    } finally {
+      if (state.live === run && run.active) {
+        run.macBenchmarkComplete = true;
+        run.tuningPending = false;
+      }
+    }
+  }
+
+  function maybeStartMacPresetBenchmark(run) {
+    if (
+      !run.cameraProfile?.macInternal ||
+      run.macBenchmarkStarted ||
+      run.attempts < MAC_PRESET_BENCHMARK_ATTEMPTS ||
+      performance.now() - run.startAt < MAC_PRESET_BENCHMARK_DELAY_MS
+    ) return false;
+    run.macBenchmarkStarted = true;
+    run.tuningPending = true;
+    benchmarkMacCameraPresets(run).catch(() => {
+      if (state.live === run && run.active) {
+        run.macBenchmarkComplete = true;
+        run.tuningPending = false;
+      }
+    });
+    return true;
   }
 
   function cameraOptimizationLabels(constraints, settings = {}) {
@@ -871,7 +1064,8 @@
         settings,
         capabilities,
         track.label || cameraPreference?.device.label || "",
-        isLikelyDesktopEnvironment()
+        isLikelyDesktopEnvironment(),
+        isLikelyMacEnvironment()
       );
       const run = {
         active: true,
@@ -912,6 +1106,10 @@
         exposureTuneCount: 0,
         exposureCompensationRange: normalizeNumericRange(capabilities.exposureCompensation),
         tuningPending: false,
+        macBenchmarkStarted: false,
+        macBenchmarkComplete: !cameraProfile.macInternal,
+        macBenchmarkResults: [],
+        macSelectedPreset: null,
         cameraPreference,
         imageCapture: null,
         capturePending: false,
@@ -1009,6 +1207,58 @@
     });
   }
 
+  function waitForFreshVideoFrames(video, count = 1, timeoutMs = 700) {
+    return new Promise((resolve) => {
+      let remaining = Math.max(1, count);
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve();
+      };
+      const next = () => {
+        if (settled) return;
+        remaining -= 1;
+        if (remaining <= 0) {
+          finish();
+          return;
+        }
+        if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(next);
+        else window.setTimeout(next, 45);
+      };
+      const timer = window.setTimeout(finish, timeoutMs);
+      if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(next);
+      else window.setTimeout(next, 45);
+    });
+  }
+
+  function scoreBurstFrame(quality) {
+    return quality.sharpness * 4 +
+      quality.contrast * 0.2 -
+      (quality.clippedDark + quality.clippedLight) * 16;
+  }
+
+  async function captureBestLiveFrame(run) {
+    const sampleCount =
+      run.cameraProfile?.macInternal && run.macBenchmarkComplete
+        ? MAC_BURST_FRAME_COUNT
+        : 1;
+    let best = null;
+    for (let index = 0; index < sampleCount; index += 1) {
+      if (state.live !== run || !run.active) return null;
+      if (index > 0) {
+        await waitForFreshVideoFrames(elements.cameraVideo, 1, 260);
+        if (state.live !== run || !run.active) return null;
+      }
+      const canvas = captureGuideCanvas(elements.cameraVideo);
+      const quality = analyzeFrameQuality(canvas);
+      const score = scoreBurstFrame(quality);
+      if (!best || score > best.score) best = { canvas, quality, score };
+    }
+    return best ? { ...best, sampleCount } : null;
+  }
+
   async function scanLiveFrame(run) {
     if (state.live !== run || !run.active) return;
     if (run.focusPending || run.capturePending || run.tuningPending) {
@@ -1017,10 +1267,16 @@
     }
     run.attempts += 1;
     elements.liveAttempts.textContent = String(run.attempts);
+    if (maybeStartMacPresetBenchmark(run)) {
+      scheduleLiveFrame(run, 80);
+      return;
+    }
 
     try {
-      const crop = captureGuideCanvas(elements.cameraVideo);
-      const quality = analyzeFrameQuality(crop);
+      const sample = await captureBestLiveFrame(run);
+      if (!sample || state.live !== run || !run.active) return;
+      const crop = sample.canvas;
+      const quality = sample.quality;
       const sharpness = quality.sharpness;
       run.lastSharpness = sharpness;
       const localized = locatePdf417Candidates(crop, MAX_LIVE_LOCALIZED_CANDIDATES);
@@ -1030,6 +1286,11 @@
       const broadLocalized = broad
         ? locatePdf417Candidates(broad, MAX_LIVE_LOCALIZED_CANDIDATES)
         : [];
+      const framing = localized[0]
+        ? measureBarcodeFraming(localized[0], crop.width)
+        : broadLocalized[0] && broad
+          ? measureBarcodeFraming(broadLocalized[0], broad.width)
+          : null;
       run.lastLocalized = localized.length > 0 || broadLocalized.length > 0;
       if (run.lastLocalized) run.localizedFrames += 1;
       const phase = (run.attempts - 1) % LIVE_PASSES.length;
@@ -1043,8 +1304,9 @@
       );
       elements.liveQuality.textContent =
         `${sharpnessLabel(sharpness)} ${Math.round(sharpness)} · ${lightLabel(quality)} · ` +
-        `${crop.width}×${crop.height} · ${run.lastLocalized ? "region found" : "adaptive search"}`;
-      updateAdaptiveCameraGuidance(run, quality, run.lastLocalized);
+        `${crop.width}×${crop.height} · ${run.lastLocalized ? "region found" : "adaptive search"}` +
+        `${sample.sampleCount > 1 ? ` · best of ${sample.sampleCount}` : ""}`;
+      updateAdaptiveCameraGuidance(run, quality, framing);
       maybeTuneExposure(run, quality);
       const hit = await decodePlan(passes, run);
       if (state.live !== run || !run.active) return;
@@ -1419,6 +1681,17 @@
           confidence: component.score,
         };
       });
+  }
+
+  function measureBarcodeFraming(candidate, frameWidth) {
+    const width = Number(candidate?.bounds?.width);
+    if (!Number.isFinite(width) || !Number.isFinite(frameWidth) || frameWidth <= 0) {
+      return null;
+    }
+    return {
+      // Locator bounds include 10% horizontal padding on both sides.
+      widthRatio: Math.max(0, Math.min(1.2, width / 1.2 / frameWidth)),
+    };
   }
 
   function renderDecodeVariant(source, pass) {
@@ -1802,7 +2075,15 @@
       : "Using the camera settings exposed by this browser.";
     let tone = "good";
 
-    if (profile.fixedFocus) {
+    if (profile.macInternal) {
+      hint = profile.fixedFocus
+        ? "Mac internal camera detected. Turn off Center Stage, Portrait, Studio Light, and Background. Start farther away while local 1080p/720p testing begins."
+        : "Mac internal camera detected. Turn off Center Stage, Portrait, Studio Light, and Background while local 1080p/720p testing begins.";
+      tone = "warning";
+      elements.guideLabel.textContent = profile.fixedFocus
+        ? "MAC CAMERA · MOVE BACK UNTIL THE BARS LOOK CRISP"
+        : "MAC CAMERA · HOLD STEADY DURING PRESET TEST";
+    } else if (profile.fixedFocus) {
       hint = "No focus control is exposed. Start farther from the lens and move slowly until the barcode bars look crisp.";
       tone = "warning";
       elements.guideLabel.textContent = "FIXED FOCUS · MOVE BACK UNTIL THE BARS LOOK CRISP";
@@ -1817,21 +2098,16 @@
     setCameraAdaptation(run, `${profile.kind}${dimensions}`, hint, tone);
   }
 
-  function updateAdaptiveCameraGuidance(run, quality, localized) {
-    if (state.live !== run || !run.active) return;
-    const now = performance.now();
-    const profile = run.cameraProfile || {};
+  function buildAdaptiveCameraHint(profile, quality, framing) {
     let key = "scanning";
-    let hint = "Adaptive barcode search and periodic mirror recovery are active. Keep the bars level and inside the guide.";
+    let hint = profile.macInternal
+      ? "Best-of-three frame selection is active. Keep macOS camera effects off and hold the bars level."
+      : "Adaptive barcode search and periodic mirror recovery are active. Keep the bars level and inside the guide.";
     let tone = "good";
 
     if (quality.sharpness < BLUR_REFOCUS_THRESHOLD && profile.fixedFocus) {
       key = "fixed-soft";
       hint = "The barcode is soft and this webcam is fixed-focus. Move the license farther away, then hold still when the bars sharpen.";
-      tone = "warning";
-    } else if (quality.sharpness < BLUR_REFOCUS_THRESHOLD) {
-      key = "autofocus-soft";
-      hint = "The barcode is soft. Hold the license still; automatic refocus and enhanced decode passes are running.";
       tone = "warning";
     } else if (quality.luminance < 58 || quality.clippedDark > 0.38) {
       key = "dim";
@@ -1841,14 +2117,35 @@
       key = "glare";
       hint = "Bright clipping or glare is hiding bars. Tilt the license slightly or move the light off-axis.";
       tone = "warning";
-    } else if (localized) {
+    } else if (framing?.widthRatio > 0.9) {
+      key = "too-close";
+      hint = "The barcode is filling too much of the search area. Move the license slightly farther away so both white ends remain visible.";
+      tone = "warning";
+    } else if (framing?.widthRatio < 0.42) {
+      key = "too-far";
+      hint = "The barcode is small in the search area. Move the license closer until it fills roughly two-thirds of the guide.";
+      tone = "warning";
+    } else if (quality.sharpness < BLUR_REFOCUS_THRESHOLD) {
+      key = "autofocus-soft";
+      hint = "The barcode is soft. Hold the license still; automatic refocus and enhanced decode passes are running.";
+      tone = "warning";
+    } else if (framing) {
       key = "localized";
-      hint = "A PDF417-like region is visible. Hold position while local contrast and threshold passes retry it.";
+      hint = "Barcode size and position look usable. Hold position while local contrast and threshold passes retry it.";
     } else if (profile.lowResolution) {
       key = "low-resolution";
       hint = "Low-resolution camera detected. Keep the barcode wide in the guide while staying beyond the camera's minimum focus distance.";
       tone = "warning";
     }
+    return { key, hint, tone };
+  }
+
+  function updateAdaptiveCameraGuidance(run, quality, framing) {
+    if (state.live !== run || !run.active) return;
+    const now = performance.now();
+    const profile = run.cameraProfile || {};
+    const guidance = buildAdaptiveCameraHint(profile, quality, framing);
+    const { key, hint, tone } = guidance;
 
     if (key === run.lastHintKey && now - run.lastHintAt < CAMERA_HINT_INTERVAL_MS) return;
     if (key !== run.lastHintKey || now - run.lastHintAt >= CAMERA_HINT_INTERVAL_MS) {
@@ -3434,6 +3731,38 @@
       "Rear Camera",
       false
     );
+    const macProfile = buildCameraProfile(
+      { width: 1280, height: 720, facingMode: "user" },
+      integrated.capabilities,
+      "FaceTime HD Camera",
+      true,
+      true
+    );
+    const macPresets = buildMacCameraPresets(
+      {
+        width: { min: 640, max: 1920 },
+        height: { min: 480, max: 1080 },
+        frameRate: { min: 15, max: 30 },
+      },
+      { width: 1280, height: 720, frameRate: 30 }
+    );
+    const balancedQuality = {
+      sharpness: 24,
+      luminance: 128,
+      contrast: 48,
+      clippedDark: 0.02,
+      clippedLight: 0.02,
+    };
+    const fixedSoftHint = buildAdaptiveCameraHint(
+      macProfile,
+      { ...balancedQuality, sharpness: 5 },
+      { widthRatio: 0.65 }
+    );
+    const tooFarHint = buildAdaptiveCameraHint(
+      autofocusProfile,
+      balancedQuality,
+      { widthRatio: 0.3 }
+    );
     const optimal = buildOptimalVideoConstraints({
       width: { min: 320, max: 3840 },
       height: { min: 240, max: 2160 },
@@ -3489,6 +3818,17 @@
       mobileProfile.kind === "mobile rear camera" &&
       !mobileProfile.desktopLike &&
       mobileProfile.decodeScale === 1 &&
+      macProfile.macInternal &&
+      macProfile.kind === "Mac internal fixed-focus" &&
+      macPresets.length === 3 &&
+      macPresets[0].width === 1920 &&
+      macPresets[0].frameRate === 24 &&
+      fixedSoftHint.key === "fixed-soft" &&
+      fixedSoftHint.hint.includes("farther") &&
+      tooFarHint.key === "too-far" &&
+      tooFarHint.hint.includes("closer") &&
+      scoreBurstFrame(balancedQuality) >
+        scoreBurstFrame({ ...balancedQuality, sharpness: 5 }) &&
       optimal.width?.ideal === MAX_ADAPTIVE_VIDEO_WIDTH &&
       optimal.height?.ideal === MAX_ADAPTIVE_VIDEO_HEIGHT &&
       optimal.frameRate?.ideal === 30 &&
@@ -3496,7 +3836,7 @@
       mirrorTransformPassed &&
       mirrorSchedulePassed;
     document.documentElement.dataset.cameraPolicySelfTest = passed ? "pass" : "fail";
-    document.documentElement.dataset.cameraPolicyVectors = "7";
+    document.documentElement.dataset.cameraPolicyVectors = "12";
     if (!passed) {
       throw new Error("The built-in adaptive camera policy self-test failed.");
     }

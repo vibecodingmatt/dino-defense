@@ -86,8 +86,9 @@
           </div>
           <p class="method-description">
             A capability-aware latest-frame loop selects and tunes the strongest
-            available camera, then adapts local PDF417 and mirrored-feed recovery
-            passes in a worker.
+            available camera. Mac internal cameras compare supported 1080p/720p
+            presets and use the sharpest frame from each short burst before local
+            PDF417 and mirrored-feed recovery passes run in a worker.
           </p>
 
           <div class="camera-stage" id="cameraStage">
@@ -166,7 +167,9 @@
             with space at both ends. Tap the barcode to set the focus point, or use
             the target button when focus control is available. For fixed-focus laptop
             cameras, move the license farther away until the bars look crisp; the scanner
-            will widen and upscale the search automatically. Tilt slightly to move glare.
+            will widen and upscale the search automatically. On a Mac, turn off Center
+            Stage, Portrait, Studio Light, and Background from the macOS Video menu.
+            Tilt slightly to move glare.
           </p>
         </article>
 
