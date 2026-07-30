@@ -102,6 +102,7 @@
               <span class="scan-line"></span>
               <span class="guide-label">KEEP THE PDF417 BARCODE INSIDE · TAP TO FOCUS</span>
             </div>
+            <span class="focus-target" id="focusTarget" aria-hidden="true"></span>
             <span class="timer-chip" id="liveTimer" hidden>15.0s</span>
             <span class="focus-chip" id="focusChip" hidden>AF device-managed</span>
           </div>
@@ -139,7 +140,7 @@
             </button>
             <button class="button secondary" id="stopLive" type="button" disabled>Stop</button>
             <button class="button secondary capture-still" id="captureStill" type="button" hidden disabled>Hi-res capture</button>
-            <button class="button icon-button focus-button" id="refocus" type="button" aria-label="Refocus camera" title="Refocus camera" hidden>
+            <button class="button icon-button focus-button" id="refocus" type="button" aria-label="Force camera focus cycle" title="Force camera focus cycle" hidden>
               <span class="focus-icon" aria-hidden="true"></span>
             </button>
             <button class="button icon-button" id="toggleTorch" type="button" aria-label="Toggle camera torch" aria-pressed="false" title="Toggle torch" hidden>
@@ -156,7 +157,8 @@
 
           <p class="capture-tip">
             <strong>Best results:</strong> keep the entire barcode inside the guide
-            with space at both ends. Tap the preview to refocus and tilt slightly to move glare.
+            with space at both ends. Tap the barcode to set the focus point, or use
+            the target button to force a full focus cycle. Tilt slightly to move glare.
           </p>
         </article>
 

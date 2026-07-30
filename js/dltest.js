@@ -10,6 +10,7 @@
     cameraVideo: $("cameraVideo"),
     cameraPlaceholder: $("cameraPlaceholder"),
     scanGuide: $("scanGuide"),
+    focusTarget: $("focusTarget"),
     cameraSelect: $("cameraSelect"),
     trialLength: $("trialLength"),
     startLive: $("startLive"),
@@ -114,10 +115,12 @@
   const PDF417_GRID_SIZE = 8;
   const MAX_LIVE_LOCALIZED_CANDIDATES = 1;
   const MAX_PHOTO_LOCALIZED_CANDIDATES = 3;
-  const REFOCUS_INTERVAL_MS = 6000;
-  const FOCUS_SWEEP_MS = 650;
+  const REFOCUS_INTERVAL_MS = 4000;
+  const FOCUS_SWEEP_MS = 560;
+  const MANUAL_FOCUS_SETTLE_MS = 190;
   const BLUR_REFOCUS_THRESHOLD = 11;
-  const BLUR_FRAMES_BEFORE_REFOCUS = 3;
+  const BLUR_FRAMES_BEFORE_REFOCUS = 2;
+  const NO_REGION_FRAMES_BEFORE_REFOCUS = 3;
   const OCR_MAX_DIMENSION = 2800;
 
   const READER_OPTIONS = {
@@ -313,11 +316,16 @@
     elements.stopLive.addEventListener("click", stopLiveTrial);
     elements.captureStill.addEventListener("click", captureHighResolutionStill);
     elements.refocus.addEventListener("click", () => {
-      if (state.live) requestRefocus(state.live, true).catch(() => {});
+      if (state.live) {
+        showFocusTarget({ x: 0.5, y: 0.5 });
+        requestRefocus(state.live, true, { x: 0.5, y: 0.5 }).catch(() => {});
+      }
     });
     elements.cameraStage.addEventListener("pointerup", (event) => {
       if (!event.isPrimary || !state.live?.active) return;
-      requestRefocus(state.live, true).catch(() => {});
+      const point = stagePointToVideoPoint(event.clientX, event.clientY);
+      showFocusTarget(stagePointToDisplayPoint(event.clientX, event.clientY));
+      requestRefocus(state.live, true, point).catch(() => {});
     });
     elements.toggleTorch.addEventListener("click", toggleTorch);
     elements.cameraZoom.addEventListener("input", updateZoomLabel);
@@ -621,12 +629,16 @@
         capabilities: {},
         focusModes: [],
         focusMode: "",
+        focusDistanceRange: null,
+        focusPointSupported: false,
         focusPending: false,
         lastFocusAt: 0,
         focusTimer: 0,
         focusResolve: null,
         blurStreak: 0,
+        noRegionStreak: 0,
         lastSharpness: 0,
+        lastLocalized: false,
         imageCapture: null,
         capturePending: false,
         controlChain: Promise.resolve(),
@@ -652,6 +664,8 @@
       if (state.live !== run || !run.active) return;
       configureZoom(run, capabilities);
       configureHighResolutionCapture(run);
+      await requestRefocus(run, true, { x: 0.5, y: 0.5 });
+      if (state.live !== run || !run.active) return;
 
       run.startAt = performance.now();
       run.deadline = run.startAt + duration;
@@ -725,6 +739,7 @@
       const sharpness = measureSharpness(crop);
       run.lastSharpness = sharpness;
       const localized = locatePdf417Candidates(crop, MAX_LIVE_LOCALIZED_CANDIDATES);
+      run.lastLocalized = localized.length > 0;
       if (localized.length) run.localizedFrames += 1;
       const phase = (run.attempts - 1) % LIVE_PASSES.length;
       const passes = buildLiveDecodePlan(crop, localized, phase);
@@ -761,7 +776,7 @@
     }
 
     if (state.live !== run || !run.active) return;
-    maybeRequestRefocus(run, run.lastSharpness);
+    maybeRequestRefocus(run, run.lastSharpness, run.lastLocalized);
     scheduleLiveFrame(run);
   }
 
@@ -1350,35 +1365,46 @@
 
   async function configureAutofocus(run, capabilities) {
     const reportedModes = normalizeFocusModes(capabilities.focusMode);
-    const focusConstraintKnown =
-      navigator.mediaDevices.getSupportedConstraints?.().focusMode === true;
+    const supported = navigator.mediaDevices.getSupportedConstraints?.() || {};
+    const focusConstraintKnown = supported.focusMode === true;
     run.focusModes = reportedModes.length
       ? reportedModes
       : focusConstraintKnown
         ? ["continuous"]
         : [];
+    run.focusDistanceRange = normalizeFocusDistanceRange(capabilities.focusDistance);
+    run.focusPointSupported = supported.pointsOfInterest === true;
 
     elements.focusChip.hidden = false;
-    if (!run.focusModes.length || !run.track?.applyConstraints) {
+    const hasFocusControl =
+      run.focusModes.length || run.focusDistanceRange || run.focusPointSupported;
+    if (!hasFocusControl || !run.track?.applyConstraints) {
       setFocusChip(run, "AF device-managed");
       return;
     }
 
     elements.refocus.hidden = false;
     elements.refocus.disabled = false;
+    elements.refocus.title = run.focusDistanceRange
+      ? "Force focus cycle with a local sharpness sweep"
+      : "Force camera refocus";
     const preferredModes = [
       run.focusModes.includes("continuous") ? "continuous" : "",
       run.focusModes.includes("single-shot") ? "single-shot" : "",
+      run.focusModes.includes("manual") && run.focusDistanceRange ? "manual" : "",
     ].filter(Boolean);
 
     for (const mode of preferredModes) {
       try {
-        await applyCameraControls(run, { focusMode: mode });
+        const controls = { focusMode: mode };
+        if (mode === "manual") controls.focusDistance = currentFocusDistance(run);
+        await applyCameraControls(run, controls);
         if (state.live !== run || !run.active) return;
-        run.lastFocusAt = performance.now();
         const actualMode = run.track.getSettings?.().focusMode;
         if (mode === "continuous") {
           setFocusChip(run, actualMode === "continuous" ? "AF continuous" : "AF continuous requested");
+        } else if (mode === "manual") {
+          setFocusChip(run, "AF manual sweep ready");
         } else {
           setFocusChip(run, "AF pulse mode");
         }
@@ -1390,36 +1416,64 @@
     }
 
     run.focusModes = [];
-    elements.refocus.hidden = true;
-    elements.refocus.disabled = true;
-    setFocusChip(run, "AF device-managed");
+    if (run.focusPointSupported) {
+      setFocusChip(run, "AF tap metering ready");
+    } else {
+      elements.refocus.hidden = true;
+      elements.refocus.disabled = true;
+      setFocusChip(run, "AF device-managed");
+    }
   }
 
   function normalizeFocusModes(value) {
     const modes = Array.isArray(value) ? value : value ? [value] : [];
     return [...new Set(modes.filter((mode) =>
-      mode === "continuous" || mode === "single-shot"
+      mode === "continuous" || mode === "single-shot" || mode === "manual"
     ))];
   }
 
-  function maybeRequestRefocus(run, sharpness) {
+  function normalizeFocusDistanceRange(value) {
+    if (
+      !value ||
+      !Number.isFinite(value.min) ||
+      !Number.isFinite(value.max) ||
+      value.max <= value.min
+    ) return null;
+    return {
+      min: value.min,
+      max: value.max,
+      step: Number.isFinite(value.step) && value.step > 0 ? value.step : 0,
+    };
+  }
+
+  function maybeRequestRefocus(run, sharpness, localized) {
     if (sharpness < BLUR_REFOCUS_THRESHOLD) run.blurStreak += 1;
     else run.blurStreak = 0;
+    if (localized) run.noRegionStreak = 0;
+    else run.noRegionStreak += 1;
+    const hasFocusControl =
+      run.focusModes.length || run.focusDistanceRange || run.focusPointSupported;
     if (
-      !run.focusModes.length ||
+      !hasFocusControl ||
       run.focusPending ||
-      run.blurStreak < BLUR_FRAMES_BEFORE_REFOCUS ||
+      (
+        run.blurStreak < BLUR_FRAMES_BEFORE_REFOCUS &&
+        run.noRegionStreak < NO_REGION_FRAMES_BEFORE_REFOCUS
+      ) ||
       performance.now() - run.lastFocusAt < REFOCUS_INTERVAL_MS
     ) return;
     run.blurStreak = 0;
-    requestRefocus(run).catch(() => {});
+    run.noRegionStreak = 0;
+    requestRefocus(run, false, { x: 0.5, y: 0.5 }).catch(() => {});
   }
 
-  async function requestRefocus(run, force = false) {
+  async function requestRefocus(run, force = false, point = null) {
+    const hasFocusControl =
+      run.focusModes.length || run.focusDistanceRange || run.focusPointSupported;
     if (
       state.live !== run ||
       !run.active ||
-      !run.focusModes.length ||
+      !hasFocusControl ||
       run.focusPending ||
       (!force && performance.now() - run.lastFocusAt < REFOCUS_INTERVAL_MS)
     ) return;
@@ -1427,24 +1481,59 @@
     run.focusPending = true;
     run.lastFocusAt = performance.now();
     elements.refocus.disabled = true;
-    setFocusChip(run, "AF refocusing…");
+    setFocusChip(run, run.focusDistanceRange ? "AF testing distances…" : "AF forcing refocus…");
 
     try {
-      const canSweep = run.focusModes.includes("single-shot");
+      const focusPoint = point || { x: 0.5, y: 0.5 };
+      await applyFocusPoint(run, focusPoint);
+      if (state.live !== run || !run.active) return;
+
+      const canPulse = run.focusModes.includes("single-shot");
+      const canManualSweep =
+        run.focusModes.includes("manual") && Boolean(run.focusDistanceRange);
       const canContinue = run.focusModes.includes("continuous");
-      if (canSweep) {
-        await applyCameraControls(run, { focusMode: "single-shot" });
-        if (canContinue) {
+      let focused = false;
+
+      if (canPulse) {
+        try {
+          await applyCameraControls(run, {
+            focusMode: "single-shot",
+            pointsOfInterest: run.focusPointSupported ? [focusPoint] : null,
+          });
           await waitForFocusSweep(run);
-          if (state.live !== run || !run.active) return;
-          await applyCameraControls(run, { focusMode: "continuous" });
-          setFocusChip(run, "AF continuous");
-        } else {
-          setFocusChip(run, "AF pulse mode");
+          focused = true;
+        } catch {
+          // Some Android camera implementations advertise this mode but reject it.
         }
-      } else if (canContinue) {
-        await applyCameraControls(run, { focusMode: "continuous" });
-        setFocusChip(run, "AF continuous");
+      }
+
+      if (!focused && canManualSweep) {
+        focused = await sweepManualFocus(run, focusPoint);
+      }
+
+      if (state.live !== run || !run.active) return;
+      if (canContinue) {
+        if (!focused) {
+          await kickContinuousFocus(run, focusPoint);
+        } else {
+          await applyCameraControls(run, {
+            focusMode: "continuous",
+            pointsOfInterest: run.focusPointSupported ? [focusPoint] : null,
+          });
+        }
+        setFocusChip(run, focused ? "AF continuous · focus locked" : "AF continuous · focus kicked");
+      } else if (focused && canPulse) {
+        setFocusChip(run, "AF single-shot complete");
+      } else if (focused) {
+        const distance = Number(run.track.getSettings?.().focusDistance);
+        setFocusChip(
+          run,
+          Number.isFinite(distance) ? `AF manual · ${distance.toFixed(2)}` : "AF manual · sharpest held"
+        );
+      } else if (run.focusPointSupported) {
+        setFocusChip(run, "AF tap point requested");
+      } else {
+        setFocusChip(run, "AF device-managed");
       }
     } catch {
       if (state.live === run && run.active) {
@@ -1458,7 +1547,111 @@
     }
   }
 
-  function waitForFocusSweep(run) {
+  async function applyFocusPoint(run, point) {
+    if (!run.focusPointSupported || !point) return false;
+    try {
+      await applyCameraControls(run, { pointsOfInterest: [point] });
+      return true;
+    } catch {
+      run.focusPointSupported = false;
+      return false;
+    }
+  }
+
+  async function sweepManualFocus(run, point) {
+    const candidates = buildFocusDistanceCandidates(run);
+    if (!candidates.length) return false;
+    let best = null;
+
+    for (const distance of candidates) {
+      if (state.live !== run || !run.active) return false;
+      try {
+        await applyCameraControls(run, {
+          focusMode: "manual",
+          focusDistance: distance,
+          pointsOfInterest: run.focusPointSupported ? [point] : null,
+        });
+        await waitForFocusSweep(run, MANUAL_FOCUS_SETTLE_MS);
+        if (state.live !== run || !run.active) return false;
+        const sharpness = measureSharpness(captureGuideCanvas(elements.cameraVideo));
+        if (!best || sharpness > best.sharpness) best = { distance, sharpness };
+      } catch {
+        return false;
+      }
+    }
+
+    if (!best) return false;
+    await applyCameraControls(run, {
+      focusMode: "manual",
+      focusDistance: best.distance,
+      pointsOfInterest: run.focusPointSupported ? [point] : null,
+    });
+    await waitForFocusSweep(run, MANUAL_FOCUS_SETTLE_MS);
+    return true;
+  }
+
+  function buildFocusDistanceCandidates(run) {
+    const range = run.focusDistanceRange;
+    if (!range) return [];
+    const span = range.max - range.min;
+    const values = [
+      currentFocusDistance(run),
+      range.min + span * 0.85,
+      range.min + span * 0.62,
+      range.min + span * 0.4,
+      range.min + span * 0.18,
+    ];
+    const rounded = values.map((value) => {
+      const clamped = Math.max(range.min, Math.min(range.max, value));
+      if (!range.step) return clamped;
+      return range.min + Math.round((clamped - range.min) / range.step) * range.step;
+    });
+    return [...new Set(rounded.map((value) => Number(value.toFixed(6))))];
+  }
+
+  function currentFocusDistance(run) {
+    const range = run.focusDistanceRange;
+    if (!range) return 0;
+    const current = Number(run.track.getSettings?.().focusDistance);
+    if (Number.isFinite(current)) {
+      return Math.max(range.min, Math.min(range.max, current));
+    }
+    return range.min + (range.max - range.min) * 0.5;
+  }
+
+  async function kickContinuousFocus(run, point) {
+    const zoomRange = run.capabilities.zoom;
+    const currentZoom = Number(run.track.getSettings?.().zoom);
+    let nudgedZoom = null;
+    if (
+      zoomRange &&
+      Number.isFinite(zoomRange.min) &&
+      Number.isFinite(zoomRange.max) &&
+      Number.isFinite(currentZoom) &&
+      zoomRange.max > zoomRange.min
+    ) {
+      const step = Number.isFinite(zoomRange.step) && zoomRange.step > 0
+        ? zoomRange.step
+        : Math.min(0.1, (zoomRange.max - zoomRange.min) / 10);
+      const upward = Math.min(zoomRange.max, currentZoom + step);
+      const downward = Math.max(zoomRange.min, currentZoom - step);
+      nudgedZoom = upward !== currentZoom ? upward : downward;
+    }
+
+    await applyCameraControls(run, { focusMode: null });
+    if (Number.isFinite(nudgedZoom) && nudgedZoom !== currentZoom) {
+      await applyCameraControls(run, { focusMode: null, zoom: nudgedZoom });
+      await waitForFocusSweep(run, MANUAL_FOCUS_SETTLE_MS);
+    }
+    await applyCameraControls(run, {
+      focusMode: "continuous",
+      zoom: Number.isFinite(currentZoom) ? currentZoom : undefined,
+      pointsOfInterest: run.focusPointSupported ? [point] : null,
+    });
+    await waitForFocusSweep(run);
+  }
+
+  function waitForFocusSweep(run, duration = FOCUS_SWEEP_MS) {
     return new Promise((resolve) => {
       clearTimeout(run.focusTimer);
       run.focusResolve = () => {
@@ -1468,8 +1661,42 @@
       run.focusTimer = window.setTimeout(() => {
         run.focusTimer = 0;
         run.focusResolve?.();
-      }, FOCUS_SWEEP_MS);
+      }, duration);
     });
+  }
+
+  function stagePointToVideoPoint(clientX, clientY) {
+    const stageRect = elements.cameraStage.getBoundingClientRect();
+    const videoWidth = elements.cameraVideo.videoWidth;
+    const videoHeight = elements.cameraVideo.videoHeight;
+    if (!videoWidth || !videoHeight || !stageRect.width || !stageRect.height) {
+      return { x: 0.5, y: 0.5 };
+    }
+    const displayScale = Math.max(stageRect.width / videoWidth, stageRect.height / videoHeight);
+    const hiddenX = (videoWidth * displayScale - stageRect.width) / 2;
+    const hiddenY = (videoHeight * displayScale - stageRect.height) / 2;
+    return {
+      x: Math.max(0, Math.min(1, (clientX - stageRect.left + hiddenX) / displayScale / videoWidth)),
+      y: Math.max(0, Math.min(1, (clientY - stageRect.top + hiddenY) / displayScale / videoHeight)),
+    };
+  }
+
+  function stagePointToDisplayPoint(clientX, clientY) {
+    const stageRect = elements.cameraStage.getBoundingClientRect();
+    if (!stageRect.width || !stageRect.height) return { x: 0.5, y: 0.5 };
+    return {
+      x: Math.max(0, Math.min(1, (clientX - stageRect.left) / stageRect.width)),
+      y: Math.max(0, Math.min(1, (clientY - stageRect.top) / stageRect.height)),
+    };
+  }
+
+  function showFocusTarget(point) {
+    if (!elements.focusTarget || !point) return;
+    elements.focusTarget.style.left = `${point.x * 100}%`;
+    elements.focusTarget.style.top = `${point.y * 100}%`;
+    elements.focusTarget.classList.remove("pulse");
+    void elements.focusTarget.offsetWidth;
+    elements.focusTarget.classList.add("pulse");
   }
 
   function setFocusChip(run, text) {
@@ -1492,18 +1719,27 @@
       const current = run.track.getConstraints?.() || {};
       const next = { ...current };
       delete next.focusMode;
+      delete next.focusDistance;
+      delete next.pointsOfInterest;
       delete next.torch;
       const advanced = (Array.isArray(current.advanced) ? current.advanced : [])
         .map((entry) => {
           const preserved = { ...entry };
           delete preserved.focusMode;
+          delete preserved.focusDistance;
+          delete preserved.pointsOfInterest;
           delete preserved.torch;
           return preserved;
         })
         .filter((entry) => Object.keys(entry).length);
 
-      const focusMode = controls.focusMode ?? run.focusMode;
+      const hasFocusMode = Object.prototype.hasOwnProperty.call(controls, "focusMode");
+      const focusMode = hasFocusMode ? controls.focusMode : run.focusMode;
       if (focusMode) next.focusMode = focusMode;
+      if (Number.isFinite(controls.focusDistance)) next.focusDistance = controls.focusDistance;
+      if (Array.isArray(controls.pointsOfInterest) && controls.pointsOfInterest.length) {
+        next.pointsOfInterest = { ideal: controls.pointsOfInterest };
+      }
       if (Number.isFinite(controls.zoom)) next.zoom = controls.zoom;
       if (run.capabilities.torch) {
         advanced.push({ torch: controls.torch ?? run.torchOn });
@@ -1512,7 +1748,7 @@
       else delete next.advanced;
 
       await run.track.applyConstraints(next);
-      if (controls.focusMode) run.focusMode = controls.focusMode;
+      if (hasFocusMode) run.focusMode = focusMode || "";
     };
 
     run.controlChain = run.controlChain.catch(() => {}).then(operation);
