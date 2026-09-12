@@ -1,0 +1,13 @@
+{
+  "species": "whiteptera",
+  "source_vertices": 44394,
+  "vertices": 68982,
+  "skin_triangles": 12500,
+  "compressed_bytes": 753933,
+  "regions": [
+    {
+      "name": "body",
+      "triangles": 12500
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "species": "apatosaurus",
+  "source_vertices": 52848,
+  "vertices": 56466,
+  "skin_triangles": 12494,
+  "compressed_bytes": 644609,
+  "regions": [
+    {
+      "name": "body",
+      "triangles": 6838
+    },
+    {
+      "name": "leg0",
+      "triangles": 1644
+    },
+    {
+      "name": "leg1",
+      "triangles": 1644
+    },
+    {
+      "name": "leg2",
+      "triangles": 1184
+    },
+    {
+      "name": "leg3",
+      "triangles": 1184
+    }
+  ]
+}

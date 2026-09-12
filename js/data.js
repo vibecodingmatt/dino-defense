@@ -4,7 +4,16 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.59.4';
+const VERSION = '1.62.7';
+
+// Art inspection panels are local development tools. URL query flags must
+// never enable them on the public site. Node-based data audits default to off.
+const ART_PREVIEW_ENABLED = (() => {
+  if (typeof location === 'undefined') return false;
+  const host = location.hostname.toLowerCase().replace(/\.$/, '');
+  return location.protocol === 'file:' || host === 'localhost' || host.endsWith('.localhost')
+    || host === '[::1]' || /^127(?:\.\d{1,3}){3}$/.test(host);
+})();
 
 /* ---------- ANALYTICS (Google Analytics 4) ----------
    Anonymous usage metrics: how many people play, roughly where from, how long,
@@ -26,6 +35,13 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    Date each entry with the ACTUAL current calendar date — check it, never copy
    the entry above. Same-day reship: edit that day's entry and bump its `v`. */
 const CHANGELOG = [
+  {v: '1.62.7', date: 'Sep 12, 2026', items: [
+    '🦖 Rebuilt dinosaurs with sturdier bodies, D-Rex knuckle-walking, and colorful Dilo frill displays.',
+    '🪶 The feathered Therizinosaurus now roams the home screen among the giants.',
+    '💥 A rebuilt arsenal: meaner weapons at every upgrade, roaring firepower, and spectacular dinosaur takedowns.',
+    '🦖 Sector 7 rebuilt: wet jungle, sweeping searchlights, and lifelike raptors patrolling their fortified paddock.',
+    '🐛 Fixed cross-device starts, detached wing supports, and stray home-screen gulp bulges.',
+  ]},
   {v: '1.59.1', date: 'Jul 28, 2026', items: [
     '⚡ A new home-screen scene: the power cuts out, and Tim Murphy makes a run at the electric fence.',
     '🚽 A tyrannosaur takes the front off the park outhouse and lifts the lawyer clean off the toilet.',
@@ -370,7 +386,7 @@ const ACHIEVEMENTS = [
    hpMult scales difficulty per zone.
 */
 const LEVELS = [
-  {name:'The Perimeter Fence', sub:'Sector 7 — monsoon blackout', art:'perimeter', night:false, flyerBias:1.0, hpMult:1.00,
+  {name:'The Perimeter Fence', sub:'Sector 7 — the paddock is alive', art:'perimeter', night:false, flyerBias:1.0, hpMult:1.00,
    theme:{grass:'#173e2a', grass2:'#235a36', path:'#4b5554', pathEdge:'#202c2e', tree:'#0d291c', water:null},
    paths:[[{x:-40,y:150},{x:300,y:150},{x:300,y:430},{x:700,y:430},{x:700,y:180},{x:1000,y:180},{x:1000,y:560},{x:1320,y:560}]]},
 

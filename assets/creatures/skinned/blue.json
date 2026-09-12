@@ -1,0 +1,29 @@
+{
+  "species": "blue",
+  "source_vertices": 58824,
+  "vertices": 67158,
+  "skin_triangles": 12498,
+  "compressed_bytes": 746985,
+  "regions": [
+    {
+      "name": "body",
+      "triangles": 6180
+    },
+    {
+      "name": "leg0",
+      "triangles": 2282
+    },
+    {
+      "name": "leg1",
+      "triangles": 2280
+    },
+    {
+      "name": "arm0",
+      "triangles": 876
+    },
+    {
+      "name": "arm1",
+      "triangles": 880
+    }
+  ]
+}

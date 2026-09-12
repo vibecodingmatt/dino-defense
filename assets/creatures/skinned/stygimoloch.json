@@ -1,0 +1,29 @@
+{
+  "species": "stygimoloch",
+  "source_vertices": 54192,
+  "vertices": 57192,
+  "skin_triangles": 12496,
+  "compressed_bytes": 685950,
+  "regions": [
+    {
+      "name": "body",
+      "triangles": 6884
+    },
+    {
+      "name": "leg0",
+      "triangles": 2246
+    },
+    {
+      "name": "leg1",
+      "triangles": 2242
+    },
+    {
+      "name": "arm0",
+      "triangles": 562
+    },
+    {
+      "name": "arm1",
+      "triangles": 562
+    }
+  ]
+}

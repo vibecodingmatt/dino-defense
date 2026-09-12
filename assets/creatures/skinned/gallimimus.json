@@ -1,0 +1,29 @@
+{
+  "species": "gallimimus",
+  "source_vertices": 46824,
+  "vertices": 55038,
+  "skin_triangles": 12498,
+  "compressed_bytes": 658455,
+  "regions": [
+    {
+      "name": "body",
+      "triangles": 7162
+    },
+    {
+      "name": "leg0",
+      "triangles": 2052
+    },
+    {
+      "name": "leg1",
+      "triangles": 2048
+    },
+    {
+      "name": "arm0",
+      "triangles": 616
+    },
+    {
+      "name": "arm1",
+      "triangles": 620
+    }
+  ]
+}

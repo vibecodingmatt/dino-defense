@@ -1,0 +1,29 @@
+{
+  "species": "velociraptor",
+  "source_vertices": 57864,
+  "vertices": 66198,
+  "skin_triangles": 12498,
+  "compressed_bytes": 743567,
+  "regions": [
+    {
+      "name": "body",
+      "triangles": 6228
+    },
+    {
+      "name": "leg0",
+      "triangles": 2286
+    },
+    {
+      "name": "leg1",
+      "triangles": 2282
+    },
+    {
+      "name": "arm0",
+      "triangles": 850
+    },
+    {
+      "name": "arm1",
+      "triangles": 852
+    }
+  ]
+}

@@ -8,3 +8,6 @@ assets/ref/*.aif
 assets/ref/*.aiff
 assets/ref/*.mp4
 assets/ref/*.mov
+
+# Intermediate browser mesh triangle streams.
+art/browser-creatures/build/

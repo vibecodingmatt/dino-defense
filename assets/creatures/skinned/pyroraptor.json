@@ -1,0 +1,29 @@
+{
+  "species": "pyroraptor",
+  "source_vertices": 130656,
+  "vertices": 138990,
+  "skin_triangles": 12498,
+  "compressed_bytes": 1588844,
+  "regions": [
+    {
+      "name": "body",
+      "triangles": 5784
+    },
+    {
+      "name": "leg0",
+      "triangles": 2418
+    },
+    {
+      "name": "leg1",
+      "triangles": 2414
+    },
+    {
+      "name": "arm0",
+      "triangles": 940
+    },
+    {
+      "name": "arm1",
+      "triangles": 942
+    }
+  ]
+}

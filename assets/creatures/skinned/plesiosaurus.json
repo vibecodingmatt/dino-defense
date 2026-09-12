@@ -1,0 +1,29 @@
+{
+  "species": "plesiosaurus",
+  "source_vertices": 42000,
+  "vertices": 61080,
+  "skin_triangles": 12496,
+  "compressed_bytes": 661114,
+  "regions": [
+    {
+      "name": "body",
+      "triangles": 7348
+    },
+    {
+      "name": "wing0",
+      "triangles": 1360
+    },
+    {
+      "name": "wing1",
+      "triangles": 1360
+    },
+    {
+      "name": "wing2",
+      "triangles": 1214
+    },
+    {
+      "name": "wing3",
+      "triangles": 1214
+    }
+  ]
+}

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Dino Defense — Containment Breach</title>
 <link rel="stylesheet" href="style.css">
+<link rel="preload" as="image" href="assets/maps/sector7-facility.webp">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦖</text></svg>">
 <!-- installable PWA: add-to-home-screen, full-screen, offline -->
 <link rel="manifest" href="manifest.json">
@@ -64,6 +65,7 @@
         <button id="tpMute" title="Mute this weapon's sounds">🔊</button>
         <button id="tpClose" title="Close">✕</button>
         <div id="tpName"></div>
+        <div id="tpHardware"><canvas width="160" height="104" aria-hidden="true"></canvas><div><b></b><span></span></div></div>
         <div id="tpStats"></div>
         <button id="up_main"></button>
         <div class="tpRow">
@@ -76,6 +78,8 @@
     <!-- tower shop -->
     <div id="shop" class="hidden">
       <h3>Armory</h3>
+      <button id="btnArsenal" class="arsenal-open hidden">Inspect weapons &amp; upgrades <span>↗</span></button>
+      <button id="btnFieldCreatures" class="arsenal-open hidden">Explore the dinosaurs <span>↗</span></button>
       <div id="shopCards"></div>
 
       <h3>Support</h3>
@@ -148,6 +152,8 @@
       <button id="btnTips"><span class="fIco">💡</span><span class="fName">Field Manual</span><span class="fSub">tips &amp; tactics</span></button>
       <button id="btnSettings"><span class="fIco">⚙️</span><span class="fName">Settings</span><span class="fSub">sound · options</span></button>
     </nav>
+
+    <button id="btnCreatures" class="creatures-open hidden"><span>BEYOND THE FENCE</span> Explore all 33 dinosaurs <b>↗</b></button>
 
     <!-- COMMAND DECK -->
     <section class="deck">
@@ -375,9 +381,19 @@
 
 <script src="js/data.js"></script>
 <script src="js/looks.js"></script>
+<script src="js/paddock-raptors.js"></script>
+<script src="js/perimeter.js"></script>
+<script src="js/arsenal.js"></script>
+<script src="js/weapon-fx.js"></script>
 <script src="js/draw.js"></script>
 <script src="js/drex.js"></script>
+<script src="js/creature-meshes.js"></script>
+<script src="js/creature-species.js"></script>
+<script src="js/creature-anatomy.js"></script>
+<script src="js/creatures.js"></script>
 <script src="js/game.js"></script>
+<script src="js/armory-guide.js"></script>
+<script src="js/creature-guide.js"></script>
 <script>
   // Register the service worker so the game is installable + works offline.
   // Registered relatively so it scopes correctly under the /dino-defense/ path.

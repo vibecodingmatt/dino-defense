@@ -1,0 +1,29 @@
+{
+  "species": "indoraptor",
+  "source_vertices": 66024,
+  "vertices": 73872,
+  "skin_triangles": 12496,
+  "compressed_bytes": 777603,
+  "regions": [
+    {
+      "name": "body",
+      "triangles": 5972
+    },
+    {
+      "name": "leg0",
+      "triangles": 2050
+    },
+    {
+      "name": "leg1",
+      "triangles": 2046
+    },
+    {
+      "name": "arm0",
+      "triangles": 1212
+    },
+    {
+      "name": "arm1",
+      "triangles": 1216
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "species": "kronosaurus",
+  "source_vertices": 47280,
+  "vertices": 67566,
+  "skin_triangles": 12498,
+  "compressed_bytes": 699180,
+  "regions": [
+    {
+      "name": "body",
+      "triangles": 8042
+    },
+    {
+      "name": "wing0",
+      "triangles": 1218
+    },
+    {
+      "name": "wing1",
+      "triangles": 1218
+    },
+    {
+      "name": "wing2",
+      "triangles": 1010
+    },
+    {
+      "name": "wing3",
+      "triangles": 1010
+    }
+  ]
+}

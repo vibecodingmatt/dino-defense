@@ -1,0 +1,29 @@
+{
+  "species": "stegosaurus",
+  "source_vertices": 60744,
+  "vertices": 65568,
+  "skin_triangles": 12496,
+  "compressed_bytes": 711493,
+  "regions": [
+    {
+      "name": "body",
+      "triangles": 7218
+    },
+    {
+      "name": "leg0",
+      "triangles": 1760
+    },
+    {
+      "name": "leg1",
+      "triangles": 1758
+    },
+    {
+      "name": "leg2",
+      "triangles": 880
+    },
+    {
+      "name": "leg3",
+      "triangles": 880
+    }
+  ]
+}

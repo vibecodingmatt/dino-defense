@@ -207,6 +207,10 @@
 <script src="js/looks.js"></script>
 <script src="js/draw.js"></script>
 <script src="js/drex.js"></script>
+<script src="js/creature-meshes.js"></script>
+<script src="js/creature-species.js"></script>
+<script src="js/creature-anatomy.js"></script>
+<script src="js/creatures.js"></script>
 <script>
 'use strict';
 const $ = (s) => document.querySelector(s);
@@ -364,6 +368,7 @@ function paintBackdrop(){
 const MOUTHS = {blue:{x:1.02,y:-0.39}, spino:{x:1.25,y:-0.40}, indominus:{x:1.10,y:-0.44},
                 indoraptor:{x:1.02,y:-0.39}, giga:{x:1.13,y:-0.44}};
 function mouthOffset(){
+  const rig=Creatures.mouth({...bossDef(),key:state.boss});if(rig)return rig;
   const p = bossDef().painter;
   if (p === 'mutant' && typeof drexMouth === 'function'){ const m = drexMouth(state.phase, 0); return {x:m.x, y:m.y + 0.6}; }
   const f = MOUTHS[p];

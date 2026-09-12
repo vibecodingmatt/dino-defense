@@ -1,0 +1,29 @@
+{
+  "species": "ankylosaurus",
+  "source_vertices": 71928,
+  "vertices": 76758,
+  "skin_triangles": 12498,
+  "compressed_bytes": 744812,
+  "regions": [
+    {
+      "name": "body",
+      "triangles": 8312
+    },
+    {
+      "name": "leg0",
+      "triangles": 1166
+    },
+    {
+      "name": "leg1",
+      "triangles": 1166
+    },
+    {
+      "name": "leg2",
+      "triangles": 928
+    },
+    {
+      "name": "leg3",
+      "triangles": 926
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "species": "dimorphodon",
+  "source_vertices": 57726,
+  "vertices": 79818,
+  "skin_triangles": 12500,
+  "compressed_bytes": 819876,
+  "regions": [
+    {
+      "name": "body",
+      "triangles": 12500
+    }
+  ]
+}

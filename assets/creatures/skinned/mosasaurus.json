@@ -1,0 +1,29 @@
+{
+  "species": "mosasaurus",
+  "source_vertices": 52272,
+  "vertices": 70446,
+  "skin_triangles": 12498,
+  "compressed_bytes": 722491,
+  "regions": [
+    {
+      "name": "body",
+      "triangles": 9022
+    },
+    {
+      "name": "wing0",
+      "triangles": 1064
+    },
+    {
+      "name": "wing1",
+      "triangles": 1064
+    },
+    {
+      "name": "wing2",
+      "triangles": 674
+    },
+    {
+      "name": "wing3",
+      "triangles": 674
+    }
+  ]
+}

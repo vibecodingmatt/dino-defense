@@ -265,10 +265,11 @@ function drawTheropod(ctx, d, ph){
       }
     }
   }
-  // dilophosaurus frill (flares with jaw)
+  // Independent walking display, with jaw-driven previews as the fallback.
   if (f.frill){
+    const display=d.artFrill??d.frillOpen,flare=display===undefined?jawOpen:display*.28;
     ctx.fillStyle = 'rgba(230,180,40,0.85)';
-    ctx.beginPath(); ctx.ellipse(-0.05, -0.02, 0.16 + jawOpen*1.5, 0.22 + jawOpen*2, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-0.05, -0.02, 0.16 + flare*1.5, 0.22 + flare*2, 0, 0, Math.PI*2); ctx.fill();
     ctx.fillStyle = shade(p.accent, -0.2);
     ctx.beginPath(); ctx.ellipse(-0.05, -0.02, 0.07, 0.1, 0, 0, Math.PI*2); ctx.fill();
     // twin crests
@@ -1168,6 +1169,7 @@ const PAINTERS = {theropod:drawTheropod, trex:drawTrex, blue:drawBlue, spino:dra
    turn: -1..1 facing (mid-values render the turn itself as a squash-flip)
    pitch: body tilt in radians for walking up/down vertical path legs */
 function drawDino(ctx, d, x, y, turn, ph, alpha, pitch){
+  if (typeof Creatures !== 'undefined' && Creatures.draw(ctx,d,x,y,turn,ph,alpha,pitch)) return;
   const s = d.size;
   // shadow (on the ground even for flyers)
   ctx.save();
@@ -2187,6 +2189,7 @@ function drawSnatcher(ctx, o){
 /* ---------- TOWERS ----------
    lv (0-3 upgrades bought) grows the pad and adds gold trim. */
 function drawTowerBase(ctx, x, y, key, selected, lv){
+  if (typeof Arsenal !== 'undefined' && Arsenal.catalog[key]) return Arsenal.base(ctx,x,y,key,selected,lv||0);
   const def = TOWERS[key];
   lv = lv || 0;
   const maxed = lv > 0 && lv >= (def.maxUp || 2);
@@ -2336,6 +2339,7 @@ function drawTowerBase(ctx, x, y, key, selected, lv){
 }
 
 function drawTowerTurret(ctx, t, flash, time){
+  if (typeof Arsenal !== 'undefined' && Arsenal.catalog[t.key]) return Arsenal.turret(ctx,t,flash,time);
   time = time || 0;
   const rec = (t.recoil || 0) * 4;   // barrel kickback in px
   const lv = t.ulv || 0;
@@ -3704,6 +3708,9 @@ function bakeMapGrade(c,level,W,H){
    the baked canvas, while these few particles sell weather and scale. */
 function drawMapAtmosphere(c,level,amb,time,dt,W,H){
   const art=level.art||'perimeter';
+  if(art==='perimeter' && typeof PerimeterScene!=='undefined'){
+    PerimeterScene.atmosphere(c,time,W,H);return;
+  }
   if(art==='lagoon'){
     c.save();c.strokeStyle=`rgba(111,255,232,${.10+.04*Math.sin(time*2)})`;c.lineWidth=2;c.setLineDash([18,28]);c.lineDashOffset=-time*22;for(const pi of level.waterPaths||[]){mapTrace(c,level.paths[pi]);c.stroke();}c.restore();
   }else if(art==='proving'){
@@ -3728,12 +3735,14 @@ function drawMazeRouteGuide(c,pts,time){
 const THEMED_MINI_CACHE=new Map();
 function drawThemedMiniMap(cv,level){
   if(!cv)return;const key=level.art+'@'+cv.width+'x'+cv.height,c=cv.getContext('2d');if(!c)return;let thumb=THEMED_MINI_CACHE.get(key);
-  if(!thumb){const full=renderBackground(level,1280,720).cv;thumb=document.createElement('canvas');thumb.width=cv.width;thumb.height=cv.height;const tc=thumb.getContext('2d');tc.imageSmoothingEnabled=true;tc.imageSmoothingQuality='high';tc.drawImage(full,0,0,thumb.width,thumb.height);THEMED_MINI_CACHE.set(key,thumb);}c.clearRect(0,0,cv.width,cv.height);c.drawImage(thumb,0,0);
+  cv._mapLevel=level;
+  if(!thumb){const bg=renderBackground(level,1280,720),full=bg.thumb||bg.cv;thumb=document.createElement('canvas');thumb.width=cv.width;thumb.height=cv.height;const tc=thumb.getContext('2d');tc.imageSmoothingEnabled=true;tc.imageSmoothingQuality='high';tc.drawImage(full,0,0,thumb.width,thumb.height);THEMED_MINI_CACHE.set(key,thumb);}c.clearRect(0,0,cv.width,cv.height);c.drawImage(thumb,0,0);
 }
 
 /* ---------- LEVEL BACKGROUND (pre-rendered once per level) ----------
    Returns {cv, flames, exit} — flames/exit are runtime animation anchors. */
 function renderBackground(level, W, H){
+  if(level.art==='perimeter' && typeof PerimeterScene!=='undefined')return PerimeterScene.bake(level,W,H);
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H;
   const c = cv.getContext('2d');

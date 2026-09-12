@@ -723,38 +723,6 @@ function drawDistortusRex(ctx, d, ph){
     ctx.restore();
   }
 
-  /* ---- the gulp ----------------------------------------------------
-     A tourist-sized lump distending the hide as it slides down the
-     throat and into the belly, on the same 2.45s beat the other menu
-     dinosaurs use. It lives in the painter rather than in the menu code
-     because the menu's generic version is a hardcoded offset tuned to
-     the OLD skull's geometry — on this body it would surface in the
-     wrong place entirely.
-
-     Drawn INSIDE the body group, before the near-side limbs, so the lump
-     passes behind the near arm and leg on its way down rather than
-     floating over the top of them. */
-  if (d.eat && d.eat.t >= 2.45 && !mask.torso){
-    // 2.45 → 2.90, finishing inside the game's 2.95s eat window rather than
-    // being cut off by it
-    const k = Math.max(0, Math.min(1, (d.eat.t - 2.45) / 0.45));
-    const e = 1 - Math.pow(1 - k, 2);                       // eases as it settles
-    const p0 = [0.84, -1.14], p1 = [0.56, -1.02], p2 = [0.14, -0.98];
-    const u = 1 - e;
-    const gx = u * u * p0[0] + 2 * u * e * p1[0] + e * e * p2[0];
-    const gy = u * u * p0[1] + 2 * u * e * p1[1] + e * e * p2[1];
-    const r = 0.128 - e * 0.032;                            // sinks as it goes down
-    ctx.save();
-    ctx.globalAlpha *= 0.92;
-    ctx.fillStyle = shade(skin, 0.17);                      // the bulge itself
-    ctx.beginPath(); ctx.ellipse(gx, gy, r, r * 0.86, -0.20, 0, Math.PI * 2); ctx.fill();
-    ctx.globalAlpha *= 0.55; ctx.fillStyle = deep;          // volume pressing outward
-    ctx.beginPath(); ctx.ellipse(gx + r * 0.20, gy + r * 0.44, r * 0.76, r * 0.34, -0.20, 0, Math.PI * 2); ctx.fill();
-    ctx.globalAlpha = 0.42; ctx.fillStyle = shade(skin, 0.42);
-    ctx.beginPath(); ctx.ellipse(gx - r * 0.24, gy - r * 0.34, r * 0.42, r * 0.17, -0.32, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-  }
-
   /* =================== NEAR SIDE ==================================== */
   ctx.restore();
   const nGrasp = anchor(0.56, -1.00), nArm = anchor(0.44, -1.36);

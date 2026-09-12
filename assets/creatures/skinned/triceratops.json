@@ -1,0 +1,29 @@
+{
+  "species": "triceratops",
+  "source_vertices": 57480,
+  "vertices": 61710,
+  "skin_triangles": 12498,
+  "compressed_bytes": 697936,
+  "regions": [
+    {
+      "name": "body",
+      "triangles": 7062
+    },
+    {
+      "name": "leg0",
+      "triangles": 1506
+    },
+    {
+      "name": "leg1",
+      "triangles": 1506
+    },
+    {
+      "name": "leg2",
+      "triangles": 1212
+    },
+    {
+      "name": "leg3",
+      "triangles": 1212
+    }
+  ]
+}

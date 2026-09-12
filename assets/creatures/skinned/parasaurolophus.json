@@ -1,0 +1,29 @@
+{
+  "species": "parasaurolophus",
+  "source_vertices": 53400,
+  "vertices": 55992,
+  "skin_triangles": 12496,
+  "compressed_bytes": 653078,
+  "regions": [
+    {
+      "name": "body",
+      "triangles": 7404
+    },
+    {
+      "name": "leg0",
+      "triangles": 1806
+    },
+    {
+      "name": "leg1",
+      "triangles": 1804
+    },
+    {
+      "name": "leg2",
+      "triangles": 740
+    },
+    {
+      "name": "leg3",
+      "triangles": 742
+    }
+  ]
+}

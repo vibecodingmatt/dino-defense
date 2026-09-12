@@ -1,0 +1,37 @@
+{
+  "species": "drex",
+  "source_vertices": 90912,
+  "vertices": 78138,
+  "skin_triangles": 12742,
+  "compressed_bytes": 770335,
+  "regions": [
+    {
+      "name": "body",
+      "triangles": 5770
+    },
+    {
+      "name": "leg0",
+      "triangles": 1200
+    },
+    {
+      "name": "leg1",
+      "triangles": 1200
+    },
+    {
+      "name": "leg2",
+      "triangles": 1936
+    },
+    {
+      "name": "leg3",
+      "triangles": 1936
+    },
+    {
+      "name": "arm0",
+      "triangles": 350
+    },
+    {
+      "name": "arm1",
+      "triangles": 350
+    }
+  ]
+}

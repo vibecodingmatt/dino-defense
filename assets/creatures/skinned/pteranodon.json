@@ -1,0 +1,13 @@
+{
+  "species": "pteranodon",
+  "source_vertices": 44394,
+  "vertices": 68982,
+  "skin_triangles": 12500,
+  "compressed_bytes": 748115,
+  "regions": [
+    {
+      "name": "body",
+      "triangles": 12500
+    }
+  ]
+}

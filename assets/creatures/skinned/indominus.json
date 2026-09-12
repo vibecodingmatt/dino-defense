@@ -1,0 +1,29 @@
+{
+  "species": "indominus",
+  "source_vertices": 70728,
+  "vertices": 75480,
+  "skin_triangles": 12496,
+  "compressed_bytes": 764949,
+  "regions": [
+    {
+      "name": "body",
+      "triangles": 6482
+    },
+    {
+      "name": "leg0",
+      "triangles": 1910
+    },
+    {
+      "name": "leg1",
+      "triangles": 1906
+    },
+    {
+      "name": "arm0",
+      "triangles": 1098
+    },
+    {
+      "name": "arm1",
+      "triangles": 1100
+    }
+  ]
+}

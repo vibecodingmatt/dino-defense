@@ -1303,7 +1303,7 @@ function spawnDino(key, pathI, isBoss){
     name: def.name, painter: def.painter, pal: def.pal, feat: def.feat, flying: !!def.flying,
     size: sz,
     stride: clamp(def.speed * 1.7 / sz, 2.4, 9.5), // step frequency scales with speed & bulk
-    dirT: 1, turn: 1, pitch: 0, lastStep: 0,
+    dirT: 1, turn: 1, pitch: 0, lastStep: 0, artHeading: 0,
     armor: def.armor, dmgToBase: def.dmg,
     hp, maxHp: hp,
     speed: def.speed * speedScale(w) * diffSpdMult(G.difficulty),
@@ -1317,6 +1317,7 @@ function spawnDino(key, pathI, isBoss){
     bounty: bountyOf(def, w) * (isBoss ? 1 : 1),
     dead: false, leaked: false,
   };
+  if(key==='dilophosaurus'){d.frillClock=-rand(.8,3.6);d.frillPeriod=rand(7,11);d.frillOpen=0;}
   if (G.level.maze && !d.flying){
     // open-world map: every ground dino enters at the SAME centre-left point
     // (the open entry square nearest mid-field) and marches the one shortest
@@ -1617,7 +1618,7 @@ function damage(d, amt, pierce, src){
       G.corpses.push({pal: d.pal, feat: d.feat, painter: d.painter, size: d.size,
                       key: d.key, flying: d.flying, boss: true, pathI: d.pathI,
                       x: p.x, y: p.y, dir: Math.cos(p.ang) >= 0 ? 1 : -1,
-                      phase: d.phase, t: 0, dur: death.dur, impact: death.impact,
+                      phase: d.phase, artLocalHeading:Math.cos(p.ang)>=0?d.artHeading:Math.PI-d.artHeading, t: 0, dur: death.dur, impact: death.impact,
                       seed: Math.random() * 999, beatN: 0, thudded: false, burst2: false, burst3: false});
       G.shake = Math.max(G.shake, 10);
       SFX.bossDie();
@@ -1637,7 +1638,13 @@ function damage(d, amt, pierce, src){
                    flamer: ['ash', 1.9], sniper: ['ko', 2.1], cryo: ['iceblock', 1.8],
                    sonic: ['notes', 1.5], gas: ['ghost', 2.2]};
       const gag = src ? GAG[src.key] : null;
-      if (src && src.key === 'tesla'){
+      if (src && Arsenal.catalog[src.key]){
+        WeaponFX.death(G.fx,d,p,src);
+        if (!weaponMuted(src.key)){
+          if (src.key === 'cryo') SFX.shatter();
+          else if (src.key === 'flamer') SFX.sizzle();
+        }
+      } else if (src && src.key === 'tesla'){
         // ⚡ death by Tesla: no gore — the skeleton freezes mid-zap, then
         // crumbles into a smoking pile of bones with a little static wisp
         G.fx.push({kind: 'bones', x: p.x, y: p.y, r: d.size, fly: d.flying ? 1 : 0,
@@ -1702,8 +1709,9 @@ function fireTower(t, dt){
     }
     if (!any) return;
     t.cd = 1 / st.rof;
+    t.cdMax = t.cd; t.flash = .12; t.recoil = .5;
     say('pulse');
-    addFx('sonic', t.x, t.y, st.range);
+    WeaponFX.mark(addFx('sonic', t.x, t.y, st.range),t);
     for (const d of G.dinos){
       if (d.dead || d.leaked) continue;
       const p = dinoPos(d);
@@ -1727,6 +1735,8 @@ function fireTower(t, dt){
   t.flash = 0.12;
   t.recoil = 1;
   const tp = dinoPos(target);
+  const muzzle = Arsenal.anchor(t,0,true);
+  WeaponFX.fire(G.fx,t,st.range);
 
   switch (def.proj){
     case 'dart':
@@ -1735,11 +1745,11 @@ function fireTower(t, dt){
       break;
     case 'bullet':
       say('shot');
-      G.projs.push({kind:'bullet', x:t.x, y:t.y, target, speed:760, dmg:st.dmg, tower:t, color:'#ffe9a0'});
+      G.projs.push({kind:'bullet', x:muzzle.x, y:muzzle.y, target, speed:760, dmg:st.dmg, tower:t, color:'#ffe9a0'});
       break;
     case 'snipe':
       say('snipe');
-      G.bolts.push({x1:t.x, y1:t.y, x2:tp.x, y2:tp.y, t:0.1, w:2.2,
+      G.bolts.push({x1:muzzle.x, y1:muzzle.y, x2:tp.x, y2:tp.y-target.size*.45, t:0.16, dur:.16, lv:t.ulv, w:2.2,
                     color: 'rgba(190,230,255,0.95)', glow: 'rgba(110,190,255,0.28)'});
       addFx('spark', tp.x, tp.y - (target.size || 10) * 0.4, 6);   // round slams home
       applyHit(target, t, st, def);
@@ -1754,7 +1764,7 @@ function fireTower(t, dt){
         let da = Math.abs(a - t.angle); if (da > Math.PI) da = Math.PI*2 - da;
         if (da <= def.cone) applyHit(d, t, st, def);
       }
-      addFx('flame', t.x, t.y, st.range, t.angle);
+      WeaponFX.mark(addFx('flame', muzzle.x, muzzle.y, Math.max(16,st.range-Math.hypot(muzzle.x-t.x,muzzle.y-t.y)*.65), t.angle),t);
       break;
     }
     case 'tesla': {
@@ -1792,19 +1802,20 @@ function fireTower(t, dt){
       const salvo = 1 + (t.ulv || 0);
       for (let i = 0; i < salvo; i++){
         const a = t.angle + (i - (salvo - 1) / 2) * 0.4; // fanned launch, same target
-        G.projs.push({kind:'missile', x:t.x, y:t.y, target, speed:420, dmg:st.dmg, splash:st.splash, tower:t,
+        const port = Arsenal.anchor(t,i,true);
+        G.projs.push({kind:'missile', x:port.x, y:port.y, target, speed:420, dmg:st.dmg, splash:st.splash, tower:t,
                       vx:Math.cos(a)*420, vy:Math.sin(a)*420, color:'#ffb0a0'});
       }
       break;
     }
     case 'cryo':
       say('cryo');
-      G.projs.push({kind:'cryo', x:t.x, y:t.y, target, speed:460, dmg:st.dmg, splash:st.splash, slow:def.slow, tower:t, color:'#cfeeff'});
+      G.projs.push({kind:'cryo', x:muzzle.x, y:muzzle.y, target, speed:460, dmg:st.dmg, splash:st.splash, slow:def.slow, tower:t, color:'#cfeeff'});
       break;
     case 'gas': {
       // toot! a puff of green gas out the nozzle, then a lingering cloud on the target
       say('gas');
-      addFx('gaspuff', t.x + Math.cos(t.angle) * 20, t.y + Math.sin(t.angle) * 20, 16, t.angle);
+      WeaponFX.mark(addFx('gaspuff', muzzle.x, muzzle.y, 16, t.angle),t);
       if (G.clouds.length > 40) G.clouds.shift();
       G.clouds.push({x: tp.x, y: tp.y, r: def.cloud.r, t: 0, dur: def.cloud.dur, dps: st.dmg, tower: t, seed: Math.random()*9});
       break;
@@ -1815,7 +1826,7 @@ function fireTower(t, dt){
       const dd = hyp(t.x, t.y, tp.x, tp.y);
       const dur = clamp(dd / 300, 0.5, 1.3);
       const lead = samplePath(G.paths[target.pathI], target.dist + target.speed * (target.slowT > 0 ? target.slowF : 1) * dur * 0.9);
-      G.projs.push({kind:'mortar', x0:t.x, y0:t.y, x:t.x, y:t.y, tx:lead.x, ty:lead.y,
+      G.projs.push({kind:'mortar', x0:muzzle.x, y0:muzzle.y, x:muzzle.x, y:muzzle.y, tx:lead.x, ty:lead.y,
                     t:0, dur, dmg:st.dmg, splash:st.splash, tower:t});
       break;
     }
@@ -1825,6 +1836,7 @@ function fireTower(t, dt){
 function updateProjs(dt){
   for (const pr of G.projs){
     if (pr.hit) continue;
+    WeaponFX.trail(pr,dt);
     if (pr.kind === 'mortar'){ // ballistic: flies to a fixed landing point
       pr.t += dt;
       const k = clamp(pr.t / pr.dur, 0, 1);
@@ -1835,7 +1847,7 @@ function updateProjs(dt){
         pr.hit = true;
         const def = TOWERS[pr.tower.key];
         if (!weaponMuted(pr.tower.key)) SFX.boom();
-        addFx('boom', pr.tx, pr.ty, pr.splash);
+        WeaponFX.mark(addFx('boom', pr.tx, pr.ty, pr.splash),pr.tower);
         addFx('dust', pr.tx, pr.ty + 4, pr.splash * 0.5);
         for (const d of G.dinos){
           if (d.dead || d.leaked || d.flying) continue;
@@ -1874,7 +1886,7 @@ function updateProjs(dt){
       const st = {dmg: pr.dmg, rof: 0, range: 0};
       if (pr.splash){
         if (!weaponMuted(pr.tower.key)) SFX.boom();
-        addFx(pr.kind === 'cryo' ? 'frost' : 'boom', tx, ty, pr.splash);
+        WeaponFX.mark(addFx(pr.kind === 'cryo' ? 'frost' : 'boom', tx, ty, pr.splash),pr.tower);
         for (const d of G.dinos){
           if (d.dead || d.leaked) continue;
           if (d.flying && !def.air) continue;
@@ -1896,7 +1908,6 @@ function updateProjs(dt){
         const na = cur + clamp(da, -turnRate*dt, turnRate*dt);
         pr.vx = Math.cos(na) * pr.speed; pr.vy = Math.sin(na) * pr.speed;
         pr.x += pr.vx * dt; pr.y += pr.vy * dt;
-        if (Math.random() < 0.5) addFx('trail', pr.x, pr.y, 3);
       } else {
         pr.x += dx / dd * step; pr.y += dy / dd * step;
       }
@@ -1916,8 +1927,9 @@ function addFx(kind, x, y, r, ang){
   if (kind === 'step' && G.fx.length > 150) return; // cosmetic footsteps yield first
   // the air-strike carpet must always be visible, so its bursts bypass the soft cap
   if (G.fx.length > 360 && kind !== 'airburst' && kind !== 'shock') return;
-  G.fx.push({kind, x, y, r, ang: ang || 0, t: 0, seed: Math.random() * 9,
-             dur: kind === 'sonic' ? 0.5 : kind === 'boom' ? 0.45 : kind === 'airburst' ? 0.55 : kind === 'frost' ? 0.5 : kind === 'flame' ? 0.22 : kind === 'gaspuff' ? 0.55 : kind === 'ring' ? 0.8 : kind === 'dust' ? 0.9 : kind === 'step' ? 0.45 : kind === 'shock' ? 0.9 : kind === 'birds' ? 1.4 : kind === 'zap' ? 0.26 : 0.3});
+  const fx = {kind, x, y, r, ang: ang || 0, t: 0, seed: Math.random() * 9,
+             dur: kind === 'sonic' ? 0.55 : kind === 'boom' ? 0.85 : kind === 'airburst' ? 0.55 : kind === 'frost' ? 0.65 : kind === 'flame' ? 0.22 : kind === 'gaspuff' ? 0.55 : kind === 'ring' ? 0.8 : kind === 'dust' ? 0.9 : kind === 'step' ? 0.45 : kind === 'shock' ? 0.9 : kind === 'birds' ? 1.4 : kind === 'zap' ? 0.26 : 0.3};
+  G.fx.push(fx); return fx;
 }
 function addText(x, y, txt, color, size, dur){
   if (G.texts.length > 40) return;
@@ -1958,7 +1970,7 @@ function runZapQ(dt){
     h.done = true;
     const d = h.dino;
     const cp = dinoPos(d);
-    const from = h.from ? dinoPos(h.from) : {x: h.tower.x, y: h.tower.y};
+    const from = h.from ? dinoPos(h.from) : Arsenal.anchor(h.tower);
     G.bolts.push({x1: from.x, y1: from.y, x2: cp.x, y2: cp.y, t: 0.16, w: 3.2, jag: true,
                   flash: 1,                              // first frame renders WHITE-hot
                   color: h.maxedT ? 'rgba(215,160,255,0.95)' : 'rgba(120,230,255,0.95)',
@@ -2005,6 +2017,13 @@ function runZapQ(dt){
 function updateDinos(dt){
   for (const d of G.dinos){
     if (d.dead || d.leaked) continue;
+    if(d.key==='dilophosaurus'){
+      // Independent, staggered threat displays. Simulation time respects
+      // pause and speed controls; rendering never advances this clock.
+      d.frillClock=((d.frillClock||0)+dt)%(d.frillPeriod||9);
+      const t=d.frillClock,smooth=x=>{x=clamp(x,0,1);return x*x*(3-2*x);};
+      d.frillOpen=t<0?0:t<.65?smooth(t/.65):t<1.35?1:1-smooth((t-1.35)/1.1);
+    }
     // statuses
     if (d.slowT > 0){ d.slowT -= dt; if (d.slowT <= 0) d.slowF = 1; }
     if (d.burnT > 0){ d.burnT -= dt; damage(d, d.burnDps * dt, true, d.burnSrc); if (d.dead) continue; }
@@ -2049,7 +2068,7 @@ function updateDinos(dt){
     // move — open-world ground dinos steer the flow field around your
     // weapon-walls; everything else follows its path
     const slow = d.slowT > 0 ? d.slowF : 1;
-    let pp, atEnd;
+    let pp, atEnd, artDistance=0;
     if (G.level.maze && !d.flying && d.mx !== undefined){
       const tgt = mazeSteer(d.mx, d.my);
       // walk the route polyline DIRECTLY — no turning-circle drift. A fast
@@ -2085,17 +2104,25 @@ function updateDinos(dt){
         d.mang = (d.mang || 0) + clamp(da, -dt * 10, dt * 10);
       }
       d.dist = d.mx;                      // progress proxy for targeting modes
-      d.phase += dt * d.stride * slow;
+      artDistance=Math.hypot(ddx,ddy);
       pp = {x: d.mx, y: d.my, ang: d.mang};
       atEnd = d.mx >= W - 14;             // broke out the right side
     } else {
       d.dist += d.speed * slow * dt;
-      d.phase += dt * (d.flying ? 6 : d.stride) * slow;
+      artDistance=d.speed*slow*dt;
       pp = samplePath(G.paths[d.pathI], d.dist);
       atEnd = d.dist >= G.paths[d.pathI].len;
     }
     // facing & body pitch follow the travel direction (smoothed)
     const cosA = Math.cos(pp.ang);
+    const heading = Math.atan2(Math.sin(pp.ang)/Creatures.GROUND,Math.cos(pp.ang));
+    let headingDelta=heading-(d.artHeading||0);
+    while(headingDelta>Math.PI)headingDelta-=Math.PI*2;
+    while(headingDelta<-Math.PI)headingDelta+=Math.PI*2;
+    d.artHeading=(d.artHeading||0)+clamp(headingDelta,-dt*7,dt*7);
+    const projectedStride=Math.hypot(Math.cos(d.artHeading),Math.sin(d.artHeading)*Creatures.GROUND);
+    const anatomy=CreatureMeshes.catalog[Creatures.keyOf(d)];
+    d.phase+=d.flying?dt*6*slow:artDistance/(d.size*(anatomy&&anatomy.stride||1.5)*projectedStride)*Math.PI*2;
     if (Math.abs(cosA) > 0.15) d.dirT = cosA > 0 ? 1 : -1;
     d.turn += clamp(d.dirT - d.turn, -dt * 7, dt * 7);
     // rotate the body fully onto the path direction (accounting for the flip)
@@ -2406,6 +2433,7 @@ function endCleverGirl(){
   const d = c.d;
   d.speed = c.spd0; d.stride = c.stride0;
   d.clever = false; d.noHurt = false;
+  delete d.artRoar;
   d.hopY = 0; d.pouncePitch = 0; d.eatPitch = 0;
   G.clever = null;
 }
@@ -2489,6 +2517,7 @@ function updateCleverGirl(dt){
   } else {                                          // the meal
     const bp = menuBitePitch(d);
     const t = c.t;
+    d.artRoar=t<.45?.8:t<.8?.12:t<2.1?.15+Math.max(0,Math.sin(t*12))*.42:t<2.45?.8:.1;
     // bend down → CHOMP → raise, thrashing → toss the head back → gulp
     d.eatPitch = t < 0.45 ? (t / 0.45) * bp
                : t < 0.8  ? bp
@@ -2546,6 +2575,7 @@ function updateCleverGirl(dt){
    uses, fed this dinosaur's live body pitch so it stays right through the
    bite, the thrashing and the toss. */
 function cleverMouth(d, p){
+  if(Creatures.available)return menuMouthPos({...d,x:p.x,y:p.y,dir:d.dirT},(d.eatPitch||0)+(d.pouncePitch||0));
   return menuMouthPos({painter: d.painter, size: d.size, phase: d.phase,
                        x: p.x, y: p.y, dir: d.dirT},
                       d.pitch + (d.eatPitch || 0));
@@ -2594,6 +2624,11 @@ function waveSummary(q){
     else s.ground++;
   }
   return s;
+}
+function beginFirstWaveCountdown(){
+  if (G.wave !== 0 || G.waveActive || G.over || !G.towers.length || G.autoTimer > 0) return;
+  G.autoTimer = FIRST_WAVE_DELAY;
+  spawnTourists();
 }
 function startWave(){
   if (G.waveActive || G.over || G.victoryPending) return;
@@ -2701,11 +2736,14 @@ function restoreSnapshot(s){
 function startLevel(idx, mode, diff){
   G.levelIdx = idx;
   G.level = LEVELS[idx];
+  $('#stage').dataset.mapArt = G.level.art;
   G.difficulty = mode === 'resume' && save.run ? (save.run.difficulty || 1) : clamp(diff || 1, 1, unlockedCap());
   G.dnaRun = mode === 'resume' && save.run ? (save.run.dnaRun || 0) : 0;
   G.paths = buildPaths(G.level);
   const bg = renderBackground(G.level, W, H);
   G.bg = bg.cv; G.flames = bg.flames; G.exitFx = bg.exit;
+  G.perimeterScene = G.level.art === 'perimeter' ? bg : null;
+  G.sceneTime = 0;
   G.hurtT = 0; G.flashT = 0; G.waveTotal = 0; G.cinT = 0;
   initAmbient();
   G.dinos = []; G.projs = []; G.fx = []; G.bolts = []; G.texts = []; G.spawnQ = []; G.corpses = []; G.decals = [];
@@ -2736,6 +2774,9 @@ function startLevel(idx, mode, diff){
   G.stat = {dnaWaves: 0, dnaKills: 0, cashEarned: 0, kills: 0, streakMax: 1};
   saveRun();
   G.state = 'playing';
+  // Restored weapons count as deployed, including a save transferred before
+  // wave one. The transient countdown is rebuilt from the restored map.
+  beginFirstWaveCountdown();
   $('#menu').classList.add('hidden');
   $('#gameover').classList.add('hidden');
   $('#victory').classList.add('hidden');
@@ -2751,6 +2792,18 @@ function startLevel(idx, mode, diff){
   G.runStartT = performance.now();
   track(mode === 'resume' ? 'run_resume' : 'run_start', {map_name: G.level.name, difficulty: G.difficulty});
 }
+
+// A slow image load replaces only the terrain, never a run or its camera.
+PerimeterScene.onReady(() => {
+  if (G.level && G.level.art === 'perimeter' && G.bg){
+    const bg = renderBackground(G.level, W, H);
+    G.bg = bg.cv; G.perimeterScene = bg;
+  }
+  for (const key of THEMED_MINI_CACHE.keys()) if (key.startsWith('perimeter@')) THEMED_MINI_CACHE.delete(key);
+  document.querySelectorAll('.lvThumb').forEach(cv => {
+    if (cv._mapLevel && cv._mapLevel.art === 'perimeter') drawThemedMiniMap(cv, cv._mapLevel);
+  });
+});
 
 /* restrained per-map atmosphere: rain, ash, feathers, dust, or lagoon spray */
 function initAmbient(){
@@ -2898,6 +2951,7 @@ function canPlace(x, y){
   }
   if (x < 20 || x > W - 20 || y < 20 || y > H - 20) return false;
   if (distToAnyPath(x, y) < 42) return false;
+  if (G.level.art === 'perimeter' && PerimeterScene.blocked(x, y)) return false;
   for (const t of G.towers) if (hyp(x, y, t.x, t.y) < 38) return false;
   return true;
 }
@@ -2912,12 +2966,8 @@ function placeTower(key, x, y, force){
   SFX.build();
   addFx('ring', x, y, 10);
   if (!force) track('weapon_built', {weapon: key});
-  // onboarding: the moment the very first weapon is down, count wave 1 in —
-  // and the park's last visitors make a break for the exit
-  if (G.wave === 0 && !G.waveActive && !G.over && G.towers.length === 1 && !(G.autoTimer > 0)){
-    G.autoTimer = FIRST_WAVE_DELAY;
-    spawnTourists();
-  }
+  // The same readiness check handles newly built and restored weapons.
+  beginFirstWaveCountdown();
   saveRun();
   updateHUD();
 }
@@ -2963,6 +3013,13 @@ function renderTowerPanel(){
   const def = TOWERS[t.key];
   const st = towerStats(t);
   const maxed = t.ulv >= def.maxUp;
+  const hardware = $('#tpHardware'), hardwareId = t.key + t.ulv;
+  if (hardware.dataset.model !== hardwareId){
+    hardware.dataset.model = hardwareId;
+    Arsenal.preview(hardware.querySelector('canvas'),t.key,t.ulv);
+    hardware.querySelector('b').textContent = Arsenal.info(t.key,t.ulv).name;
+    hardware.querySelector('span').textContent = Arsenal.info(t.key,t.ulv).detail;
+  }
   $('#tpName').textContent = `${def.icon} ${def.name} — Lv ${t.ulv + 1}${maxed ? ' ★MAX' : ''}`;
   const mTier = masteryTier(t.key), mKills = (save.wkills && save.wkills[t.key]) || 0;
   const mNext = MASTERY_TIERS.find(v => mKills < v);
@@ -2984,6 +3041,7 @@ function renderTowerPanel(){
     const cost = UPG.cost(def, t.ulv);
     const extra = t.key === 'missile' ? ` (+1 rocket)` : t.key === 'mortar' ? ' (huge blast)' : '';
     btn.textContent = `⬆ Upgrade to Lv ${t.ulv + 2}${extra} — $${cost}`;
+    btn.title = Arsenal.info(t.key,t.ulv+1).name + ': ' + Arsenal.info(t.key,t.ulv+1).detail;
     const afford = G.cash >= cost;
     btn.disabled = !afford;                 // greyed-out disabled look when broke
     btn.classList.toggle('can', afford);    // bright green when you can afford it
@@ -3011,6 +3069,7 @@ function upgrade(){
   const cost = UPG.cost(def, t.ulv);
   if (G.cash < cost){ SFX.error(); return; }
   G.cash -= cost; t.ulv++; t.invested += cost;
+  WeaponFX.emit(G.fx,'rearm',t.x,t.y,{dur:.65,weapon:t.key,lv:t.ulv});
   SFX.upgrade();
   saveRun();
   renderTowerPanel(); positionTowerPop(t); updateHUD();
@@ -3335,17 +3394,22 @@ function updateHUD(){
 function updateStartPrompt(){
   const el = $('#startPrompt');
   if (!el) return;
+  const sector = G.level && G.level.art === 'perimeter';
+  el.classList.toggle('sector7', !!sector);
   const prep = G.state === 'playing' && G.wave === 0 && !G.waveActive && !G.over;
   el.classList.toggle('hidden', !prep);
   if (!prep) return;
-  const counting = G.autoTimer > 0;
+  const counting = G.towers.length > 0 && G.autoTimer > 0;
   el.classList.toggle('counting', counting);
   if (counting){
     el.querySelector('.sp-main').textContent = `⚔ First wave in ${Math.ceil(G.autoTimer)}…`;
-    el.querySelector('.sp-sub').textContent = 'Build while you can — or press Start Wave to go now';
+    el.querySelector('.sp-sub').textContent = sector ? 'Reinforce the road before they arrive.' : 'Build while you can — or press Start Wave to go now';
+  } else if (G.towers.length > 0){
+    el.querySelector('.sp-main').textContent = '⚔ Defenses ready';
+    el.querySelector('.sp-sub').textContent = 'Press Start Wave to continue.';
   } else {
-    el.querySelector('.sp-main').textContent = '🦖 Place a weapon to begin';
-    el.querySelector('.sp-sub').textContent = 'Pick one from the Armory, then tap the map';
+    el.querySelector('.sp-main').textContent = sector ? 'Hold the perimeter' : '🦖 Place a weapon to begin';
+    el.querySelector('.sp-sub').textContent = sector ? 'Choose a weapon, then place it beside the road.' : 'Pick one from the Armory, then tap the map';
   }
 }
 function buildShop(){
@@ -3356,7 +3420,8 @@ function buildShop(){
     card.className = 'shopCard';
     card.dataset.key = key;
     card.style.borderTop = `3px solid ${def.color}`;
-    card.innerHTML = `<div class="ico">${def.icon}</div><div class="nm">${def.name}</div><div class="cost">$${def.cost}</div>`;
+    card.innerHTML = `<div class="ico"><canvas width="168" height="112" aria-hidden="true"></canvas></div><div class="nm">${def.name}</div><div class="cost">$${def.cost}</div>`;
+    Arsenal.preview(card.querySelector('canvas'),key,0);
     card.title = def.desc + (def.air ? '' : '  (Cannot hit flying dinosaurs.)');
     // Drag a weapon onto the map (range preview follows) to drop it, or tap to
     // select then tap the map. A mostly-VERTICAL drag on a card just scrolls the
@@ -3548,7 +3613,7 @@ function menuLooAt(w, h){
   const ht = clamp(Math.min(h * 0.115, w * 0.195), 52, 118);
   return {x: Math.max(w * 0.115, ht * 0.95), y: g.fence, h: ht, w: ht * 0.72};
 }
-const MENU_BOSSES = ['trex', 'spinosaurus', 'indominus', 'indoraptor', 'giganotosaurus', 'drex', 'blue'];
+const MENU_BOSSES = ['trex', 'spinosaurus', 'indominus', 'indoraptor', 'giganotosaurus', 'drex', 'blue', 'therizinosaurus'];
 /* THE OPENING RUNNING ORDER. A first-time visitor shouldn't have to sit through
    a run of anonymous packs hoping to catch one of the good ones, so the first
    four spawns of every visit are the four set pieces, in this order. Once the
@@ -3587,10 +3652,12 @@ function spawnMenuDino(w, h, forcedKey, forceScene){
   // Blue is drawn ONLY by her own scene, never by the roamer pick — otherwise
   // she turns up on top of the odds above and they stop meaning anything.
   // The outhouse belongs to the tyrannosaur and nothing else.
+  // Feeding cameos keep their carnivores; Therizinosaurus joins free roaming.
+  const roamers=scene?MENU_ROAMERS.filter(k=>k!=='therizinosaurus'):MENU_ROAMERS;
   const key = MENU_BOSSES.includes(forcedKey) ? forcedKey
             : scene === 'blue' ? 'blue'
             : scene === 'lawyer' ? 'trex'
-            : MENU_ROAMERS[(Math.random() * MENU_ROAMERS.length) | 0];
+            : roamers[(Math.random() * roamers.length) | 0];
   const def = DINOS[key];
   /* Sized off the viewport width, but with a much higher floor than the layout
      alone wants: on a phone a strictly proportional giant is a smudge, and the
@@ -3598,20 +3665,20 @@ function spawnMenuDino(w, h, forcedKey, forceScene){
   const scale = clamp(w / 1280, 0.72, 1.5);
   // the finale brute dominates the horizon; Blue is a raptor and must not
   // stand shoulder to shoulder with a tyrannosaur
-  const size = rand(88, 138) * scale * (key === 'drex' ? 1.14 : key === 'blue' ? 0.66 : 1);
+  const size = rand(88, 138) * scale * (key === 'drex' ? 1.14 : key === 'blue' ? 0.66 : key === 'therizinosaurus' ? .86 : 1);
   /* Only one boy can be on the fence and one man in the outhouse at a time, and
      Blue is spoken for — she hunts Muldoon and nobody else. Both directions are
      forced by where their scenery stands: the fence is off to the right, so the
      fence scene herds him that way; the outhouse is off to the left, so the
      tyrannosaur comes in from the far side and crosses to it. */
-  const toFence = key !== 'blue' && !menuTimmy && (forceScene === 'timmy' || scene === 'timmy');
+  const toFence = key !== 'blue' && key !== 'therizinosaurus' && !menuTimmy && (forceScene === 'timmy' || scene === 'timmy');
   const toLoo = !toFence && key === 'trex' && !menuLoo && scene === 'lawyer';
   // spend the card — unless that turn couldn't be taken, in which case the
   // scene keeps its place at the front of the queue rather than losing it
   if (fromCard && ((scene !== 'timmy' && scene !== 'lawyer') || toFence || toLoo)) menuCard.shift();
   const dir = toFence ? 1 : toLoo ? -1 : (Math.random() < 0.5 ? 1 : -1);
   // Distortus lumbers under its own mass; Blue is the fastest thing on the island
-  const speed = rand(48, 78) * scale * (key === 'drex' ? 0.72 : key === 'blue' ? 1.5 : 1);
+  const speed = rand(48, 78) * scale * (key === 'drex' ? 0.72 : key === 'blue' ? 1.5 : key === 'therizinosaurus' ? .78 : 1);
   const d = {
     painter: def.painter, feat: def.feat, flying: false, size,
     // uniform misty palette (lighter than the near-black jungle) so each distinct
@@ -3630,10 +3697,11 @@ function spawnMenuDino(w, h, forcedKey, forceScene){
       : rand(menuGround(w, h).lo, menuGround(w, h).hi),
     // leg-cycle rate matched to actual ground speed (game's speed/size gait
     // relation, unclamped) so the giant's feet plant instead of treadmilling
-    vx: speed * dir, dir, phase: rand(0, 6.28), stride: Math.max(0.55, (speed / size) * 2.6),
-    alpha: rand(0.74, 0.86), key,
+    vx: speed * dir, dir, phase: rand(0, 6.28), stride: speed / (size * (CreatureMeshes.catalog[key].stride || 1.5)) * Math.PI * 2,
+    alpha: rand(0.74, 0.86), key, artView: .28,
   };
   menuDinos.push(d);
+  if(key==='therizinosaurus')return; // The herbivore prowls without a feeding scene.
   /* This one is herding Tim at the fence. He isn't handed over yet — the boy
      fades in ahead of it once it is properly on screen (see menuScene), so
      nobody watches a child pop into existence in the middle of the backdrop. */
@@ -3714,6 +3782,7 @@ const MENU_MOUTHS = {
   indoraptor:{x:1.02,y:-0.39}, giga:{x:1.13,y:-0.44}
 };
 function menuMouthOffset(d){
+  const rigMouth=Creatures.mouth(d);if(rigMouth)return rigMouth;
   // Dedicated painters can extend beyond the generic theropod muzzle.
   // The D-Rex reports its own jaws: its skull hinges at the rear and the
   // body pitches with the gait, so a constant offset can't describe it.
@@ -3740,6 +3809,7 @@ function menuBitePitch(d){
   return clamp(Math.asin(clamp(.48/r,-1,1))-Math.atan2(mouth.y,mouth.x),.52,1.02);
 }
 function menuMouthReach(d){
+  const rigMouth=Creatures.mouth(d);if(rigMouth)return d.size*rigMouth.x;
   const filmMouth = MENU_MOUTHS[d.painter];
   if (d.painter === 'mutant') return d.size * menuMouthOffset(d).x;
   return d.size * (d.painter === 'trex' ? 1.22 : filmMouth ? filmMouth.x : 0.9);
@@ -4599,6 +4669,7 @@ function menuScene(dt){
      they spawn a few pixels off it, and a chase must never straddle the wire
      with the visitor behind it and the thing chasing him in front. */
   const footing = tr => (tr.prey && menuDinos.includes(tr.prey) ? tr.prey.y : tr.y);
+  Creatures.prepare(menuDinos,true);
   const drawBand = (behind) => {
     // tourists first: drawn under the dinos so a catch overlaps
     for (const tr of menuTourists){
@@ -4650,13 +4721,11 @@ function drawMenuPuff(ctx, pf){
 }
 /* one menu giant, plus whoever is currently in its mouth */
 function drawMenuDino(ctx, d){
-  const yy = d.y + Math.sin(d.phase) * d.size * 0.015 + (d.pounceY || 0);
+  const yy = d.y + (d.pounceY || 0);
   drawDino(ctx, d, d.x, yy, d.dir, d.phase, d.alpha, (d.eatPitch || 0) + (d.pouncePitch || 0));
   if (!d.eat || !d.eat.bit) return;
   const e = d.eat;
-  // The victim shows ONLY until the gulp starts: from 2.45 the bulge
-  // travelling down the throat IS this tourist, and drawing both puts the
-  // same person in two places at once.
+  // The victim leaves view after the toss; the final beat returns to roaming.
   if (e.t < 2.45 && e.tr){                           // victim in the jaws, thrashing
     const m = menuMouthPos(d, d.eatPitch);
     drawMenuVictim(ctx, e.tr, m, d.dir);
@@ -4672,23 +4741,6 @@ function drawMenuDino(ctx, d){
                         t: 0, dur: rand(0.4, 0.85), r: rand(2, 5)});
       }
     }
-  } else if (e.t >= 2.45 && d.painter !== 'mutant'){  // the gulp — a lump slides down the neck
-    // The D-Rex draws its own gulp inside its painter: this generic lump
-    // is a hardcoded offset tuned to the old theropod neck, and on that
-    // body it would surface in mid-air well clear of the throat.
-    const k = clamp((e.t - 2.45) / 0.5, 0, 1);
-    const ux = 0.42 - 0.4 * k, uy = -0.92 + 0.34 * k;
-    // Derive the stretched-skin highlight from this dinosaur's live menu
-    // palette. Dedicated/recolored bosses therefore carry their own color
-    // through the entire eating sequence instead of reverting to the old
-    // generic fog-theropod green.
-    ctx.save();
-    ctx.globalAlpha = 0.86 * d.alpha;
-    ctx.fillStyle = shade(d.pal.body, 0.16);
-    ctx.beginPath();
-    ctx.ellipse(d.x + d.dir * ux * d.size, d.y + uy * d.size, d.size * 0.12, d.size * 0.1, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
   }
 }
 function buildMenu(){
@@ -5155,6 +5207,7 @@ function frame(now){
   requestAnimationFrame(frame);
   let dt = Math.min(0.05, Math.max(0, (now - lastT) / 1000)); // never negative — a backwards clock must not rewind fx/motion
   lastT = now;
+  if (G.creatureInspection) return;
   if (G.state !== 'playing'){ if (G.state === 'menu') try { menuScene(dt); } catch (e) {} return; }
   try {
     if (!G.paused && !G.over){
@@ -5300,10 +5353,13 @@ function bossDeathPaint(gc, c, o){
   const hadDeathMask = Object.prototype.hasOwnProperty.call(c, 'deathMask'), oldDeathMask = c.deathMask;
   c.hideSail = !!o.hideSail;
   c.deathMask = o.mask || null;
+  const artHeading=c.artLocalHeading;
+  if(Number.isFinite(artHeading))c.artLocalHeading=.16+Math.atan2(Math.sin(artHeading-.16),Math.cos(artHeading-.16))*(1-clamp(c.t/.3,0,1));
   // Freeze the gait/flap/swim cycle on the exact death-blow pose. Every finale
   // supplies its own whole-body motion; advancing the painter phase here makes
   // fallen legs keep walking and grounded wings keep flapping.
   PAINTERS[c.painter](gc, c, c.phase);
+  c.artLocalHeading=artHeading;
   if (hadHideSail) c.hideSail = oldHideSail; else delete c.hideSail;
   if (hadDeathMask) c.deathMask = oldDeathMask; else delete c.deathMask;
   gc.restore();
@@ -5495,6 +5551,7 @@ function bossDeathWound(gc,c,anchor,o){
 }
 
 function drawBossDeathPart(gc,c,o){
+  if (!['sail','scute','flipper'].includes(o.kind) && Creatures.part(gc,c,o.kind,o)) return;
   const body=c.pal.body,belly=c.pal.belly,accent=c.pal.accent,dark=shade(body,-.28),kind=o.kind;
   gc.lineCap='round';gc.lineJoin='round';
   if(kind==='leg'){
@@ -5821,6 +5878,8 @@ function drawBossDeath(gc, c){
 
 function render(dt){
   G.time += dt;
+  if (!G.paused && !G.over) G.sceneTime = (G.sceneTime || 0) + dt;
+  Creatures.prepare(G.dinos);
   ctx.save();
   // clear the whole buffer first: when the mobile camera is panned/zoomed the
   // margin outside the map shows this clean dark stage colour instead of smear
@@ -5835,6 +5894,10 @@ function render(dt){
   ctx.scale(G.cam.zoom, G.cam.zoom);
   ctx.translate(-G.cam.x, -G.cam.y);
   ctx.drawImage(G.bg, 0, 0);
+  if (G.perimeterScene){
+    PerimeterScene.draw(ctx, G.sceneTime, G.perimeterScene, G.towers);
+    PerimeterScene.weather(ctx, G.sceneTime, W, H);
+  }
 
   // open-world maps: show the one route the column is currently marching —
   // it redraws live as weapons reshape the maze
@@ -5873,6 +5936,7 @@ function render(dt){
 
   // poison gas clouds — bubbling toxic haze on the ground (dinos walk through)
   for (const c of G.clouds){
+    WeaponFX.cloud(ctx,c); continue;
     const k = c.t / c.dur;
     const a = 0.42 * clamp(Math.min(c.t / 0.5, (c.dur - c.t) / 0.8), 0, 1); // fade in then out
     if (a <= 0) continue;
@@ -5906,14 +5970,14 @@ function render(dt){
     // rearing back during the entrance roar, plus the set-piece leap and bite
     const pitch = d.pitch - (d.entranceT > 0 ? Math.min(0.22, (2.2 - d.entranceT) * 0.6) : 0)
                 + (d.pouncePitch || 0) + (d.eatPitch || 0);
+    d.artPitch=-(d.entranceT>0?Math.min(.22,(2.2-d.entranceT)*.6):0)+(d.pouncePitch||0)+(d.eatPitch||0);
     drawDino(ctx, d, p.x, p.y, d.turn, d.phase, alpha, pitch);
     if (d.clever) drawCleverMeal(ctx, d, p, pitch);   // the warden, in her jaws
     // while cloaked, draw nothing else — no health bar, boss aura, or status
     // tints that would betray its position (a Sonic Emitter must reveal it)
     if (hidden) return;
-    // electrocution: a full cartoon strobe — WHITE X-RAY frames alternate with
-    // PHOTO-NEGATIVE frames (white rim, near-black body), skeleton showing
-    // through both, jittering, like a saturday-morning zap gag
+    // Electric light follows the actual skin and silhouette at every heading.
+    // The older Canvas fallback retains its original skeleton overlay.
     const strobe = d.zapT > 0 ? Math.sin(G.time * 42) : -0.3;
     if (d.zapT > 0 && (strobe > 0.05 || strobe < -0.55)){
       const neg = strobe < -0.55;                        // the negative frame
@@ -5935,6 +5999,7 @@ function render(dt){
       d.pal = orig;
       // bones over the flash: skull + jaw, spine + tail vertebrae, ribs, leg
       // and toe bones — drawn in BODY space so they ride the dino's flip/pitch
+      if(!Creatures.available){
       const s = d.size;
       ctx.translate(p.x, p.y);
       const tx3 = (d.turn === undefined ? 1 : d.turn);
@@ -5990,6 +6055,7 @@ function render(dt){
         ctx.lineTo(hx + dx2 * s * 0.09 + rand(-1.5, 1.5), hy + dy2 * s * 0.09 + rand(-1.5, 1.5));
         ctx.lineTo(hx + dx2 * s * 0.17 + rand(-2, 2), hy + dy2 * s * 0.17 + rand(-2, 2));
         ctx.stroke();
+      }
       }
       ctx.restore();
     }
@@ -6065,14 +6131,14 @@ function render(dt){
     }
     // health bar
     if (d.hp < d.maxHp){
-      const w = Math.max(22, d.size * 1.6), y0 = p.y - d.size * (d.flying ? 2.1 : 1.6) - 6;
+      const w = Math.max(22, d.size * 1.6), y0 = p.y - d.size * (d.key==='brachiosaurus'?2.8:d.key==='apatosaurus'?2.1:d.flying?2.1:1.6) - 6;
       ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(p.x - w/2, y0, w, 4.5);
       ctx.fillStyle = d.boss ? '#ff5a5a' : '#7ae05a';
       ctx.fillRect(p.x - w/2, y0, w * clamp(d.hp / d.maxHp, 0, 1), 4.5);
     }
     // Dino Studio original: its given name floats overhead
     if (d.custom){
-      const y0 = p.y - d.size * (d.flying ? 2.1 : 1.6) - 13;
+      const y0 = p.y - d.size * (d.key==='brachiosaurus'?2.8:d.key==='apatosaurus'?2.1:d.flying?2.1:1.6) - 13;
       ctx.font = 'bold 11px Verdana, sans-serif'; ctx.textAlign = 'center';
       ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.75)'; ctx.lineJoin = 'round';
       ctx.strokeText('⭐ ' + d.custom, p.x, y0);
@@ -6116,7 +6182,7 @@ function render(dt){
       const t = it.t;
       drawTowerBase(ctx, t.x, t.y, t.key, t === G.selected, t.ulv || 0);
       drawTowerTurret(ctx, t, t.flash || 0, G.time);
-      if (t.ulv > 0){ // upgrade pips
+      if (t.ulv > 0 && typeof Arsenal === 'undefined'){ // legacy upgrade pips
         ctx.fillStyle = '#ffd24a';
         for (let i = 0; i < t.ulv; i++){
           ctx.beginPath(); ctx.arc(t.x - (t.ulv - 1) * 3.5 + i * 7, t.y - 27, 2.2, 0, Math.PI*2); ctx.fill();
@@ -6145,6 +6211,7 @@ function render(dt){
 
   // projectiles
   for (const pr of G.projs){
+    if (WeaponFX.projectile(ctx,pr,G.time)) continue;
     ctx.fillStyle = pr.color;
     if (pr.kind === 'mortar'){
       // ground shadow + arcing shell
@@ -6167,6 +6234,7 @@ function render(dt){
   }
   // bolts (tesla / sniper tracer) — layered glow + core + white-hot center
   for (const b of G.bolts){
+    if (WeaponFX.bolt(ctx,b,G.time)) continue;
     if (b.jag){
       // one jagged polyline, re-rolled every frame so the arc writhes
       const n = 7, pts = [[b.x1, b.y1]];
@@ -6224,6 +6292,7 @@ function render(dt){
   // fx
   for (const f of G.fx){
     const k = f.t / f.dur;
+    if (WeaponFX.draw(ctx,f,G.time)) continue;
     switch (f.kind){
       case 'shock': { // boss-entrance shockwave
         ctx.lineWidth = 3 * (1 - k);
@@ -7125,12 +7194,15 @@ function render(dt){
       ctx.restore();
     }
     drawTowerBase(ctx, px, py, G.placing, false, 0);
-    if (G.pendingTap){
+    drawTowerTurret(ctx,{x:px,y:py,key:G.placing,ulv:0,angle:-.45},0,G.time);
+    const restricted = G.level.art === 'perimeter' && PerimeterScene.blocked(px, py);
+    if (G.pendingTap || restricted){
+      const placementText = restricted ? 'RESTRICTED FACILITY' : ok ? 'TAP AGAIN TO BUILD' : 'BLOCKED — TAP ELSEWHERE';
       ctx.font = 'bold 13px Verdana, sans-serif'; ctx.textAlign = 'center';
       ctx.fillStyle = 'rgba(0,0,0,0.7)';
-      ctx.fillText(ok ? 'TAP AGAIN TO BUILD' : 'BLOCKED — TAP ELSEWHERE', px + 1, py - 43);
+      ctx.fillText(placementText, px + 1, py - 43);
       ctx.fillStyle = ok ? '#9fe870' : '#ff8a7a';
-      ctx.fillText(ok ? 'TAP AGAIN TO BUILD' : 'BLOCKED — TAP ELSEWHERE', px, py - 44);
+      ctx.fillText(placementText, px, py - 44);
     }
     ctx.globalAlpha = 1;
   }
@@ -7181,7 +7253,7 @@ function render(dt){
   }
 
   // ambient particles (fireflies / spores / leaves) — above the light grading
-  drawMapAtmosphere(ctx, G.level, G.amb, G.time, dt, W, H);
+  drawMapAtmosphere(ctx, G.level, G.amb, G.perimeterScene ? G.sceneTime : G.time, dt, W, H);
 
   // ---- end world camera; the HUD below is drawn in fixed screen space ----
   ctx.restore();
@@ -7924,8 +7996,8 @@ if (testParams.has('test')){
   if (testParams.has('diff')) save.bestDiff = Math.max(save.bestDiff, (parseInt(testParams.get('diff'), 10) || 1) - 1);
   startLevel(clamp(parseInt(testParams.get('level'), 10) || 0, 0, LEVELS.length - 1), 'fresh', parseInt(testParams.get('diff'), 10) || 1);
   G.cash = 5000;
-  placeTower('gatling', 420, 260, true);
-  placeTower('flamer', 550, 330, true);
+  placeTower('gatling', G.level.art === 'perimeter' ? 350 : 420, 260, true);
+  placeTower('flamer', G.level.art === 'perimeter' ? 630 : 550, G.level.art === 'perimeter' ? 380 : 330, true);
   placeTower('missile', 800, 300, true);
   placeTower('mortar', 900, 490, true);
   placeTower('gas', 150, 210, true); // Mason's Gas, near the path start

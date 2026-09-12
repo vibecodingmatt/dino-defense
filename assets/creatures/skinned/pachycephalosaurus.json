@@ -1,0 +1,29 @@
+{
+  "species": "pachycephalosaurus",
+  "source_vertices": 51552,
+  "vertices": 55758,
+  "skin_triangles": 12498,
+  "compressed_bytes": 662481,
+  "regions": [
+    {
+      "name": "body",
+      "triangles": 7180
+    },
+    {
+      "name": "leg0",
+      "triangles": 2114
+    },
+    {
+      "name": "leg1",
+      "triangles": 2112
+    },
+    {
+      "name": "arm0",
+      "triangles": 546
+    },
+    {
+      "name": "arm1",
+      "triangles": 546
+    }
+  ]
+}

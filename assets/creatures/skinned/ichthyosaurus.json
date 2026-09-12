@@ -1,0 +1,29 @@
+{
+  "species": "ichthyosaurus",
+  "source_vertices": 48588,
+  "vertices": 66606,
+  "skin_triangles": 12498,
+  "compressed_bytes": 711680,
+  "regions": [
+    {
+      "name": "body",
+      "triangles": 9162
+    },
+    {
+      "name": "wing0",
+      "triangles": 1100
+    },
+    {
+      "name": "wing1",
+      "triangles": 1100
+    },
+    {
+      "name": "wing2",
+      "triangles": 568
+    },
+    {
+      "name": "wing3",
+      "triangles": 568
+    }
+  ]
+}

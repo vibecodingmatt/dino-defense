@@ -44,3 +44,11 @@ Progress saves automatically in your browser (localStorage + an IndexedDB backup
 Use Settings → **Copy save code** to back up progress or move it between devices.
 
 *An affectionate homage to a certain dinosaur park that spared no expense.*
+
+## Local art inspection
+
+The browser's weapon and dinosaur inspection panels are local art tools. They
+appear on `localhost`, its subdomains, loopback IP addresses, and `file:` previews.
+Public hosts keep the buttons hidden and do not initialize the panels, including
+when a URL has `?test=1`. Gameplay still uses the updated models and weapons.
+Run `node tests/presentation.cjs` to check local/public behavior and homepage art.

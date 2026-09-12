@@ -1,0 +1,29 @@
+{
+  "species": "baryonyx",
+  "source_vertices": 67272,
+  "vertices": 75006,
+  "skin_triangles": 12498,
+  "compressed_bytes": 781801,
+  "regions": [
+    {
+      "name": "body",
+      "triangles": 6524
+    },
+    {
+      "name": "leg0",
+      "triangles": 2088
+    },
+    {
+      "name": "leg1",
+      "triangles": 2084
+    },
+    {
+      "name": "arm0",
+      "triangles": 900
+    },
+    {
+      "name": "arm1",
+      "triangles": 902
+    }
+  ]
+}
