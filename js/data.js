@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.62.7';
+const VERSION = '1.63.0';
 
 // Art inspection panels are local development tools. URL query flags must
 // never enable them on the public site. Node-based data audits default to off.
@@ -35,7 +35,8 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    Date each entry with the ACTUAL current calendar date — check it, never copy
    the entry above. Same-day reship: edit that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.62.7', date: 'Sep 12, 2026', items: [
+  {v: '1.63.0', date: 'Sep 12, 2026', items: [
+    '🏃 Detailed 3D tourists and familiar guests bring the chases to life, with bloody bites and lingering splatter.',
     '🦖 Rebuilt dinosaurs with sturdier bodies, D-Rex knuckle-walking, and colorful Dilo frill displays.',
     '🪶 The feathered Therizinosaurus now roams the home screen among the giants.',
     '💥 A rebuilt arsenal: meaner weapons at every upgrade, roaring firepower, and spectacular dinosaur takedowns.',

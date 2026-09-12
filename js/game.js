@@ -1132,6 +1132,7 @@ const G = {
   cash: 0, lives: 0, maxLives: 0,
   dinos: [], towers: [], projs: [], fx: [], bolts: [], texts: [], corpses: [], decals: [],
   tourists: [],             // fleeing visitors — pure theatre ahead of wave 1
+  touristFX: TouristFX.create(),
   snatch: null,             // the pteranodon abduction set piece (also theatre)
   clever: null,             // Blue's wave-10 entrance: the warden and "Clever girl!"
   zapQ: [], links: [],      // pending tesla chain hops + residual dino-to-dino arcs
@@ -2536,15 +2537,15 @@ function updateCleverGirl(dt){
         c.bit = true;
         u.gone = true;                              // he is in the mouth now
         const m = cleverMouth(d, p);
-        addFx('blood', m.x, m.y, u.size * 1.5);
-        addFx('blood', m.x - d.dirT * 6, m.y + 4, u.size);
+        TouristFX.burst(G.touristFX,m.x,m.y,u.py+2,u,d.dirT);
         SFX.snarl();
         G.shake = Math.max(G.shake, 4);
       }
     }
-    if (c.bit && t > 1.1 && t < 2.45 && Math.random() < 0.25){ // slung off the jaws
+    if (c.bit && t > 1.1 && t < 2.45 && Math.floor(t*10)!==c.dripBeat){
+      c.dripBeat=Math.floor(t*10);
       const m = cleverMouth(d, p);
-      addFx('blood', m.x + rand(-9, 9), m.y + rand(-6, 10), u.size * 0.7);
+      TouristFX.drip(G.touristFX,m.x,m.y,u.py+2,u,d.dirT);
     }
     if (t >= CLEVER_MEAL){ endCleverGirl(); return; }
   }
@@ -2593,7 +2594,7 @@ function drawCleverMeal(ctx, d, p, pitch){
   if (!c || !c.bit) return;
   if (c.t < 2.45){
     const m = cleverMouth(d, p);
-    drawMenuVictim(ctx, {look: c.u, shirt: c.u.shirt}, m, d.dirT);
+    drawMenuVictim(ctx, {look: c.u, shirt: c.u.shirt}, m, d.dirT, G.time);
   } else {                                          // the lump sliding down the neck
     const k = clamp((c.t - 2.45) / 0.5, 0, 1);
     const ux = 0.42 - 0.4 * k, uy = -0.92 + 0.34 * k;
@@ -2748,6 +2749,7 @@ function startLevel(idx, mode, diff){
   initAmbient();
   G.dinos = []; G.projs = []; G.fx = []; G.bolts = []; G.texts = []; G.spawnQ = []; G.corpses = []; G.decals = [];
   G.tourists = []; G.snatch = null; G.clever = null;
+  G.touristFX = TouristFX.create();
   G.zapQ = []; G.links = []; G.thunderT = 0;
   G.selected = null; G.placing = null; G.targeting = null; G.strikes = []; G.clouds = []; G.omega = null;
   G.celebration = null; G.fw = []; G.victoryPending = false;
@@ -3540,6 +3542,7 @@ function buildMenuFx(){
 /* giant boss dinosaurs that roam the menu's terrain, far behind the UI —
    sometimes chasing hapless tourists (and sometimes catching them) */
 let menuDinos = [], menuTourists = [], menuPuffs = [], menuSpawnT = 1.2, menuCv = null, menuCtx = null;
+const menuTouristFX = TouristFX.create();
 // dropped kit that outlives its owner — currently just Muldoon's rifle
 let menuProps = [];
 /* ---------------- THE PERIMETER FENCE ----------------
@@ -3827,26 +3830,27 @@ function menuVictimScale(tr){
   const headR = 0.17 * (lk.kid ? 1.25 : 1);
   return ((1.58 * (lk.tall || 1) + headR) * base) / 0.83;
 }
-function drawMenuVictim(ctx, tr, m, dir){
+function drawMenuVictim(ctx, tr, m, dir, time = menuT){
+  if (typeof Tourists !== 'undefined' && Tourists.caught(ctx,tr.look||tr,m,dir,time)) return;
   const s = menuVictimScale(tr), lk = tr.look || {};
   const skin = lk.skin || '#e8c49a';
   const legCol = lk.bottomType === 'pants' ? lk.bottom : skin;
   ctx.save();
   ctx.translate(m.x, m.y);
   ctx.scale(dir, 1);
-  ctx.rotate(1.2 + Math.sin(menuT * 16) * 0.1);       // wriggling in the grip
+  ctx.rotate(1.2 + Math.sin(time * 16) * 0.1);       // wriggling in the grip
   ctx.lineCap = 'round';
   ctx.strokeStyle = tr.shirt; ctx.lineWidth = s * 0.2; // torso
   ctx.beginPath(); ctx.moveTo(-s * 0.1, 0); ctx.lineTo(s * 0.25, 0); ctx.stroke();
   ctx.strokeStyle = legCol; ctx.lineWidth = s * 0.1;
   for (const off of [0, Math.PI]){                     // kicking legs
-    const k = Math.sin(menuT * 22 + off) * 0.7;
+    const k = Math.sin(time * 22 + off) * 0.7;
     ctx.beginPath(); ctx.moveTo(-s * 0.1, 0);
     ctx.lineTo(-s * 0.35, -s * 0.2 * k); ctx.stroke();
   }
   ctx.strokeStyle = skin; ctx.lineWidth = s * 0.08;
   for (const off of [0.6, Math.PI + 0.9]){             // arms flailing wildly
-    const a = Math.sin(menuT * 19 + off) * 0.9;
+    const a = Math.sin(time * 19 + off) * 0.9;
     ctx.beginPath(); ctx.moveTo(s * 0.22, 0);
     ctx.lineTo(s * 0.22 + Math.cos(a) * s * 0.3, -Math.abs(Math.sin(a)) * s * 0.28 - s * 0.06);
     ctx.stroke();
@@ -4573,29 +4577,17 @@ function menuScene(dt){
         e.bit = true;
         if (e.tr) e.tr.dead = true;
         const m = menuMouthPos(d, d.eatPitch);
-        // A proper burst: a fast arterial spray thrown forward off the jaws,
-        // plus heavier gouts that arc and fall.
-        for (let i = 0; i < 26; i++){
-          const a = rand(-2.5, 0.5);
-          const sp = rand(45, 190);
-          menuPuffs.push({x: m.x + rand(-7, 7), y: m.y + rand(-7, 7),
-                          vx: Math.cos(a) * sp * d.dir, vy: Math.sin(a) * sp - rand(0, 40),
-                          t: 0, dur: rand(0.45, 1.15), r: rand(2, 6.5)});
-        }
-        for (let i = 0; i < 8; i++){                     // fat gouts, slower, lower, darker
-          menuPuffs.push({x: m.x + rand(-5, 5), y: m.y + rand(-2, 8),
-                          vx: rand(-24, 24), vy: rand(-18, 30),
-                          t: 0, dur: rand(0.8, 1.5), r: rand(4, 8), c: '112,16,12'});
-        }
+        if(e.tr)TouristFX.burst(menuTouristFX,m.x,m.y,e.tr.y+2,e.tr.look,d.dir);
       }
       if (e.bit && e.t >= 2.42 && !e.gulpSpurt){         // squeezed out as it goes down
         e.gulpSpurt = true;
         const m = menuMouthPos(d, d.eatPitch);
-        for (let i = 0; i < 12; i++){
-          menuPuffs.push({x: m.x + rand(-6, 6), y: m.y + rand(-4, 6),
-                          vx: rand(-30, 30), vy: rand(-10, 55),
-                          t: 0, dur: rand(0.5, 1.0), r: rand(2, 5)});
-        }
+        if(e.tr)TouristFX.burst(menuTouristFX,m.x,m.y,e.tr.y+2,e.tr.look,d.dir,.45);
+      }
+      if(e.bit&&e.tr&&e.t>.65&&e.t<2.42&&Math.floor(e.t*12)!==e.dripBeat){
+        e.dripBeat=Math.floor(e.t*12);const m=menuMouthPos(d,d.eatPitch);
+        TouristFX.drip(menuTouristFX,m.x,m.y,e.tr.y+2,e.tr.look,d.dir);
+        if(e.t>1.1&&e.t<2.1&&Math.sin(e.t*9)>.8)TouristFX.burst(menuTouristFX,m.x,m.y,e.tr.y+2,e.tr.look,-d.dir,.25);
       }
       if (e.t >= 2.95) d.eat = null;                     // burp. carry on.
     }
@@ -4657,6 +4649,7 @@ function menuScene(dt){
   // short-lived sprays: red where a tourist used to be, dust where one fell
   menuPuffs = menuPuffs.filter(pf => (pf.t += dt) < pf.dur);
   for (const pf of menuPuffs){ pf.x += pf.vx * dt; pf.y += pf.vy * dt; pf.vy += 80 * dt; }
+  TouristFX.update(menuTouristFX,dt);
 
   /* ---- DRAW, in two depth bands either side of the fence ----
      The fence stands on a ground line of its own. Anything whose footing is
@@ -4671,6 +4664,7 @@ function menuScene(dt){
   const footing = tr => (tr.prey && menuDinos.includes(tr.prey) ? tr.prey.y : tr.y);
   Creatures.prepare(menuDinos,true);
   const drawBand = (behind) => {
+    TouristFX.drawGround(ctx,menuTouristFX,y=>(y<fence.y)===behind);
     // tourists first: drawn under the dinos so a catch overlaps
     for (const tr of menuTourists){
       if (tr.dead || tr.hidden) continue;          // still behind a door
@@ -4679,6 +4673,7 @@ function menuScene(dt){
     for (const d of menuDinos) if ((d.y < fence.y) === behind) drawMenuDino(ctx, d);
     for (const p of menuProps) if ((p.ground < fence.y) === behind) drawMenuProp(ctx, p);
     for (const pf of menuPuffs) if ((pf.y < fence.y) === behind) drawMenuPuff(ctx, pf);
+    TouristFX.drawAir(ctx,menuTouristFX,y=>(y<fence.y)===behind);
   };
   drawBand(true);
   /* The two structures sit between the bands, on their shared ground line. The
@@ -4729,18 +4724,6 @@ function drawMenuDino(ctx, d){
   if (e.t < 2.45 && e.tr){                           // victim in the jaws, thrashing
     const m = menuMouthPos(d, d.eatPitch);
     drawMenuVictim(ctx, e.tr, m, d.dir);
-    if (Math.random() < 0.65){                       // running down the jaws
-      menuPuffs.push({x: m.x + rand(-7, 7), y: m.y + rand(0, 7), vx: rand(-16, 16), vy: rand(12, 52),
-                      t: 0, dur: rand(0.35, 0.75), r: rand(1.8, 4.4)});
-    }
-    // each shake of the head slings a fresh arc of it
-    if (e.t > 1.1 && e.t < 2.1 && Math.sin(e.t * 9) > 0.86 && Math.random() < 0.6){
-      for (let i = 0; i < 4; i++){
-        menuPuffs.push({x: m.x, y: m.y + rand(-4, 4),
-                        vx: rand(-90, 90), vy: rand(-70, 10),
-                        t: 0, dur: rand(0.4, 0.85), r: rand(2, 5)});
-      }
-    }
   }
 }
 function buildMenu(){
@@ -5271,6 +5254,7 @@ function step(dt){
   updateDinos(dt);
   updateCleverGirl(dt);   // after the herd moves: this beat owns Blue's position
   updateTourists(dt);
+  TouristFX.update(G.touristFX,dt);
   updateSnatch(dt);
   updateProjs(dt);
   updateStrikes(dt);
@@ -5918,6 +5902,7 @@ function render(dt){
   }
 
   // blood splatter decals (ground layer, under corpses and dinos)
+  TouristFX.drawGround(ctx,G.touristFX);
   for (const f of G.decals){
     const k = f.t / f.dur;
     const a = 1 - k;
@@ -6209,6 +6194,7 @@ function render(dt){
     }
   }
 
+  TouristFX.drawAir(ctx,G.touristFX);
   // projectiles
   for (const pr of G.projs){
     if (WeaponFX.projectile(ctx,pr,G.time)) continue;

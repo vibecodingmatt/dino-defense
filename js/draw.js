@@ -1289,7 +1289,7 @@ function tArm(ctx, u, ph, i){
   ctx.lineCap = 'round';
   ctx.strokeStyle = sleeve; ctx.lineWidth = 0.1 * bw;
   ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
-  ctx.strokeStyle = skin; ctx.lineWidth = 0.08 * bw; // bare forearm (short sleeves)
+  ctx.strokeStyle = u.longSleeve ? sleeve : skin; ctx.lineWidth = 0.08 * bw;
   ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(hx, hy); ctx.stroke();
   ctx.fillStyle = skin;
   ctx.beginPath(); ctx.arc(hx, hy, 0.055, 0, Math.PI * 2); ctx.fill();
@@ -1308,8 +1308,10 @@ function tArm(ctx, u, ph, i){
     ctx.beginPath(); ctx.arc(hx + 0.03, hy, 0.03, 0, Math.PI * 2); ctx.fill();
   }
   if (i === 1 && u.cane){                        // amber-topped walking cane to the ground
-    ctx.strokeStyle = '#6b4a2a'; ctx.lineCap = 'round'; ctx.lineWidth = 0.032;
+    ctx.strokeStyle = '#c9bda0'; ctx.lineCap = 'round'; ctx.lineWidth = 0.032;
     ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + 0.07, -0.02); ctx.stroke();
+    ctx.fillStyle = '#9b8c6e';
+    for(let j=1;j<8;j++)ctx.fillRect(hx+j*.008-.018,hy+(-.02-hy)*j/8,.037,.01);
     ctx.fillStyle = '#d99a2b';                   // the mosquito-in-amber knob
     ctx.beginPath(); ctx.arc(hx, hy - 0.035, 0.045, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = 'rgba(255,226,140,0.65)';
@@ -1326,56 +1328,28 @@ function tArm(ctx, u, ph, i){
   }
 }
 
-/* The warden's rifle, drawn about its grip at the origin and facing +x, in
-   tourist unit space. Shared by the carried version above and by the one he
-   drops when something finally gets him — so the weapon on the ground is the
-   same object he was holding a moment earlier, not a second sketch of it.
-   Deliberately chunky: at menu scale a visitor is barely 25px tall, and a
-   finer weapon simply vanished. */
+/* Muldoon's black SPAS-12, shared by the Canvas carried and dropped props.
+   The legacy function/key remains stable for the scene state machine. */
 function touristRifle(ctx){
-  // Wooden stock, butt swept down and back past the shoulder.
-  ctx.fillStyle = '#63452b';
-  ctx.beginPath();
-  ctx.moveTo(-0.44, 0.118); ctx.lineTo(-0.10, -0.028);
-  ctx.lineTo(-0.035, 0.070); ctx.lineTo(-0.355, 0.205);
-  ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#33271c';                                                    // butt plate
-  ctx.beginPath();
-  ctx.moveTo(-0.44, 0.118); ctx.lineTo(-0.355, 0.205);
-  ctx.lineTo(-0.408, 0.232); ctx.lineTo(-0.492, 0.142);
-  ctx.closePath(); ctx.fill();
-
-  ctx.strokeStyle = '#1f1a15'; ctx.lineCap = 'butt'; ctx.lineWidth = 0.062;     // barrel
-  ctx.beginPath(); ctx.moveTo(-0.10, 0.012); ctx.lineTo(0.62, -0.118); ctx.stroke();
-  ctx.strokeStyle = '#544536'; ctx.lineWidth = 0.052;                           // fore-end woodwork
-  ctx.beginPath(); ctx.moveTo(-0.06, 0.044); ctx.lineTo(0.24, -0.010); ctx.stroke();
-  ctx.strokeStyle = '#a28d69'; ctx.lineWidth = 0.016;                           // barrel highlight
-  ctx.beginPath(); ctx.moveTo(0.00, -0.014); ctx.lineTo(0.59, -0.130); ctx.stroke();
-
-  /* Telescopic sight, mounted proud of the barrel. Deliberately oversized —
-     at menu scale the whole man is ~25px tall, and a correctly-proportioned
-     scope is a single grey pixel. This one is there to be SEEN. */
-  ctx.strokeStyle = '#15120f'; ctx.lineWidth = 0.030;                           // mounts
-  ctx.beginPath();
-  ctx.moveTo(0.045, -0.010); ctx.lineTo(0.055, -0.088);
-  ctx.moveTo(0.275, -0.052); ctx.lineTo(0.285, -0.130);
-  ctx.stroke();
-  ctx.strokeStyle = '#241e18'; ctx.lineCap = 'round'; ctx.lineWidth = 0.070;    // scope tube
-  ctx.beginPath(); ctx.moveTo(0.020, -0.090); ctx.lineTo(0.330, -0.146); ctx.stroke();
-  ctx.strokeStyle = '#2e2720'; ctx.lineWidth = 0.098;                           // objective + eyepiece bells
-  ctx.beginPath(); ctx.moveTo(0.300, -0.140); ctx.lineTo(0.348, -0.149); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(0.012, -0.088); ctx.lineTo(0.048, -0.095); ctx.stroke();
-  ctx.strokeStyle = '#6f6154'; ctx.lineCap = 'butt'; ctx.lineWidth = 0.014;     // tube sheen
-  ctx.beginPath(); ctx.moveTo(0.040, -0.118); ctx.lineTo(0.300, -0.166); ctx.stroke();
-  ctx.fillStyle = '#8fd0e6';                                                    // glass catching the light
-  ctx.beginPath(); ctx.ellipse(0.344, -0.150, 0.016, 0.036, -0.18, 0, Math.PI * 2); ctx.fill();
-
-  ctx.strokeStyle = '#1f1a15'; ctx.lineCap = 'round'; ctx.lineWidth = 0.020;    // bolt handle
-  ctx.beginPath(); ctx.moveTo(0.010, 0.020); ctx.lineTo(0.055, 0.072); ctx.stroke();
-  ctx.fillStyle = '#1f1a15';                                                    // trigger guard
-  ctx.beginPath(); ctx.arc(-0.052, 0.082, 0.034, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#63452b';
-  ctx.beginPath(); ctx.arc(-0.052, 0.082, 0.017, 0, Math.PI * 2); ctx.fill();
+  ctx.save();
+  ctx.fillStyle='#343a39';ctx.fillRect(-.12,-.06,.23,.075);
+  ctx.strokeStyle='#222725';ctx.lineWidth=.046;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(-.08,0);ctx.lineTo(-.12,.11);ctx.stroke();
+  ctx.fillStyle='#343a39';ctx.fillRect(.08,-.075,.32,.04);
+  ctx.fillRect(.1,-.05,.5,.025);ctx.fillRect(.1,-.01,.4,.026);
+  ctx.fillStyle='#222725';ctx.fillRect(.13,-.02,.2,.065);
+  ctx.fillStyle='#111817';for(let j=0;j<9;j++)ctx.fillRect(.14+j*.028,-.069,.015,.025);
+  ctx.strokeStyle='#59605b';ctx.lineWidth=.006;
+  for(let j=0;j<7;j++){ctx.beginPath();ctx.moveTo(.14+j*.029,-.02);ctx.lineTo(.14+j*.029,.043);ctx.stroke();}
+  ctx.strokeStyle='#444b46';ctx.lineWidth=.015;
+  ctx.beginPath();ctx.moveTo(-.12,-.055);ctx.lineTo(.18,-.122);ctx.lineTo(.25,-.077);ctx.stroke();
+  ctx.fillStyle='#222725';ctx.fillRect(.24,-.107,.021,.066);
+  ctx.fillStyle='#343a39';ctx.fillRect(.53,-.08,.015,.04);
+  ctx.strokeStyle='#1d2420';ctx.lineWidth=.012;
+  ctx.beginPath();ctx.moveTo(-.1,.022);ctx.quadraticCurveTo(.12,.22,.48,.022);ctx.stroke();
+  ctx.strokeStyle='#59605b';ctx.lineWidth=.007;
+  ctx.beginPath();ctx.ellipse(.016,.041,.033,.025,0,0,Math.PI*2);ctx.stroke();
+  ctx.restore();
 }
 
 /* head + hair + face + hat, shared by every tourist pose. `look` flips
@@ -1389,7 +1363,7 @@ function touristHead(ctx, u, ph, headX, headY, look){
   // hair (under the hat)
   ctx.fillStyle = u.hairC;
   const hs = u.hairStyle;
-  if (hs === 'short'){
+  if (hs === 'short' || hs === 'wavy'){
     ctx.beginPath(); ctx.arc(headX - 0.01, headY - 0.03, headR * 1.02, Math.PI * 0.95, Math.PI * 2.05); ctx.fill();
   } else if (hs === 'bob'){
     ctx.beginPath(); ctx.arc(headX - 0.02, headY - 0.03, headR * 1.05, Math.PI * 0.88, Math.PI * 2.04); ctx.fill();
@@ -1429,7 +1403,7 @@ function touristHead(ctx, u, ph, headX, headY, look){
                            headX - headR - 0.2, headY - headR * (0.5 - k * 0.55) + fl * 1.5);
       ctx.stroke();
     }
-  } else if (hs === 'bald'){                 // just a dignified fringe (formerly)
+  } else if (hs === 'receding' || hs === 'bald'){ // exposed forehead and temple fringe
     ctx.beginPath(); ctx.ellipse(headX - headR * 0.82, headY + 0.05, 0.045, 0.075, 0.2, 0, Math.PI * 2); ctx.fill();
   }
 
@@ -1465,7 +1439,8 @@ function touristHead(ctx, u, ph, headX, headY, look){
     ctx.stroke();
     if (u.glasses){
       ctx.fillStyle = '#1e1e26';
-      ctx.beginPath(); ctx.ellipse(ex, ey, 0.065, 0.045, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(ex, ey, 0.065, u.hero==='hammond'?.06:.045, 0, 0, Math.PI * 2);
+      if(u.hero){ctx.strokeStyle=u.hero==='hammond'?'#c2a977':'#47382c';ctx.lineWidth=.012;ctx.stroke();}else ctx.fill();
       ctx.strokeStyle = '#1e1e26'; ctx.lineWidth = 0.02;
       ctx.beginPath(); ctx.moveTo(ex - 0.06 * look, ey); ctx.lineTo(headX - headR * 0.9 * look, ey - 0.01); ctx.stroke();
     }
@@ -1484,8 +1459,8 @@ function touristHead(ctx, u, ph, headX, headY, look){
     ctx.fillStyle = u.hairC;
     ctx.beginPath();
     ctx.moveTo(headX - headR * 0.86, headY - 0.01);
-    ctx.quadraticCurveTo(headX - headR * 0.5, headY + headR * 1.55, headX + 0.03, headY + headR * 1.42);
-    ctx.quadraticCurveTo(headX + headR * 0.95, headY + headR * 1.15, headX + headR * 1.04, headY - 0.03);
+    ctx.quadraticCurveTo(headX - headR * 0.5, headY + headR * 1.12, headX + 0.03, headY + headR * 1.08);
+    ctx.quadraticCurveTo(headX + headR * 0.95, headY + headR * 1.05, headX + headR * 1.04, headY - 0.03);
     ctx.quadraticCurveTo(headX + headR * 0.55, headY + headR * 0.55, headX, headY + headR * 0.6);
     ctx.quadraticCurveTo(headX - headR * 0.55, headY + headR * 0.55, headX - headR * 0.86, headY - 0.01);
     ctx.fill();
@@ -1511,10 +1486,10 @@ function touristHead(ctx, u, ph, headX, headY, look){
       ctx.beginPath(); ctx.arc(headX, headY - 0.07, headR * 0.88, Math.PI, Math.PI * 2); ctx.fill();
       ctx.fillStyle = shade(hc, -0.4);
       ctx.fillRect(headX - headR * 0.88, headY - 0.125, headR * 1.76, 0.045);
-    } else if (u.hat === 'panama'){ // light straw hat, low crown + dark band
+    } else if (u.hat === 'panama'){ // natural straw and pale Hammond ribbon
       ctx.beginPath(); ctx.ellipse(headX, headY - 0.075, headR + 0.12, 0.05, 0, 0, Math.PI * 2); ctx.fill(); // brim
       ctx.beginPath(); ctx.arc(headX, headY - 0.06, headR * 0.86, Math.PI * 1.02, Math.PI * 1.98); ctx.fill(); // crown
-      ctx.fillStyle = 'rgba(92,72,44,0.75)';
+      ctx.fillStyle = u.hatBand || 'rgba(92,72,44,0.75)';
       ctx.fillRect(headX - headR * 0.86, headY - 0.095, headR * 1.72, 0.028); // hatband
     } else { // visor
       ctx.fillRect(headX - headR * 0.55, headY - headR * 0.8, headR * 0.55 + 0.13, 0.05);
@@ -1566,6 +1541,15 @@ function touristBody(ctx, u, ph){
     ctx.fillStyle = shade(u.shirt, -0.07);
     ctx.beginPath(); ctx.ellipse(0.09 * bw, hipY - 0.14, 0.12 * bw, 0.15, 0.2, 0, Math.PI * 2); ctx.fill();
   }
+  if(u.underC || u.vestC){
+    ctx.save();ctx.beginPath();ctx.ellipse(0,(hipY+shY)/2,.17*bw,(hipY-shY)/2+.07,0,0,Math.PI*2);ctx.clip();
+    if(u.vestC){ctx.fillStyle=u.vestC;ctx.fillRect(-.2*bw,shY+.06,.4*bw,.56);}
+    ctx.fillStyle=u.underC||u.shirt;ctx.fillRect(.025,shY+.04,.105,hipY-shY);
+    if(u.hero==='timmy'){ctx.fillStyle='#544533';for(let j=0;j<9;j++)ctx.fillRect(.025,shY+.065+j*.051,.105,.012);}
+    ctx.restore();
+  }
+  if(u.neckwear){ctx.fillStyle=u.neckwear;ctx.beginPath();ctx.moveTo(.01,shY-.02);ctx.lineTo(.135,shY+.02);ctx.lineTo(.07,shY+.16);ctx.closePath();ctx.fill();}
+  if(u.hero==='hammond'){ctx.strokeStyle='#d5cfc1';ctx.lineWidth=.01;for(const dx of [-.1,.075]){ctx.strokeRect(dx,shY+.1,.08,.09);ctx.strokeRect(dx,hipY-.09,.08,.08);}}
   if (u.tie){    // knotted at the collar, flying back over the shoulder at a run
     const fl = Math.sin(ph * 1.3) * 0.05;
     ctx.fillStyle = u.tie;
@@ -1648,6 +1632,7 @@ function touristBody(ctx, u, ph){
    (turn flip, pitch onto vertical path legs, ground shadow).
    `airborne` skips the ground shadow — for anyone travelling by talon. */
 function drawTourist(ctx, u, x, y, turn, ph, alpha, pitch, airborne){
+  if (typeof Tourists !== 'undefined' && Tourists.draw(ctx,u,x,y,turn,ph,alpha,pitch,'run',airborne)) return;
   if (alpha <= 0) return;
   const s = u.size;
   if (!airborne){
@@ -1677,6 +1662,7 @@ function drawTourist(ctx, u, x, y, turn, ph, alpha, pitch, airborne){
    Faces +x (toward the horror), origin at the ground; pass dir=-travel
    so they've spun around to see it coming. */
 function drawTouristSitting(ctx, u, x, y, dir, time, alpha){
+  if (typeof Tourists !== 'undefined' && Tourists.draw(ctx,u,x,y,dir,time*7,alpha,0,'sit')) return;
   const s = u.size, bw = u.build, skin = u.skin;
   ctx.save();
   ctx.globalAlpha = 0.26 * alpha;
@@ -1781,6 +1767,7 @@ function drawTouristSitting(ctx, u, x, y, dir, time, alpha){
    the thing behind him. `t` only drives the aim's small live tremble: he is
    otherwise holding very still. */
 function drawTouristKneelAim(ctx, u, x, y, dir, t, alpha){
+  if (typeof Tourists !== 'undefined' && Tourists.draw(ctx,u,x,y,dir,t*3,alpha,0,'kneel')) return;
   if (alpha <= 0) return;
   const s = u.size, bw = u.build, tl = u.tall, skin = u.skin;
   ctx.save();                                     // ground shadow, wider than standing
@@ -1905,6 +1892,7 @@ function drawTouristKneelAim(ctx, u, x, y, dir, t, alpha){
    and the two feet alternate, one always gripping while the other moves.
    No ground shadow: nothing about this pose is touching the ground. */
 function drawTouristClimb(ctx, u, x, y, dir, ph, alpha){
+  if (typeof Tourists !== 'undefined' && Tourists.draw(ctx,u,x,y,dir,ph,alpha,0,'climb',true)) return;
   if (alpha <= 0) return;
   const s = u.size, bw = u.build, t = u.tall, skin = u.skin;
   ctx.save();
@@ -1982,6 +1970,7 @@ function climbLeg(ctx, u, hipX, hipY, footX, footY, far){
    removed the wall. `t` drives the terrified quiver; the trousers around the
    ankles do most of the work of explaining the pose. */
 function drawTouristSeated(ctx, u, x, y, dir, t, alpha){
+  if (typeof Tourists !== 'undefined' && Tourists.draw(ctx,u,x,y,dir,t*3,alpha,0,'seated')) return;
   if (alpha <= 0) return;
   const s = u.size, bw = u.build, tl = u.tall, skin = u.skin;
   ctx.save();
@@ -2054,6 +2043,10 @@ function drawTouristSeated(ctx, u, x, y, dir, t, alpha){
    pure white silhouette by the flash, and by 1 it is charcoal on its way to
    being a pile of ash. */
 function drawTouristZapped(ctx, u, x, y, dir, rot, burn, alpha){
+  if (typeof Tourists !== 'undefined' && Tourists.available){
+    ctx.save();ctx.translate(x,y);ctx.rotate(rot);
+    Tourists.draw(ctx,{...u,burn},0,0,dir,0,alpha,0,'zap',true);ctx.restore();return;
+  }
   if (alpha <= 0) return;
   const s = u.size, bw = u.build, t = u.tall;
   const k = Math.max(0, Math.min(1, burn));

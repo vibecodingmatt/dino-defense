@@ -3,7 +3,7 @@
    DINO DEFENSE — visitor looks
    =========================================================
    The look factory for every human in the game: the palette they
-   are assembled from, a fully randomised visitor, and the three
+   are assembled from, a fully randomised visitor, and the five
    film cameos. Kept out of game.js so the lab pages can build
    real visitors without booting the game — boss-lab.html and
    drex-lab.html both load this. A private lookRand() keeps it
@@ -48,83 +48,83 @@ function randomTouristLook(size, noKid){
   if (u.floral) u.shirt = '#e8574f';
   return u;
 }
-/* Two affectionate cameos for the home-screen chase (see [[home-screen-redesign]]).
-   Dennis Nedry: heavyset, glasses + moustache, yellow rain slicker, forever
-   clutching the "shaving cream" can. John Hammond: white hair and beard, cream
-   linen suit, panama hat and his amber-topped cane — genteel, and far too slow. */
+/* Film costumes and proportions: docs/WEB_GUEST_REFERENCE_REVIEW.md.
+   Each cameo overrides the random wardrobe; only its animation phase varies. */
 function nedryLook(size){
   const u = randomTouristLook(size, true);
   Object.assign(u, {
-    hero: 'nedry', skin: '#e7b98b', shirt: '#e6c43c',      // rain-slicker yellow
+    hero: 'nedry', skin: '#dfb293', shirt: '#e6bd24',
     bottom: '#39414f', bottomType: 'pants', shoeC: '#2c2c2c',
-    hairStyle: 'short', hairC: '#43301d', glasses: true, mustache: true,
-    belly: true, build: 1.34, tall: 0.9, hat: null, pack: null,
+    hairStyle: 'wavy', hairC: '#30251e', glasses: true, mustache: false, beard: false,
+    belly: true, build: 1.46, tall: 0.88, hat: null, hatC: null, pack: null, packC: null,
+    underC: '#33485b', longSleeve: true,
     camera: false, floral: false, balloon: false,
-    arms: 'canhold', holdItem: 'barbasol',
+    arms: 'canhold', holdItem: 'barbasol', lean: 0.15,
   });
   return u;
 }
 function hammondLook(size){
   const u = randomTouristLook(size, true);
   Object.assign(u, {
-    hero: 'hammond', skin: '#e6c4a2', shirt: '#ece5d4',    // cream linen
-    bottom: '#e2dbc8', bottomType: 'pants', shoeC: '#6b4a2e',
-    hairStyle: 'short', hairC: '#eae7de', beard: true, glasses: false,
-    belly: false, build: 1.04, tall: 1.0, hat: 'panama', hatC: '#efe7cf',
-    pack: null, camera: false, floral: false, balloon: false,
-    arms: 'cane', cane: true, lean: 0.26,      // a genteel stoop
+    hero: 'hammond', skin: '#dfb79e', shirt: '#eeeade',
+    bottom: '#e6e0d0', bottomType: 'pants', shoeC: '#b7a98c',
+    hairStyle: 'receding', hairC: '#e8e5db', beard: true, mustache: false, glasses: true,
+    belly: true, build: 1.18, tall: 0.94, hat: 'panama', hatC: '#dcccaa', hatBand: '#e5dfcb',
+    longSleeve: false,
+    pack: null, packC: null, camera: false, floral: false, balloon: false,
+    arms: 'cane', cane: true, lean: 0.07,
   });
   return u;
 }
-/* Robert Muldoon, game warden — sun-bleached khaki, bush hat, and the rifle he
+/* Robert Muldoon, game warden — stone safari uniform, tan vest and bush hat.
+   The legacy 'rifle' prop key now renders his black folding-stock shotgun, which he
    never quite gets to raise. He belongs to Blue and to nobody else: the two
    always spawn together and it never once goes his way. */
 function muldoonLook(size){
   const u = randomTouristLook(size, true);
   Object.assign(u, {
-    hero: 'muldoon', skin: '#c08a58', shirt: '#9a8b60',    // sun-bleached khaki
-    bottom: '#7a6c48', bottomType: 'shorts', shoeC: '#4a3524',
-    hairStyle: 'short', hairC: '#4e3c26', beard: false, mustache: false,
-    glasses: false, belly: false, build: 1.08, tall: 1.03,
-    hat: 'safari', hatC: '#9c8c62',
-    pack: null, camera: false, floral: false, balloon: false,
-    arms: 'rifle', holdItem: 'rifle',
+    hero: 'muldoon', skin: '#c79678', shirt: '#b9b3a0',
+    bottom: '#b3ad97', bottomType: 'shorts', shoeC: '#302c25',
+    hairStyle: 'receding', hairC: '#756858', beard: false, mustache: false,
+    glasses: false, belly: false, build: 1.04, tall: 1.07,
+    hat: 'safari', hatC: '#9e8965', hatBand: '#746347', vestC: '#b39160', longSleeve: false,
+    pack: null, packC: null, camera: false, floral: false, balloon: false,
+    arms: 'rifle', holdItem: 'rifle', lean: 0.12,
   });
   return u;
 }
 
 /* Tim Murphy, who goes over the perimeter fence at the worst possible moment.
-   A child, so he keeps the factory's kid proportions — the big head, the short
-   legs — but none of its pigtails or balloons: those belong to the park's other
-   children, and he is emphatically his own cameo. */
+   The blue overshirt is muddy by the fence scene; the striped tee and navy
+   neckerchief still show. Longer, slim limbs distinguish him from a toddler. */
 function timmyLook(size){
   const u = randomTouristLook(size, true);   // no random kid roll; he IS the kid
   Object.assign(u, {
     hero: 'timmy', kid: true,
-    size: size * 0.72, tall: 0.88, build: 0.92,
-    skin: '#eec49c', shirt: '#cdd6de',       // pale grey-blue tee
-    bottom: '#6d5a3c', bottomType: 'shorts', shoeC: '#ded8c8',
-    hairStyle: 'short', hairC: '#3a2718',
-    hat: null, pack: null, glasses: false, beard: false, mustache: false,
+    size: size * 0.72, tall: 1.0, build: 0.88,
+    skin: '#deb28e', shirt: '#8b9697', underC: '#d4c8ae', neckwear: '#333e49',
+    bottom: '#998468', bottomType: 'shorts', shoeC: '#a99a7a', longSleeve: false,
+    hairStyle: 'wavy', hairC: '#705038',
+    hat: null, hatC: null, pack: null, packC: null, glasses: false, beard: false, mustache: false,
     belly: false, floral: false, balloon: false, camera: false,
-    arms: 'flail',
+    arms: 'flail', lean: 0.14,
   });
   return u;
 }
 
 /* Donald Gennaro, counsel for the investors, who abandons two children and
-   locks himself in a toilet. Shirtsleeves, loosened tie and the glasses — no
+   locks himself in a toilet. Striped shirtsleeves and a patterned tie — no
    hat, no pack, nothing that reads as a tourist: he is the only man on the
    island dressed for a meeting. */
 function gennaroLook(size){
   const u = randomTouristLook(size, true);
   Object.assign(u, {
-    hero: 'gennaro', skin: '#e0ac7e', shirt: '#e2e8ee',    // white shirt, gone grey with sweat
+    hero: 'gennaro', skin: '#ceaa91', shirt: '#cbd0cf',
     bottom: '#39404c', bottomType: 'pants', shoeC: '#2a2622',
-    hairStyle: 'short', hairC: '#2c2118', glasses: true,
-    beard: false, mustache: false, belly: false, build: 1.02, tall: 1.0,
-    hat: null, pack: null, camera: false, floral: false, balloon: false,
-    arms: 'clutch', tie: '#8e332c',
+    hairStyle: 'receding', hairC: '#777069', glasses: false, longSleeve: true,
+    beard: false, mustache: false, belly: false, build: 0.96, tall: 1.04,
+    hat: null, hatC: null, pack: null, packC: null, camera: false, floral: false, balloon: false,
+    arms: 'clutch', tie: '#807967', lean: 0.14,
   });
   return u;
 }
