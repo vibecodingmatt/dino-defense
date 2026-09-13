@@ -6,10 +6,10 @@ separate maintained products. This is the browser handoff. Roblox starts at
 
 ## Production baseline
 
-Last verified runtime release: **1.68.0**, September 12, 2026; service-worker cache
-**dino-defense-v64**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
-from root `main`, commit `dd8f415688b316cc087024536b7ec9a9ec02d427`.
-[Pages run 34736591613 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34736591613).
+Last verified runtime release: **1.69.0**, September 13, 2026; service-worker cache
+**dino-defense-v65**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
+from root `main`, commit `80354a74f41fbf827915d859342f2247f435d64d`.
+[Pages run 34763470112 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34763470112).
 This is a recorded deployment baseline; inspect Git and the live version before
 the next release rather than assuming HEAD still equals this commit.
 
@@ -18,11 +18,23 @@ dependencies, all 33 loaded dinosaur skins and polished jaw attachments,
 the guest renderer, hidden art menus,
 ascending weapon prices, matching number keys and Gas selection, actual kills
 with all nine finishers, surface effects and red-ring removal, resumed wave one
-with one weapon and zero cash, phone layout and offline loading under cache v64.
+with one weapon and zero cash, phone layout and offline loading under cache v65.
 It also checked the authored audio bank online/offline, larger Gennaro scale,
 and deaths of all 33 species and nine bosses without creature vocalizations.
 No browser JavaScript errors were found in those checks. Physical phone GPU
 performance and film-quality likeness were not established by headless tests.
+
+The 1.69.0 homepage outhouse rebuilds as the next lawyer-scene T-Rex spawns,
+before its walk-on, even if the prior wreck's timer has not expired. Production
+checks passed three consecutive scheduled repeats on desktop and 390/320 px
+phones, with every approach frame hiding Gennaro behind an intact hut before
+the door-break reveal and bite. Missile kills now spray 72 larger droplets and
+24 flesh fragments, with landed splatter fading through a 2.8-second finisher.
+Real projectile/splash kills, surviving-target credit, visible blood at several
+beats, pure redraws and complete cleanup passed on desktop, phone and Canvas
+fallback. The full live homepage suite also passed. Evidence and live captures
+are under `C:/Users/burns/dev/dino-perimeter-review/missile1690/` in
+`production/`, `production-scenes/`, `production-home/` and `production-fx/`.
 
 The new homepage has a charcoal/amber design, a compact fence shield brand,
 Play/Continue entry, an image-led seven-zone gallery, grouped progression menus,
@@ -176,6 +188,7 @@ not a runtime game dependency. Only creature topology checks need Node alone.
 | Tourists, guest cameos, evacuation, bite effects | `node tests/tourists.cjs`; `node tests/presentation.cjs`; `node tests/resume.cjs` |
 | First-wave state, saved towers, cross-device transfers | `node tests/resume.cjs` |
 | Weapons/upgrades/projectiles/effects | `node tests/arsenal.cjs`; `node tests/dino-fx.cjs` |
+| Missile kill blood, splash credit, persistence and cleanup | Also `node tests/missile-gore.cjs`; `FX_REVIEW_URL` and `FX_REVIEW_DIR` select live verification/evidence |
 | Perimeter map/resident raptors/placement | `node tests/perimeter.cjs` |
 | Other map art, animated scenery, routes, loading and offline | `node tests/sanctuary.cjs`; `node tests/resume.cjs`; `node tests/presentation.cjs` |
 
