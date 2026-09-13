@@ -1630,43 +1630,12 @@ function damage(d, amt, pierce, src){
       unlockAch('boss_first');
       if (d.key === 'drex') unlockAch('apex');
     } else {
-      /* every weapon signs its kills — each key maps to its own death gag:
-         🚀 gibs: splat-cloud + cartwheeling pieces  💣 punt: launched sky-high
-         🔫 deflate: riddled, then pops like a balloon  🔥 ash: statue crumbles
-         🎯 ko: backflip, X-eyes, circling stars  ❄️ iceblock: freeze + shatter
-         📡 notes: shaken apart into music  ☣️ ghost: a little spirit rises */
-      const GAG = {missile: ['gibs', 1.6], mortar: ['punt', 2.6], gatling: ['deflate', 1.4],
-                   flamer: ['ash', 1.9], sniper: ['ko', 2.1], cryo: ['iceblock', 1.8],
-                   sonic: ['notes', 1.5], gas: ['ghost', 2.2]};
-      const gag = src ? GAG[src.key] : null;
+      // The shared renderer preserves this species' skin in every finisher.
       if (src && Arsenal.catalog[src.key]){
-        WeaponFX.death(G.fx,d,p,src);
-        if (!weaponMuted(src.key)){
-          if (src.key === 'cryo') SFX.shatter();
-          else if (src.key === 'flamer') SFX.sizzle();
-        }
-      } else if (src && src.key === 'tesla'){
-        // ⚡ death by Tesla: no gore — the skeleton freezes mid-zap, then
-        // crumbles into a smoking pile of bones with a little static wisp
-        G.fx.push({kind: 'bones', x: p.x, y: p.y, r: d.size, fly: d.flying ? 1 : 0,
-                   seed: Math.random() * 9, t: 0, dur: 1.5});
-      } else if (gag && G.fx.length < 340){
-        G.fx.push({kind: gag[0], x: p.x, y: p.y, r: d.size, fly: d.flying ? 1 : 0,
-                   body: d.pal.body, belly: d.pal.belly,
-                   dir: p.x >= src.x ? 1 : -1,   // ko: knocked away from the shooter
-                   seed: Math.random() * 9, t: 0, dur: gag[1]});
-        if (gag[0] === 'gibs') addFx('blood', p.x, p.y + 2, d.size * 0.6);
-        if (!weaponMuted(src.key)){
-          if (gag[0] === 'punt') SFX.punt();
-          else if (gag[0] === 'deflate') SFX.deflate();
-          else if (gag[0] === 'ash') SFX.sizzle();
-          else if (gag[0] === 'ko') SFX.koBoing();
-          // iceblock, notes, and ghost play their sound from the animation
-          // itself (at the shatter / pop / ghost-rise beat), not at the kill
-        }
+        if (!WeaponFX.death(G.fx,d,p,src)) addFx('puff',p.x,p.y,d.size);
       } else {
-        addFx('puff', p.x, p.y, d.size);
-        addFx('blood', p.x, p.y + 2, d.size * 0.45);
+        addFx('puff',p.x,p.y,d.size);
+        addFx('blood',p.x,p.y+2,d.size*.45);
       }
       if (Math.random() < 0.3) SFX.coin();
       // dying vocalization, flavored by body size (occasional + rate-limited)
@@ -1680,6 +1649,7 @@ function damage(d, amt, pierce, src){
 }
 function applyHit(d, t, st, def){
   damage(d, st.dmg, def.pierce, t);
+  if (!d.dead && t.key === 'sonic') d.sonicT = .35;
   if (def.slow && !d.dead){
     d.slowT = Math.max(d.slowT, def.slow.t);
     d.slowF = Math.min(d.slowF === 1 || d.slowT <= 0 ? 1 : d.slowF, def.slow.f);
@@ -1937,19 +1907,6 @@ function addText(x, y, txt, color, size, dur){
   G.texts.push({x, y, txt, color, size: size || 15, t: 0, dur: dur || 1.4});
 }
 
-/* tiny cartoon dino silhouette shared by the kill gags — torso + tail +
-   head (+ optional belly patch), drawn around (0,0), facing +x */
-function gagBody(s, body, belly){
-  ctx.fillStyle = body;
-  ctx.beginPath(); ctx.ellipse(0, 0, s * 0.5, s * 0.3, 0, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.moveTo(-s * 0.45, -s * 0.1); ctx.lineTo(-s * 0.85, 0); ctx.lineTo(-s * 0.45, s * 0.12); ctx.closePath(); ctx.fill();
-  ctx.beginPath(); ctx.arc(s * 0.55, -s * 0.12, s * 0.18, 0, Math.PI*2); ctx.fill();
-  if (belly){
-    ctx.fillStyle = belly;
-    ctx.beginPath(); ctx.ellipse(0, s * 0.12, s * 0.34, s * 0.16, 0, 0, Math.PI*2); ctx.fill();
-  }
-}
-
 // one jagged lightning polyline, rolled once (bolts re-roll per frame; scars keep this shape)
 function jagPts(x1, y1, x2, y2){
   const n = 7, pts = [[x1, y1]];
@@ -1971,25 +1928,26 @@ function runZapQ(dt){
     h.done = true;
     const d = h.dino;
     const cp = dinoPos(d);
-    const from = h.from ? dinoPos(h.from) : Arsenal.anchor(h.tower);
-    G.bolts.push({x1: from.x, y1: from.y, x2: cp.x, y2: cp.y, t: 0.16, w: 3.2, jag: true,
+    const strike = DinoFX.anchor(d,cp);
+    const from = h.from ? DinoFX.anchor(h.from,dinoPos(h.from)) : Arsenal.anchor(h.tower);
+    G.bolts.push({x1: from.x, y1: from.y, x2: strike.x, y2: strike.y, t: 0.16, w: 3.2, jag: true,
                   flash: 1,                              // first frame renders WHITE-hot
                   color: h.maxedT ? 'rgba(215,160,255,0.95)' : 'rgba(120,230,255,0.95)',
                   glow:  h.maxedT ? 'rgba(150,70,255,0.32)'  : 'rgba(60,160,255,0.28)'});
     // the arc leaves an ionized scar hanging in the air + a glow on the ground
     if (G.fx.length < 340){
-      G.fx.push({kind: 'zapscar', pts: jagPts(from.x, from.y, cp.x, cp.y),
+      G.fx.push({kind: 'zapscar', pts: jagPts(from.x, from.y, strike.x, strike.y),
                  x: cp.x, y: cp.y, maxed: h.maxedT ? 1 : 0, seed: Math.random() * 9, t: 0, dur: 0.45});
       G.fx.push({kind: 'zapglow', x: cp.x, y: cp.y + 4, r: 15, maxed: h.maxedT ? 1 : 0,
                  seed: Math.random() * 9, t: 0, dur: 0.5});
       // white-hot welder sparks burst off the strike point and bounce on the dirt
       for (let i = 0; i < 6; i++){
-        G.fx.push({kind: 'wspark', x: cp.x, y: cp.y - 4, vx: rand(-75, 75), vy: rand(-130, -30),
+        G.fx.push({kind: 'wspark', x: strike.x, y: strike.y, vx: rand(-75, 75), vy: rand(-130, -30),
                    gy: cp.y + rand(2, 8), seed: Math.random() * 9, t: 0, dur: rand(0.35, 0.6)});
       }
     }
-    addFx('zap', cp.x, cp.y, h.maxedT ? 16 : 11);        // electric burst at every chained dino
-    d.zapT = 0.35;                                        // cartoon skeleton-strobe while frying
+    addFx('zap', strike.x, strike.y, h.maxedT ? 16 : 11); // discharge meets the animated skin
+    d.zapT = 0.35;                                        // skin-bound electrical discharge
     d.charT = 1;                                          // …then a smoking, sooty hangover
     if (!d.dead && !d.leaked) applyHit(d, h.tower, h.st, h.def);
     if (h.from) G.links.push({a: h.from, b: d, t: 0.45, maxed: h.maxedT});
@@ -2002,7 +1960,8 @@ function runZapQ(dt){
       const p2 = dinoPos(d2);
       if (hyp(cp.x, cp.y, p2.x, p2.y) < h.def.chainRange * 1.1){
         const rc = rand(0.5, 0.7);                       // stops 50–70% of the way there
-        G.bolts.push({x1: cp.x, y1: cp.y, x2: cp.x + (p2.x - cp.x) * rc, y2: cp.y + (p2.y - cp.y) * rc,
+        const toward = DinoFX.anchor(d2,p2);
+        G.bolts.push({x1: strike.x, y1: strike.y, x2: strike.x + (toward.x - strike.x) * rc, y2: strike.y + (toward.y - strike.y) * rc,
                       t: 0.09, w: 1.5, jag: true,
                       color: h.maxedT ? 'rgba(215,160,255,0.6)' : 'rgba(120,230,255,0.6)'});
         teased++;
@@ -2029,7 +1988,9 @@ function updateDinos(dt){
     if (d.slowT > 0){ d.slowT -= dt; if (d.slowT <= 0) d.slowF = 1; }
     if (d.burnT > 0){ d.burnT -= dt; damage(d, d.burnDps * dt, true, d.burnSrc); if (d.dead) continue; }
     if (d.revealT > 0) d.revealT -= dt;
-    if (d.zapT > 0) d.zapT -= dt;   // electrocution skeleton-flash timer
+    if (d.poisonT > 0) d.poisonT = Math.max(0,d.poisonT-dt);
+    if (d.sonicT > 0) d.sonicT = Math.max(0,d.sonicT-dt);
+    if (d.zapT > 0) d.zapT -= dt;   // electrical discharge timer
     else if (d.charT > 0) d.charT -= dt;   // post-zap smoking/sooty hangover
     if (d.regen > 0 && d.hp < d.maxHp) d.hp = Math.min(d.maxHp, d.hp + d.regen * d.maxHp * dt);
     // Indominus camouflage: after a brief window of visibility once it's on
@@ -3201,7 +3162,10 @@ function updateClouds(dt){
     for (const d of G.dinos){
       if (d.dead || d.leaked || gasImmune(d)) continue;
       const p = dinoPos(d);
-      if (hyp(c.x, c.y, p.x, p.y) <= c.r + d.size * 0.35) damage(d, c.dps * dt, true, c.tower);
+      if (hyp(c.x, c.y, p.x, p.y) <= c.r + d.size * 0.35){
+        damage(d, c.dps * dt, true, c.tower);
+        if (!d.dead) d.poisonT = .65;
+      }
     }
   }
   G.clouds = G.clouds.filter(c => c.t < c.dur);
@@ -5308,7 +5272,9 @@ function step(dt){
   }
   G.corpses = G.corpses.filter(c => c.t < c.dur);
   if (G.victoryPending && G.corpses.length === 0) victory();
-  for (const f of G.fx) f.t += dt;
+  for (const f of G.fx){
+    if (!WeaponFX.update(f,dt,(key,sound)=>{if(!weaponMuted(key)) SFX[sound]?.();})) f.t += dt;
+  }
   G.fx = G.fx.filter(f => f.t < f.dur);
   for (const f of G.decals) f.t += dt;
   G.decals = G.decals.filter(f => f.t < f.dur);
@@ -5961,159 +5927,7 @@ function render(dt){
     // while cloaked, draw nothing else — no health bar, boss aura, or status
     // tints that would betray its position (a Sonic Emitter must reveal it)
     if (hidden) return;
-    // Electric light follows the actual skin and silhouette at every heading.
-    // The older Canvas fallback retains its original skeleton overlay.
-    const strobe = d.zapT > 0 ? Math.sin(G.time * 42) : -0.3;
-    if (d.zapT > 0 && (strobe > 0.05 || strobe < -0.55)){
-      const neg = strobe < -0.55;                        // the negative frame
-      ctx.save();
-      ctx.translate(rand(-1.5, 1.5), rand(-1.5, 1.5));   // electric jitter
-      const orig = d.pal;
-      if (neg){
-        // white rim first (the dino redrawn slightly larger), then the black body
-        d.pal = {body: '#f2f6ff', belly: '#ffffff', accent: '#f2f6ff'};
-        ctx.save();
-        ctx.translate(p.x, p.y); ctx.scale(1.07, 1.07); ctx.translate(-p.x, -p.y);
-        drawDino(ctx, d, p.x, p.y, d.turn, d.phase, 0.8, pitch);
-        ctx.restore();
-        d.pal = {body: '#141824', belly: '#1d2436', accent: '#141824'};
-      } else {
-        d.pal = {body: '#e8efff', belly: '#ffffff', accent: '#cfe0ff'};
-      }
-      drawDino(ctx, d, p.x, p.y, d.turn, d.phase, 0.92, pitch);
-      d.pal = orig;
-      // bones over the flash: skull + jaw, spine + tail vertebrae, ribs, leg
-      // and toe bones — drawn in BODY space so they ride the dino's flip/pitch
-      if(!Creatures.available){
-      const s = d.size;
-      ctx.translate(p.x, p.y);
-      const tx3 = (d.turn === undefined ? 1 : d.turn);
-      ctx.scale(Math.sign(tx3 || 1) * Math.max(0.08, Math.abs(tx3)), 1);
-      if (pitch){ ctx.translate(0, -s * 0.6); ctx.rotate(pitch); ctx.translate(0, s * 0.6); }
-      const cy = -s * (d.flying ? 1.55 : 0.62);
-      const boneCol = neg ? 'rgba(235,245,255,0.95)' : 'rgba(50,60,76,0.9)';
-      ctx.strokeStyle = boneCol; ctx.lineCap = 'round';
-      ctx.lineWidth = Math.max(1.2, s * 0.055);
-      ctx.beginPath(); ctx.moveTo(-s * 0.6, cy + s * 0.04);               // spine
-      ctx.quadraticCurveTo(0, cy - s * 0.14, s * 0.42, cy - s * 0.06);
-      ctx.stroke();
-      ctx.lineWidth = Math.max(1, s * 0.035);
-      ctx.beginPath(); ctx.moveTo(-s * 0.6, cy + s * 0.04);               // tail spine
-      ctx.lineTo(-s * 0.95, cy - s * 0.04); ctx.stroke();
-      for (let i = 1; i <= 3; i++){                                       // tail vertebrae
-        const q = i / 4, vx3 = -s * 0.6 - s * 0.35 * q, vy3 = cy + s * 0.04 - s * 0.08 * q;
-        ctx.beginPath(); ctx.moveTo(vx3, vy3 - s * 0.04); ctx.lineTo(vx3, vy3 + s * 0.04); ctx.stroke();
-      }
-      ctx.lineWidth = Math.max(1, s * 0.04);
-      for (let i = 0; i < 3; i++){                                        // ribs
-        const rx = -s * (0.32 - i * 0.22);
-        ctx.beginPath(); ctx.arc(rx, cy - s * 0.02, s * 0.17, 0.25, Math.PI - 0.25); ctx.stroke();
-      }
-      if (!d.flying){                                                     // leg + toe bones
-        ctx.beginPath(); ctx.moveTo(0, cy + s * 0.12); ctx.lineTo(s * 0.08, -s * 0.1); ctx.stroke();
-        ctx.lineWidth = Math.max(1, s * 0.03);
-        ctx.beginPath(); ctx.moveTo(s * 0.08, -s * 0.1); ctx.lineTo(s * 0.17, -s * 0.04); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(s * 0.08, -s * 0.1); ctx.lineTo(s * 0.16, -s * 0.11); ctx.stroke();
-      }
-      ctx.lineWidth = Math.max(1, s * 0.04);
-      ctx.beginPath(); ctx.moveTo(s * 0.38, cy - s * 0.08);               // grinning jawline
-      ctx.quadraticCurveTo(s * 0.53, cy - s * 0.04, s * 0.65, cy - s * 0.1); ctx.stroke();
-      ctx.lineWidth = Math.max(1, s * 0.03);
-      for (let i = 0; i < 3; i++){                                        // teeth
-        const jx = s * (0.44 + i * 0.07);
-        ctx.beginPath(); ctx.moveTo(jx, cy - s * 0.07); ctx.lineTo(jx + s * 0.015, cy - s * 0.03); ctx.stroke();
-      }
-      ctx.fillStyle = boneCol;                                            // eye socket…
-      ctx.beginPath(); ctx.arc(s * 0.52, cy - s * 0.2, Math.max(1.6, s * 0.08), 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = 'rgba(255,220,110,0.4)';                            // …glowing like a
-      ctx.beginPath(); ctx.arc(s * 0.52, cy - s * 0.2, Math.max(2.6, s * 0.14), 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#fff2b0';                                          // …lightbulb filament
-      ctx.beginPath(); ctx.arc(s * 0.52, cy - s * 0.2, Math.max(1, s * 0.045), 0, Math.PI*2); ctx.fill();
-      // static frazzle: the hide stands on end in jagged electric spikes
-      ctx.strokeStyle = neg ? 'rgba(225,245,255,0.9)' : 'rgba(120,220,255,0.85)';
-      ctx.lineWidth = 1;
-      for (let i = 0; i < 7; i++){
-        const a2 = i * 0.9 + G.time * 3;
-        const hx = Math.cos(a2) * s * 0.62, hy = cy + Math.sin(a2) * s * 0.42;
-        const dx2 = Math.cos(a2), dy2 = Math.sin(a2);
-        ctx.beginPath(); ctx.moveTo(hx, hy);
-        ctx.lineTo(hx + dx2 * s * 0.09 + rand(-1.5, 1.5), hy + dy2 * s * 0.09 + rand(-1.5, 1.5));
-        ctx.lineTo(hx + dx2 * s * 0.17 + rand(-2, 2), hy + dy2 * s * 0.17 + rand(-2, 2));
-        ctx.stroke();
-      }
-      }
-      ctx.restore();
-    }
-    // zap hangover: for a moment after the strobe the dino is sooty and
-    // smoking, with leftover static still crawling over its hide
-    if (d.zapT <= 0 && d.charT > 0){
-      const ck = Math.min(1, d.charT);
-      const orig = d.pal;
-      d.pal = {body: '#232228', belly: '#3a3840', accent: '#232228'};
-      drawDino(ctx, d, p.x, p.y, d.turn, d.phase, 0.34 * ck, pitch);
-      d.pal = orig;
-      const s = d.size, byT = p.y - s * (d.flying ? 1.55 : 0.62);
-      if (Math.random() < 0.12 && G.fx.length < 340){
-        G.fx.push({kind: 'zsmoke', x: p.x + rand(-s * 0.4, s * 0.4), y: byT - s * 0.2,
-                   seed: Math.random() * 9, t: 0, dur: 0.7});
-      }
-      if (Math.random() < 0.3){
-        ctx.strokeStyle = `rgba(160,240,255,${0.7 * ck})`; ctx.lineWidth = 1;
-        for (let i = 0; i < 2; i++){
-          const ax = p.x + rand(-s * 0.4, s * 0.4), ay = byT + rand(-s * 0.25, s * 0.25);
-          ctx.beginPath(); ctx.moveTo(ax, ay);
-          ctx.lineTo(ax + rand(-5, 5), ay + rand(-4, 4));
-          ctx.lineTo(ax + rand(-7, 7), ay + rand(-5, 5)); ctx.stroke();
-        }
-      }
-    }
-    // ON FIRE: flickering flame tongues dance on the dino's back while it burns,
-    // with embers rising off it and a heat glow on the body. Drawn in BODY
-    // space (same translate/flip/pitch transform as the dino itself) so the
-    // fire stays glued to its back as it rotates through corners.
-    if (d.burnT > 0){
-      const s = d.size;
-      ctx.save();
-      ctx.translate(p.x, p.y);
-      const tx2 = (d.turn === undefined ? 1 : d.turn);
-      ctx.scale(Math.sign(tx2 || 1) * Math.max(0.08, Math.abs(tx2)), 1);
-      if (pitch){ ctx.translate(0, -s * 0.6); ctx.rotate(pitch); ctx.translate(0, s * 0.6); }
-      ctx.fillStyle = 'rgba(255,120,20,0.22)';   // heat glow on the body
-      ctx.beginPath(); ctx.arc(0, -s * 0.7, s * 0.55, 0, Math.PI*2); ctx.fill();
-      const by = -s * (d.flying ? 1.55 : 1.0);   // the back, in body space
-      const fl = G.time * 14 + d.phase * 3;
-      for (let i = -1; i <= 1; i++){             // three tongues, center one tallest
-        const fx2 = i * s * 0.26 + Math.sin(fl + i * 2) * 1.5;
-        const h  = s * (0.4 + 0.15 * Math.sin(fl * 1.3 + i * 2.4)) * (i === 0 ? 1.3 : 0.85);
-        const w2 = s * 0.15 * (i === 0 ? 1.25 : 0.9);
-        const tip = Math.sin(fl * 1.7 + i) * w2 * 0.6;
-        ctx.fillStyle = 'rgba(255,110,20,0.85)';
-        ctx.beginPath();
-        ctx.moveTo(fx2 - w2, by);
-        ctx.quadraticCurveTo(fx2 - w2 * 0.6, by - h * 0.55, fx2 + tip, by - h);
-        ctx.quadraticCurveTo(fx2 + w2 * 0.7, by - h * 0.5, fx2 + w2, by);
-        ctx.closePath(); ctx.fill();
-        ctx.fillStyle = 'rgba(255,225,100,0.9)'; // hot yellow core
-        ctx.beginPath();
-        ctx.moveTo(fx2 - w2 * 0.45, by);
-        ctx.quadraticCurveTo(fx2 - w2 * 0.25, by - h * 0.35, fx2 + tip * 0.5, by - h * 0.58);
-        ctx.quadraticCurveTo(fx2 + w2 * 0.42, by - h * 0.3, fx2 + w2 * 0.45, by);
-        ctx.closePath(); ctx.fill();
-      }
-      for (let i = 0; i < 3; i++){               // rising embers
-        const cyc = (G.time * 1.5 + i * 0.37 + (d.phase * 0.16 % 1)) % 1;
-        ctx.fillStyle = `rgba(255,${140 + i * 35},40,${0.75 * (1 - cyc)})`;
-        ctx.beginPath();
-        ctx.arc(Math.sin(G.time * 3 + i * 2.5) * s * 0.3, by - s * 0.35 - cyc * s * 0.9,
-                1 + (1 - cyc) * 0.8, 0, Math.PI*2);
-        ctx.fill();
-      }
-      ctx.restore();
-    }
-    if (d.slowT > 0){
-      ctx.fillStyle = 'rgba(140,220,255,0.3)';
-      ctx.beginPath(); ctx.arc(p.x, p.y - d.size*0.7, d.size*0.55, 0, Math.PI*2); ctx.fill();
-    }
+    DinoFX.status(ctx,d,p.x,p.y,d.turn,d.phase,pitch,G.time);
     // health bar
     if (d.hp < d.maxHp){
       const w = Math.max(22, d.size * 1.6), y0 = p.y - d.size * (d.key==='brachiosaurus'?2.8:d.key==='apatosaurus'?2.1:d.flying?2.1:1.6) - 6;
@@ -6130,17 +5944,15 @@ function render(dt){
       ctx.fillStyle = '#ffe9a8'; ctx.fillText('⭐ ' + d.custom, p.x, y0);
     }
     if (d.boss){
-      // the aura goes cold shield-blue while she can't be touched, so nobody
-      // spends an air strike wondering why nothing is landing
-      ctx.strokeStyle = d.noHurt
-        ? 'rgba(150,225,255,' + (0.55 + 0.35 * Math.sin(G.time * 5)) + ')'
-        : 'rgba(255,80,60,' + (0.4 + 0.3*Math.sin(d.phase)) + ')';
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(p.x, p.y, d.size * 1.1, 0, Math.PI*2); ctx.stroke();
+      // Only the temporary invulnerability shield has an indicator. Ordinary
+      // boss entrances and combat no longer draw the blinking red aura.
       if (d.noHurt){
+        ctx.strokeStyle = 'rgba(150,225,255,' + (0.55 + 0.35 * Math.sin(G.time * 5)) + ')';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(p.x,p.y,d.size*1.1,0,Math.PI*2); ctx.stroke();
         ctx.strokeStyle = 'rgba(150,225,255,0.28)';
-        ctx.setLineDash([6, 7]); ctx.lineDashOffset = -G.time * 26;
-        ctx.beginPath(); ctx.arc(p.x, p.y, d.size * 1.42, 0, Math.PI*2); ctx.stroke();
+        ctx.setLineDash([6,7]); ctx.lineDashOffset = -G.time*26;
+        ctx.beginPath(); ctx.arc(p.x,p.y,d.size*1.42,0,Math.PI*2); ctx.stroke();
         ctx.setLineDash([]); ctx.lineDashOffset = 0;
       }
       // embers drifting off the apex predator (the D-Rex smolders harder)
@@ -6263,17 +6075,8 @@ function render(dt){
   // beat after the strike — a thin writhing thread of leftover current
   for (const l of G.links){
     if (l.a.dead || l.a.leaked || l.b.dead || l.b.leaked) continue;
-    const pa = dinoPos(l.a), pb = dinoPos(l.b);
-    const la = 0.55 * (l.t / 0.45);
-    ctx.strokeStyle = l.maxed ? `rgba(210,160,255,${la})` : `rgba(140,230,255,${la})`;
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(pa.x, pa.y - l.a.size * 0.5);
-    for (let i = 1; i < 5; i++){
-      const k2 = i / 5;
-      ctx.lineTo(pa.x + (pb.x - pa.x) * k2 + rand(-3, 3),
-                 (pa.y - l.a.size * 0.5) + ((pb.y - l.b.size * 0.5) - (pa.y - l.a.size * 0.5)) * k2 + rand(-3, 3));
-    }
-    ctx.lineTo(pb.x, pb.y - l.b.size * 0.5); ctx.stroke();
+    const pa = DinoFX.anchor(l.a,dinoPos(l.a)), pb = DinoFX.anchor(l.b,dinoPos(l.b));
+    DinoFX.arc(ctx,pa,pb,G.time,l.a.size+l.b.size,0.55*l.t/0.45);
   }
   // fx
   for (const f of G.fx){
@@ -6392,588 +6195,6 @@ function render(dt){
         ctx.beginPath();
         ctx.arc(f.x + Math.sin(k * 5 + f.seed) * 2.5, f.y - k * 15, 2 + k * 4.5, 0, Math.PI*2);
         ctx.fill();
-        break;
-      }
-      case 'bones': { // tesla kill: skeleton freezes mid-zap, then crumbles into a pile
-        const s = f.r, gy = f.y + 2;
-        const cy = f.y - s * (f.fly ? 1.5 : 0.62);       // height the body froze at
-        const pr = n => { const v = Math.sin(f.seed * 37.7 + n * 91.3) * 43758.5; return v - Math.floor(v); };
-        if (k < 0.14){
-          // beat 1: a white-hot afterimage hangs in the air with the skeleton showing
-          const a = 1 - k / 0.14;
-          ctx.fillStyle = `rgba(240,248,255,${0.7 * a})`;
-          ctx.beginPath(); ctx.ellipse(f.x, cy, s * 0.62, s * 0.4, 0, 0, Math.PI*2); ctx.fill();
-          ctx.strokeStyle = `rgba(60,72,92,${0.9 * a})`; ctx.lineCap = 'round';
-          ctx.lineWidth = Math.max(1.2, s * 0.05);
-          ctx.beginPath(); ctx.moveTo(f.x - s * 0.55, cy + s * 0.04);
-          ctx.quadraticCurveTo(f.x, cy - s * 0.16, f.x + s * 0.4, cy - s * 0.06); ctx.stroke();
-          ctx.lineWidth = Math.max(1, s * 0.04);
-          for (let i = 0; i < 3; i++){
-            ctx.beginPath(); ctx.arc(f.x - s * (0.3 - i * 0.22), cy, s * 0.16, 0.25, Math.PI - 0.25); ctx.stroke();
-          }
-          ctx.fillStyle = `rgba(60,72,92,${0.9 * a})`;
-          ctx.beginPath(); ctx.arc(f.x + s * 0.5, cy - s * 0.18, Math.max(1.4, s * 0.07), 0, Math.PI*2); ctx.fill();
-        } else {
-          // beat 2: the bones rain down, settle into a pile, and fade
-          const te = f.t - 0.14 * f.dur;                 // seconds since the crumble began
-          const kk = (k - 0.14) / 0.86;
-          const fade = kk > 0.7 ? 1 - (kk - 0.7) / 0.3 : 1;
-          // pile shadow grows as bones land
-          ctx.fillStyle = `rgba(0,0,0,${0.22 * fade * Math.min(1, kk * 2)})`;
-          ctx.beginPath(); ctx.ellipse(f.x, gy + 2, s * 0.5, s * 0.16, 0, 0, Math.PI*2); ctx.fill();
-          ctx.lineCap = 'round';
-          for (let i = 0; i < 6; i++){
-            const tb = Math.max(0, te - pr(i) * 0.12);   // per-bone drop delay
-            const y0 = cy + (pr(i + 5) - 0.5) * s * 0.4;
-            const yl = gy + (pr(i + 20) - 0.5) * 4;      // where this bit lands in the pile
-            const tl = Math.sqrt(Math.max(0.001, 2 * (yl - y0) / 720));  // time to land
-            const tc = Math.min(tb, tl);
-            const by = y0 + 0.5 * 720 * tc * tc;
-            const bx = f.x + (pr(i + 10) - 0.5) * s * 0.5 + (pr(i + 15) - 0.5) * s * 0.5 * Math.min(1, tb / Math.max(tl, 0.001));
-            const rot = (pr(i + 30) - 0.5) * 2 + tc * (pr(i + 40) - 0.5) * 8;
-            ctx.save(); ctx.translate(bx, by); ctx.rotate(rot);
-            ctx.strokeStyle = `rgba(228,224,210,${0.95 * fade})`;
-            ctx.fillStyle = `rgba(228,224,210,${0.95 * fade})`;
-            if (i === 0){                                // the skull
-              ctx.beginPath(); ctx.arc(0, 0, Math.max(2, s * 0.14), 0, Math.PI*2); ctx.fill();
-              ctx.fillStyle = `rgba(40,46,60,${0.9 * fade})`;
-              ctx.beginPath(); ctx.arc(s * 0.04, -s * 0.03, Math.max(0.8, s * 0.045), 0, Math.PI*2); ctx.fill();
-            } else if (i < 3){                           // rib arcs
-              ctx.lineWidth = Math.max(1, s * 0.04);
-              ctx.beginPath(); ctx.arc(0, 0, Math.max(1.6, s * 0.12), 0.3, Math.PI - 0.3); ctx.stroke();
-            } else {                                     // long bones, knobbed ends
-              ctx.lineWidth = Math.max(1.2, s * 0.05);
-              ctx.beginPath(); ctx.moveTo(-s * 0.14, 0); ctx.lineTo(s * 0.14, 0); ctx.stroke();
-              ctx.beginPath(); ctx.arc(-s * 0.14, 0, Math.max(1, s * 0.035), 0, Math.PI*2); ctx.fill();
-              ctx.beginPath(); ctx.arc(s * 0.14, 0, Math.max(1, s * 0.035), 0, Math.PI*2); ctx.fill();
-            }
-            ctx.restore();
-          }
-          // smoke rising off the pile + a little static wisp escaping skyward
-          ctx.fillStyle = `rgba(150,150,160,${0.3 * (1 - kk)})`;
-          ctx.beginPath(); ctx.arc(f.x + Math.sin(kk * 6 + f.seed) * 3, cy - kk * s * 0.9, s * (0.14 + kk * 0.3), 0, Math.PI*2); ctx.fill();
-          ctx.fillStyle = `rgba(160,240,255,${0.9 * (1 - kk)})`;
-          ctx.beginPath(); ctx.arc(f.x + Math.sin(kk * 9 + f.seed) * s * 0.15, cy - kk * s * 1.7, 1.4, 0, Math.PI*2); ctx.fill();
-        }
-        break;
-      }
-      case 'gibs': { // rocket kill: splat-cloud pops, cartoon pieces cartwheel
-                     // out on smoke trails, bounce once (same scheme as wspark)
-        const s = f.r, gAcc = 520;
-        const cy = f.y - s * (f.fly ? 1.5 : 0.62);       // burst at body height
-        const pr = n => { const v = Math.sin(f.seed * 37.7 + n * 91.3) * 43758.5; return v - Math.floor(v); };
-        const fade = k > 0.75 ? 1 - (k - 0.75) / 0.25 : 1;
-        // crimson splat-cloud pops in the first beat
-        if (k < 0.22){
-          const ka = 1 - k / 0.22;
-          for (let i = 0; i < 4; i++){
-            ctx.fillStyle = i ? `rgba(168,24,24,${0.5 * ka})` : `rgba(118,12,12,${0.6 * ka})`;
-            ctx.beginPath();
-            ctx.arc(f.x + (pr(i + 50) - 0.5) * s * 0.7, cy + (pr(i + 55) - 0.5) * s * 0.5,
-                    s * (0.2 + i * 0.11) * (0.6 + (k / 0.22) * 0.8), 0, Math.PI*2);
-            ctx.fill();
-          }
-        }
-        // a smoke ring hangs where the dino stood
-        ctx.strokeStyle = `rgba(140,140,150,${0.3 * (1 - k)})`;
-        ctx.lineWidth = Math.max(1.5, s * 0.09 * (1 - k));
-        ctx.beginPath(); ctx.ellipse(f.x, cy, s * (0.3 + k * 0.55), s * (0.14 + k * 0.26), 0, 0, Math.PI*2); ctx.stroke();
-        ctx.lineCap = 'round';
-        for (let i = 0; i < 5; i++){                     // the pieces
-          const gy = f.y + 2 + (pr(i + 20) - 0.5) * 6;
-          const vx = (pr(i) - 0.5) * 2 * (s * 3 + 60);   // mostly sideways
-          const vy0 = -(90 + pr(i + 5) * 110);
-          const tg = (-vy0 + Math.sqrt(vy0 * vy0 + 2 * gAcc * (gy - cy))) / gAcc;
-          let px, py, airborne;
-          if (f.t <= tg){                                // first arc
-            airborne = true;
-            px = f.x + vx * f.t;
-            py = cy + vy0 * f.t + 0.5 * gAcc * f.t * f.t;
-            if (f.t > 0.05){                             // thin smoke wisps trail behind
-              for (const [back, wa] of [[0.06, 0.3], [0.13, 0.16]]){
-                const tw = f.t - back;
-                if (tw <= 0) continue;
-                ctx.fillStyle = `rgba(160,160,170,${wa * fade})`;
-                ctx.beginPath();
-                ctx.arc(f.x + vx * tw, cy + vy0 * tw + 0.5 * gAcc * tw * tw, Math.max(1.1, s * 0.055), 0, Math.PI*2);
-                ctx.fill();
-              }
-            }
-          } else {                                       // bounced: damped second hop
-            const t2 = f.t - tg, vyb = -(vy0 + gAcc * tg) * 0.4, vxb = vx * 0.55;
-            const tg2 = -2 * vyb / gAcc;
-            const tc = Math.min(t2, tg2);
-            airborne = t2 < tg2;
-            px = f.x + vx * tg + vxb * tc;
-            py = Math.min(gy, gy + vyb * tc + 0.5 * gAcc * tc * tc);
-            if (t2 < 0.14){                              // dust tick on the bounce
-              ctx.strokeStyle = `rgba(150,130,100,${0.5 * (1 - t2 / 0.14)})`;
-              ctx.lineWidth = 1.2;
-              ctx.beginPath(); ctx.ellipse(f.x + vx * tg, gy, 2 + t2 * 40, 1 + t2 * 12, 0, Math.PI, Math.PI * 2); ctx.stroke();
-            }
-          }
-          const rot = (pr(i + 30) - 0.5) * 2 + Math.min(f.t, tg + 0.35) * (pr(i + 40) - 0.5) * 14;
-          ctx.save(); ctx.translate(px, py); ctx.rotate(rot);
-          ctx.globalAlpha = fade;
-          if (i === 0){                                  // drumstick: meat + knobbed bone stub
-            ctx.fillStyle = f.body;
-            ctx.beginPath(); ctx.ellipse(-s * 0.05, 0, s * 0.13, s * 0.09, 0, 0, Math.PI*2); ctx.fill();
-            ctx.strokeStyle = '#e8e4d4'; ctx.lineWidth = Math.max(1.2, s * 0.045);
-            ctx.beginPath(); ctx.moveTo(s * 0.06, 0); ctx.lineTo(s * 0.18, 0); ctx.stroke();
-            ctx.fillStyle = '#e8e4d4';
-            ctx.beginPath(); ctx.arc(s * 0.2, 0, Math.max(1, s * 0.04), 0, Math.PI*2); ctx.fill();
-          } else if (i === 1){                           // the tail, a tapered wedge
-            ctx.fillStyle = f.body;
-            ctx.beginPath(); ctx.moveTo(-s * 0.16, -s * 0.07); ctx.lineTo(s * 0.22, 0); ctx.lineTo(-s * 0.16, s * 0.07); ctx.closePath(); ctx.fill();
-          } else if (i === 2){                           // a leg with the foot still on
-            ctx.strokeStyle = f.body; ctx.lineWidth = Math.max(1.6, s * 0.07);
-            ctx.beginPath(); ctx.moveTo(-s * 0.1, -s * 0.08); ctx.lineTo(0, s * 0.06); ctx.lineTo(s * 0.12, s * 0.08); ctx.stroke();
-            ctx.fillStyle = f.belly;
-            ctx.beginPath(); ctx.ellipse(s * 0.14, s * 0.08, s * 0.06, s * 0.035, 0, 0, Math.PI*2); ctx.fill();
-          } else if (i === 3){                           // rib arc
-            ctx.strokeStyle = '#e8e4d4'; ctx.lineWidth = Math.max(1, s * 0.04);
-            ctx.beginPath(); ctx.arc(0, 0, Math.max(1.6, s * 0.1), 0.3, Math.PI - 0.3); ctx.stroke();
-          } else {                                       // little long bone
-            ctx.strokeStyle = '#e8e4d4'; ctx.lineWidth = Math.max(1.2, s * 0.045);
-            ctx.beginPath(); ctx.moveTo(-s * 0.1, 0); ctx.lineTo(s * 0.1, 0); ctx.stroke();
-            ctx.fillStyle = '#e8e4d4';
-            ctx.beginPath(); ctx.arc(-s * 0.1, 0, Math.max(0.9, s * 0.03), 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.arc(s * 0.1, 0, Math.max(0.9, s * 0.03), 0, Math.PI*2); ctx.fill();
-          }
-          ctx.restore();
-        }
-        break;
-      }
-      case 'punt': { // mortar kill: punted off the top of the screen — a beat
-                     // of nothing — then a shadow, a slam, and legs in the dirt
-        const s = f.r, gy = f.y + 2;
-        const pr = n => { const v = Math.sin(f.seed * 37.7 + n * 91.3) * 43758.5; return v - Math.floor(v); };
-        const dir = pr(1) > 0.5 ? 1 : -1;
-        const tLaunch = 0.55, tSlam = 1.56;              // beats within the 2.6s gag
-        const fade = k > 0.88 ? 1 - (k - 0.88) / 0.12 : 1;
-        if (f.t < tLaunch){
-          // going UP: spinning silhouette, flailing legs, speed lines
-          const kk = f.t / tLaunch;
-          const py = gy - s * 0.6 - Math.pow(kk, 0.8) * 820;
-          ctx.save();
-          ctx.translate(f.x + Math.sin(f.t * 9 + f.seed) * s * 0.12, py);
-          ctx.rotate(f.t * 12 * dir);
-          const sc = 1 - kk * 0.25;                      // shrinks as it recedes
-          ctx.scale(sc, sc);
-          ctx.fillStyle = f.body;
-          ctx.beginPath(); ctx.ellipse(0, 0, s * 0.5, s * 0.3, 0, 0, Math.PI*2); ctx.fill();
-          ctx.beginPath(); ctx.moveTo(-s * 0.45, -s * 0.1); ctx.lineTo(-s * 0.85, 0); ctx.lineTo(-s * 0.45, s * 0.12); ctx.closePath(); ctx.fill();
-          ctx.beginPath(); ctx.arc(s * 0.55, -s * 0.12, s * 0.18, 0, Math.PI*2); ctx.fill();
-          ctx.fillStyle = f.belly;
-          ctx.beginPath(); ctx.ellipse(0, s * 0.12, s * 0.34, s * 0.16, 0, 0, Math.PI*2); ctx.fill();
-          ctx.strokeStyle = f.body; ctx.lineWidth = Math.max(1.6, s * 0.09); ctx.lineCap = 'round';
-          for (const [lx, ph] of [[-s * 0.18, 0], [s * 0.16, 2.2]]){
-            const la = Math.sin(f.t * 26 + ph) * 0.8;
-            ctx.beginPath(); ctx.moveTo(lx, s * 0.2); ctx.lineTo(lx + Math.sin(la) * s * 0.3, s * 0.2 + Math.cos(la) * s * 0.3); ctx.stroke();
-          }
-          ctx.restore();
-          ctx.strokeStyle = `rgba(255,255,255,${0.4 * (1 - kk)})`; ctx.lineWidth = 1.5;
-          for (const lx of [-s * 0.25, s * 0.2]){        // speed lines chasing it
-            ctx.beginPath(); ctx.moveTo(f.x + lx, py + s); ctx.lineTo(f.x + lx, py + s + 14 + kk * 10); ctx.stroke();
-          }
-          if (f.t < 0.18){                               // dust at the tee
-            ctx.fillStyle = `rgba(150,130,100,${0.5 * (1 - f.t / 0.18)})`;
-            ctx.beginPath(); ctx.ellipse(f.x, gy, s * (0.3 + f.t * 3), s * (0.12 + f.t), 0, 0, Math.PI*2); ctx.fill();
-          }
-        } else if (f.t < tSlam){
-          // gone. a beat… then the landing shadow grows — INCOMING
-          const tw = (f.t - (tSlam - 0.32)) / 0.32;
-          if (tw > 0){
-            if (!f.wh){ f.wh = 1; if (!weaponMuted('mortar')) SFX.whistleIn(); }
-            ctx.fillStyle = `rgba(0,0,0,${0.28 * tw})`;
-            ctx.beginPath(); ctx.ellipse(f.x, gy, s * 0.55 * tw, s * 0.2 * tw, 0, 0, Math.PI*2); ctx.fill();
-            if (tw > 0.82){                              // the last instant: a blur streaking in
-              const st = (tw - 0.82) / 0.18;
-              ctx.save(); ctx.globalAlpha = 0.55;
-              ctx.strokeStyle = f.body; ctx.lineWidth = s * 0.3; ctx.lineCap = 'round';
-              ctx.beginPath(); ctx.moveTo(f.x, gy - 120 + st * 90); ctx.lineTo(f.x, gy - 24 + st * 12); ctx.stroke();
-              ctx.restore();
-            }
-          }
-        } else {
-          // SLAM: dust ring + crater, legs up out of the dirt, wiggling
-          const te = f.t - tSlam;
-          if (!f.th){ f.th = 1; if (!weaponMuted('mortar')) SFX.thud(); }
-          if (te < 0.3){
-            const dk = te / 0.3;
-            ctx.strokeStyle = `rgba(170,150,115,${0.55 * (1 - dk)})`;
-            ctx.lineWidth = Math.max(2, s * 0.16 * (1 - dk));
-            ctx.beginPath(); ctx.ellipse(f.x, gy, s * (0.4 + dk * 1.1), s * (0.16 + dk * 0.4), 0, 0, Math.PI*2); ctx.stroke();
-          }
-          ctx.save(); ctx.globalAlpha = fade;
-          ctx.fillStyle = 'rgba(0,0,0,0.28)';            // crater bowl + rim
-          ctx.beginPath(); ctx.ellipse(f.x, gy + 1, s * 0.6, s * 0.22, 0, 0, Math.PI*2); ctx.fill();
-          ctx.fillStyle = '#3a2c1a';
-          ctx.beginPath(); ctx.ellipse(f.x, gy, s * 0.5, s * 0.18, 0, 0, Math.PI*2); ctx.fill();
-          ctx.strokeStyle = '#6b5636'; ctx.lineWidth = Math.max(1.5, s * 0.07);
-          ctx.beginPath(); ctx.ellipse(f.x, gy - 1, s * 0.52, s * 0.19, 0, 0, Math.PI*2); ctx.stroke();
-          ctx.lineCap = 'round';
-          const pop = Math.min(1, te / 0.12);            // legs pop up over the first frames
-          for (const [lx, ph] of [[-s * 0.16, 0], [s * 0.14, 1.7]]){
-            const wig = Math.sin(te * 16 + ph) * 0.16 * Math.max(0, Math.min(1, 1.9 - te));
-            ctx.save(); ctx.translate(f.x + lx, gy); ctx.rotate(wig);
-            ctx.strokeStyle = f.body; ctx.lineWidth = Math.max(2, s * 0.1);
-            ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -s * 0.42 * pop); ctx.stroke();
-            if (pop >= 1){                               // the foot, toes skyward
-              ctx.fillStyle = f.belly;
-              ctx.beginPath(); ctx.ellipse(0, -s * 0.44, s * 0.09, s * 0.05, wig * 2, 0, Math.PI*2); ctx.fill();
-            }
-            ctx.restore();
-          }
-          ctx.strokeStyle = f.body; ctx.lineWidth = Math.max(1.6, s * 0.07);
-          ctx.beginPath(); ctx.moveTo(f.x + s * 0.32, gy);   // tail tip pokes out, drooping
-          ctx.quadraticCurveTo(f.x + s * 0.44, gy - s * 0.3 * pop, f.x + s * (0.52 + Math.sin(te * 12) * 0.02), gy - s * 0.16 * pop);
-          ctx.stroke();
-          // a little smoke curling off the crater
-          ctx.fillStyle = `rgba(150,150,160,${0.3 * fade * Math.max(0, 1 - te)})`;
-          ctx.beginPath(); ctx.arc(f.x + Math.sin(te * 5 + f.seed) * 3, gy - s * 0.3 - te * s * 0.5, s * (0.12 + te * 0.18), 0, Math.PI*2); ctx.fill();
-          ctx.restore();
-        }
-        break;
-      }
-      case 'deflate': { // gatling kill: riddled with daylight holes, then the
-                        // dino deflates and loops away like a released balloon
-        const s = f.r, gy = f.y + 2;
-        const cy = f.y - s * (f.fly ? 1.5 : 0.62);
-        const pr = n => { const v = Math.sin(f.seed * 37.7 + n * 91.3) * 43758.5; return v - Math.floor(v); };
-        // the balloon flight path, shared by the body and its leak-lines
-        const zipX = q => f.x + Math.sin(q * 9 + f.seed) * s * (0.8 + q * 0.8);
-        const zipY = q => cy - q * s * 1.6 + Math.sin(q * 13 + f.seed * 2) * s * 0.5;
-        if (f.t < 0.28){
-          // beat 1: bullet-riddled and jittering, sunbeams through the holes
-          ctx.save();
-          ctx.translate(f.x + Math.sin(f.t * 70) * 1.6, cy + Math.cos(f.t * 63) * 1.2);
-          gagBody(s, f.body, f.belly);
-          const nH = Math.min(6, 1 + Math.floor(f.t / 0.045));
-          for (let i = 0; i < nH; i++){
-            const hx = (pr(i) - 0.5) * s * 0.8, hy = (pr(i + 7) - 0.5) * s * 0.42;
-            ctx.strokeStyle = 'rgba(255,250,210,0.5)'; ctx.lineWidth = Math.max(1, s * 0.035);
-            ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + s * 0.28, hy + s * 0.5); ctx.stroke();
-            ctx.fillStyle = 'rgba(30,26,20,0.9)';
-            ctx.beginPath(); ctx.arc(hx, hy, Math.max(1.2, s * 0.05), 0, Math.PI*2); ctx.fill();
-          }
-          ctx.restore();
-        } else if (f.t < 0.95){
-          // beat 2: pbbbt — it shrinks, flattens, and loops off wildly
-          const kk = (f.t - 0.28) / 0.67;
-          ctx.save(); ctx.translate(zipX(kk), zipY(kk));
-          ctx.rotate(kk * 14 * (pr(3) > 0.5 ? 1 : -1));
-          ctx.scale(1 - kk * 0.72, (1 - kk * 0.72) * (1 - kk * 0.5));
-          gagBody(s, f.body, f.belly);
-          ctx.restore();
-          ctx.strokeStyle = `rgba(255,255,255,${0.5 * (1 - kk)})`;
-          ctx.lineWidth = 1.4; ctx.lineCap = 'round';
-          for (let i = 0; i < 3; i++){                   // sputtering leak-lines behind it
-            const tb = kk - 0.05 - i * 0.06;
-            if (tb <= 0) continue;
-            ctx.beginPath(); ctx.moveTo(zipX(tb), zipY(tb));
-            ctx.lineTo(zipX(tb) + 3, zipY(tb) + 3); ctx.stroke();
-          }
-        } else {
-          // beat 3: the empty hide flutters down like a leaf and settles
-          const kk = (f.t - 0.95) / (f.dur - 0.95);
-          const a = kk > 0.7 ? 1 - (kk - 0.7) / 0.3 : 1;
-          const ex = zipX(1) + Math.sin(kk * 6 + f.seed) * s * 0.45;
-          const ey = zipY(1) + (gy - zipY(1)) * Math.min(1, kk * 1.25);
-          ctx.save(); ctx.translate(ex, ey);
-          ctx.rotate(Math.sin(kk * 6 + f.seed) * 0.5);
-          ctx.globalAlpha = a;
-          ctx.fillStyle = f.body;
-          ctx.beginPath(); ctx.ellipse(0, 0, s * 0.3, s * 0.08, 0, 0, Math.PI*2); ctx.fill();
-          ctx.restore();
-        }
-        break;
-      }
-      case 'ash': { // flamer kill: flash-fried into an ash statue that blinks
-                    // twice — then crumbles from the feet up into a smoking pile
-        const s = f.r, gy = f.y + 2;
-        const cy = f.y - s * 0.62;
-        const pr = n => { const v = Math.sin(f.seed * 37.7 + n * 91.3) * 43758.5; return v - Math.floor(v); };
-        const kk = Math.min(1, Math.max(0, (f.t - 0.55) / 0.75));   // crumble progress
-        const fade = f.t > 1.5 ? Math.max(0, 1 - (f.t - 1.5) / 0.4) : 1;
-        // the growing ash pile (from the first crumb onward)
-        if (kk > 0){
-          ctx.fillStyle = `rgba(138,130,120,${0.95 * fade})`;
-          ctx.beginPath(); ctx.ellipse(f.x, gy, s * 0.5 * Math.min(1, kk * 1.4), s * (0.1 + kk * 0.12), 0, 0, Math.PI*2); ctx.fill();
-          ctx.fillStyle = `rgba(96,88,80,${0.6 * fade})`;
-          ctx.beginPath(); ctx.ellipse(f.x - s * 0.1, gy, s * 0.28 * Math.min(1, kk * 1.4), s * 0.08, 0, 0, Math.PI*2); ctx.fill();
-        }
-        if (kk < 1){
-          // the statue — sinking into its own pile once the crumble starts
-          ctx.save();
-          ctx.beginPath(); ctx.rect(f.x - s * 1.3, cy - s * 2, s * 2.6, gy - (cy - s * 2)); ctx.clip();
-          ctx.translate(f.x, cy + kk * s * 1.25);
-          gagBody(s, '#8f8880', '#a9a29a');
-          ctx.strokeStyle = '#8f8880'; ctx.lineWidth = Math.max(1.6, s * 0.09); ctx.lineCap = 'round';
-          for (const lx of [-s * 0.18, s * 0.16]){       // stiff statue legs
-            ctx.beginPath(); ctx.moveTo(lx, s * 0.2); ctx.lineTo(lx, s * 0.58); ctx.stroke();
-          }
-          ctx.strokeStyle = 'rgba(60,54,48,0.7)'; ctx.lineWidth = 1;
-          for (let i = 0; i < 3; i++){                   // hairline cracks spreading
-            const cx2 = (pr(i) - 0.5) * s * 0.7, cy2 = (pr(i + 4) - 0.5) * s * 0.4;
-            ctx.beginPath(); ctx.moveTo(cx2, cy2);
-            ctx.lineTo(cx2 + (pr(i + 8) - 0.5) * s * 0.3, cy2 + s * 0.18);
-            ctx.lineTo(cx2 + (pr(i + 12) - 0.5) * s * 0.4, cy2 + s * 0.34);
-            ctx.stroke();
-          }
-          // wide cartoon eyes — two slow blinks before the crumble
-          const blink = (f.t > 0.18 && f.t < 0.24) || (f.t > 0.38 && f.t < 0.44);
-          if (!blink && kk < 0.4){
-            for (const ex of [s * 0.48, s * 0.62]){
-              ctx.fillStyle = '#fff';
-              ctx.beginPath(); ctx.ellipse(ex, -s * 0.16, s * 0.06, s * 0.085, 0, 0, Math.PI*2); ctx.fill();
-              ctx.fillStyle = '#222';
-              ctx.beginPath(); ctx.arc(ex, -s * 0.14, s * 0.025, 0, Math.PI*2); ctx.fill();
-            }
-          }
-          ctx.restore();
-          // ash flecks shed off the crumbling edge
-          if (kk > 0){
-            ctx.fillStyle = `rgba(150,142,132,${0.7 * fade})`;
-            for (let i = 0; i < 4; i++){
-              const tf = (f.t * 1.7 + pr(i + 20)) % 0.4;
-              ctx.beginPath();
-              ctx.arc(f.x + (pr(i + 24) - 0.5) * s * 0.9, gy - s * 0.2 - (0.4 - tf) * s * 1.2, 1 + pr(i) * 1.2, 0, Math.PI*2);
-              ctx.fill();
-            }
-          }
-        }
-        // embers drifting up + a smoke wisp off the remains
-        for (let i = 0; i < 3; i++){
-          const tf = (f.t * 0.8 + pr(i + 30)) % 1;
-          ctx.fillStyle = `rgba(255,${140 + (pr(i) * 60 | 0)},50,${0.8 * (1 - tf) * fade})`;
-          ctx.beginPath();
-          ctx.arc(f.x + Math.sin(tf * 7 + i * 2) * s * 0.3, cy + s * 0.3 - tf * s * 1.4, 1.2, 0, Math.PI*2);
-          ctx.fill();
-        }
-        ctx.fillStyle = `rgba(120,120,128,${0.3 * fade})`;
-        ctx.beginPath(); ctx.arc(f.x + Math.sin(f.t * 3 + f.seed) * 3, cy - s * 0.4 - f.t * s * 0.4, s * (0.1 + f.t * 0.14), 0, Math.PI*2); ctx.fill();
-        break;
-      }
-      case 'ko': { // sniper kill: knocked clean off its feet — double backflip,
-                   // flat on its back, X-eyes, stars circling overhead
-        const s = f.r, gy = f.y + 2;
-        const cy0 = f.y - s * (f.fly ? 1.5 : 0.62);
-        const dir = f.dir || 1, tFly = 0.5;
-        const lx = f.x + dir * s * 1.5;                  // where it lands
-        if (f.t < tFly){
-          const kk = f.t / tFly;
-          const px = f.x + dir * kk * s * 1.5;
-          const py = cy0 - Math.sin(kk * Math.PI) * s * 1.1 + kk * ((gy - s * 0.22) - cy0);
-          ctx.strokeStyle = `rgba(255,255,255,${0.6 * (1 - kk)})`; ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.moveTo(f.x - dir * s * 0.7, cy0); ctx.lineTo(px, py); ctx.stroke();
-          ctx.save(); ctx.translate(px, py);
-          ctx.rotate(-dir * kk * Math.PI * 4);           // the double backflip
-          gagBody(s, f.body, f.belly);
-          ctx.restore();
-        } else {
-          const te = f.t - tFly;
-          const fade = f.t > f.dur - 0.3 ? (f.dur - f.t) / 0.3 : 1;
-          if (te < 0.22){                                // landing dust
-            ctx.strokeStyle = `rgba(160,140,105,${0.5 * (1 - te / 0.22)})`;
-            ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.ellipse(lx, gy, s * (0.4 + te * 3), s * (0.14 + te), 0, 0, Math.PI*2); ctx.stroke();
-          }
-          ctx.save(); ctx.globalAlpha = fade;
-          ctx.translate(lx, gy - s * 0.2);
-          const tw = te < 0.55 ? Math.sin(te * 30) * 0.06 * (1 - te / 0.55) : 0; // settling twitch
-          ctx.rotate(Math.PI + tw);                      // flat on its back
-          gagBody(s, f.body, f.belly);
-          ctx.restore();
-          ctx.save(); ctx.globalAlpha = fade;            // stiff legs skyward
-          ctx.strokeStyle = f.body; ctx.lineWidth = Math.max(1.8, s * 0.09); ctx.lineCap = 'round';
-          for (const [ox, ph] of [[-s * 0.16, 0.15], [s * 0.14, -0.12]]){
-            ctx.beginPath(); ctx.moveTo(lx + ox, gy - s * 0.34);
-            ctx.lineTo(lx + ox + ph * s, gy - s * 0.78); ctx.stroke();
-          }
-          // X-eyes on the upside-down head
-          ctx.strokeStyle = '#1c222e'; ctx.lineWidth = Math.max(1, s * 0.035);
-          const hx = lx - dir * s * 0.55, hy = gy - s * 0.1;
-          for (const ox of [-s * 0.06, s * 0.06]){
-            ctx.beginPath();
-            ctx.moveTo(hx + ox - s * 0.035, hy - s * 0.035); ctx.lineTo(hx + ox + s * 0.035, hy + s * 0.035);
-            ctx.moveTo(hx + ox + s * 0.035, hy - s * 0.035); ctx.lineTo(hx + ox - s * 0.035, hy + s * 0.035);
-            ctx.stroke();
-          }
-          // golden stars circling where its head is
-          for (let i = 0; i < 4; i++){
-            const ang = te * 3.2 + i * (Math.PI / 2);
-            const sx2 = hx + Math.cos(ang) * s * 0.5, sy2 = gy - s * 0.7 + Math.sin(ang) * s * 0.14;
-            const tw2 = 0.6 + 0.4 * Math.sin(te * 9 + i * 2);
-            ctx.strokeStyle = `rgba(255,214,74,${tw2 * fade})`; ctx.lineWidth = 1.4;
-            const sr = Math.max(1.6, s * 0.08);
-            ctx.beginPath();
-            ctx.moveTo(sx2 - sr, sy2); ctx.lineTo(sx2 + sr, sy2);
-            ctx.moveTo(sx2, sy2 - sr); ctx.lineTo(sx2, sy2 + sr);
-            ctx.stroke();
-          }
-          ctx.restore();
-        }
-        break;
-      }
-      case 'iceblock': { // cryo kill: flash-frozen solid — the block teeters,
-                         // tips… and SHATTERS into shards that skid and melt
-        const s = f.r, gy = f.y + 2;
-        const cyA = f.y - s * (f.fly ? 1.5 : 0.62);      // where it froze
-        const pr = n => { const v = Math.sin(f.seed * 37.7 + n * 91.3) * 43758.5; return v - Math.floor(v); };
-        const tShatter = 0.95;
-        if (f.t < tShatter){
-          // a frozen flyer's block drops to earth first
-          const drop = f.fly ? Math.min(1, f.t / 0.35) : 1;
-          const cy = cyA + (f.y - s * 0.62 - cyA) * drop * drop;
-          const tt = Math.max(0, f.t - 0.55) / 0.4;      // teeter ramps up
-          ctx.save(); ctx.translate(f.x, gy);
-          ctx.rotate(Math.sin(tt * 18) * 0.09 * tt);
-          ctx.translate(0, cy - gy);
-          const bw = s * 0.78, bh = s * 0.62;            // the block (rounded corners)
-          ctx.fillStyle = 'rgba(185,228,255,0.88)';
-          ctx.beginPath();
-          ctx.moveTo(-bw + 3, -bh);
-          ctx.arcTo(bw, -bh, bw, bh, 3); ctx.arcTo(bw, bh, -bw, bh, 3);
-          ctx.arcTo(-bw, bh, -bw, -bh, 3); ctx.arcTo(-bw, -bh, bw, -bh, 3);
-          ctx.closePath(); ctx.fill();
-          ctx.globalAlpha = 0.45;                        // the dino, rigid inside
-          gagBody(s * 0.85, f.body, f.belly);
-          ctx.globalAlpha = 1;
-          ctx.strokeStyle = 'rgba(235,250,255,0.9)'; ctx.lineWidth = 1.4;
-          ctx.beginPath(); ctx.moveTo(-bw * 0.55, -bh * 0.75); ctx.lineTo(-bw * 0.2, -bh * 0.35); ctx.stroke(); // gleam
-          for (let i = 0; i < 2; i++){                   // twinkling glints
-            const ga = 0.4 + 0.6 * Math.sin(f.t * 7 + i * 2.4);
-            const gx2 = (pr(i + 40) - 0.5) * bw * 1.2, gy2 = (pr(i + 44) - 0.5) * bh * 1.2;
-            ctx.strokeStyle = `rgba(255,255,255,${ga})`; ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(gx2 - 2.5, gy2); ctx.lineTo(gx2 + 2.5, gy2);
-            ctx.moveTo(gx2, gy2 - 2.5); ctx.lineTo(gx2, gy2 + 2.5);
-            ctx.stroke();
-          }
-          if (f.t < 0.12){                               // the freeze-flash
-            ctx.fillStyle = `rgba(255,255,255,${0.8 * (1 - f.t / 0.12)})`;
-            ctx.beginPath(); ctx.ellipse(0, 0, bw * 1.15, bh * 1.15, 0, 0, Math.PI*2); ctx.fill();
-          }
-          ctx.restore();
-        } else {
-          const te = f.t - tShatter;
-          if (!f.sh){ f.sh = 1; if (!weaponMuted('cryo')) SFX.shatter(); }
-          if (te < 0.22){                                // snow poof
-            ctx.fillStyle = `rgba(225,245,255,${0.5 * (1 - te / 0.22)})`;
-            ctx.beginPath(); ctx.arc(f.x, gy - s * 0.4, s * (0.4 + te * 3), 0, Math.PI*2); ctx.fill();
-          }
-          ctx.fillStyle = `rgba(120,160,190,${0.2 * Math.max(0, 1 - te / 0.85)})`; // melt patch
-          ctx.beginPath(); ctx.ellipse(f.x, gy, s * (0.5 + te * 0.4), s * 0.18, 0, 0, Math.PI*2); ctx.fill();
-          for (let i = 0; i < 7; i++){                   // shards skid out and melt
-            const melt = Math.max(0, 1 - te / 0.85);
-            if (melt <= 0) break;
-            const vx = (pr(i) - 0.5) * 2 * (s * 2.4 + 40);
-            const px = f.x + vx * (1 - Math.exp(-te * 3)) / 3;  // friction slide
-            const py = gy + (pr(i + 9) - 0.5) * 5;
-            const sr = Math.max(1.5, s * (0.1 + pr(i + 5) * 0.08)) * melt;
-            ctx.save(); ctx.translate(px, py); ctx.rotate(pr(i + 14) * 6 + te * (pr(i + 17) - 0.5) * 6);
-            ctx.fillStyle = `rgba(200,235,255,${0.85 * melt})`;
-            ctx.strokeStyle = `rgba(255,255,255,${0.7 * melt})`; ctx.lineWidth = 0.8;
-            ctx.beginPath(); ctx.moveTo(-sr, sr * 0.7); ctx.lineTo(0, -sr); ctx.lineTo(sr, sr * 0.5);
-            ctx.closePath(); ctx.fill(); ctx.stroke();
-            ctx.restore();
-          }
-        }
-        break;
-      }
-      case 'notes': { // sonic kill: shaken into a blur — then the dino bursts
-                      // into music notes that drift away on the breeze
-        const s = f.r;
-        const cy = f.y - s * (f.fly ? 1.5 : 0.62);
-        const pr = n => { const v = Math.sin(f.seed * 37.7 + n * 91.3) * 43758.5; return v - Math.floor(v); };
-        if (f.t < 0.3){
-          const kk = f.t / 0.3;
-          const off = s * (0.06 + kk * 0.18);
-          for (const [ox, col, al] of [[-1, '#d6a3ff', 0.5], [1, '#ffffff', 0.4], [0, f.body, 0.7]]){
-            ctx.save();
-            ctx.translate(f.x + ox * off * Math.sin(f.t * 90 + ox), cy);
-            ctx.globalAlpha = al * (1 - kk * 0.35);
-            gagBody(s, col, null);
-            ctx.restore();
-          }
-          ctx.strokeStyle = `rgba(214,163,255,${0.5 * (1 - kk)})`; ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.arc(f.x, cy, s * (1.15 - kk * 0.5), 0, Math.PI*2); ctx.stroke();
-        } else {
-          const te = f.t - 0.3;
-          if (!f.no){ f.no = 1; if (!weaponMuted('sonic')) SFX.notePop(); }
-          if (te < 0.2){                                 // the pop
-            ctx.strokeStyle = `rgba(214,163,255,${0.7 * (1 - te / 0.2)})`; ctx.lineWidth = 2.5;
-            ctx.beginPath(); ctx.arc(f.x, cy, s * (0.4 + te * 6), 0, Math.PI*2); ctx.stroke();
-          }
-          const glyphs = ['♪', '♫', '♩', '♪', '♫'];
-          for (let i = 0; i < 5; i++){                   // notes drift up, swaying
-            const tn = te - i * 0.06;
-            if (tn <= 0) continue;
-            const a = Math.max(0, 1 - tn / 1.0);
-            if (a <= 0) continue;
-            ctx.save();
-            ctx.translate(f.x + (pr(i) - 0.5) * s * 0.9 + Math.sin(tn * 4 + i * 1.7) * s * 0.3,
-                          cy - tn * (s * 0.9 + 18) - pr(i + 5) * s * 0.2);
-            ctx.rotate(Math.sin(tn * 5 + i) * 0.25);
-            ctx.fillStyle = i % 2 ? `rgba(255,255,255,${0.9 * a})` : `rgba(214,163,255,${0.95 * a})`;
-            ctx.font = `${Math.max(9, s * 0.5) | 0}px sans-serif`;
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(glyphs[i], 0, 0);
-            ctx.restore();
-          }
-        }
-        break;
-      }
-      case 'ghost': { // gas kill: the dino keels over green — and a little
-                      // dino ghost floats up out of it, swaying as it goes
-        const s = f.r, gy = f.y + 2;
-        const pr = n => { const v = Math.sin(f.seed * 37.7 + n * 91.3) * 43758.5; return v - Math.floor(v); };
-        const flopK = Math.min(1, f.t / 0.4);
-        const corpseA = f.t < 1.0 ? 1 : Math.max(0, 1 - (f.t - 1.0) / 0.6);
-        if (corpseA > 0){
-          ctx.save(); ctx.globalAlpha = corpseA;
-          ctx.translate(f.x, gy - s * 0.22);
-          ctx.rotate(flopK * 1.35 * (pr(2) > 0.5 ? 1 : -1)); // keels over
-          gagBody(s, f.body, f.belly);
-          ctx.globalAlpha = corpseA * 0.45;                  // sickly green wash
-          ctx.fillStyle = '#7ec83e';
-          ctx.beginPath(); ctx.ellipse(0, 0, s * 0.55, s * 0.34, 0, 0, Math.PI*2); ctx.fill();
-          ctx.restore();
-          for (let i = 0; i < 3; i++){                       // green bubbles popping off
-            const tb = (f.t * 0.9 + pr(i + 11)) % 1;
-            ctx.fillStyle = `rgba(166,224,74,${0.5 * (1 - tb) * corpseA})`;
-            ctx.beginPath();
-            ctx.arc(f.x + (pr(i) - 0.5) * s * 0.7, gy - s * 0.3 - tb * s * 0.5, 1.5 + tb * 2.5, 0, Math.PI*2);
-            ctx.fill();
-          }
-        }
-        if (f.t > 0.45){
-          const tg2 = f.t - 0.45;
-          if (!f.wo){ f.wo = 1; if (!weaponMuted('gas')) SFX.whoo(); }
-          const gk = tg2 / (f.dur - 0.45);
-          const a = gk < 0.75 ? 0.55 : 0.55 * (1 - (gk - 0.75) / 0.25);
-          const gs = s * 0.45;
-          ctx.save();
-          ctx.translate(f.x + Math.sin(tg2 * 2.6 + f.seed) * s * 0.3, gy - s * 0.5 - gk * s * 2.2);
-          ctx.rotate(Math.sin(tg2 * 2.6 + f.seed) * 0.12);
-          ctx.fillStyle = `rgba(225,250,215,${a})`;
-          ctx.beginPath();                                   // dome + wavy sheet hem
-          ctx.arc(0, -gs * 0.35, gs * 0.55, Math.PI, 0);
-          ctx.lineTo(gs * 0.55, gs * 0.4);
-          for (let j = 0; j < 4; j++){
-            const x1 = gs * 0.55 - (j + 0.5) * gs * 0.275;
-            const x2 = gs * 0.55 - (j + 1) * gs * 0.275;
-            ctx.quadraticCurveTo(x1, gs * 0.4 + (j % 2 ? gs * 0.22 + Math.sin(tg2 * 8 + f.seed) * gs * 0.08 : -gs * 0.1), x2, gs * 0.4);
-          }
-          ctx.closePath(); ctx.fill();
-          ctx.beginPath();                                   // a snout, so it reads as a dino
-          ctx.ellipse(gs * 0.45, -gs * 0.45, gs * 0.28, gs * 0.16, 0, 0, Math.PI*2); ctx.fill();
-          ctx.fillStyle = `rgba(30,40,30,${a})`;             // little eyes
-          ctx.beginPath(); ctx.arc(gs * 0.12, -gs * 0.5, gs * 0.08, 0, Math.PI*2); ctx.fill();
-          ctx.beginPath(); ctx.arc(gs * 0.38, -gs * 0.5, gs * 0.08, 0, Math.PI*2); ctx.fill();
-          ctx.restore();
-        }
         break;
       }
       case 'flame': {

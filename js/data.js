@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.63.0';
+const VERSION = '1.64.0';
 
 // Art inspection panels are local development tools. URL query flags must
 // never enable them on the public site. Node-based data audits default to off.
@@ -35,13 +35,13 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    Date each entry with the ACTUAL current calendar date — check it, never copy
    the entry above. Same-day reship: edit that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.63.0', date: 'Sep 12, 2026', items: [
+  {v: '1.64.0', date: 'Sep 12, 2026', items: [
     '🏃 Detailed 3D tourists and familiar guests bring the chases to life, with bloody bites and lingering splatter.',
     '🦖 Rebuilt dinosaurs with sturdier bodies, D-Rex knuckle-walking, and colorful Dilo frill displays.',
     '🪶 The feathered Therizinosaurus now roams the home screen among the giants.',
-    '💥 A rebuilt arsenal: meaner weapons at every upgrade, roaring firepower, and spectacular dinosaur takedowns.',
+    '💥 A price-sorted arsenal, lifelike fire and frost, and nine favorite dinosaur finishers return in 3D.',
     '🦖 Sector 7 rebuilt: wet jungle, sweeping searchlights, and lifelike raptors patrolling their fortified paddock.',
-    '🐛 Fixed cross-device starts, detached wing supports, and stray home-screen gulp bulges.',
+    '🐛 Fixed cross-device starts, detached wing supports, stray gulp bulges, and blinking boss rings.',
   ]},
   {v: '1.59.1', date: 'Jul 28, 2026', items: [
     '⚡ A new home-screen scene: the power cuts out, and Tim Murphy makes a run at the electric fence.',
@@ -264,12 +264,16 @@ const BOSS_WAVES = {
    Range design: cheap guns are short-reach and reward tight placement; the
    Sniper (its whole identity) and the big/expensive ordnance (Missiles,
    Mortar) reach much farther. unlock = first wave the weapon is purchasable. */
+// Base-price order also defines shop cards, guide lists and number-key shortcuts.
 const TOWERS = {
   gatling: {name:'ACU Gatling',    icon:'🔫', cost:180, dmg:9,   rof:7,    range:56,  air:true,  proj:'bullet', maxUp:3, unlock:1,
             desc:'Asset Containment turret. Low damage, very high fire rate, short reach.', color:'#c9c9c9'},
   flamer:  {name:'Flame Thrower',  icon:'🔥', cost:210, dmg:7,   rof:9,    range:72,  air:false, proj:'flame', maxUp:2, unlock:1,
             burn:{dps:22, t:2.2}, cone:0.62,
             desc:'Point-blank cone of fire. Sets ground targets ablaze.', color:'#ff9a3d'},
+  gas:     {name:"Mason's Gas",    icon:'☣️', cost:240, dmg:42,  rof:0.6, range:58,  air:false, proj:'gas', maxUp:2, unlock:3,
+            cloud:{r:78, dur:3.4},
+            desc:'Lobs a lingering cloud of toxic gas that poisons ground dinosaurs inside it — brutal against packed groups, and it ignores armor. Flyers, bosses, and tall long-necked dinos rise above the cloud.', color:'#a6e04a'},
   sniper:  {name:'Ranger Sniper',  icon:'🎯', cost:270, dmg:95,  rof:0.6,  range:113, air:true,  proj:'snipe', pierce:true, maxUp:2, unlock:6,
             desc:'Huge single-shot damage at extreme range. Ignores armor.', color:'#7fb2ff'},
   cryo:    {name:'Cryo Cannon',    icon:'❄️', cost:290, dmg:12,  rof:1.0,  range:62,  air:true,  proj:'cryo', maxUp:2, unlock:1,
@@ -287,9 +291,6 @@ const TOWERS = {
   mortar:  {name:'Mortar',         icon:'💣', cost:1000, dmg:200, rof:0.3, range:145, air:false, proj:'mortar', maxUp:1, unlock:28,
             splash:100, minRange:30,
             desc:'Lobbed shells devastate herds at the longest range in the armory. Cannot hit flyers or anything too close. One upgrade: massive damage, splash, and extra range.', color:'#e0b64f'},
-  gas:     {name:"Mason's Gas",    icon:'☣️', cost:240, dmg:42,  rof:0.6, range:58,  air:false, proj:'gas', maxUp:2, unlock:3,
-            cloud:{r:78, dur:3.4},
-            desc:'Lobs a lingering cloud of toxic gas that poisons ground dinosaurs inside it — brutal against packed groups, and it ignores armor. Flyers, bosses, and tall long-necked dinos rise above the cloud.', color:'#a6e04a'},
 };
 
 /* Single-track upgrade tuning: every upgrade costs more than the weapon

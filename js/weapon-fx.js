@@ -84,45 +84,12 @@ const WeaponFX = (() => {
     for(let i=0;i<8;i++){const x=f.x+(noise(f.seed,i+80)-.5)*f.r*1.2,y=f.y+(noise(f.seed,i+90)-.5)*f.r*.7-(f.t*9+i*7)%23;disk(c,x,y,.7,`rgba(${col},${fade*.5})`);}
     c.restore();
   }
-  function death(list,d,p,src){
-    if(list.length>=280)return false;
-    const key=src.key,lv=src.ulv||0;
-    emit(list,'weaponDeath',p.x,p.y,{dur:key==='cryo'?1.3:1.15,weapon:key,lv,r:d.size,dir:p.x>=src.x?1:-1,
-      d:{key:d.key,size:d.size,pal:{...d.pal},feat:d.feat,painter:d.painter,flying:d.flying,artHeading:d.artHeading},phase:d.phase||0});return true;
-  }
-  function fallenBody(c,d,x,y,dir,phase,alpha,fall){
-    if(typeof Creatures!=='undefined'&&Creatures.available&&Number.isFinite(d.artHeading)){
-      c.save();c.translate(x,y-d.size*.6);c.rotate(dir*fall*1.14);c.translate(0,d.size*.6);Creatures.draw(c,d,0,0,1,phase,alpha,0);c.restore();return;
-    }
-    const s=d.size;c.save();c.globalAlpha=alpha*.24;c.fillStyle='#000';c.beginPath();c.ellipse(x,y+2,s*.86,s*.20,0,0,TAU);c.fill();
-    c.globalAlpha=alpha;c.translate(x,y);c.scale(dir,1);c.translate(0,-s*.6);c.rotate(fall*1.14);c.translate(0,s*.6);c.scale(s,s);PAINTERS[d.painter](c,d,phase);c.restore();
-  }
-  function drawDeath(c,f){
-    const k=clamp(f.t/f.dur),key=f.weapon,col=rgb(key,f.lv),s=f.r,dir=f.dir;
-    c.save();
-    if(key==='cryo'){
-      if(k<.42){const icy={...f.d,pal:{body:'#80b4c3',belly:'#d3f0f1',accent:'#c2f8ff'}};drawDino(c,icy,f.x,f.y,dir,f.phase,1,0);Arsenal.haze(c,f.x,f.y-s*.5,s*1.2,col,.2);
-        for(let i=0;i<5;i++){const a=i*.9;line(c,[[f.x-s*.5+i*s*.22,f.y],[f.x+Math.cos(a)*s*.3,f.y-s*.7]],'rgba(224,253,255,.8)',.7);}
-      }else{const q=(k-.42)/.58;for(let i=0;i<17;i++){const a=noise(f.seed,i)*TAU,r=s*(.4+noise(f.seed,i+20))*q,x=f.x+Math.cos(a)*r*1.6,y=f.y-s*.4+Math.sin(a)*r+q*q*s*.65;
-        c.save();c.translate(x,y);c.rotate(i+q*3);c.globalAlpha=1-q;c.fillStyle=i%2?'#b8f0fb':'#6bafca';c.beginPath();c.moveTo(-2,-5);c.lineTo(3,-1);c.lineTo(1,4);c.lineTo(-2,1);c.fill();c.restore();}Arsenal.haze(c,f.x,f.y-s*.3,s*(.7+q),col,(1-q)*.24);}
-    }else{
-      const violent=key==='missile'||key==='mortar'||key==='sniper',fall=Math.min(1,k*2.8),slide=violent?s*1.4*fall:s*.2*fall,lift=violent?Math.sin(fall*Math.PI)*s*.7:0;
-      const faded=clamp((1-k)*2.3),corpse={...f.d};
-      if(key==='flamer'||key==='tesla')corpse.pal={body:'#303334',belly:'#52534b',accent:'#202629'};
-      if(key==='gas')corpse.pal={...f.d.pal,body:'#64735b',belly:'#92a378'};
-      fallenBody(c,corpse,f.x+dir*slide,f.y-lift,dir,f.phase,faded,fall);
-      if(key==='flamer'){for(let i=0;i<8;i++){const a=noise(f.seed,i),x=f.x+(a-.5)*s*1.3,y=f.y-s*.3-k*s*(.7+a);Arsenal.haze(c,x,y,2+(1-k)*4,[255,105,30],(1-k)*.4);}sparks(c,f.x,f.y-s*.3,k,s*1.2,f.seed,[255,163,47],8,-s*.5);}
-      if(key==='tesla'){for(let i=0;i<3;i++){const x=f.x+dir*slide+(i-1)*s*.28;line(c,[[x-3,f.y-s*.4],[x+Math.sin(k*32+i)*4,f.y-s*.7],[x+2,f.y-s]],`rgba(190,189,255,${(1-k)*.7})`,.8);}}
-      if(key==='sonic')for(let i=0;i<3;i++){c.strokeStyle=`rgba(${col},${(1-k)*.35})`;c.lineWidth=1;c.beginPath();c.ellipse(f.x,f.y-s*.4,s*(.3+k+i*.12),s*(.2+k*.5),0,0,TAU);c.stroke();}
-      if(key==='gas')Arsenal.haze(c,f.x,f.y-s*.5-k*s*.3,s*(.7+k*.3),col,(1-k)*.18);
-      if(violent)sparks(c,f.x,f.y-s*.4,k,s*2.5,f.seed,[255,186,101],8,s);
-      if(k>.18)Arsenal.haze(c,f.x+dir*slide,f.y+3,s*(.4+k*.35),[123,114,94],(1-k)*.18);
-    }c.restore();
-  }
+  function death(list,d,p,src){return DinoFX.death(list,d,p,src);}
+  function update(f,dt,play){return DinoFX.update(f,dt,play);}
   function draw(c,f,time=0){
     const k=clamp(f.t/f.dur),fade=1-k,r=f.r||12,seed=f.seed||1,lv=f.lv||0;
     switch(f.kind){
-      case 'weaponDeath':drawDeath(c,f);return true;
+      case 'weaponDeath':return DinoFX.drawDeath(c,f);
       case 'boom':{
         const rr=r*(.18+Math.pow(k,.55)*.68);c.save();
         c.fillStyle=`rgba(14,17,18,${fade*.26})`;c.beginPath();c.ellipse(f.x,f.y+4,rr*.82,rr*.38,0,0,TAU);c.fill();
@@ -134,11 +101,15 @@ const WeaponFX = (() => {
         sparks(c,f.x,f.y,k,r*1.25,seed,[255,188,89],18,r*.28);c.restore();return true;
       }
       case 'frost':{
-        c.save();const rr=r*(.18+k*.72);Arsenal.haze(c,f.x,f.y,rr,[139,219,252],fade*.3);
-        for(let i=0;i<12;i++){const a=i/12*TAU+.2,x=f.x+Math.cos(a)*rr,y=f.y+Math.sin(a)*rr*.65;
-          line(c,[[f.x,f.y],[x,y]],`rgba(194,246,255,${fade*.4})`,.8);
-          const d=3+fade*5;c.fillStyle=`rgba(203,248,255,${fade*.8})`;c.beginPath();c.moveTo(x,y-d);c.lineTo(x+2,y);c.lineTo(x,y+2);c.lineTo(x-2,y);c.fill();}
-        c.strokeStyle=`rgba(207,249,255,${fade*.55})`;c.lineWidth=1.2;c.beginPath();c.ellipse(f.x,f.y,rr,rr*.65,0,0,TAU);c.stroke();c.restore();return true;
+        const rr=r*(.15+k*.6);
+        for(let i=0;i<10;i++){const a=noise(seed,i)*TAU,d=rr*(.3+noise(seed,i+12)*.7),x=f.x+Math.cos(a)*d,y=f.y+Math.sin(a)*d*.55;
+          DinoFX.crystal(c,x,y,(1.2+noise(seed,i+20)*2.2)*fade,a,fade*.85);}
+        for(let i=0;i<4;i++)DinoFX.smoke(c,f.x+(i-1.5)*rr*.38,f.y-k*9,rr*(.32+i*.06),k,seed+i,fade*.27,true);
+        return true;
+      }
+      case 'zap':{
+        for(let i=0;i<4;i++){const a=noise(seed,i)*TAU,d=(5+k*15);DinoFX.arc(c,{x:f.x,y:f.y},{x:f.x+Math.cos(a)*d,y:f.y+Math.sin(a)*d},time,seed+i,fade);}
+        return true;
       }
       case 'sonic':{
         c.save();const col=rgb('sonic',lv);
@@ -148,13 +119,10 @@ const WeaponFX = (() => {
         Arsenal.haze(c,f.x,f.y-12,18,col,fade*.22);c.restore();return true;
       }
       case 'flame':{
-        const col=rgb('flamer',lv),length=r*(.65+k*.35);c.save();c.translate(f.x,f.y);c.rotate(f.ang);
-        c.globalCompositeOperation='lighter';
-        for(let i=0;i<12;i++){const q=i/11,x=q*length,w=(2+q*10)*(1-k*.35),y=Math.sin(q*12+seed*7-k*10)*q*4;
-          Arsenal.haze(c,x,y,w,col,fade*(.55-q*.22));
-          if(i<9){c.fillStyle=`rgba(${lv>=2?'178,233,255':'255,216,111'},${fade*(.75-q*.65)})`;c.beginPath();c.moveTo(x-3,y-w*.28);c.quadraticCurveTo(x+w,y-w*.4,x+w*1.7,y);c.quadraticCurveTo(x+w,y+w*.3,x-3,y+w*.28);c.fill();}
-        }
-        sparks(c,length*.55,0,k,length*.5,seed,lv>=2?[166,227,255]:[255,179,69],5,-5);c.restore();return true;
+        const length=r*(.65+k*.35);c.save();c.translate(f.x,f.y);c.rotate(f.ang+Math.PI*.5);
+        for(let i=0;i<9;i++){const q=i/8,w=(5+q*16)*(1-k*.3),x=Math.sin(q*12+seed-k*9)*q*3;
+          DinoFX.flame(c,x,-q*length,w*1.6,time+q*.12,seed+i,lv>=2,fade*(.7-q*.2));}
+        c.restore();return true;
       }
       case 'gaspuff':{
         const col=rgb('gas',lv);for(let i=0;i<4;i++){const d=k*(22+i*4),x=f.x+Math.cos(f.ang)*d,y=f.y+Math.sin(f.ang)*d-k*5;Arsenal.haze(c,x,y,(5+k*r)*(1+i*.12),col,fade*.22);}return true;
@@ -173,5 +141,5 @@ const WeaponFX = (() => {
       }
     }return false;
   }
-  return {fire,mark,trail,projectile,bolt,cloud,death,draw,emit};
+  return {fire,mark,trail,projectile,bolt,cloud,death,update,draw,emit};
 })();

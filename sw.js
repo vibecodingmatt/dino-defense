@@ -3,7 +3,7 @@
    Strategy: network-first for the app shell (so pushed updates show up as soon
    as you're online), cache-first for the icons, and a cached fallback whenever
    the network is unavailable. Bump CACHE to force a clean re-precache. */
-const CACHE = 'dino-defense-v57';
+const CACHE = 'dino-defense-v58';
 const SHELL = [
   './',
   'index.html',
@@ -26,6 +26,7 @@ const SHELL = [
   'js/creature-species.js',
   'js/creature-anatomy.js',
   'js/creatures.js',
+  'js/dino-fx.js',
   'js/creature-guide.js',
   'assets/maps/sector7-facility.webp',
   'assets/creatures/hide-detail.webp',

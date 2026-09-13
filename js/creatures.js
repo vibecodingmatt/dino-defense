@@ -25,7 +25,7 @@ const Creatures = (() => {
     }`;
   const FS=`precision highp float;
     varying vec3 vNormal,vRest,vColor,vBindNormal;varying float vMaterial,vPart;
-    uniform vec3 uBody,uBelly,uMark;uniform vec4 uStripe;uniform float uPattern,uStatus,uYaw;uniform vec2 uView;uniform sampler2D uDetail;
+    uniform vec3 uBody,uBelly,uMark;uniform vec4 uStripe,uSurface,uEffect,uTorso;uniform float uPattern,uStatus,uYaw,uTop;uniform vec2 uView;uniform sampler2D uDetail;
     float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
     float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+1.),f.x),f.y);}
     void main(){vec3 n=normalize(vNormal);if(dot(n,vec3(0.,uView.x,uView.y))<0.)n=-n;vec3 color=vColor;float mat=vMaterial;
@@ -53,11 +53,35 @@ const Creatures = (() => {
       }
       if(mat>3.5&&mat<4.5)color*=.82+noise(vRest.xy*5.+vRest.z*7.)*.12+texture2D(uDetail,vRest.xy*.57).r*.21;
       if(mat>4.5){color*=.78+noise(vec2(vRest.x*71.,vRest.y*13.)+vRest.z*29.)*.34;specular=.02;}
+      // Surface treatments use bind coordinates, so frost, scorch and holes
+      // stay on the same scales through gait, heading and death transforms.
+      float grain=noise(vRest.xy*29.+vRest.z*17.),patch=noise(vRest.xy*6.7+vRest.z*2.3);
+      float heat=uSurface.x,frost=uSurface.y,charge=uSurface.z,toxin=uSurface.w;
+      if(mat<1.5||mat>2.5){
+        color=mix(color,color*vec3(.23,.20,.18),heat*(.32+patch*.52));
+        color+=vec3(.30,.044,.004)*heat*pow(grain,7.);
+        float rime=smoothstep(.29,.83,grain+max(0.,vBindNormal.y)*.25)*frost;
+        color=mix(color,vec3(.63,.83,.88),rime*.84);specular+=frost*.22;
+        color=mix(color,color*vec3(.66,.79,.42),toxin*.58);
+      }
+      if(uEffect.x>.5&&uEffect.x<1.5){color=vec3(.14,.135,.125)*(.66+grain*.75);color+=vec3(.59,.09,.008)*pow(grain,13.)*(1.-uEffect.y);specular=.018;}
+      if(uEffect.x>1.5&&uEffect.x<2.5){color=mix(color,vec3(.46,.72,.80),.64)+vec3(.10,.15,.16)*grain;specular=.34;}
+      if(uEffect.x>2.5&&uEffect.x<3.5){color=mat>1.5&&mat<2.5?vec3(.035,.045,.041):vec3(.73,.70,.59)*(.77+grain*.29);specular=.045;}
+      if(uEffect.x>3.5&&uEffect.x<4.5){color=mix(color,vec3(.62,.88,.74),.83);specular=.12;}
+      if(uEffect.y>0.&&(uEffect.x<1.5||uEffect.x>4.5)){
+        float edge=uEffect.x<1.5?vRest.y/max(.1,uTop):noise(vRest.xy*17.+vRest.z*13.);
+        if(edge<uEffect.y*.99+grain*.085)discard;
+      }
+      if(uEffect.z>0.&&vPart<.5){vec2 p=(vRest.xy-uTorso.xy)/uTorso.zw;
+        for(int i=0;i<6;i++){float f=float(i);if(f<uEffect.z*6.){vec2 h=vec2(sin(f*19.1)*.64,cos(f*13.7)*.46);float wound=length((p-h)*vec2(1.,1.35));if(wound<.052)discard;if(wound<.09)color=vec3(.20,.025,.023);}}
+      }
       float diffuse=max(0.,dot(n,normalize(vec3(-.45,.82,.58))));float rim=pow(1.-abs(dot(n,normalize(vec3(0.,.62,.785)))),3.);
       float spec=pow(max(0.,dot(n,normalize(vec3(-.2,.91,.61)))),24.)*specular;
       vec3 lit=color*(.38+diffuse*.83)+vec3(.12,.17,.19)*rim*.28+vec3(spec);
       if(mat>1.5&&mat<2.5)lit=color*(.85+diffuse*.25);
       if(uStatus>0.)lit=mix(lit,uBody,uStatus);
+      lit+=vec3(.18,.28,.43)*charge*(.3+rim*.7);
+      if(uEffect.x>3.5&&uEffect.x<4.5)lit+=vec3(.14,.25,.20)*rim;
       gl_FragColor=vec4(clamp(lit,0.,1.),1.);
     }`;
   let loc;
@@ -65,7 +89,7 @@ const Creatures = (() => {
   if(gl)try{
     program=gl.createProgram();const vs=compile(gl.VERTEX_SHADER,VS),fs=compile(gl.FRAGMENT_SHADER,FS);gl.attachShader(program,vs);gl.attachShader(program,fs);gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(program));gl.deleteShader(vs);gl.deleteShader(fs);gl.useProgram(program);
     loc={};for(const k of ['aPosition','aNormal','aRest','aColor','aBone','aMaterial','aPart','aBlend'])loc[k]=gl.getAttribLocation(program,k);
-    for(const k of ['uBones','uYaw','uMask','uSize','uScale','uBody','uBelly','uMark','uStripe','uPattern','uStatus','uDetail','uView'])loc[k]=gl.getUniformLocation(program,k);
+    for(const k of ['uBones','uYaw','uMask','uSize','uScale','uBody','uBelly','uMark','uStripe','uPattern','uStatus','uDetail','uView','uSurface','uEffect','uTorso','uTop'])loc[k]=gl.getUniformLocation(program,k);
     const detail=gl.createTexture();gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,detail);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([128,128,128,255]));gl.uniform1i(loc.uDetail,0);
     const hide=new Image();hide.onload=()=>{if(lost)return;const cv=document.createElement('canvas');cv.width=cv.height=1024;cv.getContext('2d').drawImage(hide,0,0,1024,1024);gl.bindTexture(gl.TEXTURE_2D,detail);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,cv);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.generateMipmap(gl.TEXTURE_2D);cache.clear();lastSignature='';};hide.src='assets/creatures/hide-detail.webp';
     gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.disable(gl.CULL_FACE);gl.disable(gl.BLEND);gl.clearColor(0,0,0,0);
@@ -93,7 +117,7 @@ const Creatures = (() => {
         const response=await fetch('assets/creatures/skinned/'+key+'.mesh.gz');if(!response.ok)throw Error('Skin HTTP '+response.status);
         const bytes=await new Response(response.body.pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();if(!bytes.byteLength||bytes.byteLength%68||bytes.byteLength>16000000)throw Error('Invalid skin stream');
         const vertices=new Float32Array(bytes);if(vertices.some(v=>!Number.isFinite(v)))throw Error('Non-finite skin');
-        m.vertices=vertices;m.count=vertices.length/17;m.partBounds=null;m.joinedSkin=true;
+        m.vertices=vertices;m.count=vertices.length/17;m.partBounds=null;m.effectSites=null;m.joinedSkin=true;
         gl.bindBuffer(gl.ARRAY_BUFFER,m.buffer);gl.bufferData(gl.ARRAY_BUFFER,vertices,gl.STATIC_DRAW);cache.clear();lastSignature='';return true;
       })().catch(e=>{m.skinError=e.message;return false;});
     }return models.get(key);
@@ -109,6 +133,8 @@ const Creatures = (() => {
     const p=d.pal||DINOS[key].pal,base=DINOS[key].pal;
     return {body:CreatureMeshes.rgb(p.body||base.body),belly:CreatureMeshes.rgb(p.belly||base.belly),mark:CreatureMeshes.rgb(p.accent||base.accent),override:['#f2f6ff','#ffffff','#303334','#80b4c3'].includes(p.body)?.55:0};
   }
+  const quant=v=>Math.round(Math.max(0,Math.min(1,v||0))*16)/16;
+  function treatment(d){return [quant(d.fxHeat??Math.max(d.burnT>0?.8:0,(d.charT||0)*.7)),quant(d.fxFrost??(d.slowT>0?Math.min(1,d.slowT)*.85:0)),quant(d.zapT>0?Math.min(1,d.zapT*4):0),quant(d.poisonT),d.fxMaterial||0,quant(d.fxAmount),quant(d.fxHoles)];}
   function renderTile(d,key,phase,yaw,col,row,cellW=CW,cellH=CH){
     const m=model(key),p=status(d,key),hidden=d.deathMask||{},mask=m.parts.map(k=>hidden[k]||k==='lowerJaw'&&hidden.head&&hidden.lowerJaw!==0||k==='sail'&&d.hideSail?1:0);
     gl.useProgram(program);gl.viewport(col*cellW,source.height-(row+1)*cellH,cellW,cellH);gl.scissor(col*cellW,source.height-(row+1)*cellH,cellW,cellH);gl.enable(gl.SCISSOR_TEST);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
@@ -116,7 +142,11 @@ const Creatures = (() => {
     if(m.vertexStride===17){gl.enableVertexAttribArray(loc.aBlend);gl.vertexAttribPointer(loc.aBlend,2,gl.FLOAT,false,68,60);}else{gl.disableVertexAttribArray(loc.aBlend);gl.vertexAttrib2f(loc.aBlend,0,0);}
     gl.uniformMatrix4fv(loc.uBones,false,CreatureMeshes.pose(m,d.entranceT>0?0:phase,roar(d),frill(d)));gl.uniform1f(loc.uYaw,yaw);gl.uniform1fv(loc.uMask,new Float32Array(mask));gl.uniform2f(loc.uSize,cellW,cellH);gl.uniform1f(loc.uScale,cellW/5.8);
     const view=d.artView===undefined?GROUND:Math.max(0,Math.min(.8,d.artView));gl.uniform2f(loc.uView,view,Math.sqrt(1-view*view));
-    gl.uniform3fv(loc.uBody,p.body);gl.uniform3fv(loc.uBelly,p.belly);gl.uniform3fv(loc.uMark,p.mark);gl.uniform4fv(loc.uStripe,key==='blue'?[1.18,.31,1.71,.97]:[1.10,.35,1.54,1.00]);gl.uniform1f(loc.uPattern,m.cfg.pattern||0);gl.uniform1f(loc.uStatus,p.override);gl.drawArrays(gl.TRIANGLES,0,m.count);
+    gl.uniform3fv(loc.uBody,p.body);gl.uniform3fv(loc.uBelly,p.belly);gl.uniform3fv(loc.uMark,p.mark);gl.uniform4fv(loc.uStripe,key==='blue'?[1.18,.31,1.71,.97]:[1.10,.35,1.54,1.00]);gl.uniform1f(loc.uPattern,m.cfg.pattern||0);gl.uniform1f(loc.uStatus,p.override);
+    const fx=treatment(d),body=m.anatomy?.body||[[-.6,1,.3,.3],[.5,1,.3,.3]],wide=body.reduce((a,b)=>a[3]>b[3]?a:b);
+    gl.uniform4fv(loc.uSurface,fx.slice(0,4));gl.uniform4f(loc.uEffect,fx[4],fx[5],fx[6],0);
+    gl.uniform4f(loc.uTorso,(body[0][0]+body.at(-1)[0])/2,(wide[1]+wide[2])/2,Math.max(.2,(body.at(-1)[0]-body[0][0])*.5),Math.max(.15,(wide[1]-wide[2])*.5));gl.uniform1f(loc.uTop,Math.max(...(m.anatomy?.head||body).map(p=>p[1])));
+    gl.drawArrays(gl.TRIANGLES,0,m.count);
   }
   function resize(w,h){if(source.width!==w||source.height!==h){source.width=w;source.height=h;}}
   function yawFor(d,turn){return Number.isFinite(d.artHeading)?d.artHeading:turn<0?Math.PI-.16:.16;}
@@ -125,18 +155,18 @@ const Creatures = (() => {
     const cell=detailed&&items.length<=8?Math.min(maxEdge,coarse?320:640):CW;
     const maxCols=Math.max(1,Math.min(COLS,Math.floor(maxEdge/cell))),capacity=Math.min(MAX,maxCols*Math.floor(maxEdge/cell));
     const entries=items.filter(d=>!d.dead&&!d.leaked&&keyOf(d)).slice(0,capacity);if(!entries.length){lastSignature='';return;}
-    const signature=cell+':'+entries.map(d=>{if(!objectIds.has(d))objectIds.set(d,++nextId);return [objectIds.get(d),d.phase||0,yawFor(d,d.turn===undefined?d.dir:d.turn),roar(d),frill(d),d.entranceT>0?1:0,JSON.stringify(d.pal),d.artView].join(',');}).join(';');
+    const signature=cell+':'+entries.map(d=>{if(!objectIds.has(d))objectIds.set(d,++nextId);return [objectIds.get(d),d.phase||0,yawFor(d,d.turn===undefined?d.dir:d.turn),roar(d),frill(d),d.entranceT>0?1:0,JSON.stringify(d.pal),d.artView,treatment(d).join(',')].join(',');}).join(';');
     if(signature===lastSignature)return;lastSignature=signature;generation++;
     const cols=Math.min(maxCols,entries.length),rows=Math.ceil(entries.length/cols);resize(cols*cell,rows*cell);
     gl.disable(gl.SCISSOR_TEST);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
-    for(let i=0;i<entries.length;i++){const d=entries[i],key=keyOf(d),col=i%cols,row=Math.floor(i/cols);renderTile(d,key,d.phase||0,yawFor(d,d.turn===undefined?d.dir:d.turn),col,row,cell,cell);slots.set(d,{generation,x:col*cell,y:row*cell,cell,key,palette:JSON.stringify(d.pal)});}
+    for(let i=0;i<entries.length;i++){const d=entries[i],key=keyOf(d),col=i%cols,row=Math.floor(i/cols);renderTile(d,key,d.phase||0,yawFor(d,d.turn===undefined?d.dir:d.turn),col,row,cell,cell);slots.set(d,{generation,x:col*cell,y:row*cell,cell,key,palette:JSON.stringify(d.pal),treatment:treatment(d).join(',')});}
     if(atlas.width!==source.width||atlas.height!==source.height){atlas.width=source.width;atlas.height=source.height;}
     ac.clearRect(0,0,atlas.width,atlas.height);ac.drawImage(source,0,0);
   }
   function sprite(d,phase,yaw){
     const key=keyOf(d);if(!key||!available())return null;
     const frame=((Math.round(phase/TAU*16)%16)+16)%16,angle=Math.round(yaw/TAU*32),mouth=Math.round(roar(d)*5),mask=d.deathMask||{},pal=status(d,key);
-    const display=Math.round(frill(d)*12),id=[key,frame,angle,mouth,display,JSON.stringify(mask),d.hideSail?1:0,JSON.stringify(d.pal),d.artView].join(':');
+    const display=Math.round(frill(d)*12),id=[key,frame,angle,mouth,display,JSON.stringify(mask),d.hideSail?1:0,JSON.stringify(d.pal),d.artView,treatment(d).join(',')].join(':');
     if(cache.has(id)){const hit=cache.get(id);cache.delete(id);cache.set(id,hit);return hit;}
     resize(CW,CH);renderTile({...d,artRoar:mouth/5,artFrill:display/12},key,frame/16*TAU,angle/32*TAU,0,0);
     const cv=document.createElement('canvas');cv.width=CW;cv.height=CH;cv.getContext('2d').drawImage(source,0,0);cache.set(id,cv);if(cache.size>MAX_CACHE)cache.delete(cache.keys().next().value);return cv;
@@ -148,11 +178,11 @@ const Creatures = (() => {
     const key=keyOf(d);if(!available()||!key)return false;
     const transform=c.getTransform(),px=transform.a*x+transform.c*y+transform.e,py=transform.b*x+transform.d*y+transform.f,pad=d.size*4*Math.max(Math.hypot(transform.a,transform.b),Math.hypot(transform.c,transform.d));
     if(px+pad<0||py+pad<0||px-pad>c.canvas.width||py-pad>c.canvas.height)return true;
-    const yaw=yawFor(d,turn),slot=slots.get(d),live=slot&&slot.generation===generation&&slot.key===key&&!d.deathMask&&slot.palette===JSON.stringify(d.pal);
+    const yaw=yawFor(d,turn),slot=slots.get(d),live=slot&&slot.generation===generation&&slot.key===key&&!d.deathMask&&slot.palette===JSON.stringify(d.pal)&&slot.treatment===treatment(d).join(',');
     const img=live?atlas:sprite(d,phase||0,yaw);if(!img)return false;const s=d.size;
     c.save();c.globalAlpha=alpha;
     const flying=DINOS[key].flying,water=DINOS[key].water;
-    c.fillStyle=water?'rgba(10,26,30,.2)':'rgba(0,8,7,.27)';c.beginPath();c.ellipse(x,y+2,s*(.45+.4*Math.abs(Math.cos(yaw))),s*.20,0,0,TAU);c.fill();
+    if(!d.fxNoShadow){c.fillStyle=water?'rgba(10,26,30,.2)':'rgba(0,8,7,.27)';c.beginPath();c.ellipse(x,y+2,s*(.45+.4*Math.abs(Math.cos(yaw))),s*.20,0,0,TAU);c.fill();}
     c.translate(x,y);
     // Path direction is represented by the 3D heading. The remaining pitch
     // is reserved for roars, pounces and the scripted menu interactions.
@@ -173,6 +203,28 @@ const Creatures = (() => {
     const key=keyOf(d);if(!key||!available())return false;
     const resolution=Math.min(maxEdge,coarse?640:1024);resize(resolution,resolution);renderTile({...d,artRoar:opening},key,phase,yaw,0,0,resolution,resolution);
     c.drawImage(source,x-ORIGIN_X*size,y-ORIGIN_Y*size,5.8*size,5.8*size);return true;
+  }
+  // A small set of real skin vertices feeds surface effects. Their positions
+  // use exactly the same blended bones and projection as the rendered mesh.
+  // No separate effects skeleton or hand-positioned species silhouettes.
+  function effectFrame(d,phase=d.phase||0,turn=d.turn??d.dir??1){
+    const key=keyOf(d);if(!available()||!key)return null;const m=model(key),v=m.vertices,stride=m.vertexStride||15;
+    if(!m.effectSites){
+      const cells=new Map(),tops=new Map(),extremes=new Map();
+      for(let i=0;i<v.length;i+=stride*3){const part=v[i+14],p=[v[i],v[i+1],v[i+2]],cell=part+':'+p.map(x=>Math.floor(x*4)).join(',');if(!cells.has(cell))cells.set(cell,i);
+        for(let axis=0;axis<3;axis++)for(const sign of [-1,1]){const k=part+':'+axis+':'+sign,old=extremes.get(k);if(old===undefined||v[old+axis]*sign<p[axis]*sign)extremes.set(k,i);}
+        if((part===0||part===3||part===10||part===11)&&v[i+4]>.32){const k=Math.floor(p[0]*3)+':'+Math.round(p[2]*2),old=tops.get(k);if(old===undefined||v[old+1]<p[1])tops.set(k,i);}
+      }
+      const candidates=[...cells.values()],sites=[...new Set(extremes.values())];for(let n=0;sites.length<96&&n<Math.min(96,candidates.length);n++){const i=candidates[Math.floor(n*candidates.length/Math.min(96,candidates.length))];if(!sites.includes(i))sites.push(i);}
+      const fire=[...tops.values()].sort((a,b)=>v[a]-v[b]);m.effectSites={sites:sites.slice(0,96),fire:Array.from({length:Math.min(14,fire.length)},(_,i)=>fire[Math.floor(i*fire.length/Math.min(14,fire.length))])};
+    }
+    const bones=CreatureMeshes.pose(m,d.entranceT>0?0:phase,roar(d),frill(d)),yaw=yawFor(d,turn),cy=Math.cos(yaw),sy=Math.sin(yaw),view=Math.max(0,Math.min(.8,d.artView??GROUND)),height=Math.sqrt(1-view*view);
+    const bonePoint=(p,id)=>{const k=id*16;return [bones[k]*p[0]+bones[k+4]*p[1]+bones[k+8]*p[2]+bones[k+12],bones[k+1]*p[0]+bones[k+5]*p[1]+bones[k+9]*p[2]+bones[k+13],bones[k+2]*p[0]+bones[k+6]*p[1]+bones[k+10]*p[2]+bones[k+14]];};
+    function project(p,a=0,b=0,blend=0){const q=bonePoint(p,a),r=blend?bonePoint(p,b):q,x=q[0]+(r[0]-q[0])*blend,y=q[1]+(r[1]-q[1])*blend,z=q[2]+(r[2]-q[2])*blend,X=x*cy-z*sy,Z=x*sy+z*cy;return {x:X,y:Z*view-y*height,depth:y*view+Z*height};}
+    const point=i=>({...project([v[i],v[i+1],v[i+2]],v[i+12],stride===17?v[i+15]:0,stride===17?v[i+16]:0),part:m.parts[v[i+14]]});
+    const sites=m.effectSites.sites.map(point),fire=m.effectSites.fire.map(point),body=m.anatomy?.body||[[-.4,1,.2,.3]],wide=body.reduce((a,b)=>a[3]>b[3]?a:b),center=project([wide[0],(wide[1]+wide[2])/2,0]);
+    const bounds={left:Math.min(...sites.map(p=>p.x)),right:Math.max(...sites.map(p=>p.x)),top:Math.min(...sites.map(p=>p.y)),bottom:Math.max(...sites.map(p=>p.y))};
+    return {sites,fire,center,bounds,project,rig:m.rig,anatomy:m.anatomy,parts:m.parts,head:project(m.rig.head,m.rig.headBone),eyes:m.anatomy?.eye?[-1,1].map(side=>project([m.anatomy.eye[0],m.anatomy.eye[1],side*m.anatomy.eye[2]],m.rig.headBone)):[]};
   }
   function part(c,d,kind,options={}){
     const key=keyOf(d);if(!key||!available())return false;
@@ -195,6 +247,6 @@ const Creatures = (() => {
   }
   for(const key of ids){const cfg=CreatureMeshes.catalog[key];DINOS[key].pal={body:cfg.body,belly:cfg.belly,accent:cfg.mark};}
   const ready=async(keys=ids)=>available()?Promise.all(keys.map(key=>model(key).ready||Promise.resolve(false))):keys.map(()=>false);
-  return {draw,unit,prepare,inspect,part,keyOf,mouth,model,ready,roar,GROUND,HEIGHT,
+  return {draw,unit,prepare,inspect,part,keyOf,mouth,model,ready,roar,effectFrame,GROUND,HEIGHT,
     get available(){return available();},get error(){return error;},get modelCount(){return models.size;},get cacheBytes(){return cache.size*CW*CH*4;},get atlasBytes(){return atlas.width*atlas.height*4;},get cacheLimit(){return MAX_CACHE;},get cachedSprites(){return cache.size;}};
 })();

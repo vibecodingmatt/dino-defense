@@ -47,13 +47,13 @@
     }
   }
   function kill(t,p){
-    if(victim)return;victim={t:time};const d={...DINOS.velociraptor,size:15,phase:.7};WeaponFX.death(particles,d,p,t);
+    if(victim)return;victim={t:time,dur:DinoFX.durations[key]};const d={...DINOS.velociraptor,key:'velociraptor',size:15,phase:.7};WeaponFX.death(particles,d,p,t);
   }
   function paint(dt){
     const width=280,height=155;
     if(running){
       time+=dt;
-      const interval=key==='gatling'?.21:key==='flamer'?.18:1.8;
+      const interval=key==='gatling'?.21:key==='flamer'?.18:DinoFX.durations[key]+.5;
       const burst=time%2.4<.65;
       if((!['gatling','flamer'].includes(key)||burst)&&time-shotAt>interval)shoot();
       for(const f of particles)f.t+=dt;particles=particles.filter(f=>f.t<f.dur);
@@ -69,7 +69,7 @@
     // Keep every orientation in frame; the center of weapon + target stays put.
     const t=pose(),p=target(t),centerX=(t.x+p.x)/2;c.save();c.translate(140-centerX,-5);
     for(const f of clouds)WeaponFX.cloud(c,f);
-    if(!victim||time-victim.t>1.25)drawDino(c,{...DINOS.velociraptor,size:15},p.x,p.y,Math.cos(angle)>0?-1:1,.7,1,0);
+    if(!victim||time-victim.t>victim.dur)drawDino(c,{...DINOS.velociraptor,key:'velociraptor',size:15},p.x,p.y,Math.cos(angle)>0?-1:1,.7,1,0);
     Arsenal.base(c,t.x,t.y,key,false,lv);Arsenal.turret(c,t,time-shotAt<.045?.12:0,time);
     for(const pr of projs)WeaponFX.projectile(c,pr,time);for(const b of bolts)WeaponFX.bolt(c,b,time);for(const f of particles)WeaponFX.draw(c,f,time);c.restore();
     c.setTransform(1,0,0,1,0,0);
