@@ -6,30 +6,42 @@ separate maintained products. This is the browser handoff. Roblox starts at
 
 ## Production baseline
 
-Last verified runtime release: **1.65.2**, September 12, 2026; service-worker cache
-**dino-defense-v61**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
-from root `main`, commit `38d057f718794b210cbad82b00d853a9085b9ee1`.
-[Pages run 34731636528 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34731636528).
+Last verified runtime release: **1.66.0**, September 12, 2026; service-worker cache
+**dino-defense-v62**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
+from root `main`, commit `deb57047523659d7f9835cd779a74ebd3faa23aa`.
+[Pages run 34733113701 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34733113701).
 This is a recorded deployment baseline; inspect Git and the live version before
 the next release rather than assuming HEAD still equals this commit.
 
-Live verification checked HTTP 200 and committed SHA-256 for 105 pages and
+Live verification checked HTTP 200 and committed SHA-256 for 79 shell pages and
 dependencies, all 33 loaded dinosaur skins and polished jaw attachments,
 the guest renderer, hidden art menus,
 ascending weapon prices, matching number keys and Gas selection, actual kills
 with all nine finishers, surface effects and red-ring removal, resumed wave one
-with one weapon and zero cash, phone layout and offline loading under cache v61.
+with one weapon and zero cash, phone layout and offline loading under cache v62.
 It also checked the authored audio bank online/offline, larger Gennaro scale,
 and deaths of all 33 species and nine bosses without creature vocalizations.
 No browser JavaScript errors were found in those checks. Physical phone GPU
 performance and film-quality likeness were not established by headless tests.
 
+The separate production map suite verified all six new painted environments,
+unchanged land/water routes, real mouse and phone-touch weapon placement, combat,
+saved cash and exact tower coordinates, maze routing, pause/10× scenery clocks,
+reduced motion, missing/late images, thumbnail refresh and offline rendering.
+It also confirmed Perimeter's random ambient growls are disabled with a living
+raptor on the field. Desktop scenery CPU submission p95 was 0.2–0.5 ms in that
+run; this is not a physical-device GPU frame-rate benchmark.
+
 The current release includes the rounded jaw polish plus the film-reference
 T-Rex, authored audio, guest models/gore, larger Gennaro, nine weapon finishers,
-surface effects, price-sorted armory, Sector 7 art and earlier anatomy/resume
-repairs. Focused review links below own implementation details and evidence.
+surface effects, price-sorted armory, all seven detailed map environments and
+earlier anatomy/resume repairs. The six-map release adds fountains, waterfalls,
+an expedition helicopter, estate ambience, the Helios array and a luminous reef,
+plus compact phone onboarding. [Map notes](../assets/maps/README.md) own the
+scene pipeline and authoring details.
 The verification report and live captures are in
-`C:/Users/burns/dev/dino-perimeter-review/production-1652/`.
+`C:/Users/burns/dev/dino-perimeter-review/maps1660/production/` and
+`C:/Users/burns/dev/dino-perimeter-review/maps1660/production-maps/`.
 
 ## Ownership
 
