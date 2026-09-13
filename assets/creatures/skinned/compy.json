@@ -1,9 +1,9 @@
 {
   "species": "compy",
-  "source_vertices": 53112,
-  "vertices": 62040,
+  "source_vertices": 55032,
+  "vertices": 63960,
   "skin_triangles": 12496,
-  "compressed_bytes": 731634,
+  "compressed_bytes": 740572,
   "regions": [
     {
       "name": "body",

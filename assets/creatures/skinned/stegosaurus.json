@@ -1,9 +1,9 @@
 {
   "species": "stegosaurus",
-  "source_vertices": 60744,
-  "vertices": 65568,
+  "source_vertices": 62664,
+  "vertices": 67488,
   "skin_triangles": 12496,
-  "compressed_bytes": 711493,
+  "compressed_bytes": 720866,
   "regions": [
     {
       "name": "body",

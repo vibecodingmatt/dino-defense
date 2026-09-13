@@ -1,9 +1,9 @@
 {
   "species": "blue",
-  "source_vertices": 58824,
-  "vertices": 67158,
+  "source_vertices": 60744,
+  "vertices": 69078,
   "skin_triangles": 12498,
-  "compressed_bytes": 746985,
+  "compressed_bytes": 756195,
   "regions": [
     {
       "name": "body",

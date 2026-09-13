@@ -1,9 +1,9 @@
 {
   "species": "plesiosaurus",
-  "source_vertices": 42000,
-  "vertices": 61080,
+  "source_vertices": 43920,
+  "vertices": 63000,
   "skin_triangles": 12496,
-  "compressed_bytes": 661114,
+  "compressed_bytes": 670734,
   "regions": [
     {
       "name": "body",

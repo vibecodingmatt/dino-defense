@@ -147,7 +147,23 @@ const CreatureAnatomy=(()=>{
     // medial to both lips and are occluded by the opposing jaw at rest.
     const mandible=s.jaw.map(p=>{const h=at(s.head,p[0]),depth=p[1]-p[2];return [p[0],h[2]-.006,h[2]-.006-depth,Math.max(p[3],h[3]*.94)];});
     rig.jaw=[s.jawPivot[0],at(s.head,s.jawPivot[0])[2],0];rig.mouth=[s.mouth[0],at(s.head,s.mouth[0])[2]-.008,0];
-    use(2,'lowerJaw');loft(mandible,jawContour);
+    // A rounded retroarticular heel seats behind the mouth corner, inside
+    // the cheek. The old full-depth end cap looked like a detached plank.
+    // Blend this short attachment from head to jaw; the tooth-bearing ramus
+    // stays rigid and still follows the existing bite pivot and mouth anchor.
+    const root=mandible[0],depth=root[1]-root[2],reach=depth*.90;
+    const heel=[
+      [root[0]-reach,root[1]+depth*.25,root[1]+depth*.23,.001],
+      [root[0]-reach*.88,root[1]+depth*.38,root[1]-depth*.17,root[3]*.58],
+      [root[0]-reach*.58,root[1]+depth*.40,root[1]-depth*.66,root[3]*.87],
+      [root[0]-reach*.22,root[1]+depth*.20,root[1]-depth*.94,root[3]*.98],
+      ...mandible,
+    ];
+    use(2,'lowerJaw');const jawStart=m.data.length;loft(heel,jawContour);
+    for(let i=jawStart;i<m.data.length;i+=17){
+      const t=clamp((m.data[i]-(root[0]-reach*.82))/(reach*.82+depth*.40),0,1);
+      const bend=t*t*(3-2*t);m.data[i+12]=1;m.data[i+15]=2;m.data[i+16]=bend;
+    }
     // Palate and tongue are inside the jaws, visible only when they open.
     use(1,'head',0,'#382729');loft(s.head.filter(p=>p[0]>=s.jaw[0][0]).map(p=>[p[0],p[2]+.011,p[2]+.006,p[3]*.66]),[[0,1],[1,0],[0,0],[-1,0]],null,false);
     use(2,'lowerJaw',0,'#604044');loft(mandible.map(p=>[p[0],p[1]+.006,p[1]+.002,p[3]*.68]),[[0,1],[1,0],[0,0],[-1,0]],null,false);

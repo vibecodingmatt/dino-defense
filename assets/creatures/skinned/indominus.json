@@ -1,9 +1,9 @@
 {
   "species": "indominus",
-  "source_vertices": 70728,
-  "vertices": 75480,
+  "source_vertices": 72648,
+  "vertices": 77400,
   "skin_triangles": 12496,
-  "compressed_bytes": 764949,
+  "compressed_bytes": 774291,
   "regions": [
     {
       "name": "body",

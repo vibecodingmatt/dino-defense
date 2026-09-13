@@ -1,9 +1,9 @@
 {
   "species": "ichthyosaurus",
-  "source_vertices": 48588,
-  "vertices": 66606,
+  "source_vertices": 50508,
+  "vertices": 68526,
   "skin_triangles": 12498,
-  "compressed_bytes": 711680,
+  "compressed_bytes": 721219,
   "regions": [
     {
       "name": "body",

@@ -1,9 +1,9 @@
 {
   "species": "ankylosaurus",
-  "source_vertices": 71928,
-  "vertices": 76758,
+  "source_vertices": 73848,
+  "vertices": 78678,
   "skin_triangles": 12498,
-  "compressed_bytes": 744812,
+  "compressed_bytes": 754173,
   "regions": [
     {
       "name": "body",

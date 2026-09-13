@@ -1,9 +1,9 @@
 {
   "species": "baryonyx",
-  "source_vertices": 67272,
-  "vertices": 75006,
+  "source_vertices": 69192,
+  "vertices": 76926,
   "skin_triangles": 12498,
-  "compressed_bytes": 781801,
+  "compressed_bytes": 791405,
   "regions": [
     {
       "name": "body",

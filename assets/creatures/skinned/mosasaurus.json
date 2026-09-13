@@ -1,9 +1,9 @@
 {
   "species": "mosasaurus",
-  "source_vertices": 52272,
-  "vertices": 70446,
+  "source_vertices": 54192,
+  "vertices": 72366,
   "skin_triangles": 12498,
-  "compressed_bytes": 722491,
+  "compressed_bytes": 732066,
   "regions": [
     {
       "name": "body",

@@ -1,9 +1,9 @@
 {
   "species": "dilophosaurus",
-  "source_vertices": 69408,
-  "vertices": 71592,
+  "source_vertices": 71328,
+  "vertices": 73512,
   "skin_triangles": 12496,
-  "compressed_bytes": 812789,
+  "compressed_bytes": 822537,
   "regions": [
     {
       "name": "body",

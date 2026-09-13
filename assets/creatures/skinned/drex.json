@@ -1,9 +1,9 @@
 {
   "species": "drex",
-  "source_vertices": 90912,
-  "vertices": 78138,
+  "source_vertices": 92832,
+  "vertices": 80058,
   "skin_triangles": 12742,
-  "compressed_bytes": 770335,
+  "compressed_bytes": 779618,
   "regions": [
     {
       "name": "body",

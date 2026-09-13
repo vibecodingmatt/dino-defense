@@ -1,9 +1,9 @@
 {
   "species": "parasaurolophus",
-  "source_vertices": 53400,
-  "vertices": 55992,
+  "source_vertices": 55320,
+  "vertices": 57912,
   "skin_triangles": 12496,
-  "compressed_bytes": 653078,
+  "compressed_bytes": 662390,
   "regions": [
     {
       "name": "body",

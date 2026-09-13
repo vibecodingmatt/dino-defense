@@ -1,9 +1,9 @@
 {
   "species": "atrociraptor",
-  "source_vertices": 56304,
-  "vertices": 65238,
+  "source_vertices": 58224,
+  "vertices": 67158,
   "skin_triangles": 12498,
-  "compressed_bytes": 731322,
+  "compressed_bytes": 740944,
   "regions": [
     {
       "name": "body",

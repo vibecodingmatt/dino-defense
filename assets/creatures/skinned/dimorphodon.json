@@ -1,9 +1,9 @@
 {
   "species": "dimorphodon",
-  "source_vertices": 57726,
-  "vertices": 79818,
+  "source_vertices": 59646,
+  "vertices": 81738,
   "skin_triangles": 12500,
-  "compressed_bytes": 819876,
+  "compressed_bytes": 829569,
   "regions": [
     {
       "name": "body",

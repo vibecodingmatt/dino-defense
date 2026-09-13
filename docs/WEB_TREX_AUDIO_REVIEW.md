@@ -1,7 +1,10 @@
 # T-Rex and effects pass — September 12, 2026
 
-Local version 1.65.1 / cache v60. Production remains the separately recorded
-1.64.0 baseline until a deployment is requested and verified.
+Published and verified: 1.65.1 / cache v60, commit
+`025c1c60665463383140f3ae37313b45e8217bf9`,
+[successful Pages run](https://github.com/vibecodingmatt/dino-defense/actions/runs/34730419282).
+Live checks matched 73 pages/assets to committed bytes and exercised all 33
+skins, audio-bank loading, death cues, phone layout and a real offline reload.
 
 ## Film references
 

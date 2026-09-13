@@ -4,6 +4,11 @@ Guest art pass: September 12, 2026, **1.63.0 / cache v57**.
 This records the reference decisions behind the [shared tourist renderer](../js/tourists.js)
 and [blood/debris effects](../js/tourist-fx.js).
 
+Gennaro's later proportion fix is in [the T-Rex/audio follow-up](WEB_TREX_AUDIO_REVIEW.md).
+His homepage body scale is shared through `look.size`; `LOO_SEAT` derives from
+`LOO_MAN` so the toilet and seated hips agree. Scale changes must also be checked
+while lifted and caught by the mouth, on desktop and phone.
+
 ## Reference method
 
 Downloaded and visually inspected twelve film stills, including costume views,

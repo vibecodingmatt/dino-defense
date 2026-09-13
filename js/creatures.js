@@ -44,7 +44,8 @@ const Creatures = (() => {
           // neck bars. Pigment stays in bind space through every animation.
           float head=step(.88,vRest.x),jaw=step(1.5,vPart)*(1.-step(2.5,vPart));
           float throat=(1.-smoothstep(1.16,1.47,vRest.y+(broad-.5)*.07))*smoothstep(.20,.80,vRest.x);
-          float underside=max(clamp(-vBindNormal.y*.9,0.,.85),max(jaw*.82,throat*.9));
+          float jawCream=jaw*(1.-smoothstep(1.34,1.54,vRest.y));
+          float underside=max(clamp(-vBindNormal.y*.9,0.,.85),max(jawCream*.82,throat*.9));
           color=mix(uBody,uBelly,underside);
           float bands=smoothstep(.28,.82,sin(vRest.x*14.+vRest.y*4.2+broad*4.7+abs(vRest.z)*4.))*smoothstep(.18,.63,noise(uv*14.3));
           float saddle=smoothstep(1.10,1.69,vRest.y)*(1.-head*.8);

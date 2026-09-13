@@ -1,9 +1,9 @@
 {
   "species": "stygimoloch",
-  "source_vertices": 54192,
-  "vertices": 57192,
+  "source_vertices": 56112,
+  "vertices": 59112,
   "skin_triangles": 12496,
-  "compressed_bytes": 685950,
+  "compressed_bytes": 695216,
   "regions": [
     {
       "name": "body",

@@ -1,9 +1,9 @@
 {
   "species": "giganotosaurus",
-  "source_vertices": 68328,
-  "vertices": 75360,
+  "source_vertices": 70248,
+  "vertices": 77280,
   "skin_triangles": 12496,
-  "compressed_bytes": 766316,
+  "compressed_bytes": 775787,
   "regions": [
     {
       "name": "body",

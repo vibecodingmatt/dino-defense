@@ -10,6 +10,11 @@ Players read this modal from the home screen (`v1.x.x · 📜 what's new`). It i
 feeds it; `buildChangelog()` in `js/game.js` renders `v{v} · {date}` above each
 entry's bullets.
 
+Documentation-only and skill-only maintenance is outside this release checklist:
+do not bump game `VERSION`/`CACHE` or add player-facing notes for those edits.
+For runtime releases, preserve the rules below. This skill does not itself
+authorize a production push; use the user's existing deployment scope.
+
 Every past session that touched this page got the same two things wrong. Both
 rules are non-negotiable.
 
@@ -85,6 +90,11 @@ saves can be edited. In that case the audit's `TOP ENTRY v … != VERSION` line 
 expected — it is a prompt to make the call, not a failure.
 
 ## Before you finish, audit the whole file
+
+The repository command `node scripts/audit-web-release.cjs` performs this audit
+and checks offline dependencies; `--staged` reads the pending commit instead of
+the worktree. Review prompts are not automatic failures. Keep the rendered
+modal and manual enhancement review in the checklist below.
 
 Do not only check the entry you just wrote — the point of the audit is to catch
 drift that crept in earlier:

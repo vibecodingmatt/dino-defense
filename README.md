@@ -1,17 +1,21 @@
 # 🦖 Dino Defense — Containment Breach
 
-A browser-based dinosaur tower defense. No installs, no build step — just open
-`index.html` in any modern browser (double-click it, or right-click → Open With → Chrome).
+A browser-based dinosaur tower defense. Play at
+[Dino Defense](https://vibecodingmatt.github.io/dino-defense/), or serve this
+directory over local HTTP for development. No app build step is required.
+Direct `file:` previews can use fallback art when fetched assets are unavailable.
+
+For maintenance, start with [the browser orientation](docs/WEB_ORIENTATION.md).
 
 ## The goal
 Dinosaurs have breached containment and are marching on your bunker. Build weapons
 along the path, survive **100 waves** to secure a zone, and unlock the next of
-**5 zones** across the island. A boss dinosaur attacks every 10th wave —
-Blue, T-Rex, Spinosaurus, Indominus Rex, Indoraptor, and finally Giganotosaurus.
+**7 zones** across the island. The roster has 33 dinosaurs, including nine bosses
+such as Blue, T-Rex, D-Rex, the White Pteranodon and Mosasaurus.
 
 ## Two currencies
 - **$ Cash** — earned per kill and per wave, spent *during* a run on building and
-  upgrading weapons (damage / fire rate / range, 5 levels each). Resets each run.
+  upgrading nine weapons with 1–3 hardware upgrades each. Resets each run.
 - **🧬 DNA** — banked *permanently* every wave you clear (even if you lose!).
   Spend it in the **Research Lab** on the menu for lasting upgrades: global damage,
   range, starting cash, base health, bounties, and ammo research for each weapon.
@@ -19,12 +23,12 @@ Blue, T-Rex, Spinosaurus, Indominus Rex, Indoraptor, and finally Giganotosaurus.
 ## Controls
 | Input | Action |
 |---|---|
-| Click weapon card (or keys **1–8**) then click map | Build a weapon |
+| Click weapon card (or keys **1–9**) then click map | Build a weapon |
 | **Shift**+click | Place several in a row |
 | Right-click / **Esc** | Cancel placement or deselect |
-| Click a placed weapon | Upgrade (2–3 levels max) / change targeting / sell (70% refund) |
+| Click a placed weapon | Upgrade / change targeting / sell (70% refund) |
 | **Space** | Start next wave, or pause mid-wave |
-| 1× / 2× / 4× | Game speed |
+| 1× / 2× / 4× / 10× | Game speed |
 
 **On phones/tablets:** the layout stacks (map on top, armory below). Tap a weapon,
 tap the map to preview placement, then tap the same spot again to build.

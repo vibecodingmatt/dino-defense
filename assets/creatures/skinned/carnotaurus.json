@@ -1,9 +1,9 @@
 {
   "species": "carnotaurus",
-  "source_vertices": 54312,
-  "vertices": 64698,
+  "source_vertices": 56232,
+  "vertices": 66618,
   "skin_triangles": 12822,
-  "compressed_bytes": 723761,
+  "compressed_bytes": 733031,
   "regions": [
     {
       "name": "body",

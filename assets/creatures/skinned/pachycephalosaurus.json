@@ -1,9 +1,9 @@
 {
   "species": "pachycephalosaurus",
-  "source_vertices": 51552,
-  "vertices": 55758,
+  "source_vertices": 53472,
+  "vertices": 57678,
   "skin_triangles": 12498,
-  "compressed_bytes": 662481,
+  "compressed_bytes": 672051,
   "regions": [
     {
       "name": "body",

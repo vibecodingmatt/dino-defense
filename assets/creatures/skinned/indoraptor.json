@@ -1,9 +1,9 @@
 {
   "species": "indoraptor",
-  "source_vertices": 66024,
-  "vertices": 73872,
+  "source_vertices": 67944,
+  "vertices": 75792,
   "skin_triangles": 12496,
-  "compressed_bytes": 777603,
+  "compressed_bytes": 787182,
   "regions": [
     {
       "name": "body",

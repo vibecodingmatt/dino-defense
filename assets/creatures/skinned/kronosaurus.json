@@ -1,9 +1,9 @@
 {
   "species": "kronosaurus",
-  "source_vertices": 47280,
-  "vertices": 67566,
+  "source_vertices": 49200,
+  "vertices": 69486,
   "skin_triangles": 12498,
-  "compressed_bytes": 699180,
+  "compressed_bytes": 708411,
   "regions": [
     {
       "name": "body",

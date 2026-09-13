@@ -5,12 +5,20 @@ performances. `js/game.js` owns the simulation triggers, gesture unlock, score
 ducking, camera-relative stereo and global/per-weapon controls. Music retains
 its existing instruments and separate hall.
 
-Rebuild the bank after changing the sound recipes:
+Rebuild the bank after changing sound recipes. Trigger-only changes in
+`js/game.js` do not need a new bank. Inspect callers first when a cue is unwanted;
+legacy recipes can remain unused without affecting gameplay.
 
 ```powershell
 node art/browser-audio/export-bank.cjs
 node tests/audio-fx.cjs
 ```
+
+The game routes its nine launches to `shot`, `flame`, `gas`, `snipe`, `cryo`,
+`zap`, `pulse`, `missile` and `thoomp`. Cryo impact is `frost`, artillery impact
+is `shellImpact`, and Tesla chain hops use `arc`. Finishers dispatch through
+`WeaponFX.update` during simulation. Preserve the position, weapon and upgrade
+options passed into `SFX`; they control stereo, timbre and per-weapon muting.
 
 `assets/audio/effects-v1.bank.gz` contains a little-endian four-byte JSON-header
 length, the UTF-8 header, then signed 16-bit mono PCM at 32 kHz. Header offsets

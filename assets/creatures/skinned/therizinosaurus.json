@@ -1,9 +1,9 @@
 {
   "species": "therizinosaurus",
-  "source_vertices": 144552,
-  "vertices": 152160,
+  "source_vertices": 146472,
+  "vertices": 154080,
   "skin_triangles": 12496,
-  "compressed_bytes": 1728541,
+  "compressed_bytes": 1737274,
   "regions": [
     {
       "name": "body",

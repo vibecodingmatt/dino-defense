@@ -1,9 +1,9 @@
 {
   "species": "spinosaurus",
-  "source_vertices": 71664,
-  "vertices": 79398,
+  "source_vertices": 73584,
+  "vertices": 81318,
   "skin_triangles": 12498,
-  "compressed_bytes": 796254,
+  "compressed_bytes": 805403,
   "regions": [
     {
       "name": "body",

@@ -1,9 +1,9 @@
 {
   "species": "gallimimus",
-  "source_vertices": 46824,
-  "vertices": 55038,
+  "source_vertices": 48744,
+  "vertices": 56958,
   "skin_triangles": 12498,
-  "compressed_bytes": 658455,
+  "compressed_bytes": 667759,
   "regions": [
     {
       "name": "body",

@@ -1,9 +1,9 @@
 {
   "species": "apatosaurus",
-  "source_vertices": 52848,
-  "vertices": 56466,
+  "source_vertices": 54768,
+  "vertices": 58386,
   "skin_triangles": 12494,
-  "compressed_bytes": 644609,
+  "compressed_bytes": 653843,
   "regions": [
     {
       "name": "body",

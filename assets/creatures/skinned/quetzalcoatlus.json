@@ -1,9 +1,9 @@
 {
   "species": "quetzalcoatlus",
-  "source_vertices": 44994,
-  "vertices": 68982,
+  "source_vertices": 46914,
+  "vertices": 70902,
   "skin_triangles": 12500,
-  "compressed_bytes": 746744,
+  "compressed_bytes": 756181,
   "regions": [
     {
       "name": "body",

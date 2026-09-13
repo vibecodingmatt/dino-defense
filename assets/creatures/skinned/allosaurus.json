@@ -1,9 +1,9 @@
 {
   "species": "allosaurus",
-  "source_vertices": 61488,
-  "vertices": 68526,
+  "source_vertices": 63408,
+  "vertices": 70446,
   "skin_triangles": 12498,
-  "compressed_bytes": 738400,
+  "compressed_bytes": 748083,
   "regions": [
     {
       "name": "body",
