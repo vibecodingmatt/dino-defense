@@ -6,23 +6,34 @@ separate maintained products. This is the browser handoff. Roblox starts at
 
 ## Production baseline
 
-Last verified runtime release: **1.70.0**, September 13, 2026; service-worker cache
-**dino-defense-v66**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
-from root `main`, commit `3e386ef84a73343d2ee59dd569cd27172de10ade`.
-[Pages run 34764955712 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34764955712).
+Last verified runtime release: **1.71.0**, September 13, 2026; service-worker cache
+**dino-defense-v67**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
+from root `main`, commit `1d015d2f44c34314610a6a9340e4a0646fc5cc31`.
+[Pages run 34781053595 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34781053595).
 This is a recorded deployment baseline; inspect Git and the live version before
 the next release rather than assuming HEAD still equals this commit.
 
-Live verification checked HTTP 200 and committed SHA-256 for 85 pages and
+Live verification checked HTTP 200 and committed SHA-256 for 86 pages and
 dependencies, all 33 loaded dinosaur skins and polished jaw attachments,
 the guest renderer, hidden art menus,
 ascending weapon prices, matching number keys and Gas selection, actual kills
 with all nine finishers, surface effects and red-ring removal, resumed wave one
-with one weapon and zero cash, phone layout and offline loading under cache v66.
+with one weapon and zero cash, phone layout and offline loading under cache v67.
 It also checked the authored audio bank online/offline, larger Gennaro scale,
 and deaths of all 33 species and nine bosses without creature vocalizations.
 No browser JavaScript errors were found in those checks. Physical phone GPU
 performance and film-quality likeness were not established by headless tests.
+
+The 1.71.0 Blue makeover adds a fuller curved neck, a muzzle tapered in width
+and depth, an uneven lip, amber eyes, curved teeth, articulated fingers and
+sickle claws, and mottled silver/olive hide with a pale-edged cobalt stripe.
+The production Blue review confirmed the actual 157,110-vertex exported skin,
+desktop/phone homepage and combat views, eight bite attachments, rendered
+release notes and an offline reload of Blue under cache v67. No browser errors
+were reported. [Blue review](WEB_BLUE_REVIEW.md) records the references,
+geometry lessons, export budget and visual comparisons. Live evidence is under
+`C:/Users/burns/dev/dino-perimeter-review/blue-film/production/` and
+`production-scenes/`.
 
 The 1.70.0 D-Rex finale builds to a skin-cracking rupture at 2.85 seconds, throws
 real detached anatomy through 148 blood droplets and ends in a smoking crater
@@ -102,9 +113,11 @@ The prior map verification evidence remains in
 
 ## Ownership
 
-No pending browser runtime changes after this release. Unrelated local Roblox
-work remains. A later docs/skills-only commit can follow the verified runtime
-SHA without changing the game version or cache.
+Blue's film-reference sculpt, pattern 5, palette and rebuilt skin shipped in
+1.71.0; see [Blue review](WEB_BLUE_REVIEW.md). The first pass cleared six
+regression suites; the final neck/muzzle export rechecked skin, jaws, creatures
+and tourists before the production verification recorded above.
+Unrelated local Roblox work remains.
 Audio authoring uses the [export instructions](../art/browser-audio/README.md).
 
 | Work | Source |
@@ -244,7 +257,8 @@ loading, layout, scenery clocks and restored placements.
 
 Read only the review relevant to the task: [guests and costumes](WEB_GUEST_REFERENCE_REVIEW.md),
 [combat effects](WEB_COMBAT_FX_REVIEW.md), [body/limb/wing repairs](WEB_CREATURE_ANATOMY_REVIEW.md),
-[T-Rex and sounds](WEB_TREX_AUDIO_REVIEW.md), or [jaw attachments](WEB_JAW_POLISH_REVIEW.md).
+[T-Rex and sounds](WEB_TREX_AUDIO_REVIEW.md), [Blue's sculpt](WEB_BLUE_REVIEW.md),
+or [jaw attachments](WEB_JAW_POLISH_REVIEW.md).
 The [endgame review](WEB_ENDGAME_REVIEW.md) owns the D-Rex rupture and victory
 ceremony timelines, particle limits, dismissal and visual evidence.
 These link the source references, visual comparisons and remaining limitations.

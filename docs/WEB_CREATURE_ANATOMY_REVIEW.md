@@ -5,8 +5,10 @@ for the production commit/run and current maintenance entry points. This file
 replaces the earlier optimistic reviews and accumulating follow-up summaries.
 
 Later focused passes are recorded in [T-Rex and audio review](WEB_TREX_AUDIO_REVIEW.md)
-and [jaw attachment review](WEB_JAW_POLISH_REVIEW.md). Use those for the current
-T-Rex sculpt and shared lower-jaw shape; the rules below still cover the body,
+and [jaw attachment review](WEB_JAW_POLISH_REVIEW.md). The
+[Blue review](WEB_BLUE_REVIEW.md) covers her film references, swept neck,
+muzzle taper and dense lip/tooth placement. Use these for the current
+focused sculpts and shared lower-jaw shape; the rules below still cover the body,
 limbs, wings and homepage integration.
 
 ## Assessment

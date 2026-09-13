@@ -24,8 +24,10 @@ servers; do not depend on an old preview process still running.
   alongside any geometry/skeleton changes. Keep species-specific proportions.
   For jaws, also read `docs/WEB_JAW_POLISH_REVIEW.md`; for the film-inspired
   T-Rex, read `docs/WEB_TREX_AUDIO_REVIEW.md`. The `rex93` sculpt and pattern 4
-  palette are separate from the shared anatomy. Finish export before tests or
-  captures; a partially rebuilt roster can mix old and new skins.
+  palette are separate from the shared anatomy. For Blue, read
+  `docs/WEB_BLUE_REVIEW.md`; her `blueFilm` sculpt and pattern 5 include a swept
+  neck, tapered muzzle and retained dermal scutes. Finish export before tests
+  or captures; a partially rebuilt roster can mix old and new skins.
 - **Map/paddock:** read `assets/maps/README.md`. The resident raptors are separate
   from combat creature rigs. Preserve route coordinates, existing saved tower
   locations, placement restrictions and the complete image-failure fallback.
@@ -69,6 +71,14 @@ Lower jaws use a rounded rear heel blended between the existing head/jaw bones;
 keep the tooth-bearing front rigid. Replacing it with a flat cap exposes a cut
 surface during bites. `tests/creature-jaws.cjs` checks delivered and fallback
 skins, closed topology, attachment weights and opening motion.
+
+For head likeness, compare the neck and skull together from the side, front
+and an elevated three-quarter view. Judge muzzle taper in both width and depth;
+adjusting only the roof can leave a bulky tip. A steep neck can look thin even
+with deep vertical sections: consider a sweep that preserves thickness across
+the curve. Review the fully closed mouth as well as the idle/open poses, and
+keep lips, teeth and gums seated on the skin's interpolated profiles. Preserve
+the latest reviewed export for matching before/after views during iteration.
 
 The user wants convincing species anatomy and motion; Roblox's moulded brick
 art direction is not the browser style. A green test suite does not prove film

@@ -101,4 +101,20 @@ for the 1993 film references. Its joined skin uses 0.012 voxels, four smoothing
 iterations and a 19,500 skin-triangle target, preserving separate limb regions.
 Rebuild `trex.mesh.gz` and `trex.json` together after changing its landmarks.
 Reference sources, comparisons and final measurements are recorded in
-`docs/WEB_TREX_AUDIO_REVIEW.md`; other species retain the usual export settings.
+`docs/WEB_TREX_AUDIO_REVIEW.md`.
+
+Blue's film-reference sculpt uses `blueFilm` and pattern 5. Rebuild only `blue`
+with both commands above. Its export uses 0.010 voxels, three smoothing passes
+at 0.60 and a 20,500 skin-triangle target. Material 6 preserves small dermal
+scutes through remeshing and uses the runtime skin shader, including bind-space
+pigment and weapon treatments. Keep it out of feather/membrane shader branches.
+Blue's neck uses a swept centerline to preserve thickness through the steep
+S-curve. Its shallow fold callback applies only to that sweep; retain the neck's
+body/head blend and merge it with the body region, never with moving limbs.
+When reshaping an uneven mouth, sample lip borders, gums, teeth and scutes from
+the same dense interpolated profiles as the jaw/head lofts. Sparse landmark
+interpolation can place those details off the finished curved surface. Keep
+the chin contour independent of small lip undulations, and inspect fully closed
+and open jaws from the front as well as both sides.
+All other species retain their existing export settings. References, measurements
+and visual/test evidence are in `docs/WEB_BLUE_REVIEW.md`.
