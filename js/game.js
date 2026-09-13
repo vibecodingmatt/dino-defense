@@ -1191,7 +1191,6 @@ function spawnDino(key, pathI, isBoss){
     G.cinT = key === 'drex' ? 4.4 : 2.8;
     G.banner = {text: def.name.toUpperCase(), sub: def.epithet || '⚠ CONTAINMENT FAILURE ⚠', t: key === 'drex' ? 4.4 : 3.4};
     SFX.roar({...dinoPos(d),species:key});
-    G.shake = Math.max(G.shake, 12);
     const p = dinoPos(d);
     addFx('shock', p.x, p.y, d.size * 2.4);
     addFx('dust', p.x - d.size * 0.6, p.y + 4, d.size * 0.8);
@@ -1372,7 +1371,7 @@ const BOSS_DEATHS = {
   indominus:      {dur:4.0, impact:1.46,label:'CAMOUFLAGE BROKEN',       color:'#dffaff'},
   indoraptor:     {dur:3.2, impact:1.06,label:'NIGHTMARE ENDED',         color:'#d4af5e'},
   giganotosaurus: {dur:4.2, impact:1.76,label:'APEX SHATTERED',          color:'#ef776e'},
-  drex:           {dur:7.6, impact:2.0, label:'ABOMINATION ERADICATED',  color:'#ff5a42'},
+  drex:           {...EndgameFX.deathSpec, label:'ABOMINATION ERADICATED', color:'#ff5a42'},
   whiteptera:     {dur:3.7, impact:1.55,label:'SKY TYRANT GROUNDED',     color:'#f7f2df'},
   mosasaurus:     {dur:3.9, impact:1.34,label:'THE LAGOON FALLS SILENT', color:'#70d9ef'},
 };
@@ -1462,7 +1461,6 @@ function damage(d, amt, pierce, src){
                       x: p.x, y: p.y, dir: Math.cos(p.ang) >= 0 ? 1 : -1,
                       phase: d.phase, artLocalHeading:Math.cos(p.ang)>=0?d.artHeading:Math.PI-d.artHeading, t: 0, dur: death.dur, impact: death.impact,
                       seed: Math.random() * 999, beatN: 0, thudded: false, burst2: false, burst3: false});
-      G.shake = Math.max(G.shake, 10);
       addFx('ring', p.x, p.y, 24);
       addFx('blood', p.x, p.y + 3, d.size * 0.7);
       for (let i = 0; i < 5; i++) addFx('spark', p.x + rand(-d.size, d.size), p.y - rand(0, d.size), 6);
@@ -1856,7 +1854,6 @@ function updateDinos(dt){
       if (d.key === 'drex' && !d.roar2 && d.entranceT <= 1.7){ // second, angrier roar
         d.roar2 = true;
         SFX.roar();
-        G.shake = Math.max(G.shake, 14);
         const dp = dinoPos(d);
         addFx('shock', dp.x, dp.y, d.size * 3);
         addFx('dust', dp.x - d.size * 0.7, dp.y + 6, d.size * 0.9);
@@ -1936,8 +1933,7 @@ function updateDinos(dt){
         d.lastStep = stepNow;
         addFx('step', pp.x - d.dirT * d.size * 0.15 + rand(-4, 4), pp.y + 2, d.size * 0.35);
         if(d.boss&&d.key==='trex')SFX.thud({x:pp.x,y:pp.y,gain:.24,rate:.83});
-        if (d.boss) G.shake = Math.max(G.shake, 2.4);
-        else if (d.size >= 40) G.shake = Math.max(G.shake, 1.3);
+        // Footfalls keep their dust and sound without moving the camera.
       }
     }
     if (atEnd){
@@ -2553,6 +2549,7 @@ function startLevel(idx, mode, diff){
   G.zapQ = []; G.links = []; G.thunderT = 0;
   G.selected = null; G.placing = null; G.targeting = null; G.strikes = []; G.clouds = []; G.omega = null;
   G.celebration = null; G.fw = []; G.victoryPending = false;
+  $('#victoryShow').classList.add('hidden');
   G.waveActive = false; G.autoTimer = -1; G.over = false; G.banner = null;
   G.speed = 1;
   // a flawless run means zero base damage; resuming can't verify past waves,
@@ -2640,6 +2637,7 @@ function initAmbient(){
 }
 
 function victory(){
+  if (G.over) return; // rewards and the ceremony belong to one completed run
   G.victoryPending = false;
   G.over = true;
   $('#zoomBar').classList.add('hidden');
@@ -2714,11 +2712,40 @@ function victory(){
   } else {
     vNextBtn.style.display = 'none';
   }
-  // fireworks over the battlefield before the results screen appears
-  G.celebration = {t: 0, dur: 5.4, next: 0.2};
-  G.fw = [];
-  G.flashT = 0.6;
-  SFX.victoryTune();
+  G.celebration = EndgameFX.createVictory({kills:s.kills,dna:totalDna,health:Math.round(healthPct*100)});
+  G.fw = []; G.shake = 0; G.flashT = 0; G.paused = false;
+  $('#victoryKicker').textContent = !cheated && G.flawless ? 'FLAWLESS DEFENSE' : 'OPERATION COMPLETE';
+  $('#victoryOperation').textContent = G.level.name + ' · Difficulty ' + D;
+  $('#victoryKills').textContent = fmt(s.kills);
+  $('#victoryDNA').textContent = cheated ? '—' : '+' + fmt(totalDna);
+  $('#victoryHealth').textContent = Math.round(healthPct*100) + '%';
+  $('#startPrompt').classList.add('hidden');
+  $('#towerPop').classList.add('hidden');
+  $('#victoryShow').classList.remove('hidden');
+  $('#victorySkip').setAttribute('aria-label','View victory results');
+  renderVictory();
+  SFX.victoryTune({gain:1,rate:.85});
+}
+function finishVictory(){
+  if (!G.celebration) return;
+  G.celebration = null; G.fw = []; soundFX?.stop();
+  $('#victoryShow').classList.add('hidden');
+  if (G.state === 'playing' || G.state === 'review') $('#victory').classList.remove('hidden');
+}
+function updateVictory(dt){
+  if (!G.celebration || document.hidden) return;
+  EndgameFX.updateVictory(G.celebration,dt,(name,options)=>SFX[name](options));
+  if (G.celebration.t >= G.celebration.dur) finishVictory();
+}
+function renderVictory(){
+  const c=G.celebration;if(!c)return;
+  const cv=$('#victorySky'),w=cv.clientWidth,h=cv.clientHeight;if(!w||!h)return;
+  const scale=Math.min(window.devicePixelRatio||1,1.5,1600/w,1600/h),bw=Math.round(w*scale),bh=Math.round(h*scale);
+  if(cv.width!==bw||cv.height!==bh){cv.width=bw;cv.height=bh;}
+  const gc=cv.getContext('2d');gc.setTransform(scale,0,0,scale,0,0);EndgameFX.drawVictory(gc,c,w,h);
+  const t=c.reduced?4:c.t,medal=clamp((t-.15)/1.2,0,1),reveal=clamp((t-.85)/.8,0,1);
+  const style=$('#victoryShow').style;style.setProperty('--medal',medal);style.setProperty('--medal-scale',.8+medal*.2);
+  style.setProperty('--reveal',reveal);style.setProperty('--title-y',(1-reveal)*20+'px');style.setProperty('--details',clamp((t-1.5)/.85,0,1));
 }
 function defeat(){
   G.over = true;
@@ -2743,6 +2770,8 @@ function toMenu(){
   $('#gameover').classList.add('hidden');
   $('#victory').classList.add('hidden');
   // stage overlays must not bleed through onto the home screen
+  G.celebration=null;G.fw=[];
+  $('#victoryShow').classList.add('hidden');
   $('#startPrompt').classList.add('hidden');
   $('#towerPop').classList.add('hidden');
   $('#menu').classList.remove('hidden');
@@ -3081,7 +3110,7 @@ function updateOmega(dt){
   while (pitchT < -Math.PI) pitchT += Math.PI * 2;
   o.pitch += clamp(pitchT - o.pitch, -dt * 3.5, dt * 3.5);
   const step = Math.floor(o.phase / Math.PI);
-  if (step !== o.lastStep){ o.lastStep = step; G.shake = Math.max(G.shake, 2.6); addFx('step', pp.x, pp.y + 4, o.size * 0.4); }
+  if (step !== o.lastStep){ o.lastStep = step; addFx('step', pp.x, pp.y + 4, o.size * 0.4); }
   // combat: obliterate GROUNDED dinos in its lane within reach (flyers soar
   // safely over the machine — it can't touch them)
   const reach = o.size * 0.75;
@@ -4851,7 +4880,9 @@ function frame(now){
     if (!G.paused && !G.over){
       for (let i = 0; i < G.speed; i++) step(dt);
     }
+    updateVictory(dt);
     render(dt);
+    renderVictory();
   } catch (e) {
     const el = $('#errbox');
     el.classList.remove('hidden');
@@ -4916,50 +4947,34 @@ function step(dt){
   updateStrikes(dt);
   updateClouds(dt);
   updateOmega(dt);
-  // Boss finales run beside normal combat. Sever and impact beats own their
-  // sound/shake here; anatomy trajectories in drawBossDeath stay deterministic.
+  // Boss finales run beside normal combat. Simulation owns their sound beats;
+  // anatomy trajectories in drawBossDeath stay deterministic and the camera stays steady.
   for (const c of G.corpses){
     c.t += dt;
+    if(c.key==='drex'){EndgameFX.updateDrex(c,(name,options)=>SFX[name](options));continue;}
     const severBeats=BOSS_SEVER_BEATS[c.key]||[];
     while((c.beatN||0)<severBeats.length&&c.t>=severBeats[c.beatN||0].t){
       const beat=severBeats[c.beatN||0],at=bossDeathAnchor(c,bossDeathPose(c,beat.t),beat.lx,beat.ly);
       c.beatN=(c.beatN||0)+1;
       if(c.key==='spinosaurus'||c.key==='indominus'||c.key==='whiteptera')SFX.shatter();else SFX.thud();
-      G.shake=Math.max(G.shake,c.key==='giganotosaurus'?8:c.key==='whiteptera'||c.key==='mosasaurus'?5:4);
       addFx('blood',at.x,at.y,c.size*(c.key==='giganotosaurus'||c.key==='mosasaurus'?.72:.48));
       addFx('ring',at.x,at.y,c.size*.42);
     }
     if (!c.thudded && c.t >= c.impact){
       c.thudded = true;
-      if (c.key === 'drex' || c.key === 'mosasaurus') SFX.boom();
+      if (c.key === 'mosasaurus') SFX.boom();
       else if (c.key === 'spinosaurus' || c.key === 'indominus') SFX.shatter();
       else SFX.thud();
-      G.shake = Math.max(G.shake, c.key === 'drex' ? 19 : c.key === 'giganotosaurus' || c.key === 'trex' ? 10 : 7);
-      const ip=bossDeathPose(c,c.impact),ix=c.key==='drex'?c.x:ip.x;
+      const ip=bossDeathPose(c,c.impact),ix=ip.x;
       if (c.key === 'mosasaurus'){
         addFx('ring', ix, c.y, c.size * 1.5);
         addFx('ring', ix + c.dir * c.size * .8, c.y, c.size);
-      } else if (c.key === 'drex'){
-        addFx('shock', c.x, c.y, c.size * 3.5);
-        addFx('boom', c.x, c.y - c.size * .35, c.size * 1.85);
-        for (let i = 0; i < 15; i++) addFx('spark', c.x + rand(-c.size*1.4, c.size*1.4), c.y - rand(0, c.size*1.5), 10);
-        for (let i = 0; i < 7; i++) addFx('blood', c.x + rand(-c.size*.9,c.size*.9),c.y+rand(-c.size*.35,5),c.size*rand(.45,.9));
       } else {
         addFx('dust', ix + c.dir * c.size * .35, c.y, c.size * 1.15);
         addFx('dust', ix + c.dir * c.size * .95, c.y + 4, c.size * .8);
         if (c.key === 'spinosaurus' || c.key === 'indominus')
           for (let i = 0; i < 5; i++) addFx('spark', ix + rand(-c.size, c.size), c.y - rand(0, c.size * 1.3), 7);
       }
-    }
-    if(c.key==='drex'&&c.thudded&&!c.burst2&&c.t>=c.impact+.35){
-      c.burst2=true;SFX.boom();G.shake=Math.max(G.shake,15);
-      addFx('shock',c.x-c.dir*c.size*.45,c.y-c.size*.25,c.size*2.9);
-      addFx('boom',c.x-c.dir*c.size*.35,c.y-c.size*.55,c.size*1.35);
-    }
-    if(c.key==='drex'&&c.thudded&&!c.burst3&&c.t>=c.impact+.85){
-      c.burst3=true;SFX.boom();G.shake=Math.max(G.shake,10);
-      addFx('shock',c.x+c.dir*c.size*.55,c.y,c.size*2.4);
-      addFx('boom',c.x+c.dir*c.size*.65,c.y-c.size*.18,c.size*1.0);
     }
   }
   G.corpses = G.corpses.filter(c => c.t < c.dur);
@@ -4991,19 +5006,13 @@ function bossDeathPaint(gc, c, o){
   if (c.dir < 0) gc.scale(-1, 1);
   gc.rotate(o.rot || 0);
   gc.scale(c.size * (o.sx === undefined ? 1 : o.sx), c.size * (o.sy === undefined ? 1 : o.sy));
-  const hadHideSail = Object.prototype.hasOwnProperty.call(c, 'hideSail'), oldHideSail = c.hideSail;
-  const hadDeathMask = Object.prototype.hasOwnProperty.call(c, 'deathMask'), oldDeathMask = c.deathMask;
-  c.hideSail = !!o.hideSail;
-  c.deathMask = o.mask || null;
+  const actor={...c,hideSail:!!o.hideSail,deathMask:o.mask||null};
   const artHeading=c.artLocalHeading;
-  if(Number.isFinite(artHeading))c.artLocalHeading=.16+Math.atan2(Math.sin(artHeading-.16),Math.cos(artHeading-.16))*(1-clamp(c.t/.3,0,1));
+  if(Number.isFinite(artHeading))actor.artLocalHeading=.16+Math.atan2(Math.sin(artHeading-.16),Math.cos(artHeading-.16))*(1-clamp(c.t/.3,0,1));
   // Freeze the gait/flap/swim cycle on the exact death-blow pose. Every finale
   // supplies its own whole-body motion; advancing the painter phase here makes
   // fallen legs keep walking and grounded wings keep flapping.
-  PAINTERS[c.painter](gc, c, c.phase);
-  c.artLocalHeading=artHeading;
-  if (hadHideSail) c.hideSail = oldHideSail; else delete c.hideSail;
-  if (hadDeathMask) c.deathMask = oldDeathMask; else delete c.deathMask;
+  PAINTERS[c.painter](gc, actor, c.phase);
   gc.restore();
 }
 function bossDeathShadow(gc, c, x, rx, alpha){
@@ -5380,105 +5389,7 @@ function drawBossDeath(gc, c){
     return;
   }
 
-  if (c.key === 'drex'){
-    /* EXTINCTION EVENT. Staged: stagger and a last roar → the forelimbs
-       buckling one at a time → the body swelling and convulsing while light
-       leaks out through splitting hide → detonation → two aftershocks →
-       real anatomy settling in a smouldering crater.
-
-       Nothing is masked during the collapse. Hiding the forelimbs to
-       "buckle" them just blinks them out of existence — a mask is binary.
-       The buckle is carried entirely by the body pitching and sinking. */
-    const u = t - c.impact, blown = t >= c.impact;
-    const burst = clamp(u / 1.25, 0, 1);
-    bossDeathBloodPool(gc, c, c.impact, 1.95, .85);
-    gc.save();
-    gc.globalAlpha = .34 * fade; gc.fillStyle = '#100807';
-    gc.beginPath(); gc.ellipse(c.x, c.y + 4, s * (.65 + burst * 1.5), s * (.15 + burst * .24), 0, 0, Math.PI * 2); gc.fill();
-    gc.globalAlpha = .28 * (1 - burst) * fade; gc.fillStyle = '#b51f18';
-    gc.beginPath(); gc.ellipse(c.x, c.y, s * (.45 + burst * 1.7), s * (.18 + burst * .95), 0, 0, Math.PI * 2); gc.fill();
-    gc.restore();
-
-    if (!blown){
-      let pitch = 0, sx = 1, sy = 1, dy = 0, roarT = 0;
-      if (t < .55){                                  // reels back, one last roar
-        roarT = 2.6;
-        pitch = -.12 * Math.sin(t / .55 * Math.PI);
-      } else if (t < 1.30){                          // forelimbs give way under the weight
-        const k = (t - .55) / .75, e = 1 - Math.pow(1 - k, 2);
-        const hitch = (t > .62 ? Math.exp(-(t - .62) * 14) * .05 : 0)
-                    + (t > .98 ? Math.exp(-(t - .98) * 14) * .05 : 0);
-        pitch = .10 + e * .32 + hitch; dy = e * s * .17;
-      } else {                                       // swelling, convulsing, splitting
-        const k = (t - 1.30) / (c.impact - 1.30), vib = Math.sin(t * 47) * .038 * k;
-        pitch = .42 + Math.sin(t * 18) * .03; dy = s * .17;
-        sx = 1 + k * .17 + vib; sy = 1 + k * .17 - vib;
-      }
-      // bossDeathPaint rotates about the corpse origin; the staging above is
-      // authored about hip height, so back-solve the origin that matches.
-      const ox = c.x - c.dir * .6 * s * Math.sin(pitch);
-      const oy = c.y + dy + .6 * s * Math.cos(pitch) - .6 * s;
-      const hadRoar = Object.prototype.hasOwnProperty.call(c, 'entranceT'), oldRoar = c.entranceT;
-      if (roarT) c.entranceT = roarT;
-      bossDeathPaint(gc, c, {x: ox, y: oy, rot: pitch, sx, sy, alpha: fade});
-      if (hadRoar) c.entranceT = oldRoar; else delete c.entranceT;
-
-      if (t > 1.12){                                 // light leaking out from inside
-        const p = clamp((t - 1.12) / (c.impact - 1.12), 0, 1);
-        gc.save(); gc.lineCap = 'round';
-        for (let i = 0; i < 13; i++){
-          const a = i * Math.PI / 6.5 + bossDeathRand(c, i + 40) * .3, len = s * p * (.42 + (i % 4) * .22);
-          gc.strokeStyle = i % 3 ? '#8c2a1c' : '#ffb35a';
-          gc.lineWidth = Math.max(2, s * .05 * p);
-          gc.globalAlpha = (.35 + .45 * Math.abs(Math.sin(t * 12 + i))) * p * fade;
-          gc.beginPath(); gc.moveTo(c.x, c.y - s * .95);
-          gc.lineTo(c.x + Math.cos(a) * len * .5, c.y - s * .95 + Math.sin(a) * len * .38);
-          gc.lineTo(c.x + Math.cos(a + .16) * len, c.y - s * .95 + Math.sin(a + .16) * len * .66);
-          gc.stroke();
-        }
-        const gl = gc.createRadialGradient(c.x, c.y - s * .95, 0, c.x, c.y - s * .95, s * 1.1 * p);
-        gl.addColorStop(0, `rgba(255,190,110,${.30 * p})`); gl.addColorStop(1, 'rgba(255,120,40,0)');
-        gc.globalAlpha = fade; gc.fillStyle = gl;
-        gc.beginPath(); gc.arc(c.x, c.y - s * .95, s * 1.1 * p, 0, Math.PI * 2); gc.fill();
-        gc.restore();
-      }
-      return;
-    }
-
-    bossDeathCracks(gc, c, clamp(u / .45, 0, 1) * 1.8, .95 * fade);
-    if (u < .26){                                     // the flash
-      gc.save(); gc.globalAlpha = (1 - u / .26) * .82;
-      const flash = gc.createRadialGradient(c.x, c.y - s * .9, 0, c.x, c.y - s * .9, s * 3.0);
-      flash.addColorStop(0, '#fff6da'); flash.addColorStop(.2, '#ff7a3c'); flash.addColorStop(1, 'rgba(120,10,12,0)');
-      gc.fillStyle = flash; gc.fillRect(c.x - s * 3.2, c.y - s * 3.4, s * 6.4, s * 5.6); gc.restore();
-    }
-    gc.save(); gc.lineWidth = Math.max(2, s * .055);   // shock rings, staged with the aftershocks
-    for (let i = 0; i < 4; i++){
-      const q = clamp((u - i * .35) / (1.4 + i * .12), 0, 1); if (q <= 0) continue;
-      gc.globalAlpha = (1 - q) * (.82 - i * .1) * fade;
-      gc.strokeStyle = i % 2 ? '#ffb04a' : '#b51f28';
-      gc.beginPath(); gc.ellipse(c.x, c.y - s * .28, s * q * (1.5 + i * .68), s * q * (.44 + i * .12), 0, 0, Math.PI * 2); gc.stroke();
-    }
-    gc.restore();
-    for (let i = 0; i < 11; i++){                     // smoke rolling off the crater
-      const r = bossDeathRand(c, i + 460), q = clamp(u / (2.6 + r), 0, 1);
-      const px = c.x + (r - .5) * s * 2.4 + Math.sin(u * (1.2 + r) + i) * s * .18;
-      const py = c.y - s * (.3 + r * .65) - q * s * (.85 + r * .7);
-      gc.save(); gc.globalAlpha = (1 - q) * .22 * fade; gc.fillStyle = i % 2 ? '#2b1715' : '#571512';
-      gc.beginPath(); gc.arc(px, py, s * (.22 + r * .24) * (1 + q * .7), 0, Math.PI * 2); gc.fill(); gc.restore();
-    }
-    for (let i = 0; i < 14; i++){                     // embers drifting up out of it
-      const r = bossDeathRand(c, i + 520), q = clamp((u - r * .5) / (1.8 + r * 1.6), 0, 1);
-      if (q <= 0) continue;
-      const px = c.x + (r - .5) * s * 3.0 + Math.sin(u * 2 + i) * s * .1, py = c.y - q * s * (1.3 + r);
-      gc.save(); gc.globalAlpha = (1 - q) * .85 * fade; gc.fillStyle = q < .5 ? '#ffd08a' : '#e2601f';
-      gc.beginPath(); gc.arc(px, py, Math.max(1, s * .028 * (1 - q * .5)), 0, Math.PI * 2); gc.fill(); gc.restore();
-    }
-    bossDeathBloodBurst(gc, c, c.impact, {count:44, power:6.6, spread:2.6, oy:.92, life:4.1});
-    bossDeathFragments(gc, c, c.impact, {count:22, limbs:0, power:5.6, scale:1.0, spread:2.7, oy:.88, life:5.2});
-    drexBlastAnatomy(gc, c, c.impact);
-    return;
-  }
+  if (c.key === 'drex') return EndgameFX.drawDrex(gc,c);
 
   if (c.key === 'whiteptera'){
     const k=clamp(t/c.impact,0,1),farCut=.38,nearCut=.72;
@@ -6241,59 +6152,6 @@ function render(dt){
     ctx.fillText('—  ' + sub + '  —', W/2, cy + 22);
     ctx.globalAlpha = 1;
   }
-  // wave-100 fireworks celebration
-  if (G.celebration){
-    const c = G.celebration;
-    c.t += dt;
-    if (c.t >= c.next && c.t < c.dur - 1.2){
-      c.next = c.t + rand(0.22, 0.4);
-      G.fw.push({x: rand(W*0.12, W*0.88), y: rand(H*0.12, H*0.55), t: 0,
-                 hue: rand(0, 360), n: 14 + (Math.random()*8 | 0), r: rand(70, 120)});
-      SFX.firework();
-      if (c.t < 3) G.shake = Math.max(G.shake, 1.5); // settle the screen shake after ~3s
-    }
-    for (const f of G.fw){
-      f.t += dt;
-      const k = Math.min(1, f.t / 1.1);
-      const spread = f.r * (1 - Math.pow(1 - k, 2.2));
-      for (let i = 0; i < f.n; i++){
-        const a = i / f.n * Math.PI * 2 + f.hue;
-        const px = f.x + Math.cos(a) * spread;
-        const py = f.y + Math.sin(a) * spread * 0.85 + 55 * k * k; // gravity
-        ctx.fillStyle = `hsla(${f.hue + i * 9}, 90%, ${70 - k * 25}%, ${1 - k})`;
-        ctx.beginPath(); ctx.arc(px, py, 2.6 - k * 1.4, 0, Math.PI*2); ctx.fill();
-      }
-      if (f.t < 0.15){ // launch flash
-        ctx.fillStyle = `hsla(${f.hue}, 90%, 85%, ${0.8 - f.t * 5})`;
-        ctx.beginPath(); ctx.arc(f.x, f.y, 9, 0, Math.PI*2); ctx.fill();
-      }
-    }
-    G.fw = G.fw.filter(f => f.t < 1.1);
-    // triumphant title zooming in
-    const ta = clamp(c.t * 2, 0, 1);
-    const sc = 1 + Math.max(0, 0.6 - c.t) * 1.4;
-    ctx.save();
-    ctx.globalAlpha = ta;
-    ctx.translate(W/2, H * 0.42);
-    ctx.scale(sc, sc);
-    ctx.textAlign = 'center';
-    ctx.font = 'bold 54px Verdana, sans-serif';
-    ctx.fillStyle = 'rgba(0,0,0,0.65)';
-    ctx.fillText('🏆 ZONE SECURED!', 3, 3);
-    const tg = ctx.createLinearGradient(0, -40, 0, 20);
-    tg.addColorStop(0, '#ffe9a0'); tg.addColorStop(1, '#e8a93a');
-    ctx.fillStyle = tg;
-    ctx.fillText('🏆 ZONE SECURED!', 0, 0);
-    ctx.font = 'bold 17px Verdana, sans-serif';
-    ctx.fillStyle = '#d8dcc8';
-    ctx.fillText('100 waves held. The dinosaurs are contained.', 0, 34);
-    ctx.restore();
-    if (c.t >= c.dur){
-      G.celebration = null;
-      $('#victory').classList.remove('hidden');
-    }
-  }
-
   if (G.paused){
     ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = '#fff'; ctx.font = 'bold 40px Verdana, sans-serif'; ctx.textAlign = 'center';
@@ -6734,6 +6592,7 @@ $('#btnReset').onclick = () => {
 $('#goMenu').onclick = toMenu;
 $('#goRetry').onclick = () => startLevel(G.levelIdx, 'fresh', G.difficulty);
 $('#vMenu').onclick = toMenu;
+$('#victorySkip').onclick = finishVictory;
 $('#vNext').onclick = () => {
   const next = G.difficulty + 1;   // climb: next difficulty on the same map
   if (next <= unlockedCap()){ selDiff = next; startLevel(G.levelIdx, 'fresh', next); }
@@ -7214,13 +7073,13 @@ if (testParams.has('test')){
     el.textContent = `SPEEDLEAK before=${speedBefore}× · after leak=${G.speed}× (want 1) · lives=${G.lives}/${G.maxLives}`;
     G.paused = true;
   }
-  if (testParams.has('celeb')){ // verify the victory shake settles after ~3s (celebration runs in render())
+  if (testParams.has('celeb')){ // preview the independent ceremony clock and steady camera
     G.wave = WAVES_PER_LEVEL;
     G.stat = {dnaWaves: 100, dnaKills: 20, cashEarned: 1000, kills: 100, streakMax: 2.5};
     G.dnaRun = 120; G.lives = G.maxLives;
     victory();                              // sets G.celebration
     let maxAfter3 = 0;
-    for (let s = 0; s < 5.6; s += 0.05){ render(0.05); if (s > 3.2) maxAfter3 = Math.max(maxAfter3, G.shake); }
+    for (let s = 0; s < 5.6; s += 0.05){ updateVictory(0.05); render(0.05); renderVictory(); if (s > 3.2) maxAfter3 = Math.max(maxAfter3, G.shake); }
     const el = $('#errbox'); el.classList.remove('hidden');
     el.textContent = `CELEB max shake after 3s=${maxAfter3.toFixed(3)} (want 0.000) · final shake=${G.shake.toFixed(3)}`;
     G.paused = true;   // startWave() below no-ops because victory() set G.over
@@ -7248,6 +7107,7 @@ if (testParams.has('test')){
     G.flawless = testParams.has('flaw');
     G.celebration = null; // jump straight to the results modal for the screenshot
     victory();
+    finishVictory();
     $('#victory').classList.remove('hidden');
   }
   if (testParams.has('boss')){ // stage a live boss entrance
@@ -7308,5 +7168,6 @@ if (testParams.has('test')){
     const releasedAfter=G.over&&!G.victoryPending&&G.corpses.length===0&&!!G.celebration;
     const el=$('#errbox');el.classList.remove('hidden');el.textContent=`FINALDEATH held-start=${heldAtStart} held-through-finale=${heldAtEnd} released-after=${releasedAfter} (want all true)`;
     G.over=false;G.victoryPending=false;G.celebration=null;G.speed=0;
+    $('#victoryShow').classList.add('hidden');
   }
 }

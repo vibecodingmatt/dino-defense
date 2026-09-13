@@ -517,6 +517,54 @@ canvas#game {
 .dna { color: var(--dna); }
 .dim { color: var(--dim); }
 
+/* A full-screen reward, independent of the small portrait battlefield. */
+#victoryShow { padding: 0; overflow: auto; background: #07141b; isolation: isolate; }
+#victorySky { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: -1; }
+.victory-ceremony { width: min(900px,100%); min-height: 100%; margin: auto; padding: max(28px,env(safe-area-inset-top)) 24px max(20px,env(safe-area-inset-bottom)); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #f5efde; box-sizing: border-box; text-shadow: 0 2px 20px #000; }
+.victory-kicker { color: #e8c882; letter-spacing: .32em; font-size: 11px; font-weight: 800; margin: 0 0 12px; }
+.victory-medal { width: clamp(130px,23vh,210px); flex: 0 0 auto; filter: drop-shadow(0 0 35px #e2b55b35); opacity: var(--medal,0); transform: scale(var(--medal-scale,.8)); }
+.victory-medal svg { display: block; width: 100%; }
+.medal-laurel { fill: none; stroke: #c79e56; stroke-width: 2; }
+#victoryShow h2 { color: #f5edda; font: 900 clamp(46px,8vw,92px)/.91 Arial,sans-serif; letter-spacing: -.06em; margin: 14px 0 18px; opacity: var(--reveal,0); transform: translateY(var(--title-y,20px)); }
+#victoryShow h2 span { background: linear-gradient(#fff0b8,#e8ba65 65%,#b27835); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; }
+body:has(#victoryShow:not(.hidden)) #achToast { visibility: hidden; }
+.victory-dedication { margin: 0; font-size: clamp(12px,1.7vw,17px); letter-spacing: .025em; opacity: var(--reveal,0); }
+.victory-operation { margin: 16px 0 20px; color: #a9ccc4; font-size: 12px; letter-spacing: .08em; opacity: var(--details,0); }
+.victory-highlights { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); width: min(570px,100%); padding: 16px 0; border-block: 1px solid #d6bf7440; background: linear-gradient(90deg,transparent,#091718a8,transparent); opacity: var(--details,0); }
+.victory-highlights div+div { border-left: 1px solid #d6bf7428; }
+.victory-highlights strong { display: block; color: #ffe1a2; font: 700 clamp(23px,3.6vw,36px)/1.2 Arial,sans-serif; }
+.victory-highlights span { display: block; margin-top: 7px; font-size: 10px; letter-spacing: .04em; color: #bdcec7; }
+#victoryShow #victorySkip { position: static; float: none; margin: 24px 0 0; width: auto; height: auto; min-height: 46px; padding: 12px 25px; border: 1px solid #e2bd75; border-radius: 4px; background: #17292de8; color: #f4dcaa; font: 700 13px system-ui,sans-serif; cursor: pointer; }
+#victoryShow #victorySkip:hover { background: #29413e; border-color: #ffe3a4; }
+.victory-results span { margin-left: 20px; }
+.victory-signoff { color: #8aa79c; font-size: 8px; letter-spacing: .22em; margin: 22px 0 0; }
+@media(max-width:500px) {
+  .victory-ceremony { padding-inline: 18px; }
+  .victory-kicker { font-size: 9px; }
+  .victory-medal { width: clamp(120px,21vh,180px); }
+  .victory-highlights span { font-size: 8px; }
+}
+@media(max-height:600px) {
+  .victory-ceremony { padding-block: 14px; }
+  .victory-medal { width: 96px; }
+  #victoryShow h2 { font-size: 42px; margin-block: 8px 10px; }
+  .victory-kicker { margin-bottom: 3px; }
+  .victory-operation { margin: 10px 0; }
+  .victory-highlights { padding-block: 10px; }
+  #victoryShow #victorySkip { margin-top: 14px; }
+  .victory-signoff { margin-top: 12px; }
+}
+@media(max-height:450px) and (min-width:600px) {
+  .victory-ceremony { display: grid; grid-template-columns: 145px minmax(0,500px); column-gap: 24px; justify-content: center; align-content: center; min-height: 100%; padding: 18px 30px; }
+  .victory-medal { grid-column: 1; grid-row: 1 / 8; width: 145px; }
+  .victory-ceremony > :not(.victory-medal) { grid-column: 2; }
+  .victory-kicker { margin-bottom: 6px; }
+  #victoryShow h2 { font-size: 44px; }
+  .victory-dedication { font-size: 12px; }
+  .victory-highlights strong { font-size: 24px; }
+  #victoryShow #victorySkip { justify-self: center; }
+}
+
 /* victory recap breakdown */
 .recapSub { color: var(--text); font-size: 13.5px; line-height: 1.5; margin-bottom: 14px; }
 .recapGrid {

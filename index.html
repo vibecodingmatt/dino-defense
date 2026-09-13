@@ -402,6 +402,41 @@
   </div>
 </div>
 
+<!-- Full-viewport victory ceremony; its clock is separate from combat speed. -->
+<div id="victoryShow" class="modal hidden">
+  <canvas id="victorySky" aria-hidden="true"></canvas>
+  <div class="victory-ceremony">
+    <p class="victory-kicker" id="victoryKicker">OPERATION COMPLETE</p>
+    <div class="victory-medal" aria-hidden="true">
+      <svg viewBox="0 0 220 230">
+        <defs><linearGradient id="medalGold" x2=".7" y2="1"><stop stop-color="#fff0b3"/><stop offset=".45" stop-color="#dfa64b"/><stop offset=".7" stop-color="#ffdfa0"/><stop offset="1" stop-color="#9d6c30"/></linearGradient></defs>
+        <path class="medal-laurel" d="M52 188Q-3 143 27 64M168 188Q223 143 193 64"/>
+        <g fill="url(#medalGold)">
+          <path d="M36 151Q10 148 12 127Q36 132 36 151M28 125Q5 116 13 96Q33 108 28 125M29 98Q11 82 24 67Q38 84 29 98M36 77Q24 57 40 46Q49 65 36 77M48 60Q43 36 61 32Q63 51 48 60M45 174Q22 179 17 156Q39 157 45 174"/>
+          <path d="M184 151Q210 148 208 127Q184 132 184 151M192 125Q215 116 207 96Q187 108 192 125M191 98Q209 82 196 67Q182 84 191 98M184 77Q196 57 180 46Q171 65 184 77M172 60Q177 36 159 32Q157 51 172 60M175 174Q198 179 203 156Q181 157 175 174"/>
+          <path d="M110 11L178 41V113Q177 175 110 213Q43 175 42 113V41Z"/>
+        </g>
+        <path fill="#142b29" stroke="#fff0b3" stroke-width="1.2" d="M110 22L168 48V113Q165 166 110 201Q55 166 52 113V48Z"/>
+        <path fill="none" stroke="#9b793d" d="M110 32L159 54V114Q155 158 110 189Q65 158 61 114V54Z"/>
+        <path fill="url(#medalGold)" d="M82 66L89 45L103 59L110 39L117 59L131 45L138 66Z"/>
+        <text x="110" y="128" text-anchor="middle" fill="url(#medalGold)" font-family="Arial,sans-serif" font-weight="900" font-size="53">100</text>
+        <text x="110" y="150" text-anchor="middle" fill="#e8ca8c" font-family="Arial,sans-serif" font-size="12" letter-spacing="3">WAVES</text>
+        <path fill="url(#medalGold)" d="M110 163L113 169L120 170L115 175L116 182L110 179L104 182L105 175L100 170L107 169Z"/>
+      </svg>
+    </div>
+    <h2 id="victoryShowTitle">YOU HELD<br><span>THE LINE.</span></h2>
+    <p class="victory-dedication">Against every tooth. Every claw. Every wave.</p>
+    <p id="victoryOperation" class="victory-operation"></p>
+    <div class="victory-highlights">
+      <div><strong id="victoryKills">0</strong><span>Dinosaurs defeated</span></div>
+      <div><strong id="victoryDNA">0</strong><span>DNA banked</span></div>
+      <div><strong id="victoryHealth">0%</strong><span>Base health</span></div>
+    </div>
+    <button id="victorySkip" class="modalX victory-results">View results <span aria-hidden="true">→</span></button>
+    <p class="victory-signoff">DINO DEFENSE · CONTAINMENT RESTORED</p>
+  </div>
+</div>
+
 <!-- victory -->
 <div id="victory" class="modal hidden">
   <div class="modalBox">
@@ -440,6 +475,7 @@
 <script src="js/dino-fx.js"></script>
 <script src="js/audio-fx.js"></script>
 <script src="js/home-scenery.js"></script>
+<script src="js/endgame-fx.js"></script>
 <script src="js/game.js"></script>
 <script src="js/home.js"></script>
 <script src="js/armory-guide.js"></script>
