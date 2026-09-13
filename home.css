@@ -252,3 +252,7 @@
   #menu { scroll-behavior: auto; }
   #menu *, #menu *::before, #menu *::after { animation: none !important; transition: none !important; }
 }
+/* Give the phone cameos a visible stage below the hero's Play controls. */
+@media (max-width: 760px) and (orientation: portrait) {
+  .hero { min-height: 570px; align-items: flex-start; }
+}

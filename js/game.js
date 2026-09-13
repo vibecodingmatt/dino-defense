@@ -3371,7 +3371,7 @@ let menuProps = [];
    It is scenery almost all of the time. Once in a while the power drops out,
    and a boy who has been waiting his whole life for exactly that goes over it.
    See menuTimmy below — the fence's power state is that scene's clock. */
-let menuFence = {live: 1, warn: 0, surge: 0};
+let menuFence = {live: 1, warn: 0, surge: 0, arcX: null, arcY: null};
 /* The backdrop's own clock. G.time only advances inside render(), which never
    runs while the menu is up, so anything on this screen that has to animate on
    wall time — the charge crawling along the cable, the beacons — counts here. */
@@ -3383,13 +3383,12 @@ let menuT = 0;
    parked at the back of the band, as it first was, nothing could ever pass
    BEHIND the wire and the depth sorting had nothing to sort.
 
-   The band is deliberately NOT lifted on phones. It looks like it should be —
-   the dock climbs a long way up a narrow layout — but everything above it is
-   the title block, so raising the band just trades a tile for the wordmark and
-   buries the scene worse. On a phone the open ground is the side margins, and
-   that is a horizontal problem, solved by the fence's own x. */
+   Desktop scenes use the open right-hand half of the hero. Portrait phones
+   get a clear strip below the Play controls; its ground is capped inside the
+   viewport so small screens can still see the contact and landing. */
 function menuGround(w, h){
-  return {lo: h * 0.335, hi: h * 0.49, fence: h * 0.405};
+  const fence = w <= 760 && h > w ? Math.min(h * .9, 610) : h * .405;
+  return {lo: fence - h * .07, hi: fence + h * .085, fence};
 }
 // he goes up the middle of the open bay, out on the wire itself, rather than
 // hugging the pylon where he half disappears against a slab of concrete
@@ -3407,13 +3406,13 @@ function menuFenceAt(w, h){
      band that whatever lands at the bottom of the scene doesn't end up behind
      a tile. The second term is the narrow-screen case — pinned at 0.795w a
      phone puts the climb, and the boy on it, half off the right edge. */
-  const x0 = Math.min(w * 0.795, w - bay - ht * 0.18);
+  const x0 = Math.min(w * 0.795, w - bay - ht * 0.22);
   return {x0, x1: x0 + bay, y: g.fence, h: ht, bay, climbX: x0 + bay * FENCE_CLIMB_F};
 }
 /* ---------------- THE OUTHOUSE ----------------
    The park's least dignified structure, standing in the open margin on the
-   LEFT — deliberately the opposite side to the fence, so the backdrop has one
-   piece of scenery either side of the menu rather than a pile on one edge.
+   LEFT of the fence. On wide screens both structures sit to the right of the
+   hero copy; portrait phones use the open strip beneath the Play controls.
    Same ground line as everything else, so it sorts for depth with the rest.
 
    It is drawn in two halves. The SHELL — back wall, floor, and the toilet — is
@@ -3430,8 +3429,8 @@ function menuLooAt(w, h){
   // The width term keeps it off the middle of a narrow layout, but generously:
   // scaled strictly to a phone's margin the hut came out barely fifty pixels
   // tall and the man inside it was unreadable, which loses the entire joke.
-  const ht = clamp(Math.min(h * 0.115, w * 0.195), 52, 118);
-  return {x: Math.max(w * 0.115, ht * 0.95), y: g.fence, h: ht, w: ht * 0.72};
+  const ht = clamp(Math.min(h * .145, w * .245), 66, 142);
+  return {x: w > 900 ? w * .64 : Math.max(w * .20, ht * .7), y: g.fence, h: ht, w: ht * .72};
 }
 const MENU_BOSSES = ['trex', 'spinosaurus', 'indominus', 'indoraptor', 'giganotosaurus', 'drex', 'blue', 'therizinosaurus'];
 /* THE OPENING RUNNING ORDER. A first-time visitor shouldn't have to sit through
@@ -3704,6 +3703,7 @@ function drawMenuTourist(ctx, tr){
   if (tr.blast){
     const b = tr.blast;
     drawTouristZapped(ctx, lk, tr.x, tr.y, tr.dir, b.rot, b.burn, tr.alpha);
+    if (b.burn < .35) HomeScenery.contact(ctx, tr, menuT, (1 - b.burn / .35) * .8);
     return;
   }
   if (tr.tripped){
@@ -3783,191 +3783,8 @@ function drawMenuBubble(ctx, tr, w){
 /* The fence itself, in elevation. `p` is the live power state shared with the
    set piece: p.live 0→1 is how energised the cable is, p.warn flashes the
    beacons amber just before it comes back, p.surge is the discharge. */
-function drawMenuFence(ctx, f, p, time){
-  const {x0, x1, y, h} = f;
-  const capY = y - h;
-  const live = p.live, surge = p.surge;
-  const bays = [[x0, x1], [x1, x1 + (x1 - x0)]];   // the line carries on off-screen
-  ctx.save();
-  // it stands back in the same haze the treeline and the giants do — at full
-  // strength this reads as UI furniture sitting on top of the menu
-  const A = 0.6;
-  ctx.globalAlpha = A;
-
-  // the ground it stands on, and the shadow the pylons throw back
-  ctx.fillStyle = 'rgba(0,0,0,0.26)';
-  ctx.beginPath();
-  ctx.ellipse((x0 + x1) / 2, y + 2, (x1 - x0) * 1.05, h * 0.045, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  /* CABLE. Eight runs of it, sagging slightly between the pylons. Dead, it is
-     a dull grey wire; live, it carries a cold blue charge and a glow. */
-  const rows = 8, top = capY + h * 0.12, span = h * 0.78;
-  for (const [ax, bx] of bays){
-    for (let i = 0; i < rows; i++){
-      const ry = top + span * (i / (rows - 1)), sag = h * 0.016;
-      if (live > 0.04){                            // the charge, bloomed around the wire
-        ctx.strokeStyle = `rgba(150,214,255,${0.16 * live})`;
-        ctx.lineWidth = 4.5;
-        ctx.beginPath(); ctx.moveTo(ax, ry);
-        ctx.quadraticCurveTo((ax + bx) / 2, ry + sag, bx, ry); ctx.stroke();
-      }
-      ctx.strokeStyle = `rgb(${96 + 78 * live},${108 + 76 * live},${104 + 96 * live})`;
-      ctx.globalAlpha = A * (0.34 + 0.4 * live);
-      ctx.lineWidth = 1.3;
-      ctx.beginPath(); ctx.moveTo(ax, ry);
-      ctx.quadraticCurveTo((ax + bx) / 2, ry + sag, bx, ry); ctx.stroke();
-      ctx.globalAlpha = A;
-      // a charge running the length of the wire, one row at a time
-      if (live > 0.5){
-        const k = ((time * 0.55 + i * 0.31) % 1);
-        ctx.fillStyle = `rgba(214,242,255,${0.5 * live * Math.sin(k * Math.PI)})`;
-        ctx.beginPath(); ctx.arc(ax + (bx - ax) * k, ry + sag * 4 * k * (1 - k), 1.9, 0, Math.PI * 2); ctx.fill();
-      }
-    }
-  }
-  /* THE DISCHARGE. Arcs jumping between the rows, thrown at the near pylon
-     where the boy is — this is the whole reason the fence is here. */
-  if (surge > 0){
-    ctx.strokeStyle = `rgba(226,244,255,${Math.min(1, surge) * 0.9})`;
-    ctx.lineWidth = 1.6;
-    ctx.beginPath();
-    for (let i = 0; i < 9; i++){
-      let bxx = x0 + rand(0, (x1 - x0) * 0.6), byy = top + rand(0, span);
-      ctx.moveTo(bxx, byy);
-      for (let k = 0; k < 4; k++){                 // a jagged little lightning walk
-        bxx += rand(-h * 0.09, h * 0.09); byy += rand(-h * 0.08, h * 0.08);
-        ctx.lineTo(bxx, byy);
-      }
-    }
-    ctx.stroke();
-  }
-
-  // PYLONS: armoured concrete, wider at the footing, capped in steel
-  for (const px of [x0, x1, x1 + (x1 - x0)]){
-    const wTop = h * 0.085, wBot = h * 0.125;
-    ctx.fillStyle = '#3b3e38';
-    ctx.beginPath();
-    ctx.moveTo(px - wTop, capY); ctx.lineTo(px + wTop, capY);
-    ctx.lineTo(px + wBot, y); ctx.lineTo(px - wBot, y);
-    ctx.closePath(); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.10)';      // a lit edge down the near face
-    ctx.beginPath();
-    ctx.moveTo(px - wTop, capY); ctx.lineTo(px - wTop * 0.35, capY);
-    ctx.lineTo(px - wBot * 0.35, y); ctx.lineTo(px - wBot, y);
-    ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#5e6158';                     // steel cap
-    ctx.fillRect(px - wTop * 1.35, capY - h * 0.035, wTop * 2.7, h * 0.035);
-    // insulators where the cable is landed
-    ctx.fillStyle = '#2f322d';
-    for (let i = 0; i < rows; i++){
-      const ry = top + span * (i / (rows - 1));
-      ctx.beginPath(); ctx.ellipse(px, ry, wTop * 0.5, h * 0.012, 0, 0, Math.PI * 2); ctx.fill();
-    }
-    /* The beacon on the cap: green while the line is hot, dead when it isn't,
-       and flashing amber in the seconds before it comes back — which is the
-       only warning anybody halfway up it is going to get. */
-    const flash = p.warn > 0 && Math.sin(time * 26) > -0.1;
-    const lamp = p.warn > 0 ? (flash ? '#ffb02e' : '#4a3a18')
-               : live > 0.5 ? '#59e08a' : '#33382f';
-    ctx.fillStyle = lamp;
-    ctx.beginPath(); ctx.arc(px, capY - h * 0.052, h * 0.019, 0, Math.PI * 2); ctx.fill();
-    if (p.warn > 0 ? flash : live > 0.5){
-      ctx.fillStyle = p.warn > 0 ? 'rgba(255,176,46,0.28)' : 'rgba(89,224,138,0.22)';
-      ctx.beginPath(); ctx.arc(px, capY - h * 0.052, h * 0.055, 0, Math.PI * 2); ctx.fill();
-    }
-  }
-
-  // the warning plate on the near pylon — 10,000 volts, as advertised
-  const sy = y - h * 0.30, sw = h * 0.085;
-  ctx.fillStyle = live > 0.5 ? '#d8b23c' : '#6d5f2c';
-  ctx.beginPath();
-  ctx.moveTo(x0, sy - sw); ctx.lineTo(x0 + sw, sy + sw * 0.7); ctx.lineTo(x0 - sw, sy + sw * 0.7);
-  ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = 'rgba(20,20,14,0.8)'; ctx.lineWidth = Math.max(1, sw * 0.13);
-  ctx.beginPath();                                 // the bolt
-  ctx.moveTo(x0 + sw * 0.22, sy - sw * 0.42); ctx.lineTo(x0 - sw * 0.14, sy + sw * 0.08);
-  ctx.lineTo(x0 + sw * 0.1, sy + sw * 0.08); ctx.lineTo(x0 - sw * 0.2, sy + sw * 0.55);
-  ctx.stroke();
-  ctx.restore();
-}
-
-/* The outhouse, in elevation. `wrecked` drops the front and roof, leaving the
-   back wall, the floor and the porcelain — which is exactly the shot. `rock`
-   is how hard the whole thing is shaking, for the man inside who can hear
-   what is coming. */
-function drawMenuLoo(ctx, o, wrecked, rock, time){
-  const {x, y, h} = o, hw = o.w / 2;
-  ctx.save();
-  ctx.globalAlpha = 0.62;                          // same haze as the fence
-  if (rock > 0){                                   // rocking on its footings
-    ctx.translate(x, y);
-    ctx.rotate(Math.sin(time * 21) * 0.045 * rock);
-    ctx.translate(-x, -y);
-  }
-  // weathered, and muted toward the fog the rest of the backdrop lives in
-  const plank = '#544438', plankD = '#3c3025', roofC = '#453a30';
-
-  // ---- SHELL: the floor slab, the back wall, and the porcelain
-  ctx.fillStyle = 'rgba(0,0,0,0.30)';
-  ctx.beginPath(); ctx.ellipse(x, y + 2, hw * 1.25, h * 0.05, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = wrecked ? '#2b2119' : plankD;    // interior back wall
-  ctx.fillRect(x - hw * 0.86, y - h * 0.92, hw * 1.72, h * 0.92);
-  if (wrecked){
-    ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1;
-    for (let i = 1; i < 5; i++){                   // planking, seen from inside
-      const px = x - hw * 0.86 + (hw * 1.72) * (i / 5);
-      ctx.beginPath(); ctx.moveTo(px, y - h * 0.92); ctx.lineTo(px, y); ctx.stroke();
-    }
-    /* THE PORCELAIN, still bolted down. The seat height is not a look — it is
-       exactly where the seated pose puts a man's backside (LOO_SEAT of the
-       hut's height), so he sits ON it rather than beside it. */
-    const tx = x + o.w * LOO_SEAT_X, sy = y - h * LOO_SEAT;
-    ctx.fillStyle = '#9ea39c';                     // cistern, up against the back wall
-    ctx.fillRect(tx - h * 0.13, sy - h * 0.17, h * 0.075, h * 0.17);
-    ctx.fillStyle = '#c9cec7';                     // pedestal, waisted
-    ctx.beginPath();
-    ctx.moveTo(tx - h * 0.075, sy); ctx.lineTo(tx + h * 0.075, sy);
-    ctx.quadraticCurveTo(tx + h * 0.05, sy + h * 0.07, tx + h * 0.055, y);
-    ctx.lineTo(tx - h * 0.055, y);
-    ctx.quadraticCurveTo(tx - h * 0.05, sy + h * 0.07, tx - h * 0.075, sy);
-    ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#e4e8e1';                     // the seat itself
-    ctx.beginPath(); ctx.ellipse(tx, sy, h * 0.085, h * 0.028, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#aeb3ac';                     // lid, up against the cistern
-    ctx.beginPath(); ctx.ellipse(tx - h * 0.075, sy - h * 0.06, h * 0.022, h * 0.055, -0.18, 0, Math.PI * 2); ctx.fill();
-  }
-
-  // ---- FRONT: everything a tyrannosaur is about to remove
-  if (!wrecked){
-    ctx.fillStyle = plank;
-    ctx.fillRect(x - hw, y - h * 0.92, o.w, h * 0.92);
-    ctx.strokeStyle = plankD; ctx.lineWidth = 1.2;
-    for (let i = 1; i < 6; i++){
-      const px = x - hw + o.w * (i / 6);
-      ctx.beginPath(); ctx.moveTo(px, y - h * 0.92); ctx.lineTo(px, y); ctx.stroke();
-    }
-    ctx.fillStyle = shade(plank, -0.18);           // the door, inset
-    ctx.fillRect(x - hw * 0.62, y - h * 0.8, hw * 1.24, h * 0.8);
-    ctx.strokeStyle = plankD; ctx.lineWidth = 1;
-    ctx.strokeRect(x - hw * 0.62, y - h * 0.8, hw * 1.24, h * 0.8);
-    // the crescent, cut where every outhouse has one
-    ctx.fillStyle = '#1b1a14';
-    ctx.beginPath(); ctx.arc(x, y - h * 0.62, h * 0.075, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = shade(plank, -0.18);
-    ctx.beginPath(); ctx.arc(x + h * 0.035, y - h * 0.645, h * 0.07, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#8d8f88';                     // handle, and the bolt he threw
-    ctx.beginPath(); ctx.arc(x + hw * 0.44, y - h * 0.4, h * 0.022, 0, Math.PI * 2); ctx.fill();
-    // roof, overhanging on both sides
-    ctx.fillStyle = roofC;
-    ctx.beginPath();
-    ctx.moveTo(x - hw * 1.2, y - h * 0.9); ctx.lineTo(x, y - h * 1.06);
-    ctx.lineTo(x + hw * 1.2, y - h * 0.9); ctx.lineTo(x + hw * 1.2, y - h * 0.84);
-    ctx.lineTo(x, y - h); ctx.lineTo(x - hw * 1.2, y - h * 0.84);
-    ctx.closePath(); ctx.fill();
-  }
-  ctx.restore();
-}
+function drawMenuFence(ctx, f, p, time){ HomeScenery.fence(ctx, f, p, time); }
+function drawMenuLoo(ctx, o, wrecked, rock, time){ HomeScenery.loo(ctx, o, wrecked, rock, time, LOO_SEAT, LOO_SEAT_X); }
 
 /* ---------------- TIM MURPHY AND THE FENCE ----------------
    The other thing everybody remembers about a Jurassic Park fence. A boy is
@@ -4039,6 +3856,7 @@ function updateMenuTimmy(dt, w, h, f){
       T.stage = 'fly'; T.t = 0;
       T.power = 1; p.live = 1; p.surge = 1.4;
       T.x0 = tr.x; T.y0 = tr.climbY;
+      p.arcX = tr.x; p.arcY = tr.climbY - tr.look.size * .9;
       // Back down the bay: off the wire, but still short of the near pylon's
       // footing so the heap lands on open ground, and well short of the animal.
       // Measured against the BAY, not the fence height — on a narrow screen the
@@ -4052,7 +3870,7 @@ function updateMenuTimmy(dt, w, h, f){
       for (let i = 0; i < 16; i++){                // sparks off the wire
         menuPuffs.push({x: tr.x + rand(-5, 8), y: T.y0 + rand(-10, 10),
                         vx: rand(-150, 60), vy: rand(-90, 60),
-                        t: 0, dur: rand(0.25, 0.6), r: rand(1.4, 3.2), c: '198,235,255'});
+                        kind: 'spark', t: 0, dur: rand(.3, .7), r: rand(1.4, 3.2), c: '183,225,241'});
       }
     }
   } else if (T.stage === 'fly'){
@@ -4065,7 +3883,7 @@ function updateMenuTimmy(dt, w, h, f){
     tr.blast.burn = k;
     d.x += (T.dx1 - d.x) * Math.min(1, dt * 4);    // the animal gives the fence some room
     d.phase += dt * d.stride * 0.4;
-    if (Math.random() < 0.7){                      // smoking the whole way
+    if (dt > 0 && Math.random() < 1 - Math.exp(-28 * dt)){ // frame-rate-independent smoke
       menuPuffs.push({x: tr.x + rand(-6, 6), y: tr.y - rand(4, 16),
                       vx: rand(-14, 14), vy: rand(-26, -6),
                       t: 0, dur: rand(0.5, 1.1), r: rand(2, 4.5), c: '104,100,96'});
@@ -4148,10 +3966,15 @@ function updateMenuLoo(dt, w, h, o){
       tr.hidden = false;                           // and there he is
       tr.look.shock = true; tr.look.shockT = 0;
       tr.sayT = LOO_REVEAL;                        // "We're gonna make a fortune..."
+      // Whole recognizable panels lead the breakup before the smaller splinters.
+      for (const [kind,dx,dy,vx,vy] of [['door',-.02,-.4,125,-150],['roof',.02,-.98,85,-200]]) {
+        menuProps.push({kind,x:o.x+o.h*dx,y:o.y+o.h*dy,vx,vy,rot:0,spin:kind==='roof'?2.8:-4,
+          restRot:kind==='door'?1.5:.13,s:o.h,ground:o.y,t:0,dur:5,bounces:1});
+      }
       for (let i = 0; i < 14; i++){                // the door and the roof, in pieces
         menuProps.push({kind: 'plank', x: o.x + rand(-o.w * 0.5, o.w * 0.5), y: o.y - rand(0, o.h),
                         vx: rand(-30, 190), vy: rand(-230, -60),
-                        rot: rand(-1, 1), spin: rand(-9, 9), restRot: rand(-0.1, 0.1),
+                        rot: rand(-1, 1), spin: rand(-9, 9), restRot: rand(-0.1, 0.1), bounces: 1,
                         s: o.h * rand(0.1, 0.22), ground: o.y, t: 0, dur: rand(2.6, 5)});
       }
       for (let i = 0; i < 16; i++){
@@ -4459,8 +4282,12 @@ function menuScene(dt){
       // settle flat. `restRot` per prop: the rifle is drawn down its own length
       // and lies at 1.62, a plank is drawn across and lies at roughly nothing
       if (p.y >= p.ground){
-        p.y = p.ground; p.vx *= 0.3; p.vy = 0; p.spin = 0;
-        p.rot = p.restRot !== undefined ? p.restRot : 1.62;
+        if (p.bounces > 0 && p.vy > 35) {
+          p.y = p.ground - .01; p.vy *= -.22; p.vx *= .55; p.spin *= .4; p.bounces--;
+        } else {
+          p.y = p.ground; p.vx *= .3; p.vy = 0; p.spin = 0; p.landed = true;
+          p.rot = p.restRot !== undefined ? p.restRot : 1.62;
+        }
       }
     }
   }
@@ -4515,23 +4342,18 @@ function menuScene(dt){
 function drawMenuProp(ctx, p){
   ctx.save();
   ctx.globalAlpha = Math.min(1, (p.dur - p.t) / 0.9) * 0.9;
-  ctx.translate(p.x, p.y); ctx.rotate(p.rot);
-  if (p.kind === 'plank'){                         // splintered outhouse siding
-    ctx.fillStyle = '#5c4630';
-    ctx.fillRect(-p.s * 0.5, -p.s * 0.11, p.s, p.s * 0.22);
-    ctx.fillStyle = 'rgba(0,0,0,0.25)';
-    ctx.fillRect(-p.s * 0.5, p.s * 0.04, p.s, p.s * 0.07);
+  ctx.translate(p.x, p.y);
+  if (p.landed && (p.kind === 'door' || p.kind === 'roof')) ctx.scale(1, .24);
+  ctx.rotate(p.rot);
+  if (p.kind === 'plank' || p.kind === 'door' || p.kind === 'roof'){
+    HomeScenery.fragment(ctx, p);
   } else {
     ctx.scale(p.s, p.s);
     touristRifle(ctx);
   }
   ctx.restore();
 }
-function drawMenuPuff(ctx, pf){
-  const k = pf.t / pf.dur;
-  ctx.fillStyle = `rgba(${pf.c || '150,25,18'},${0.8 * (1 - k)})`;
-  ctx.beginPath(); ctx.arc(pf.x, pf.y, pf.r * (1 - k * 0.4), 0, Math.PI * 2); ctx.fill();
-}
+function drawMenuPuff(ctx, pf){ HomeScenery.puff(ctx, pf); }
 /* one menu giant, plus whoever is currently in its mouth */
 function drawMenuDino(ctx, d){
   const yy = d.y + (d.pounceY || 0);

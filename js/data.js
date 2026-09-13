@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.67.0';
+const VERSION = '1.68.0';
 
 // Art inspection panels are local development tools. URL query flags must
 // never enable them on the public site. Node-based data audits default to off.
@@ -35,11 +35,11 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    Date each entry with the ACTUAL current calendar date — check it, never copy
    the entry above. Same-day reship: edit that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.67.0', date: 'Sep 12, 2026', items: [
+  {v: '1.68.0', date: 'Sep 12, 2026', items: [
     '🏃 Detailed 3D tourists and familiar guests bring the chases to life, with bloody bites and lingering splatter.',
     '🦖 Rebuilt dinosaurs with natural jaw joins, a movie-inspired T-Rex, D-Rex knuckle-walking, and colorful Dilo frills.',
     '🪶 The feathered Therizinosaurus now roams the home screen among the giants.',
-    '🏝️ A cinematic new home screen puts play first, with beautiful zone cards and easier menus on phones and desktops.',
+    '🏝️ A cinematic home makeover adds easier menus, richer zones, a weathered outhouse, and a crackling electric fence.',
     '🔗 Share the adventure with a dramatic T-Rex preview and an easy game-link sharing button.',
     '💥 A price-sorted arsenal, lifelike fire and frost, and nine favorite dinosaur finishers return in 3D.',
     '🔊 Richer weapon sounds, crackling ice, roaring fire, rattling debris, and a thunderous T-Rex voice.',

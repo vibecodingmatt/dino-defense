@@ -18,6 +18,31 @@ Background animation follows reduced motion until the player chooses an
 explicit preference in Settings. Advanced settings retain the existing password
 gate within a collapsed disclosure.
 
+## Scenery follow-up (1.68.0)
+
+`js/home-scenery.js` paints the weathered outhouse, broken shell, roof/door
+fragments and electric fence. Five bounded Canvas tiles cache timber grain,
+roof panels, porcelain, concrete/steel pylons, cable insulators and hardware.
+The scene uses fewer than one million cached pixels after both cameos. No new
+external artwork, packages or WebGL feature is needed for these structures.
+
+Electric arcs use the actual contact point set by Tim's animation and stable
+noise derived from the scene clock. Drawing does not consume simulation random
+numbers or emit particles. Sparks have short directional trails; dust and smoke
+have soft radial falloff. The door and roof separate as recognizable pieces,
+bounce once, settle flat and expire. Gennaro's seat and actor still share
+`LOO_MAN`, `LOO_SEAT` and `LOO_SEAT_X`; the existing seated lift/bite timing stays
+intact. Tim's landing remains the existing exaggerated cartoon ash gag.
+
+The outhouse moves into the open right-hand scene area on wide screens. Portrait
+phones reserve a strip below Play and above the progress hub, with the scenery
+ground capped inside the viewport. This gives the cameos room without moving
+the primary action below the fold. The expanded pylon feet remain on-screen.
+
+The saved/reduced-motion preference freezes both the scene clock and Tim's
+smoke emission. Smoke emission is time-based rather than render-frame-based.
+Original scene ordering, guest/dinosaur models, audio and gameplay are retained.
+
 ## Social image and metadata
 
 `assets/social/containment-breach-v1.jpg` is a 1200 x 630 JPEG, about 215 KiB.
@@ -58,7 +83,19 @@ no-JavaScript metadata/image checks and offline interface loading.
 browser storage and never read or change the owner's saved game. Run the
 presentation and resume suites too when changing their shared contracts.
 
+For scenery, run `node tests/home-scenery.cjs` plus the presentation and tourist
+suites. `SCENERY_REVIEW_URL` accepts production; `SCENERY_REVIEW_DIR` selects an
+external capture folder. The focused suite steps through the actual scenes on
+desktop, 390 px and 320 px phones, including breakup, seated attachment, bite,
+cleanup, climb, warning, contact arcs and ash landing. It also checks redraw
+purity, paused particle state, bounded caches, Canvas fallback and offline loading.
+CPU submission timing is recorded on a 1440 x 1000 canvas; this is not a phone
+GPU frame-rate benchmark. Evidence is under `dino-perimeter-review/scenery1680/`.
+
 The daily release recap retains ten separate enhancements: tourists, dinosaur
 anatomy, Therizinosaurus, homepage, sharing, arsenal/finishers, audio, Sector 7,
 six other maps, and fixes. Earlier long days are also distinct enhancements;
 the audit's long-entry prompts were reviewed rather than mechanically truncated.
+The 1.68.0 scenery update is folded into the homepage enhancement. The scanner's
+shared-word prompt with the audio item is coincidental: visual fence arcs and
+the previously released sound bank are separate work.
