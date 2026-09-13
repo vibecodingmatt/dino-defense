@@ -6,23 +6,36 @@ separate maintained products. This is the browser handoff. Roblox starts at
 
 ## Production baseline
 
-Last verified runtime release: **1.69.0**, September 13, 2026; service-worker cache
-**dino-defense-v65**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
-from root `main`, commit `80354a74f41fbf827915d859342f2247f435d64d`.
-[Pages run 34763470112 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34763470112).
+Last verified runtime release: **1.70.0**, September 13, 2026; service-worker cache
+**dino-defense-v66**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
+from root `main`, commit `3e386ef84a73343d2ee59dd569cd27172de10ade`.
+[Pages run 34764955712 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34764955712).
 This is a recorded deployment baseline; inspect Git and the live version before
 the next release rather than assuming HEAD still equals this commit.
 
-Live verification checked HTTP 200 and committed SHA-256 for 84 pages and
+Live verification checked HTTP 200 and committed SHA-256 for 85 pages and
 dependencies, all 33 loaded dinosaur skins and polished jaw attachments,
 the guest renderer, hidden art menus,
 ascending weapon prices, matching number keys and Gas selection, actual kills
 with all nine finishers, surface effects and red-ring removal, resumed wave one
-with one weapon and zero cash, phone layout and offline loading under cache v65.
+with one weapon and zero cash, phone layout and offline loading under cache v66.
 It also checked the authored audio bank online/offline, larger Gennaro scale,
 and deaths of all 33 species and nine bosses without creature vocalizations.
 No browser JavaScript errors were found in those checks. Physical phone GPU
 performance and film-quality likeness were not established by headless tests.
+
+The 1.70.0 D-Rex finale builds to a skin-cracking rupture at 2.85 seconds, throws
+real detached anatomy through 148 blood droplets and ends in a smoking crater
+at 9.6 seconds. Victory waits for that complete ending, then stages a full-screen
+gold medal ceremony with 21 choreographed firework launches and actual run stats.
+The production endgame suite passed desktop, 390/320 px phones, short landscape,
+reduced motion and Canvas fallback: all nine bosses walk without camera shake,
+rewards are granted once, the show uses real time at 10x combat speed, hidden
+tabs freeze it, and touch/keyboard dismissal restores results focus. Offline
+loading and the full production homepage suite also passed with no browser errors.
+[Endgame notes](WEB_ENDGAME_REVIEW.md) document the design and bounded effects.
+Evidence is under `C:/Users/burns/dev/dino-perimeter-review/endgame1700/` in
+`production/`, `production-endgame/` and `production-home/`.
 
 The 1.69.0 homepage outhouse rebuilds as the next lawyer-scene T-Rex spawns,
 before its walk-on, even if the prior wreck's timer has not expired. Production
@@ -108,6 +121,7 @@ Audio authoring uses the [export instructions](../art/browser-audio/README.md).
 | Weapon models, upgrade silhouettes, muzzle anchors | `js/arsenal.js` |
 | Firing, projectiles and impacts | `js/weapon-fx.js`, integrations in `js/game.js` |
 | Skin-bound status effects and nine weapon finishers | `js/dino-fx.js`; attachment sampling/materials in `js/creatures.js` |
+| D-Rex rupture and full-screen victory ceremony | `js/endgame-fx.js`; transitions/rewards in `js/game.js`; [endgame notes](WEB_ENDGAME_REVIEW.md) |
 | Authored effect sounds, bank, stereo mix and voice budgets | `js/audio-fx.js`; game triggers/mutes in `js/game.js`; `art/browser-audio/export-bank.cjs` |
 | Creature palette catalog and rig facade | `js/creature-meshes.js` |
 | Authored species landmarks | `js/creature-species.js`; Triceratops/Apatosaurus in `js/creature-anatomy.js` |
@@ -149,6 +163,11 @@ Check whether an old preview is still running; tests start their own servers.
   can accidentally review the procedural fallback. No WebGL retains Canvas art.
 - **Drawing:** render functions must not advance simulation, spawn particles or
   spend resources. Inspection renders must not overwrite live atlas snapshots.
+- **Endgame:** the final corpse holds victory through its full duration. The
+  ceremony uses a separate real-time clock, pauses in hidden tabs and grants no
+  extra rewards on redraw or dismissal. Keep keyboard/touch results access,
+  reduced motion, phone/landscape framing and new-run cleanup. Boss entrances,
+  footfalls and deaths no longer shake the camera.
 - **Jaws:** retain the rounded rear heel and head/jaw blend while keeping teeth
   and the forward mandible rigid. Shared edits require all affected exports.
   Await export completion before browser captures or topology checks.
@@ -189,6 +208,7 @@ not a runtime game dependency. Only creature topology checks need Node alone.
 | First-wave state, saved towers, cross-device transfers | `node tests/resume.cjs` |
 | Weapons/upgrades/projectiles/effects | `node tests/arsenal.cjs`; `node tests/dino-fx.cjs` |
 | Missile kill blood, splash credit, persistence and cleanup | Also `node tests/missile-gore.cjs`; `FX_REVIEW_URL` and `FX_REVIEW_DIR` select live verification/evidence |
+| D-Rex finale, boss camera and wave-100 victory | `node tests/endgame.cjs`; creature/audio suites for shared painters or sound triggers; `ENDGAME_REVIEW_URL` and `ENDGAME_REVIEW_DIR` select live verification/evidence |
 | Perimeter map/resident raptors/placement | `node tests/perimeter.cjs` |
 | Other map art, animated scenery, routes, loading and offline | `node tests/sanctuary.cjs`; `node tests/resume.cjs`; `node tests/presentation.cjs` |
 
@@ -225,6 +245,8 @@ loading, layout, scenery clocks and restored placements.
 Read only the review relevant to the task: [guests and costumes](WEB_GUEST_REFERENCE_REVIEW.md),
 [combat effects](WEB_COMBAT_FX_REVIEW.md), [body/limb/wing repairs](WEB_CREATURE_ANATOMY_REVIEW.md),
 [T-Rex and sounds](WEB_TREX_AUDIO_REVIEW.md), or [jaw attachments](WEB_JAW_POLISH_REVIEW.md).
+The [endgame review](WEB_ENDGAME_REVIEW.md) owns the D-Rex rupture and victory
+ceremony timelines, particle limits, dismissal and visual evidence.
 These link the source references, visual comparisons and remaining limitations.
 Automated geometry/signal checks do not establish film likeness, listening
 quality or physical phone GPU performance.
