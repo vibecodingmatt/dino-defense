@@ -28,7 +28,7 @@ const CreatureMeshes = (() => {
     apatosaurus:{family:'sauropod',body:'#787d75',belly:'#afafa0',mark:'#474c45',stride:1.25},
     brachiosaurus:{family:'sauropod',body:'#817a66',belly:'#b4a991',mark:'#514b3d',stride:1.3},
     blue:{family:'raptor',body:'#758079',belly:'#bcc0aa',mark:'#346178',pattern:2},
-    trex:{family:'predator',body:'#89775a',belly:'#b9aa85',mark:'#514936',pattern:3,stride:1.55},
+    trex:{family:'predator',body:'#92795f',belly:'#cbbda0',mark:'#433b32',pattern:4,stride:1.55},
     spinosaurus:{family:'predator',body:'#7b8273',belly:'#b5b49c',mark:'#844a37',pattern:1,stride:1.55},
     indominus:{family:'predator',body:'#b3b8ad',belly:'#d8d8c8',mark:'#7a8379',pattern:3,stride:1.6},
     indoraptor:{family:'raptor',body:'#303739',belly:'#656963',mark:'#b6964f',pattern:2,stride:1.75},

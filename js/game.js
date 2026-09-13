@@ -229,9 +229,9 @@ function showNextToast(){
   }, 3200);
 }
 
-/* ---------------- synthesized audio engine ----------------
-   Everything routes through a compressor + a generated convolution
-   reverb, so sounds are layered and roomy instead of raw beeps. */
+/* ---------------- music instruments and shared audio output ----------------
+   The score owns its hall; authored effects use audio-fx.js and short outdoor
+   reflections. Global mute controls the complete output, including tails. */
 let AC = null, master = null, verb = null, musicGain = null;
 let musicVerb = null, musicVerbReturn = null, musicImpulse = null;
 const musicSources = new Set();
@@ -902,12 +902,12 @@ async function unlockAudio(e){
   if (e && e.type === 'keydown' && e.repeat) return;
   audioGestureSeen = true;
   disarmAudioUnlock();
-  if (save.settings.mute || !save.settings.music) return;
+  if (save.settings.mute) return;
   const ac = audio(false); if (!ac) return;
   try {
     if (ac.state === 'suspended' || ac.state === 'interrupted') await ac.resume();
   } catch(e2){ armAudioUnlock(); return; }
-  if (ac.state === 'running') ensureMusic();
+  if (ac.state === 'running'){ ensureMusic(); effectAudio(); }
   else armAudioUnlock();
 }
 function armAudioUnlock(){
@@ -919,19 +919,8 @@ function armAudioUnlock(){
 armAudioUnlock();
 setInterval(ensureMusic, 600);
 
-/* Rate limiter: rapid gunfire (especially at 4x with many towers) must not
-   flood the audio thread — beyond a budget, extra combat sounds are dropped.
-   Priority sounds (roars, fanfares, alarms) always play. */
-let sfxTimes = [];
-function sfxGate(){
-  const now = performance.now();
-  while (sfxTimes.length && now - sfxTimes[0] > 200) sfxTimes.shift();
-  if (sfxTimes.length >= 11) return false;
-  sfxTimes.push(now);
-  return true;
-}
-/* separate, gentler budget for creature vocalizations so a mass wipe
-   (e.g. an air strike) doesn't unleash a wall of screeches at once */
+/* Keep roaming-creature ambience sparse, independent of weapon fire.
+   Dinosaur deaths use physical impacts and finishers, never vocalizations. */
 let voxTimes = [];
 function voxGate(){
   const now = performance.now();
@@ -940,187 +929,39 @@ function voxGate(){
   voxTimes.push(now);
   return true;
 }
-const SFX = {
-  jet(){ // fighter flyby: rising-then-falling roar (always plays)
-    sfxNoise({dur: 2.2, peak: 0.22, type: 'bandpass', f0: 260, f1: 1700, Q: 0.7, wet: 0.5, a: 0.5});
-    sfxTone({type: 'sawtooth', f0: 80, f1: 260, dur: 2.0, peak: 0.09, dist: true, wet: 0.4, a: 0.5});
-  },
-  alert(){ // strike-inbound radio blips
-    sfxTone({type: 'triangle', f0: 1050, dur: 0.08, peak: 0.07, wet: 0.2});
-    sfxTone({type: 'triangle', f0: 1050, dur: 0.08, peak: 0.07, wet: 0.2, delay: 0.16});
-    sfxTone({type: 'triangle', f0: 1400, dur: 0.12, peak: 0.08, wet: 0.25, delay: 0.32});
-  },
-  firework(){ // celebration burst: thump + crackle
-    sfxTone({type: 'sine', f0: 120, f1: 45, dur: 0.25, peak: 0.12, wet: 0.4});
-    sfxNoise({dur: 0.5, peak: 0.06, type: 'highpass', f0: 3200, wet: 0.55, a: 0.05, delay: 0.08});
-  },
-  victoryTune(){ // triumphant fanfare for clearing wave 100
-    const notes = [[523, 0], [659, 0.14], [784, 0.28], [1047, 0.45], [784, 0.75], [1047, 0.9]];
-    for (const [f, d] of notes) sfxTone({type: 'triangle', f0: f, dur: 0.35, peak: 0.09, wet: 0.5, delay: d});
-    sfxTone({type: 'triangle', f0: 262, dur: 1.6, peak: 0.07, wet: 0.5, delay: 0.9});
-    sfxTone({type: 'triangle', f0: 330, dur: 1.6, peak: 0.06, wet: 0.5, delay: 0.9});
-    sfxNoise({dur: 0.8, peak: 0.03, type: 'highpass', f0: 5000, wet: 0.6, delay: 1.0});
-  },
-  shot(){ // gatling: punchy crack + muzzle snap, randomized so bursts don't buzz
-    if (!sfxGate()) return;
-    sfxNoise({dur: 0.055, peak: 0.11, type: 'bandpass', f0: 1700 + Math.random()*500, f1: 600, Q: 0.9, wet: 0.07});
-    sfxTone({type: 'square', f0: 230, f1: 80, dur: 0.045, peak: 0.06, dist: true});
-    sfxNoise({dur: 0.028, peak: 0.06, type: 'highpass', f0: 3400, wet: 0.03}); // muzzle snap
-  },
-  dart(){ // pneumatic pfft
-    if (!sfxGate()) return;
-    sfxNoise({dur: 0.1, peak: 0.06, type: 'bandpass', f0: 2600, f1: 900, Q: 2, wet: 0.1});
-    sfxTone({type: 'sine', f0: 1400, f1: 480, dur: 0.09, peak: 0.03, wet: 0.1});
-  },
-  snipe(){ // heavy rifle crack + sub thump, big room
-    if (!sfxGate()) return;
-    sfxNoise({dur: 0.3, peak: 0.28, type: 'lowpass', f0: 3800, f1: 240, wet: 0.55});
-    sfxTone({type: 'sine', f0: 130, f1: 42, dur: 0.28, peak: 0.18, wet: 0.3});
-  },
-  boom(){ // layered explosion: sharp transient → deep body → debris tail
-    if (!sfxGate()) return;
-    sfxNoise({dur: 0.05, peak: 0.22, type: 'highpass', f0: 1900, wet: 0.2});               // sharp crack
-    sfxTone({type: 'sine', f0: 185, f1: 30, dur: 0.72, peak: 0.30, wet: 0.42});             // deep sub body
-    sfxNoise({dur: 0.7, peak: 0.30, type: 'lowpass', f0: 1000, f1: 60, wet: 0.6, a: 0.004}); // blast
-    sfxNoise({dur: 0.5, peak: 0.09, type: 'bandpass', f0: 2600, f1: 700, Q: 0.7, wet: 0.42, delay: 0.06}); // debris rain
-  },
-  thoomp(){ // mortar launch
-    if (!sfxGate()) return;
-    sfxTone({type: 'sine', f0: 130, f1: 48, dur: 0.2, peak: 0.22, wet: 0.3});
-    sfxNoise({dur: 0.12, peak: 0.1, type: 'lowpass', f0: 380, f1: 120, wet: 0.2});
-  },
-  punt(){ // mortar kill gag: rising zip as the dino rockets off the screen
-    if (!sfxGate()) return;
-    sfxTone({type: 'sine', f0: 480, f1: 1650, dur: 0.42, peak: 0.055, wet: 0.3});
-  },
-  whistleIn(){ // …and the falling whistle as it comes back down
-    if (!sfxGate()) return;
-    sfxTone({type: 'sine', f0: 1500, f1: 520, dur: 0.5, peak: 0.05, wet: 0.35});
-  },
-  deflate(){ // gatling kill gag: air sputtering out of a punctured dino
-    if (!sfxGate()) return;
-    sfxNoise({dur: 0.5, peak: 0.05, type: 'bandpass', f0: 2400, f1: 900, Q: 2, wet: 0.15});
-    sfxTone({type: 'square', f0: 300, f1: 90, dur: 0.5, peak: 0.02, tremF: 22, tremD: 0.8, wet: 0.1});
-  },
-  sizzle(){ // flamer kill gag: flash-fry crackle
-    if (!sfxGate()) return;
-    sfxNoise({dur: 0.6, peak: 0.05, type: 'highpass', f0: 3000, wet: 0.3});
-    sfxNoise({dur: 0.35, peak: 0.04, type: 'bandpass', f0: 1200, f1: 500, Q: 1, wet: 0.25});
-  },
-  koBoing(){ // sniper kill gag: rubbery launch off the feet
-    if (!sfxGate()) return;
-    sfxTone({type: 'sine', f0: 160, f1: 520, dur: 0.28, peak: 0.06, wet: 0.2, tremF: 30, tremD: 0.4});
-  },
-  shatter(){ // cryo kill gag: the ice block bursts into shards
-    if (!sfxGate()) return;
-    sfxNoise({dur: 0.28, peak: 0.09, type: 'highpass', f0: 4200, wet: 0.35});
-    sfxTone({type: 'triangle', f0: 2200, f1: 900, dur: 0.18, peak: 0.045, wet: 0.3});
-    sfxTone({type: 'triangle', f0: 3100, f1: 1400, dur: 0.14, peak: 0.035, wet: 0.3, delay: 0.05});
-  },
-  notePop(){ // sonic kill gag: the dino resolves into a little arpeggio
-    if (!sfxGate()) return;
-    sfxTone({type: 'triangle', f0: 660, dur: 0.12, peak: 0.045, wet: 0.3});
-    sfxTone({type: 'triangle', f0: 990, dur: 0.14, peak: 0.04, wet: 0.35, delay: 0.09});
-    sfxTone({type: 'triangle', f0: 1320, dur: 0.18, peak: 0.035, wet: 0.4, delay: 0.19});
-  },
-  whoo(){ // gas kill gag: a little ghost floats free
-    if (!sfxGate()) return;
-    sfxTone({type: 'sine', f0: 520, f1: 880, dur: 0.5, peak: 0.035, wet: 0.5, a: 0.15});
-    sfxTone({type: 'sine', f0: 780, f1: 1180, dur: 0.45, peak: 0.02, wet: 0.5, a: 0.18, delay: 0.12});
-  },
-  heartbeat(){ // last stand: two low lub-dubs under the slow-motion (always plays)
-    for (const dl of [0, 0.8]){
-      sfxTone({type: 'sine', f0: 66, f1: 46, dur: 0.16, peak: 0.24, wet: 0.15, delay: dl});
-      sfxTone({type: 'sine', f0: 58, f1: 42, dur: 0.14, peak: 0.18, wet: 0.15, delay: dl + 0.16});
-    }
-  },
-  zap(){ // electric arc: hissy crackle + gritty buzz
-    if (!sfxGate()) return;
-    sfxNoise({dur: 0.12, peak: 0.11, type: 'highpass', f0: 2200, Q: 1, wet: 0.25});
-    sfxTone({type: 'sawtooth', f0: 1300, f1: 240, dur: 0.11, peak: 0.05, dist: true, wet: 0.2});
-  },
-  cryo(){ // icy whoosh rising
-    if (!sfxGate()) return;
-    sfxNoise({dur: 0.26, peak: 0.08, type: 'bandpass', f0: 600, f1: 2600, Q: 1.4, wet: 0.3});
-    sfxTone({type: 'sine', f0: 850, f1: 1650, dur: 0.18, peak: 0.035, wet: 0.3});
-  },
-  pulse(){ // deep sonic throb
-    if (!sfxGate()) return;
-    sfxTone({type: 'sine', f0: 210, f1: 52, dur: 0.38, peak: 0.16, wet: 0.4, tremF: 28, tremD: 0.5});
-  },
-  coin(){ // soft two-note chime
-    if (!sfxGate()) return;
-    sfxTone({type: 'triangle', f0: 880, dur: 0.09, peak: 0.035, wet: 0.2});
-    sfxTone({type: 'triangle', f0: 1318, dur: 0.12, peak: 0.03, wet: 0.25, delay: 0.055});
-  },
-  fanfare(){ // wave-clear: rising three-note motif
-    sfxTone({type: 'triangle', f0: 523, dur: 0.14, peak: 0.06, wet: 0.35});
-    sfxTone({type: 'triangle', f0: 659, dur: 0.14, peak: 0.06, wet: 0.35, delay: 0.09});
-    sfxTone({type: 'triangle', f0: 784, dur: 0.3,  peak: 0.07, wet: 0.45, delay: 0.18});
-    sfxNoise({dur: 0.25, peak: 0.02, type: 'highpass', f0: 6000, wet: 0.5, delay: 0.18});
-  },
-  leak(){ // breach klaxon, two falling blasts
-    sfxTone({type: 'sawtooth', f0: 330, f1: 190, dur: 0.22, peak: 0.09, dist: true, wet: 0.25});
-    sfxTone({type: 'sawtooth', f0: 260, f1: 140, dur: 0.28, peak: 0.09, dist: true, wet: 0.3, delay: 0.2});
-  },
-  roar(){ // boss entrance: a huge, layered, double-swell bellow
-    sfxTone({type: 'sine',     f0: 62,  f1: 38, dur: 1.45, peak: 0.34, wet: 0.35, a: 0.09});               // sub-bass ground rumble
-    sfxTone({type: 'sawtooth', f0: 104, f1: 44, dur: 1.25, peak: 0.28, dist: true, wet: 0.55, tremF: 8,  tremD: 0.5,  a: 0.06}); // core growl
-    sfxTone({type: 'sawtooth', f0: 156, f1: 66, dur: 1.1,  peak: 0.13, dist: true, wet: 0.5,  tremF: 11, tremD: 0.45, a: 0.05}); // harmonic snarl
-    sfxNoise({dur: 1.05, peak: 0.16, type: 'bandpass', f0: 900, f1: 300, Q: 1.6, wet: 0.5, a: 0.05});       // upper formant rasp
-    sfxNoise({dur: 1.1,  peak: 0.10, type: 'bandpass', f0: 500, f1: 130, Q: 0.8, wet: 0.5, a: 0.05});       // throat/breath
-    sfxTone({type: 'sawtooth', f0: 120, f1: 52, dur: 0.9, peak: 0.2, dist: true, wet: 0.55, tremF: 9, tremD: 0.5, a: 0.05, delay: 0.9}); // 2nd swell
-    sfxNoise({dur: 0.85, peak: 0.12, type: 'bandpass', f0: 820, f1: 260, Q: 1.4, wet: 0.5, delay: 0.9});
-  },
-  screech(){ // small raptor / compy: a sharp, darting shriek
-    sfxTone({type: 'sawtooth', f0: 720, f1: 1500, dur: 0.13, peak: 0.10, dist: true, wet: 0.35, a: 0.008});
-    sfxTone({type: 'sawtooth', f0: 900, f1: 380,  dur: 0.17, peak: 0.07, dist: true, wet: 0.35, a: 0.01, delay: 0.05});
-    sfxNoise({dur: 0.13, peak: 0.06, type: 'bandpass', f0: 2600, f1: 1400, Q: 1.5, wet: 0.3});
-  },
-  pteraWail(distant){ // the abduction: a huge piercing pterosaur scream.
-    // The distant version (heard before it's seen) is quiet and drowned in reverb.
-    const q = distant ? 0.3 : 1;
-    sfxTone({type: 'sawtooth', f0: 1650, f1: 460, dur: 0.85, peak: 0.15 * q, dist: true, wet: distant ? 0.85 : 0.5, a: 0.03});
-    sfxTone({type: 'sawtooth', f0: 2400, f1: 700, dur: 0.7,  peak: 0.06 * q, wet: 0.6, a: 0.02, delay: 0.06});
-    sfxNoise({dur: 0.7, peak: 0.07 * q, type: 'bandpass', f0: 3000, f1: 1100, Q: 2, wet: 0.6, a: 0.03});
-  },
-  snarl(){ // mid predator: short guttural growl
-    sfxTone({type: 'sawtooth', f0: 190, f1: 88, dur: 0.34, peak: 0.16, dist: true, wet: 0.4, tremF: 16, tremD: 0.5, a: 0.02});
-    sfxNoise({dur: 0.32, peak: 0.09, type: 'bandpass', f0: 700, f1: 260, Q: 1, wet: 0.35, a: 0.02});
-  },
-  bellow(){ // big tank / sauropod: low mournful groan
-    sfxTone({type: 'sine',     f0: 90,  f1: 60, dur: 0.72, peak: 0.20, wet: 0.35, a: 0.06});
-    sfxTone({type: 'sawtooth', f0: 120, f1: 70, dur: 0.66, peak: 0.12, dist: true, wet: 0.45, tremF: 7, tremD: 0.4, a: 0.05});
-    sfxNoise({dur: 0.6, peak: 0.08, type: 'bandpass', f0: 420, f1: 180, Q: 0.9, wet: 0.4, a: 0.05});
-  },
-  bossDie(){ // long dying bellow, growl slowing as it falls
-    sfxTone({type: 'sawtooth', f0: 95,  f1: 24, dur: 1.75, peak: 0.3,  dist: true, wet: 0.6, tremF: 8, tremF1: 3, tremD: 0.6, a: 0.05});
-    sfxTone({type: 'sawtooth', f0: 142, f1: 40, dur: 1.5,  peak: 0.1,  dist: true, wet: 0.5, tremF: 6, tremF1: 2.5, tremD: 0.5, a: 0.05});
-    sfxNoise({dur: 1.45, peak: 0.12, type: 'bandpass', f0: 430, f1: 85, Q: 1, wet: 0.55, a: 0.04});
-  },
-  thud(){ // multi-ton body hitting the ground
-    sfxTone({type: 'sine', f0: 88, f1: 28, dur: 0.4, peak: 0.3, wet: 0.35});
-    sfxNoise({dur: 0.22, peak: 0.18, type: 'lowpass', f0: 420, f1: 80, wet: 0.35});
-  },
-  build(){ // mechanical clunk + metallic ping
-    sfxNoise({dur: 0.12, peak: 0.14, type: 'lowpass', f0: 520, f1: 140, wet: 0.15});
-    sfxTone({type: 'triangle', f0: 1250, f1: 820, dur: 0.1, peak: 0.045, wet: 0.25, delay: 0.04});
-  },
-  gas(){ // a soft little poot — quiet enough to hear over and over without grating
-    if (!sfxGate()) return;
-    sfxTone({type: 'sawtooth', f0: 118, f1: 62, dur: 0.26, peak: 0.075, dist: true, wet: 0.10, tremF: 20, tremF1: 11, tremD: 0.55, a: 0.02});
-    sfxNoise({dur: 0.2, peak: 0.028, type: 'bandpass', f0: 560, f1: 260, Q: 1.2, wet: 0.1, a: 0.02}); // faint wet splatter
-  },
-  upgrade(){ // ascending servo chime
-    sfxTone({type: 'triangle', f0: 520, dur: 0.08, peak: 0.05, wet: 0.2});
-    sfxTone({type: 'triangle', f0: 700, dur: 0.08, peak: 0.05, wet: 0.25, delay: 0.07});
-    sfxTone({type: 'triangle', f0: 950, dur: 0.14, peak: 0.055, wet: 0.3, delay: 0.14});
-  },
-  error(){ // gentle double-buzz
-    sfxTone({type: 'triangle', f0: 170, f1: 130, dur: 0.08, peak: 0.05});
-    sfxTone({type: 'triangle', f0: 150, f1: 110, dur: 0.1, peak: 0.05, delay: 0.1});
-  },
-};
+// The facade preserves simulation-owned call sites and per-weapon mute rules.
+let soundFX=null;
+GameAudioFX.prepare();
+const UI_SOUNDS=new Set(['build','upgrade','coin','error','fanfare','victoryTune','firework']);
+function duckScore(amount,duration){
+  if(!musicGain||!AC||!musicTimer||save.settings.mute||!save.settings.music)return;
+  const now=AC.currentTime,g=musicGain.gain;
+  g.cancelScheduledValues(now);g.setValueAtTime(Math.min(.8,g.value),now);
+  g.linearRampToValueAtTime(.8*(1-amount),now+.035);
+  g.setValueAtTime(.8*(1-amount),now+duration*.55);g.linearRampToValueAtTime(.8,now+duration+.30);
+}
+function effectAudio(){
+  if(!audioGestureSeen||save.settings.mute||document.hidden)return null;
+  const ac=audio(false);if(!ac||ac.state!=='running')return null;
+  if(!soundFX){soundFX=GameAudioFX.create(ac,master,{maxVoices:matchMedia('(pointer: coarse)').matches?18:24,onAccent:duckScore});soundFX.warm();}
+  return soundFX;
+}
+function playGameSound(name,options){
+  const o=typeof options==='object'&&options?{...options}:{};
+  if(name==='pteraWail'&&options===true){o.gain=.28;o.rate=.88;}
+  if(o.weapon&&weaponMuted(o.weapon))return false;
+  if(G.state==='playing'&&G.paused&&!UI_SOUNDS.has(name))return false;
+  const fx=effectAudio();if(!fx)return false;
+  if(Number.isFinite(o.x)){const screen=(o.x-G.cam.x)*G.cam.zoom/W;o.pan=clamp((screen-.5)*1.35,-.78,.78);o.gain=(o.gain??1)*(screen<0||screen>1?.65:1);}
+  if(name==='roar'&&o.species==='trex')name='trexRoar';
+  return fx.play(name,o);
+}
+const SFX=Object.fromEntries(GameAudioFX.names.map(name=>[name,options=>playGameSound(name,options)]));
+function syncSoundMute(){
+  if(save.settings.mute)soundFX?.stop();
+  if(AC&&master){const now=AC.currentTime;master.gain.cancelScheduledValues(now);master.gain.setTargetAtTime(save.settings.mute?0:.6,now,.008);}
+}
+document.addEventListener('visibilitychange',()=>{if(document.hidden)soundFX?.stop();});
 
 /* ---------------- game state ---------------- */
 const G = {
@@ -1349,7 +1190,7 @@ function spawnDino(key, pathI, isBoss){
     d.seedE = rand(0, 1);
     G.cinT = key === 'drex' ? 4.4 : 2.8;
     G.banner = {text: def.name.toUpperCase(), sub: def.epithet || '⚠ CONTAINMENT FAILURE ⚠', t: key === 'drex' ? 4.4 : 3.4};
-    SFX.roar();
+    SFX.roar({...dinoPos(d),species:key});
     G.shake = Math.max(G.shake, 12);
     const p = dinoPos(d);
     addFx('shock', p.x, p.y, d.size * 2.4);
@@ -1622,7 +1463,6 @@ function damage(d, amt, pierce, src){
                       phase: d.phase, artLocalHeading:Math.cos(p.ang)>=0?d.artHeading:Math.PI-d.artHeading, t: 0, dur: death.dur, impact: death.impact,
                       seed: Math.random() * 999, beatN: 0, thudded: false, burst2: false, burst3: false});
       G.shake = Math.max(G.shake, 10);
-      SFX.bossDie();
       addFx('ring', p.x, p.y, 24);
       addFx('blood', p.x, p.y + 3, d.size * 0.7);
       for (let i = 0; i < 5; i++) addFx('spark', p.x + rand(-d.size, d.size), p.y - rand(0, d.size), 6);
@@ -1638,12 +1478,6 @@ function damage(d, amt, pierce, src){
         addFx('blood',p.x,p.y+2,d.size*.45);
       }
       if (Math.random() < 0.3) SFX.coin();
-      // dying vocalization, flavored by body size (occasional + rate-limited)
-      if (voxGate() && Math.random() < 0.5){
-        if (d.size < 20) SFX.screech();
-        else if (d.size >= 34) SFX.bellow();
-        else SFX.snarl();
-      }
     }
   }
 }
@@ -1665,7 +1499,7 @@ function applyHit(d, t, st, def){
 function fireTower(t, dt){
   const def = TOWERS[t.key];
   const st = towerStats(t);
-  const say = m => { if (!weaponMuted(t.key)) SFX[m](); }; // per-weapon sound gate
+  const say = m => { if (!weaponMuted(t.key)) SFX[m]({x:t.x,y:t.y,weapon:t.key,lv:t.ulv}); };
   t.cd -= dt;
   t.flash = Math.max(0, (t.flash || 0) - dt * 3);
   t.recoil = Math.max(0, (t.recoil || 0) - dt * 6);
@@ -1726,6 +1560,7 @@ function fireTower(t, dt){
       applyHit(target, t, st, def);
       break;
     case 'flame': {
+      say('flame');
       // cone burst: hits everything in range within the cone
       for (const d of G.dinos){
         if (!targetable(d, def)) continue;
@@ -1768,7 +1603,7 @@ function fireTower(t, dt){
       break;
     }
     case 'missile': {
-      say('shot');
+      say('missile');
       // each upgrade adds a rocket — the WHOLE salvo locks onto the same target
       const salvo = 1 + (t.ulv || 0);
       for (let i = 0; i < salvo; i++){
@@ -1817,7 +1652,7 @@ function updateProjs(dt){
       if (k >= 1){
         pr.hit = true;
         const def = TOWERS[pr.tower.key];
-        if (!weaponMuted(pr.tower.key)) SFX.boom();
+        if (!weaponMuted(pr.tower.key)) SFX.shellImpact({x:pr.tx,y:pr.ty,weapon:pr.tower.key,lv:pr.tower.ulv});
         WeaponFX.mark(addFx('boom', pr.tx, pr.ty, pr.splash),pr.tower);
         addFx('dust', pr.tx, pr.ty + 4, pr.splash * 0.5);
         for (const d of G.dinos){
@@ -1856,7 +1691,7 @@ function updateProjs(dt){
       const def = TOWERS[pr.tower.key];
       const st = {dmg: pr.dmg, rof: 0, range: 0};
       if (pr.splash){
-        if (!weaponMuted(pr.tower.key)) SFX.boom();
+        if (!weaponMuted(pr.tower.key)) SFX[pr.kind==='cryo'?'frost':'boom']({x:tx,y:ty,weapon:pr.tower.key,lv:pr.tower.ulv});
         WeaponFX.mark(addFx(pr.kind === 'cryo' ? 'frost' : 'boom', tx, ty, pr.splash),pr.tower);
         for (const d of G.dinos){
           if (d.dead || d.leaked) continue;
@@ -1865,6 +1700,7 @@ function updateProjs(dt){
           if (hyp(tx, ty, p.x, p.y) <= pr.splash + d.size*0.4) applyHit(d, pr.tower, st, def);
         }
       } else if (pr.target && !pr.target.dead && !pr.target.leaked){
+        if (!weaponMuted(pr.tower.key)) SFX.impact({x:tx,y:ty,weapon:pr.tower.key,lv:pr.tower.ulv});
         applyHit(pr.target, pr.tower, st, def);
         addFx('spark', tx, ty, 6);
       }
@@ -1929,6 +1765,7 @@ function runZapQ(dt){
     const d = h.dino;
     const cp = dinoPos(d);
     const strike = DinoFX.anchor(d,cp);
+    if(h.from&&!weaponMuted(h.tower.key))SFX.arc({x:strike.x,y:strike.y,weapon:h.tower.key,lv:h.tower.ulv});
     const from = h.from ? DinoFX.anchor(h.from,dinoPos(h.from)) : Arsenal.anchor(h.tower);
     G.bolts.push({x1: from.x, y1: from.y, x2: strike.x, y2: strike.y, t: 0.16, w: 3.2, jag: true,
                   flash: 1,                              // first frame renders WHITE-hot
@@ -2098,6 +1935,7 @@ function updateDinos(dt){
       if (stepNow !== d.lastStep){
         d.lastStep = stepNow;
         addFx('step', pp.x - d.dirT * d.size * 0.15 + rand(-4, 4), pp.y + 2, d.size * 0.35);
+        if(d.boss&&d.key==='trex')SFX.thud({x:pp.x,y:pp.y,gain:.24,rate:.83});
         if (d.boss) G.shake = Math.max(G.shake, 2.4);
         else if (d.size >= 40) G.shake = Math.max(G.shake, 1.3);
       }
@@ -2884,6 +2722,7 @@ function defeat(){
   $('#gameover').classList.remove('hidden');
 }
 function toMenu(){
+  soundFX?.stop();
   G.state = 'menu';
   G.runCheated = false;   // no run in progress — Lab actions here are eligible for trophies
   $('#hud').classList.add('hidden');
@@ -3256,7 +3095,7 @@ function updateOmega(dt){
     G.shake = Math.max(G.shake, 14); G.flashT = 0.4;
     addFx('boom', pp.x, pp.y, 110); addFx('shock', pp.x, pp.y, 130);
     for (let i = 0; i < 10; i++) addFx('spark', pp.x + rand(-50, 50), pp.y + rand(-50, 50), 8);
-    SFX.boom(); SFX.bossDie();
+    SFX.boom();
     addText(pp.x, pp.y - o.size, 'Ω OMEGA DOWN', '#ff6b6b', 16);
     G.omega = null; updateHUD();
   } else if (o.dist <= 0){                              // reached the entrance → stomps off
@@ -3571,7 +3410,7 @@ function menuFenceAt(w, h){
    never drift apart into a man hovering next to a toilet. LOO_SEAT is derived:
    the seated pose puts the hips 0.52 of a body-unit up, and the occupant is
    scaled to LOO_MAN of the hut, so 0.52 x LOO_MAN is where the seat has to be. */
-const LOO_MAN = 0.27, LOO_SEAT = 0.52 * LOO_MAN, LOO_SEAT_X = -0.06;
+const LOO_MAN = 0.50, LOO_SEAT = 0.52 * LOO_MAN, LOO_SEAT_X = -0.06;
 function menuLooAt(w, h){
   const g = menuGround(w, h);
   // The width term keeps it off the middle of a narrow layout, but generously:
@@ -3651,7 +3490,7 @@ function spawnMenuDino(w, h, forcedKey, forceScene){
     // uniform misty palette (lighter than the near-black jungle) so each distinct
     // boss silhouette reads as a glowing fog-giant wherever the UI doesn't cover it
     pal: def.painter === 'trex'
-      ? {body: '#615e49', belly: '#80795b', accent: '#30362b'}
+      ? {body: shade(def.pal.body,-.08), belly: shade(def.pal.belly,-.13), accent: def.pal.accent}
       : def.painter === 'mutant'
       ? {body: '#776344', belly: '#967653', accent: '#40352a'}
       // Preserve each film boss's signature markings in the fog. Muting the
@@ -4413,12 +4252,12 @@ function menuScene(dt){
   const loo = menuLooAt(w, h);
   for (const d of menuDinos){
     if (!d.toLoo || menuLoo || d.x > w * 0.95) continue;
-    const look = gennaroLook(loo.h * LOO_MAN);     // sized to fit the hut, not the herd
+    const look = gennaroLook(loo.h * LOO_MAN);     // adult scale, shared by the seat and jaw-held poses
     const tr = {
       // ON the seat and facing the door: the seated pose measures from the
       // floor, so this is the floor, and the porcelain is drawn to match
       x: loo.x + loo.w * LOO_SEAT_X, y: loo.y,
-      vx: 0, dir: 1, size: loo.h * 0.46, phase: rand(0, 6.28),
+      vx: 0, dir: 1, size: look.size, phase: rand(0, 6.28),
       fate: 'seated', doomed: false, tripT: 0, stand: true,
       look, shirt: look.shirt, hero: 'gennaro',
       alpha: 0.9, prey: d, seated: true, hidden: true,
@@ -5190,7 +5029,7 @@ function step(dt){
   }
   if (save.settings.unlimitedCash) G.cash = 1e9; // top up every tick so nothing is ever unaffordable
   // sparse ambient jungle vocalization while dinos are roaming the field
-  if (G.waveActive && G.dinos.length){
+  if (G.waveActive && G.dinos.some(d=>!d.dead&&!d.leaked)){
     G.voxAmb = (G.voxAmb > 0 ? G.voxAmb : rand(4, 8)) - dt;
     if (G.voxAmb <= 0){ G.voxAmb = rand(5, 10); if (voxGate()) (Math.random() < 0.55 ? SFX.snarl : SFX.bellow)(); }
   }
@@ -5273,7 +5112,7 @@ function step(dt){
   G.corpses = G.corpses.filter(c => c.t < c.dur);
   if (G.victoryPending && G.corpses.length === 0) victory();
   for (const f of G.fx){
-    if (!WeaponFX.update(f,dt,(key,sound)=>{if(!weaponMuted(key)) SFX[sound]?.();})) f.t += dt;
+    if (!WeaponFX.update(f,dt,(key,sound)=>{if(!weaponMuted(key)) SFX[sound]?.({x:f.x,y:f.y,weapon:key,lv:f.lv});})) f.t += dt;
   }
   G.fx = G.fx.filter(f => f.t < f.dur);
   for (const f of G.decals) f.t += dt;
@@ -6814,7 +6653,7 @@ window.addEventListener('keydown', e => {
   if (e.key === ' '){ e.preventDefault(); if (!G.waveActive) callWave(); else togglePause(); }
   if (e.key === 'm' || e.key === 'M') toggleMute();
 });
-function togglePause(){ G.paused = !G.paused; updateHUD(); }
+function togglePause(){ G.paused = !G.paused; if(G.paused)soundFX?.stop(); updateHUD(); }
 
 /* ---------------- wire up UI ---------------- */
 /* manual wave start (button or Space): an early call inside the rush window
@@ -6836,6 +6675,8 @@ $('#btnSkip').onclick = () => { skipWave(); };
 $('#btnPause').onclick = togglePause;
 function toggleMute(){
   save.settings.mute = !save.settings.mute;
+  if(!save.settings.mute&&audioGestureSeen)audio();
+  syncSoundMute();
   persist();
   if ($('#optMute')) $('#optMute').checked = save.settings.mute;
   updateHUD();
@@ -6859,6 +6700,7 @@ $('#tpMute').onclick = () => {
   const t = G.selected; if (!t) return;
   if (!save.settings.mutedWeapons) save.settings.mutedWeapons = {};
   save.settings.mutedWeapons[t.key] = !weaponMuted(t.key);
+  if(weaponMuted(t.key))soundFX?.stop(t.key);
   persist();
   renderTowerPanel(); positionTowerPop(t);
 };
@@ -6998,7 +6840,7 @@ $('#optCash').onchange = e => setCheat('unlimitedCash', e.target.checked);
 $('#optSkip').onchange = e => setCheat('levelSkip', e.target.checked);
 // view-only preview, NOT a run-disqualifying cheat: it never writes stickers
 $('#optStickAll').onchange = e => { save.settings.allStickers = e.target.checked; persist(); };
-$('#optMute').onchange = e => { save.settings.mute = e.target.checked; persist(); ensureMusic(); };
+$('#optMute').onchange = e => { save.settings.mute = e.target.checked; if(!save.settings.mute&&audioGestureSeen)audio(); syncSoundMute(); persist(); ensureMusic(); };
 $('#optMusic').onchange = e => { save.settings.music = e.target.checked; persist(); ensureMusic(); };
 $('#optAuto').onchange = e => { save.settings.auto = e.target.checked; persist(); };
 $('#optPreview').onchange = e => { save.settings.wavePreview = e.target.checked; persist(); updateHUD(); };

@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.64.0';
+const VERSION = '1.65.1';
 
 // Art inspection panels are local development tools. URL query flags must
 // never enable them on the public site. Node-based data audits default to off.
@@ -35,13 +35,14 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    Date each entry with the ACTUAL current calendar date — check it, never copy
    the entry above. Same-day reship: edit that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.64.0', date: 'Sep 12, 2026', items: [
+  {v: '1.65.1', date: 'Sep 12, 2026', items: [
     '🏃 Detailed 3D tourists and familiar guests bring the chases to life, with bloody bites and lingering splatter.',
-    '🦖 Rebuilt dinosaurs with sturdier bodies, D-Rex knuckle-walking, and colorful Dilo frill displays.',
+    '🦖 Rebuilt dinosaurs, a movie-inspired T-Rex, D-Rex knuckle-walking, and colorful Dilo frills.',
     '🪶 The feathered Therizinosaurus now roams the home screen among the giants.',
     '💥 A price-sorted arsenal, lifelike fire and frost, and nine favorite dinosaur finishers return in 3D.',
+    '🔊 Richer weapon sounds, crackling ice, roaring fire, rattling debris, and a thunderous T-Rex voice.',
     '🦖 Sector 7 rebuilt: wet jungle, sweeping searchlights, and lifelike raptors patrolling their fortified paddock.',
-    '🐛 Fixed cross-device starts, detached wing supports, stray gulp bulges, and blinking boss rings.',
+    '🐛 Fixed tiny Gennaro, odd death cries, cross-device starts, detached wings, gulp bulges, and blinking boss rings.',
   ]},
   {v: '1.59.1', date: 'Jul 28, 2026', items: [
     '⚡ A new home-screen scene: the power cuts out, and Tim Murphy makes a run at the electric fence.',
@@ -60,8 +61,7 @@ const CHANGELOG = [
     '💥 Its wave-100 death is a full extinction event.',
   ]},
   {v: '1.54.0', date: 'Jul 21, 2026', items: [
-    '🎼 Background music is now a full-length orchestral score, played by a rebuilt browser orchestra.',
-    '🔇 It starts reliably on the first interaction and stops cleanly when switched off.',
+    '🎼 A full orchestral score, with reliable first-interaction playback and clean music controls.',
   ]},
   {v: '1.53.0', date: 'Jul 20, 2026', items: [
     '🗺️ All seven maps rebuilt with bold new art direction — paths, build spaces and balance unchanged.',
@@ -93,8 +93,7 @@ const CHANGELOG = [
     '🐛 Fixes: the map no longer appears to zoom mid-game, and weapons no longer shake the screen.',
   ]},
   {v: '1.32.0', date: 'Jul 14, 2026', items: [
-    '⚡ The Tesla Coil got a dramatic overhaul — lightning races down the chain and leaves smoking skeletons.',
-    '🌩️ A fully-maxed one brews its own storm cloud that dims the whole island with every strike.',
+    '⚡ Tesla chains race between dinosaurs, leave smoking skeletons, and summon storm clouds when maxed.',
   ]},
   {v: '1.31.6', date: 'Jul 9, 2026', items: [
     '📱 The game can now be installed to your phone to play full-screen and offline.',
@@ -103,8 +102,7 @@ const CHANGELOG = [
     '💥 Toned down the screen shake from explosions.',
   ]},
   {v: '1.31.0', date: 'Jul 8, 2026', items: [
-    '🔲 The Proving Grounds is now a true build grid — weapons snap to it and lock together into solid walls.',
-    '🧱 Dinosaurs march in single file along the shortest route, shown live by a dashed guide line.',
+    '🔲 Proving Grounds weapons snap into walls, with a live route guide showing where dinosaurs march.',
     '❄️ The Cryo Cannon is now available from wave 1.',
   ]},
   {v: '1.28.0', date: 'Jul 7, 2026', items: [

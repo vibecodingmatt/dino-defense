@@ -1,21 +1,21 @@
 {
   "species": "trex",
-  "source_vertices": 60648,
-  "vertices": 67458,
-  "skin_triangles": 12662,
-  "compressed_bytes": 734191,
+  "source_vertices": 74304,
+  "vertices": 90498,
+  "skin_triangles": 19542,
+  "compressed_bytes": 1009807,
   "regions": [
     {
       "name": "body",
-      "triangles": 7644
+      "triangles": 12174
     },
     {
       "name": "leg0",
-      "triangles": 2160
+      "triangles": 3336
     },
     {
       "name": "leg1",
-      "triangles": 2158
+      "triangles": 3332
     },
     {
       "name": "arm0",

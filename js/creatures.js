@@ -38,7 +38,26 @@ const Creatures = (() => {
         float dorsal=clamp(vColor.x,0.,1.);
         if(uPattern<1.5&&uPattern>.5)color=mix(color,uMark,stripe*.67*dorsal);
         if(uPattern>1.5&&uPattern<2.5){float y=mix(uStripe.x+max(0.,-vRest.x-.45)*.065,uStripe.z,smoothstep(uStripe.y,uStripe.w,vRest.x))-max(0.,vRest.x-uStripe.w)*.24;float band=1.-smoothstep(.032,.069,abs(vRest.y-y)+(broad-.5)*.009);color=mix(color,uMark,band*step(.025,abs(vRest.z)));}
-        if(uPattern>2.5)color=mix(color,uMark,smoothstep(.47,.78,broad)*.35*dorsal);
+        if(uPattern>2.5&&uPattern<3.5)color=mix(color,uMark,smoothstep(.47,.78,broad)*.35*dorsal);
+        if(uPattern>3.5){
+          // Warm 1993 hide: cream jaw/dewlap, charcoal saddle and broken
+          // neck bars. Pigment stays in bind space through every animation.
+          float head=step(.88,vRest.x),jaw=step(1.5,vPart)*(1.-step(2.5,vPart));
+          float throat=(1.-smoothstep(1.16,1.47,vRest.y+(broad-.5)*.07))*smoothstep(.20,.80,vRest.x);
+          float underside=max(clamp(-vBindNormal.y*.9,0.,.85),max(jaw*.82,throat*.9));
+          color=mix(uBody,uBelly,underside);
+          float bands=smoothstep(.28,.82,sin(vRest.x*14.+vRest.y*4.2+broad*4.7+abs(vRest.z)*4.))*smoothstep(.18,.63,noise(uv*14.3));
+          float saddle=smoothstep(1.10,1.69,vRest.y)*(1.-head*.8);
+          float mottles=smoothstep(.43,.78,broad);
+          color=mix(color,uMark,(bands*.32+mottles*.25)*max(saddle,.18)*(1.-underside*.66));
+          color=mix(color,uMark,jaw*smoothstep(.54,.76,noise(uv*19.7))*.17);
+          vec2 orbit=(vRest.xy-vec2(1.265,1.83))/vec2(.095,.073);
+          vec2 cheek=(vRest.xy-vec2(1.55,1.66))/vec2(.20,.105);
+          float recess=(exp(-dot(orbit,orbit)*1.2)*.64+exp(-dot(cheek,cheek)*1.4)*.24)*step(.14,abs(vRest.z));
+          color=mix(color,uMark,recess*head*(1.-jaw));
+          float folds=pow(.5+.5*sin(vRest.x*69.+vRest.y*7.+abs(vRest.z)*4.),12.)*exp(-pow((vRest.x-.74)/.24,2.));
+          color*=1.-folds*.17;
+        }
         // Fine scale cells with recessed seams and rough, mottled hide. This
         // is sampled from bind positions, independent of bones and heading.
         vec3 weights=pow(an,vec3(4.));weights/=max(.001,weights.x+weights.y+weights.z);
