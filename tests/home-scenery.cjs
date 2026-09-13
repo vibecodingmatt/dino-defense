@@ -45,7 +45,35 @@ let browser;const errors=[],report={scenes:[],errors};
    });assert.ok(freeze);
    await p.evaluate(()=>stepToBeat('lawyer','bite'));await p.screenshot({path:path.join(out,name+'-outhouse-bite.png')});
    assert.equal(await p.evaluate(()=>menuLoo.tr.dead&&!!menuLoo.d.eat.bit),true);
-   await p.evaluate(()=>{stepToBeat('lawyer','ended');for(let i=0;i<1000;i++)menuScene(1/60);});
+   await p.evaluate(()=>stepToBeat('lawyer','ended'));
+   const repeats=[];
+   for(let repeat=0;repeat<3;repeat++){
+     const replay=await p.evaluate(()=>{
+       if(menuLooWreck<=0)throw Error('Replay must start while the previous wreck remains');
+       const previousWreck=menuLooWreck;
+       menuCard=['lawyer'];menuSpawnT=0;
+       for(let i=0;i<1800&&!menuDinos.some(d=>d.toLoo);i++)menuScene(1/60);
+       if(!menuDinos.some(d=>d.toLoo))throw Error('Scheduler never repeated the lawyer scene');
+       if(menuLooWreck!==0)throw Error('Next T-Rex walks on toward an already destroyed outhouse');
+       let closeFrames=0;
+       for(let i=0;i<1800;i++){
+         menuScene(1/60);
+         if(menuLoo?.stage==='reveal')break;
+         if(menuLoo?.stage==='close'){
+           closeFrames++;
+           if(menuLooWreck!==0||!menuLoo.tr.hidden)throw Error('Outhouse or occupant revealed before the attack');
+         }
+       }
+       if(!closeFrames||menuLoo?.stage!=='reveal'||menuLoo.tr.hidden||menuLooWreck<=0)throw Error('Replay lost its door-break reveal');
+       return {previousWreck,closeFrames};
+     });
+     repeats.push(replay);
+     if(repeat===0)await p.screenshot({path:path.join(out,name+'-outhouse-repeat-reveal.png')});
+     await p.evaluate(()=>stepToBeat('lawyer','bite'));
+     assert.equal(await p.evaluate(()=>menuLoo.tr.dead&&!!menuLoo.d.eat.bit),true);
+     await p.evaluate(()=>stepToBeat('lawyer','ended'));
+   }
+   await p.evaluate(()=>{menuSpawnT=1e9;for(let i=0;i<1000;i++)menuScene(1/60);});
    assert.equal(await p.evaluate(()=>menuProps.length),0);assert.equal(await p.evaluate(()=>menuLooWreck),0);
    await p.evaluate(()=>stageHomeScene('timmy'));
    await p.evaluate(()=>stepToBeat('timmy','climb'));await p.screenshot({path:path.join(out,name+'-tim-climb.png')});
@@ -66,7 +94,7 @@ let browser;const errors=[],report={scenes:[],errors};
    const framing=await p.evaluate(()=>{const o=menuLooAt(innerWidth,innerHeight),f=menuFenceAt(innerWidth,innerHeight),cta=document.getElementById('btnQuickPlay').getBoundingClientRect(),hub=document.querySelector('.ranger-hub').getBoundingClientRect();return {looLeft:o.x-o.h*.49,looRight:o.x+o.h*.534,fenceLeft:f.x0-f.h*.16,fenceRight:f.x1+f.h*.2,ground:f.y,ctaBottom:cta.bottom,hubTop:hub.top};});
    if(width<500){assert.ok(framing.looLeft>=0&&framing.fenceRight<=width+1);assert.ok(framing.ground<framing.hubTop&&framing.ctaBottom<height);}
    await p.evaluate(()=>{for(let i=0;i<360;i++)menuScene(1/60);});assert.equal(await p.evaluate(()=>menuAsh),null);
-   report.scenes.push({name,seat,discharge,landing,framing});await context.close();
+   report.scenes.push({name,seat,repeats,discharge,landing,framing});await context.close();
    console.log('PASS:',name,'intact/break/reveal/bite/cleanup and climb/warn/discharge/landing; pure painters, pause and bounded caches.');
  }
  const {context,p}=await page();

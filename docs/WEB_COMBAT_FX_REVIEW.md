@@ -52,6 +52,17 @@ descriptor each and deterministic debris trajectories. No additional downloads
 or rebuilt mesh assets are needed. Unavailable WebGL uses the native Canvas
 creatures with the same sequence transforms and simplified material tints.
 
+The 1.69.0 missile follow-up increases the blood burst from 22 thin streaks to
+72 larger ballistic droplets and the small flesh debris from 14 to 24 pieces.
+Blood originates at the sampled body center, settles into individual splashes
+and irregular pools, and fades with the extended 2.8-second finisher. The effect
+still owns one bounded descriptor; seeded redraws do not emit particles or age
+state. Boss finales and damage/kill credit retain their existing behavior.
+`node tests/missile-gore.cjs` exercises a real missile with two splash kills and
+a surviving target, checks visible airborne/landed blood and complete cleanup,
+and captures desktop, phone and Canvas fallback views. `FX_REVIEW_URL` selects
+production and `FX_REVIEW_DIR` selects an external evidence directory.
+
 ## Verification and visual evidence
 
 `node tests/dino-fx.cjs` covers all 27 weapon configurations, burn/gas kill credit,

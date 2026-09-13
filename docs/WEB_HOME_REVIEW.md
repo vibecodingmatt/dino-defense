@@ -43,6 +43,13 @@ The saved/reduced-motion preference freezes both the scene clock and Tim's
 smoke emission. Smoke emission is time-based rather than render-frame-based.
 Original scene ordering, guest/dinosaur models, audio and gameplay are retained.
 
+The 1.69.0 replay fix rebuilds the outhouse when its next T-Rex is spawned,
+before the walk-on. The prior 14-second wreck timer remains useful between
+scenes but cannot carry a destroyed shell into another approach. The scenery
+suite now drives three successive scheduled repeats without resetting the set,
+checking every approach frame for an intact hut and hidden occupant, then the
+door-break reveal and bite on desktop and both phone sizes.
+
 ## Social image and metadata
 
 `assets/social/containment-breach-v1.jpg` is a 1200 x 630 JPEG, about 215 KiB.

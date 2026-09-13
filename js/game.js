@@ -3528,7 +3528,13 @@ function spawnMenuDino(w, h, forcedKey, forceScene){
   /* And this one is crossing to the outhouse. Same deal — the man inside is
      staged the moment it is properly on screen, and stays hidden behind the
      door until the door stops existing. */
-  if (toLoo){ d.toLoo = true; return; }
+  if (toLoo){
+    // A repeat can be drawn before the previous wreck's scenery timer expires.
+    // Rebuild for the walk-on, so the door hides Gennaro until this attack.
+    menuLooWreck = 0;
+    d.toLoo = true;
+    return;
+  }
   /* Blue hunts alone, and she hunts Muldoon. No pack, no bystanders, no other
      outcome — the two are a set piece, not a roll of the dice. He gets a long
      head start so the stalk has room to play out on screen. */

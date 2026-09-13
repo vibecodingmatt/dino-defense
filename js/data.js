@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.68.0';
+const VERSION = '1.69.0';
 
 // Art inspection panels are local development tools. URL query flags must
 // never enable them on the public site. Node-based data audits default to off.
@@ -35,6 +35,10 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    Date each entry with the ACTUAL current calendar date — check it, never copy
    the entry above. Same-day reship: edit that day's entry and bump its `v`. */
 const CHANGELOG = [
+  {v: '1.69.0', date: 'Sep 13, 2026', items: [
+    '🩸 Missile kills unleash bigger blood sprays, scattered chunks, and lingering splatter.',
+    '🚽 The outhouse rebuilds before every repeat of the T-Rex and Gennaro scene.',
+  ]},
   {v: '1.68.0', date: 'Sep 12, 2026', items: [
     '🏃 Detailed 3D tourists and familiar guests bring the chases to life, with bloody bites and lingering splatter.',
     '🦖 Rebuilt dinosaurs with natural jaw joins, a movie-inspired T-Rex, D-Rex knuckle-walking, and colorful Dilo frills.',

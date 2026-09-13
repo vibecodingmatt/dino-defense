@@ -6,7 +6,7 @@ const DinoFX=(()=>{
   const TAU=Math.PI*2,clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v)),mix=(a,b,t)=>a+(b-a)*t;
   const rand=(s,i)=>{const n=Math.sin(s*17.13+i*127.1)*43758.5453;return n-Math.floor(n);};
   const smooth=t=>t*t*(3-2*t),textures=new Map(),MAX_TEXTURES=40;
-  const durations={gatling:1.65,flamer:2.25,sniper:2.2,cryo:2.2,tesla:1.9,sonic:1.7,missile:1.95,mortar:2.75,gas:2.65};
+  const durations={gatling:1.65,flamer:2.25,sniper:2.2,cryo:2.2,tesla:1.9,sonic:1.7,missile:2.8,mortar:2.75,gas:2.65};
   const sequences={gatling:'deflate',flamer:'ash',sniper:'ko',cryo:'iceblock',tesla:'bones',sonic:'notes',missile:'gibs',mortar:'punt',gas:'ghost'};
   const beats={gatling:[[0,'deflate']],flamer:[[0,'sizzle']],sniper:[[0,'koBoing']],cryo:[[.95,'shatter']],tesla:[],sonic:[[.30,'notePop']],missile:[],mortar:[[0,'punt'],[1.24,'whistleIn'],[1.56,'thud']],gas:[[.45,'whoo']]};
   function noise(x,y){const ix=Math.floor(x),iy=Math.floor(y),a=smooth(x-ix),b=smooth(y-iy),h=(x,y)=>rand(x*3.17,y*7.13);return mix(mix(h(ix,iy),h(ix+1,iy),a),mix(h(ix,iy+1),h(ix+1,iy+1),a),b);}
@@ -87,7 +87,41 @@ const DinoFX=(()=>{
       c.save();c.globalAlpha*=fade;c.translate(x,y);c.rotate(spin);const color=kind==='bone'?'#c9c3aa':kind==='flesh'?(i%3?'#732324':'#c8bba0'):'#69665e';c.fillStyle=color;c.beginPath();c.moveTo(-r,-r*.4);c.lineTo(r*.7,-r*.65);c.lineTo(r,r*.3);c.lineTo(-r*.5,r*.65);c.closePath();c.fill();path(c,[{x:-r*.6,y:-r*.35},{x:r*.55,y:-r*.52}],kind==='bone'?'#ece5cd':kind==='flesh'?'#bc5650':'#969187',Math.max(.45,r*.2));c.restore();
     }
   }
-  function blood(c,f,age){const s=f.r,fade=clamp(1-age/1.4);if(fade<=0)return;c.save();for(let i=0;i<22;i++){const a=rand(f.seed,i)*TAU,v=s*(1.8+rand(f.seed,i+30)*3),t=Math.max(0,age-rand(f.seed,i+60)*.035),x=f.x+Math.cos(a)*v*t,y=Math.min(f.y+4,f.y-s*.65+Math.sin(a)*v*t+220*t*t),dx=Math.cos(a)*(2+s*.05)*fade,dy=(Math.sin(a)+t)*s*.09;c.strokeStyle=i%3?'#922a2c':'#4b111a';c.lineWidth=Math.max(.65,s*.025)*fade;c.beginPath();c.moveTo(x,y);c.lineTo(x-dx,y-dy);c.stroke();}c.restore();ground(c,f.x,f.y+3,s*clamp(age*2),fade*.47,[66,13,20]);}
+  function blood(c,f,F,age){
+    const s=f.r,fade=clamp((f.dur-f.t)/.65),gy=f.y+4,cx=f.x+F.center.x*s,cy=f.y+F.center.y*s;
+    if(fade<=0)return;
+    c.save();c.globalAlpha*=fade;c.lineCap='round';
+    // Irregular pools remain under the scattered parts until the finisher fades.
+    const pool=clamp((age-.12)*2.8);
+    if(pool>0)for(let i=0;i<9;i++){
+      const x=cx+(rand(f.seed,i+300)-.5)*s*1.65,y=gy+(rand(f.seed,i+310)-.5)*s*.25,r=s*(.15+rand(f.seed,i+320)*.24)*pool;
+      c.fillStyle=i%3?'#75121e':'#480e18';c.beginPath();c.ellipse(x,y,r,r*.27,0,0,TAU);c.fill();
+      c.fillStyle='#a3222b';c.beginPath();c.ellipse(x-r*.12,y-r*.045,r*.64,r*.12,0,0,TAU);c.fill();
+    }
+    // Ballistic droplets stop at their own impact points; redraws never emit or age them.
+    for(let i=0;i<72;i++){
+      const ageI=age-rand(f.seed,i+60)*.055;if(ageI<=0)continue;
+      const a=rand(f.seed,i)*TAU,v=s*(2.6+rand(f.seed,i+80)*3.2),vx=Math.cos(a)*v,vy=Math.sin(a)*v-s*.7;
+      const y0=Math.min(gy-1,cy+(rand(f.seed,i+160)-.5)*s*.24),g=440;
+      const hit=(-vy+Math.sqrt(vy*vy+2*g*(gy-y0)))/g,t=Math.min(ageI,hit),x=cx+vx*t,y=y0+vy*t+g*t*t*.5,r=Math.max(.9,s*(.022+rand(f.seed,i+240)*.037));
+      c.fillStyle=i%4?'#a51e2d':'#64111e';
+      if(ageI<hit){
+        const prev=Math.max(0,t-.035);c.strokeStyle=c.fillStyle;c.lineWidth=r*1.4;
+        c.beginPath();c.moveTo(cx+vx*prev,y0+vy*prev+g*prev*prev*.5);c.lineTo(x,y);c.stroke();
+        c.beginPath();c.ellipse(x,y,r*1.1,r*.78,Math.atan2(vy+g*t,vx),0,TAU);c.fill();
+      }else{
+        const spread=1+clamp((ageI-hit)*12)*1.6;
+        c.beginPath();c.ellipse(x,gy,r*spread,r*.48,0,0,TAU);c.fill();
+        for(let j=0;j<2;j++){
+          const dx=(j?1:-1)*r*(2.5+rand(f.seed,i+j+400)*2.5),dy=(rand(f.seed,i+j+500)-.5)*r*2;
+          c.beginPath();c.ellipse(x+dx,gy+dy,r*.48,r*.24,0,0,TAU);c.fill();
+        }
+      }
+    }
+    const mist=clamp(1-age/.38);
+    for(let i=0;i<3&&mist>0;i++)haze(c,cx+(i-1)*s*age*2,cy-s*age*.6,s*(.4+age*1.6),[145,23,34],mist*.23);
+    c.restore();
+  }
   function fragment(c,f,F,name,x,y,rot,alpha=1,material=0){
     const sites=F.sites.filter(p=>p.part===name);if(!sites.length)return;const center={x:sites.reduce((n,p)=>n+p.x,0)/sites.length,y:sites.reduce((n,p)=>n+p.y,0)/sites.length},mask=Object.fromEntries(F.parts.map(p=>[p,p===name?0:1]));
     c.save();c.translate(x,y);c.rotate(rot);drawDino(c,{...f.d,deathMask:mask,fxMaterial:material,fxNoShadow:true},-center.x*f.r,-center.y*f.r,Number.isFinite(f.d.artHeading)?1:f.dir,f.phase,alpha,0);c.restore();
@@ -138,7 +172,7 @@ const DinoFX=(()=>{
         else{const age=t-.42;debris(c,f,age,'bone',26);const head=F.head,hit=.44,q=Math.min(age,hit),x=f.x+head.x*s+dir*q*s*.22,y=Math.min(gy,f.y+head.y*s+340*q*q);fragment(c,f,F,'head',x,y,q*2.4,fade,3);ground(c,f.x,gy,s*.55,fade*.26);for(let i=0;i<3;i++)smoke(c,cx+(i-1)*s*.2,gy-s*(.25+age*.45),s*(.24+age*.1),age,seed+i,fade*.22);if(age<.7)arc(c,{x:cx-s*.2,y:gy-4},{x:cx+s*.1,y:gy-s*.55-age*s},t,seed,.6*(1-age/.7));}break;
       }
       case 'missile':{
-        const age=Math.max(0,t-.08);if(t<.10)drawBody(c,f,F,{alpha:1-t/.10});blood(c,f,age);debris(c,f,age,'flesh',14);
+        const age=Math.max(0,t-.08);if(t<.10)drawBody(c,f,F,{alpha:1-t/.10});blood(c,f,F,age);debris(c,f,age,'flesh',24);
         const parts=F.parts.filter(p=>F.sites.some(s=>s.part===p)&&!['ridge','sail','lowerJaw','flipper'].includes(p)).slice(0,8);
         parts.forEach((name,i)=>{const sites=F.sites.filter(p=>p.part===name),p=sites[Math.floor(sites.length/2)],vx=(rand(seed,i)-.5)*s*5,vy=-s*(1.7+rand(seed,i+12)*2),y0=f.y+p.y*s,g=430,hit=(-vy+Math.sqrt(vy*vy+2*g*Math.max(0,gy-y0)))/g,q=Math.min(age,hit),x=f.x+p.x*s+vx*q+vx*.10*Math.max(0,age-hit),y=Math.min(gy,y0+vy*q+g*q*q*.5);fragment(c,f,F,name,x,y,(rand(seed,i+24)-.5)*q*12,fade);});dust(c,f.x,gy,s*1.5,age,seed);break;
       }
