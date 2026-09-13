@@ -6,10 +6,10 @@ separate maintained products. This is the browser handoff. Roblox starts at
 
 ## Production baseline
 
-Last verified runtime release: **1.67.0**, September 12, 2026; service-worker cache
-**dino-defense-v63**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
-from root `main`, commit `11753c31cd364a6d2c1f560164b198cf2e7a3036`.
-[Pages run 34735628543 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34735628543).
+Last verified runtime release: **1.68.0**, September 12, 2026; service-worker cache
+**dino-defense-v64**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
+from root `main`, commit `dd8f415688b316cc087024536b7ec9a9ec02d427`.
+[Pages run 34736591613 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34736591613).
 This is a recorded deployment baseline; inspect Git and the live version before
 the next release rather than assuming HEAD still equals this commit.
 
@@ -18,7 +18,7 @@ dependencies, all 33 loaded dinosaur skins and polished jaw attachments,
 the guest renderer, hidden art menus,
 ascending weapon prices, matching number keys and Gas selection, actual kills
 with all nine finishers, surface effects and red-ring removal, resumed wave one
-with one weapon and zero cash, phone layout and offline loading under cache v63.
+with one weapon and zero cash, phone layout and offline loading under cache v64.
 It also checked the authored audio bank online/offline, larger Gennaro scale,
 and deaths of all 33 species and nine bosses without creature vocalizations.
 No browser JavaScript errors were found in those checks. Physical phone GPU
@@ -27,7 +27,9 @@ performance and film-quality likeness were not established by headless tests.
 The new homepage has a charcoal/amber design, a compact fence shield brand,
 Play/Continue entry, an image-led seven-zone gallery, grouped progression menus,
 keyboard-accessible dialogs and a saved/reduced-motion scenery preference.
-The original dinosaur and guest scenes remain. Social sharing has an original
+The dinosaur and guest scenes remain, with a weathered outhouse, recognizable
+falling door/roof pieces, detailed fence hardware and contact-anchored discharge.
+Portrait phones have a visible scene strip below Play. Social sharing has an original
 1200 x 630 T-Rex illustration, static crawler-readable metadata and native/copy
 sharing fallbacks. [Homepage notes](WEB_HOME_REVIEW.md) own design, assets,
 the generation prompt and the focused test procedure.
@@ -38,6 +40,14 @@ saved-run cancellation, zero-cash Continue, reduced motion/persisted settings,
 native/clipboard failure paths, metadata and image decoding without JavaScript,
 and offline UI/icons/dialogs. Social-platform cache refresh and physical-device
 GPU performance are not established by these browser checks.
+
+The 1.68.0 production scenery suite passed the actual outhouse and fence beats
+on desktop and 390/320 px phones: reveal, seated attachment, bite, breakup and
+cleanup, plus climb, warning, discharge and ash landing. It checked pure redraws,
+frozen particles when paused, bounded painting caches, Canvas fallback and
+offline loading with zero browser errors. Live captures were visually reviewed.
+Scenery CPU submission p95 was 0.4 ms on a 1440 x 1000 canvas in that run;
+this does not establish physical-device GPU frame rates.
 
 The prior 1.66.0 production map suite verified all six new painted environments,
 unchanged land/water routes, real mouse and phone-touch weapon placement, combat,
@@ -54,7 +64,11 @@ earlier anatomy/resume repairs. The six-map release adds fountains, waterfalls,
 an expedition helicopter, estate ambience, the Helios array and a luminous reef,
 plus compact phone onboarding. [Map notes](../assets/maps/README.md) own the
 scene pipeline and authoring details.
-The 1.67.0 verification reports and live captures are in
+The 1.68.0 verification reports and live captures are in
+`C:/Users/burns/dev/dino-perimeter-review/scenery1680/production/`,
+`C:/Users/burns/dev/dino-perimeter-review/scenery1680/production-scenes/` and
+`C:/Users/burns/dev/dino-perimeter-review/scenery1680/production-home/`.
+The 1.67.0 homepage design evidence remains in
 `C:/Users/burns/dev/dino-perimeter-review/home1670/production/` and
 `C:/Users/burns/dev/dino-perimeter-review/home1670/production-home/`.
 The prior map verification evidence remains in
@@ -73,6 +87,7 @@ Audio authoring uses the [export instructions](../art/browser-audio/README.md).
 | Rules, roster, tower stats, seven maps, version and What's New | `js/data.js` |
 | Homepage, shared dialog design, navigation/accessibility and social sharing | `index.html`, `home.css`, `js/home.js`; [homepage notes](WEB_HOME_REVIEW.md) |
 | Saves/import/export, placement, first wave, combat, homepage actors | `js/game.js` |
+| Homepage fence/outhouse paintings, debris and electrical effects | `js/home-scenery.js`; scene simulation in `js/game.js`; [homepage notes](WEB_HOME_REVIEW.md) |
 | Shared 3D tourists, guest costumes, articulated poses and bounded sprite cache | `js/tourists.js`; look factories in `js/looks.js` |
 | Tourist bite sprays, debris, ground stains and independent effect clocks | `js/tourist-fx.js`; scene integration in `js/game.js` |
 | Canvas painters and fallback art | `js/draw.js`, `js/drex.js` |
@@ -114,6 +129,9 @@ Check whether an old preview is still running; tests start their own servers.
   Play becomes Continue for a saved run; all zone cards remain native buttons.
   `homeMotion` follows reduced motion by default; `menuScenePaused` freezes only
   the home scene clock. `js/home.js` owns modal focus/inert state and sharing.
+  `js/home-scenery.js` caches decorative paintings and never advances actors or
+  consumes simulation randomness. Preserve the shared outhouse seat anchors,
+  contact position for fence arcs, paused smoke and portrait scene framing.
 - **Creature loading:** call `await Creatures.ready(keys)` before judging an
   exported mesh; check `Creatures.model(key).joinedSkin`. Otherwise a capture
   can accidentally review the procedural fallback. No WebGL retains Canvas art.
@@ -154,6 +172,7 @@ not a runtime game dependency. Only creature topology checks need Node alone.
 | Pterosaur wings | Also `node tests/creature-wings.cjs` |
 | Homepage art, art-panel visibility | `node tests/presentation.cjs`; creature suite for shared rigs |
 | Homepage UI, dialogs, sharing, Play/Continue and social metadata | `node tests/homepage.cjs`; `node tests/presentation.cjs`; `node tests/resume.cjs` |
+| Homepage fence/outhouse art, breakup, electrical effects and phone framing | `node tests/home-scenery.cjs`; `node tests/homepage.cjs`; `node tests/presentation.cjs`; `node tests/tourists.cjs` |
 | Tourists, guest cameos, evacuation, bite effects | `node tests/tourists.cjs`; `node tests/presentation.cjs`; `node tests/resume.cjs` |
 | First-wave state, saved towers, cross-device transfers | `node tests/resume.cjs` |
 | Weapons/upgrades/projectiles/effects | `node tests/arsenal.cjs`; `node tests/dino-fx.cjs` |
@@ -171,6 +190,8 @@ not evidence of a live deployment.
 For publishing, use [the deployment skill](../skills/deploy-dino-defense/SKILL.md).
 For homepage releases, also run `tests/homepage.cjs` with `HOME_REVIEW_URL` set
 to the ordinary live URL and `HOME_REVIEW_DIR` set to an external evidence folder.
+For homepage scenery releases, also run `tests/home-scenery.cjs` with
+`SCENERY_REVIEW_URL` set to that URL and `SCENERY_REVIEW_DIR` set externally.
 Keep a new runtime dependency in `SHELL`, and finish visible fixes with the
 [What's New rules](../.claude/skills/whats-new/SKILL.md). Documentation/skill-only
 maintenance needs no game version, cache or player-facing changelog bump.
