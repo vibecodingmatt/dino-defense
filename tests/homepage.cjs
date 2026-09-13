@@ -30,15 +30,15 @@ const errors = [], report = {layouts: [], dialogs: [], errors};
   await p.evaluate(() => Creatures.ready(MENU_BOSSES));
   for (const [width, height] of [[1440,1000], [1280,720], [768,1024], [390,844], [360,800], [320,568], [844,390]]) {
     await p.setViewportSize({width, height});
-    await p.evaluate(() => { document.getElementById('menu').scrollTop = 0; });
+    await p.evaluate(() => { document.getElementById('menu').scrollTo({top:0,behavior:'instant'}); });
     await p.waitForTimeout(100);
     const layout = await p.evaluate(() => {
       const menu = document.getElementById('menu'), cta = document.getElementById('btnQuickPlay').getBoundingClientRect();
       const controls = [...document.querySelectorAll('.home-header button')].map(b => ({id:b.id, width:b.getBoundingClientRect().width, height:b.getBoundingClientRect().height, name:b.getAttribute('aria-label') || b.textContent.trim()}));
-      return {width:innerWidth, height:innerHeight, overflow:menu.scrollWidth > menu.clientWidth, ctaBottom:cta.bottom, controls, cards:document.querySelectorAll('#levelCards button').length};
+      return {width:innerWidth, height:innerHeight, overflow:menu.scrollWidth > menu.clientWidth, ctaTop:cta.top, ctaBottom:cta.bottom, controls, cards:document.querySelectorAll('#levelCards button').length};
     });
     assert.equal(layout.overflow, false, JSON.stringify(layout)); assert.equal(layout.cards, 7);
-    if (height > 500) assert.ok(layout.ctaBottom < height, 'Play is visible without scrolling at ' + width);
+    if (height > 500) assert.ok(layout.ctaTop >= 0 && layout.ctaBottom < height, 'Play is visible without scrolling at ' + width);
     assert.ok(layout.controls.every(b => b.name && b.width >= 40 && b.height >= 44));
     await p.screenshot({path:path.join(out, `home-${width}x${height}.png`)});
     await p.locator('.browse-zones').click(); await p.waitForTimeout(350);
@@ -48,7 +48,7 @@ const errors = [], report = {layouts: [], dialogs: [], errors};
   }
   console.log('PASS: seven desktop/tablet/phone layouts, visible Play, named touch targets and no horizontal overflow.');
   await p.setViewportSize({width:390,height:844});
-  await p.evaluate(() => { document.getElementById('menu').scrollTop = 0; });
+  await p.evaluate(() => { document.getElementById('menu').scrollTo({top:0,behavior:'instant'}); });
   for (const [button, dialog] of [['btnLab','lab'], ['btnStickers','stickers'], ['btnStudio','studio'], ['btnAch','achievements'], ['btnTips','tips'], ['btnSettings','settings'], ['verChip','changelog']]) {
     await p.locator('#' + button).click();
     await p.waitForFunction(id => document.getElementById(id).contains(document.activeElement), dialog);
