@@ -6,6 +6,11 @@ Published and verified: 1.65.1 / cache v60, commit
 Live checks matched 73 pages/assets to committed bytes and exercised all 33
 skins, audio-bank loading, death cues, phone layout and a real offline reload.
 
+The subsequent [1.65.2 jaw pass](WEB_JAW_POLISH_REVIEW.md) rounds the shared
+mandible attachments and blends the T-Rex's upper-joint color. Measurements in
+this review describe the original T-Rex export; current metadata lives beside
+`assets/creatures/skinned/trex.mesh.gz`.
+
 ## Film references
 
 The target is the original 1993 female, rather than the gaunter later-film

@@ -58,6 +58,6 @@ priority voice replacement, source cleanup, offline stereo rendering, mutes,
 gesture handling, mobile budget, missing-bank fallback and offline reload.
 Listening artifacts and signal reports live outside the repository under
 `C:/Users/burns/dev/dino-perimeter-review/audio1650/`. Automated signal checks
-do not establish subjective listening quality; this agent environment cannot
-receive audio input. `battle-mix.wav` is rendered through the actual mix graph,
+do not establish subjective listening quality; audition the renders when audio
+playback is available. `battle-mix.wav` is rendered through the actual mix graph,
 while `sound-palette.mp3` presents the authored samples in isolation.

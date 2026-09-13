@@ -6,46 +6,36 @@ separate maintained products. This is the browser handoff. Roblox starts at
 
 ## Production baseline
 
-Last verified release: **1.65.1**, September 12, 2026; service-worker cache
-**dino-defense-v60**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
-from root `main`, commit `025c1c60665463383140f3ae37313b45e8217bf9`.
-[Pages run 34730419282 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34730419282).
+Last verified runtime release: **1.65.2**, September 12, 2026; service-worker cache
+**dino-defense-v61**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
+from root `main`, commit `38d057f718794b210cbad82b00d853a9085b9ee1`.
+[Pages run 34731636528 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34731636528).
 This is a recorded deployment baseline; inspect Git and the live version before
 the next release rather than assuming HEAD still equals this commit.
 
-Live verification checked HTTP 200 and committed SHA-256 for 73 pages and
-dependencies, all 33 loaded dinosaur skins, the guest renderer, hidden art menus,
+Live verification checked HTTP 200 and committed SHA-256 for 105 pages and
+dependencies, all 33 loaded dinosaur skins and polished jaw attachments,
+the guest renderer, hidden art menus,
 ascending weapon prices, matching number keys and Gas selection, actual kills
 with all nine finishers, surface effects and red-ring removal, resumed wave one
-with one weapon and zero cash, phone layout and offline loading under cache v60.
+with one weapon and zero cash, phone layout and offline loading under cache v61.
 It also checked the authored audio bank online/offline, larger Gennaro scale,
 and deaths of all 33 species and nine bosses without creature vocalizations.
 No browser JavaScript errors were found in those checks. Physical phone GPU
 performance and film-quality likeness were not established by headless tests.
 
-The latest release adds the 1993-reference T-Rex sculpt, authored audio bank,
-larger homepage Gennaro and removal of dinosaur death vocalizations. See
-[T-Rex and sound review](WEB_TREX_AUDIO_REVIEW.md).
-
-The preceding release restores all nine weapon finishers, adds skin-bound fire,
-frost and electrical effects, removes the ordinary red boss aura, and orders the
-armory by base purchase price. Mason's Gas is third at $240; guide lists and
-number keys share the order. See [combat FX review](WEB_COMBAT_FX_REVIEW.md)
-for ownership, tests, visual evidence and performance limits.
-
-The preceding release adds shared detailed 3D tourists, film-reference guest
-costumes, articulated poses and blood sprays, torn debris and lingering stains.
-The prior art release includes the Sector 7 perimeter/paddock, nine weapons with
-27 base/upgrade configurations, all 33 creature models, D-Rex knuckle-walking
-and connected rear feet, walking Dilo frills, integrated pterosaur wing supports,
-Therizinosaurus as an eighth homepage roamer, removed gulp bulges, local-only
-inspection menus, and the cross-device resume repair.
+The current release includes the rounded jaw polish plus the film-reference
+T-Rex, authored audio, guest models/gore, larger Gennaro, nine weapon finishers,
+surface effects, price-sorted armory, Sector 7 art and earlier anatomy/resume
+repairs. Focused review links below own implementation details and evidence.
+The verification report and live captures are in
+`C:/Users/burns/dev/dino-perimeter-review/production-1652/`.
 
 ## Ownership
 
-Local pending work: **1.65.2 / cache v61** polishes lower-jaw attachments on all
-33 shared creatures. All affected suites and visual reviews passed. See
-[jaw polish review](WEB_JAW_POLISH_REVIEW.md); this is not yet deployed.
+No pending browser runtime changes after this release. Unrelated local Roblox
+work remains. A later docs/skills-only commit can follow the verified runtime
+SHA without changing the game version or cache.
 Audio authoring uses the [export instructions](../art/browser-audio/README.md).
 
 | Work | Source |

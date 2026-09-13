@@ -1,8 +1,12 @@
 # Lower-jaw attachment polish - September 12, 2026
 
-Local preview: **1.65.2 / cache v61**. This follows the verified **1.65.1**
-production release; see [browser orientation](WEB_ORIENTATION.md) for its SHA/run.
-The jaw polish has not been published.
+Published and verified: **1.65.2 / cache v61**, runtime commit
+`38d057f718794b210cbad82b00d853a9085b9ee1`;
+[Pages run 34731636528 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34731636528).
+Live verification matched 105 pages/assets to committed bytes and checked all
+33 loaded jaw skins, guest scale, audio, finishers, phone layout and offline
+loading. The report is `../production-1652/verification.json` relative to the
+external review directory below.
 
 ## Change
 
