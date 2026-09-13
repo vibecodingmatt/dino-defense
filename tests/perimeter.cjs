@@ -158,12 +158,12 @@ async function snap(page,name) {await page.screenshot({path:path.join(out,name+'
   });
   assert.ok(perf.p95Ms<25,'Empty-scene rendering unexpectedly slow');pass('Desktop render budget (CPU submission, not GPU frame rate)',perf);
 
-  // Other maps still run the existing terrain and atmosphere pipelines.
+  // Every other map still supplies a compatible background to the game loop.
   for(let idx=1;idx<LEVELS_LENGTH;idx++){
     const ok=await page.evaluate(idx=>{startLevel(idx,'fresh',1);G.state='review';render(.016);return !G.perimeterScene&&G.bg.width===1280&&!document.querySelector('#errbox').textContent;},idx);
     assert.ok(ok,'Map '+idx+' failed');
   }
-  pass('All six other maps render through their original pipeline');
+  pass('All six other maps retain compatible background outputs');
 
   // Delayed decode must refresh art without changing state or camera.
   const slow=await context.newPage();monitor(slow);let release;

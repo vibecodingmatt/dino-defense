@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.65.2';
+const VERSION = '1.66.0';
 
 // Art inspection panels are local development tools. URL query flags must
 // never enable them on the public site. Node-based data audits default to off.
@@ -35,13 +35,14 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    Date each entry with the ACTUAL current calendar date — check it, never copy
    the entry above. Same-day reship: edit that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.65.2', date: 'Sep 12, 2026', items: [
+  {v: '1.66.0', date: 'Sep 12, 2026', items: [
     '🏃 Detailed 3D tourists and familiar guests bring the chases to life, with bloody bites and lingering splatter.',
     '🦖 Rebuilt dinosaurs with natural jaw joins, a movie-inspired T-Rex, D-Rex knuckle-walking, and colorful Dilo frills.',
     '🪶 The feathered Therizinosaurus now roams the home screen among the giants.',
     '💥 A price-sorted arsenal, lifelike fire and frost, and nine favorite dinosaur finishers return in 3D.',
     '🔊 Richer weapon sounds, crackling ice, roaring fire, rattling debris, and a thunderous T-Rex voice.',
-    '🦖 Sector 7 rebuilt: wet jungle, sweeping searchlights, and lifelike raptors patrolling their fortified paddock.',
+    '🦖 Sector 7 rebuilt: wet jungle, sweeping searchlights, lifelike paddock raptors, and no random growls.',
+    '🏝️ Six stunning map makeovers bring golden gardens, waterfalls, a rescue helicopter, glowing reefs, and more.',
     '🐛 Fixed tiny Gennaro, odd death cries, cross-device starts, detached wings, gulp bulges, and blinking boss rings.',
   ]},
   {v: '1.59.1', date: 'Jul 28, 2026', items: [
@@ -390,20 +391,20 @@ const LEVELS = [
    theme:{grass:'#173e2a', grass2:'#235a36', path:'#4b5554', pathEdge:'#202c2e', tree:'#0d291c', water:null},
    paths:[[{x:-40,y:150},{x:300,y:150},{x:300,y:430},{x:700,y:430},{x:700,y:180},{x:1000,y:180},{x:1000,y:560},{x:1320,y:560}]]},
 
-  {name:'Visitor Center', sub:'Ashfall evacuation — two breached gates', art:'visitor', night:false, dusk:true, flyerBias:1.0, hpMult:1.35,
+  {name:'Visitor Center', sub:'Amber rotunda — gardens at golden hour', art:'visitor', night:false, dusk:true, flyerBias:1.0, hpMult:1.35,
    theme:{grass:'#4b5227', grass2:'#66703a', path:'#c39a62', pathEdge:'#76533a', tree:'#303b1c', water:null},
    paths:[[{x:-40,y:120},{x:400,y:120},{x:400,y:360},{x:900,y:360},{x:900,y:600},{x:1320,y:600}],
           [{x:-40,y:620},{x:400,y:620},{x:400,y:360},{x:900,y:360},{x:900,y:600},{x:1320,y:600}]]},
 
-  {name:'The Aviary', sub:'Storm inside the shattered dome', art:'aviary', night:false, mist:true, flyerBias:2.4, hpMult:1.75,
+  {name:'The Aviary', sub:'Glass cathedral — waterfalls beneath broken sky', art:'aviary', night:false, mist:true, flyerBias:2.4, hpMult:1.75,
    theme:{grass:'#244945', grass2:'#32635a', path:'#70898b', pathEdge:'#394f53', tree:'#173735', water:'#245a68'},
    paths:[[{x:-40,y:360},{x:210,y:360},{x:210,y:120},{x:520,y:120},{x:520,y:600},{x:820,y:600},{x:820,y:200},{x:1100,y:200},{x:1100,y:450},{x:1320,y:450}]]},
 
-  {name:'Site B: River Delta', sub:'Cyclone-swallowed operations village', art:'delta', night:false, flyerBias:1.2, hpMult:2.2,
+  {name:'Site B: River Delta', sub:'Lost expedition — the flooded research outpost', art:'delta', night:false, flyerBias:1.2, hpMult:2.2,
    theme:{grass:'#2c5030', grass2:'#426839', path:'#9a5e32', pathEdge:'#503521', tree:'#193821', water:'#275c63'},
    paths:[[{x:-40,y:90},{x:1080,y:90},{x:1080,y:300},{x:220,y:300},{x:220,y:530},{x:1320,y:530}]]},
 
-  {name:'Lockwood Estate', sub:'Auction night thunderstorm — two wings', art:'lockwood', night:true, flyerBias:1.1, hpMult:2.8,
+  {name:'Lockwood Estate', sub:'Midnight collection — secrets behind the glass', art:'lockwood', night:true, flyerBias:1.1, hpMult:2.8,
    theme:{grass:'#17251f', grass2:'#22382d', path:'#384650', pathEdge:'#1c262e', tree:'#0c1814', water:null},
    paths:[[{x:-40,y:200},{x:300,y:200},{x:300,y:500},{x:640,y:500},{x:640,y:160},{x:980,y:160},{x:980,y:430},{x:1320,y:430}],
           [{x:200,y:-40},{x:200,y:340},{x:640,y:340},{x:640,y:160},{x:980,y:160},{x:980,y:430},{x:1320,y:430}]]},
@@ -413,14 +414,14 @@ const LEVELS = [
      they must path around (a placement that seals the field completely is
      rejected). Flyers soar straight across. paths[0] is the virtual straight
      line used by flyers, Omega, and the gate/checkpoint set dressing. */
-  {name:'The Proving Grounds', sub:'Paddock Zero — your weapons ARE the wall', art:'proving', night:false, flyerBias:1.5, hpMult:3.4, maze:true,
+  {name:'The Proving Grounds', sub:'Helios array — build your own containment maze', art:'proving', night:false, flyerBias:1.5, hpMult:3.4, maze:true,
    theme:{grass:'#6c6731', grass2:'#897a36', path:'#a98b4b', pathEdge:'#66502b', tree:'#384522', water:null},
    paths:[[{x:-40,y:360},{x:1320,y:360}]]},
 
   /* LAND + WATER map: a jungle road AND a river channel. Aquatic dinosaurs
      (water:true) swim the river — the Mosasaurus rules it (map-specific boss
      schedule below). paths[1] is the water channel. */
-  {name:'Mosasaur Lagoon', sub:'Bioluminescent breach — the water hunts back', art:'lagoon', night:false, flyerBias:1.1, hpMult:4.0, waterPaths:[1],
+  {name:'Mosasaur Lagoon', sub:'Living reef — a luminous marine sanctuary', art:'lagoon', night:false, flyerBias:1.1, hpMult:4.0, waterPaths:[1],
    theme:{grass:'#245a3f', grass2:'#33724e', path:'#c08a52', pathEdge:'#704a2d', tree:'#153d2b', water:'#16738b'},
    bosses:{30:['mosasaurus'], 60:['mosasaurus','trex'], 80:['indominus','mosasaurus']},
    paths:[[{x:-40,y:150},{x:350,y:150},{x:350,y:320},{x:700,y:320},{x:700,y:160},{x:1050,y:160},{x:1050,y:440},{x:1320,y:440}],

@@ -3,7 +3,7 @@
    Strategy: network-first for the app shell (so pushed updates show up as soon
    as you're online), cache-first for the icons, and a cached fallback whenever
    the network is unavailable. Bump CACHE to force a clean re-precache. */
-const CACHE = 'dino-defense-v61';
+const CACHE = 'dino-defense-v62';
 const SHELL = [
   './',
   'index.html',
@@ -18,6 +18,7 @@ const SHELL = [
   'js/tourists.js',
   'js/tourist-fx.js',
   'js/perimeter.js',
+  'js/sanctuary-scenes.js',
   'js/paddock-raptors.js',
   'js/arsenal.js',
   'js/weapon-fx.js',
@@ -31,6 +32,12 @@ const SHELL = [
   'assets/audio/effects-v1.bank.gz',
   'js/creature-guide.js',
   'assets/maps/sector7-facility.webp',
+  'assets/maps/visitor-sanctuary.webp',
+  'assets/maps/aviary-sanctuary.webp',
+  'assets/maps/delta-sanctuary.webp',
+  'assets/maps/lockwood-sanctuary.webp',
+  'assets/maps/proving-sanctuary.webp',
+  'assets/maps/lagoon-sanctuary.webp',
   'assets/creatures/hide-detail.webp',
   'assets/creatures/skinned/allosaurus.mesh.gz',
   'assets/creatures/skinned/ankylosaurus.mesh.gz',

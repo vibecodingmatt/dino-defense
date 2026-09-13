@@ -50,6 +50,10 @@ toggle still controls both the score and its reverb return.
 Dinosaur deaths do not trigger creature vocalizations. Physical weapon impacts
 and finishers still play; living creature ambience and entrance roars remain.
 Ambient calls require at least one living dinosaur on the field.
+Perimeter Fence disables that unrelated random snarl/bellow timer entirely;
+the decorative paddock raptors are silent. Intentional boss entrances and
+scripted encounters retain their sound cues. The six sanctuary scenes also
+emit no additional sound effects.
 
 The test checks bank integrity, audible signal/headroom, distinct variations,
 actual firing and impact routes for all nine weapons, deaths of all 33 species

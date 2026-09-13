@@ -46,6 +46,7 @@ Audio authoring uses the [export instructions](../art/browser-audio/README.md).
 | Tourist bite sprays, debris, ground stains and independent effect clocks | `js/tourist-fx.js`; scene integration in `js/game.js` |
 | Canvas painters and fallback art | `js/draw.js`, `js/drex.js` |
 | Sector 7 scene and its distinct resident raptors | `js/perimeter.js`, `js/paddock-raptors.js`, [map notes](../assets/maps/README.md) |
+| Other six painted environments and animated set pieces | `js/sanctuary-scenes.js`, `assets/maps/*-sanctuary.webp`, [authoring prompts](../art/browser-maps/prompts.json) |
 | Weapon models, upgrade silhouettes, muzzle anchors | `js/arsenal.js` |
 | Firing, projectiles and impacts | `js/weapon-fx.js`, integrations in `js/game.js` |
 | Skin-bound status effects and nine weapon finishers | `js/dino-fx.js`; attachment sampling/materials in `js/creatures.js` |
@@ -97,6 +98,12 @@ Check whether an old preview is still running; tests start their own servers.
   creature changes do not automatically alter those residents. Their scenery
   clock pauses with play but does not accelerate at 10x game speed. Rain streaks
   and repetitive splash rings were removed; preserve the image-failure fallback.
+- **Other maps:** six painted plates use small rendering registration tables to
+  align their roads with unchanged routes and saves. Keep the complete procedural
+  fallback and asynchronous thumbnail refresh. Their set pieces share the slow,
+  pausable scenery clock, respect reduced motion and emit no extra sounds.
+  Perimeter also disables the random combat snarl/bellow timer; scripted living
+  encounters and entrance cues remain.
 
 ## Verification by change
 
@@ -116,6 +123,7 @@ not a runtime game dependency. Only creature topology checks need Node alone.
 | First-wave state, saved towers, cross-device transfers | `node tests/resume.cjs` |
 | Weapons/upgrades/projectiles/effects | `node tests/arsenal.cjs`; `node tests/dino-fx.cjs` |
 | Perimeter map/resident raptors/placement | `node tests/perimeter.cjs` |
+| Other map art, animated scenery, routes, loading and offline | `node tests/sanctuary.cjs`; `node tests/resume.cjs`; `node tests/presentation.cjs` |
 
 Use affected suites for a narrow fix and all applicable suites for a release spanning
 these systems. Retain still-applicable passing results from the same source;
@@ -136,6 +144,10 @@ afterward to check the actual index. After the matching Pages run succeeds,
 and browser behavior. It derives the expected version/cache from that commit;
 set `WEB_REVIEW_DIR` to save evidence outside the repository. For a verified
 docs-only follow-up, `--assets-only` checks live bytes without repeating combat.
+For a map release, also run `tests/sanctuary.cjs` with `MAP_REVIEW_URL` set to
+the ordinary live base URL and `MAP_REVIEW_DIR` set to its release evidence
+folder. It verifies all six painted scenes on production, including offline
+loading, layout, scenery clocks and restored placements.
 
 ## Focused reviews and evidence
 

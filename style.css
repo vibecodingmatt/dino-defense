@@ -307,21 +307,21 @@ canvas#game {
 #startPrompt .sp-sub { color: var(--dim); font-size: 12px; margin-top: 3px; }
 @keyframes spPulse { 50% { box-shadow: 0 6px 26px #0008, 0 0 16px #e8b93a66; border-color: var(--amber2); } }
 @media (prefers-reduced-motion: reduce){ #startPrompt { animation: none; } }
-/* Sector 7's enclosure is the arrival view. Keep the first-build instruction
-   over the near jungle edge so it cannot cover the paddock on a phone. */
-#startPrompt.sector7 {
+/* Keep the first-build instruction at the near edge of the painted scenes,
+   leaving the scenery and tactical space visible on phones. */
+#startPrompt:is(.sector7, .sanctuary) {
   top: auto; bottom: 10px; width: max-content; max-width: calc(100% - 24px);
   padding: 9px 20px; border-radius: 3px; border-color: #9b8757;
   background: linear-gradient(100deg, #111d1bea, #1c2822e8);
   box-shadow: 0 3px 16px #0008; animation: none;
 }
-#startPrompt.sector7 .sp-main { color: #e2d3a9; font-size: 13px; letter-spacing: 1px; }
-#startPrompt.sector7 .sp-sub { color: #bec8bc; font-size: 11px; }
-#startPrompt.sector7.counting .sp-main { color: #b9d5ae; }
+#startPrompt:is(.sector7, .sanctuary) .sp-main { color: #e2d3a9; font-size: 13px; letter-spacing: 1px; }
+#startPrompt:is(.sector7, .sanctuary) .sp-sub { color: #bec8bc; font-size: 11px; }
+#startPrompt:is(.sector7, .sanctuary).counting .sp-main { color: #b9d5ae; }
 @media (max-width: 600px) {
-  #startPrompt.sector7 { bottom: 5px; padding: 6px 12px; }
-  #startPrompt.sector7 .sp-main { font-size: 11px; }
-  #startPrompt.sector7 .sp-sub { font-size: 9px; }
+  #startPrompt:is(.sector7, .sanctuary) { bottom: 5px; padding: 6px 12px; }
+  #startPrompt:is(.sector7, .sanctuary) .sp-main { font-size: 11px; }
+  #startPrompt:is(.sector7, .sanctuary) .sp-sub { font-size: 9px; }
 }
 .hint { font-size: 10.5px; color: var(--dim); line-height: 1.5; }
 
@@ -774,8 +774,8 @@ canvas#game { touch-action: none; }   /* we handle pan/pinch/tap ourselves */
   background: rgba(12,16,10,0.74); border: 1px solid var(--line); box-shadow: 0 2px 8px #0007;
 }
 #zoomBar .zIcon { font-size: 12px; opacity: 0.8; }
-#stage[data-map-art="perimeter"] #zoomBar { left: auto; right: 8px; transform: none; gap: 6px; padding: 4px 6px; }
-#stage[data-map-art="perimeter"] #zoomSlider { width: 72px; }
+#stage[data-map-art] #zoomBar { left: auto; right: 8px; transform: none; gap: 6px; padding: 4px 6px; }
+#stage[data-map-art] #zoomSlider { width: 72px; }
 #zoomBar .zBtn {
   width: 26px; height: 26px; padding: 0; border-radius: 50%;
   border: 1px solid var(--line); background: #1a2113; color: var(--text);

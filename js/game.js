@@ -2543,6 +2543,7 @@ function startLevel(idx, mode, diff){
   const bg = renderBackground(G.level, W, H);
   G.bg = bg.cv; G.flames = bg.flames; G.exitFx = bg.exit;
   G.perimeterScene = G.level.art === 'perimeter' ? bg : null;
+  G.sanctuaryScene = G.level.art !== 'perimeter' && bg.painted ? bg : null;
   G.sceneTime = 0;
   G.hurtT = 0; G.flashT = 0; G.waveTotal = 0; G.cinT = 0;
   initAmbient();
@@ -2603,6 +2604,17 @@ PerimeterScene.onReady(() => {
   for (const key of THEMED_MINI_CACHE.keys()) if (key.startsWith('perimeter@')) THEMED_MINI_CACHE.delete(key);
   document.querySelectorAll('.lvThumb').forEach(cv => {
     if (cv._mapLevel && cv._mapLevel.art === 'perimeter') drawThemedMiniMap(cv, cv._mapLevel);
+  });
+});
+
+SanctuaryScene.onReady(art => {
+  if(G.level?.art === art && G.bg){
+    const bg=renderBackground(G.level,W,H);
+    G.bg=bg.cv;G.sanctuaryScene=bg;G.flames=bg.flames;G.exitFx=bg.exit;
+  }
+  for(const key of THEMED_MINI_CACHE.keys())if(key.startsWith(art+'@'))THEMED_MINI_CACHE.delete(key);
+  document.querySelectorAll('.lvThumb').forEach(cv=>{
+    if(cv._mapLevel?.art===art)drawThemedMiniMap(cv,cv._mapLevel);
   });
 });
 
@@ -3201,6 +3213,7 @@ function updateStartPrompt(){
   if (!el) return;
   const sector = G.level && G.level.art === 'perimeter';
   el.classList.toggle('sector7', !!sector);
+  el.classList.toggle('sanctuary', !sector && SanctuaryScene.owns(G.level?.art));
   const prep = G.state === 'playing' && G.wave === 0 && !G.waveActive && !G.over;
   el.classList.toggle('hidden', !prep);
   if (!prep) return;
@@ -3214,7 +3227,7 @@ function updateStartPrompt(){
     el.querySelector('.sp-sub').textContent = 'Press Start Wave to continue.';
   } else {
     el.querySelector('.sp-main').textContent = sector ? 'Hold the perimeter' : '🦖 Place a weapon to begin';
-    el.querySelector('.sp-sub').textContent = sector ? 'Choose a weapon, then place it beside the road.' : 'Pick one from the Armory, then tap the map';
+    el.querySelector('.sp-sub').textContent = sector ? 'Choose a weapon, then place it beside the road.' : 'Choose a weapon, then tap the map.';
   }
 }
 function buildShop(){
@@ -5028,8 +5041,9 @@ function step(dt){
     }
   }
   if (save.settings.unlimitedCash) G.cash = 1e9; // top up every tick so nothing is ever unaffordable
-  // sparse ambient jungle vocalization while dinos are roaming the field
-  if (G.waveActive && G.dinos.some(d=>!d.dead&&!d.leaked)){
+  // Sector 7's residents are silent. Its unrelated ambient combat timer was
+  // the source of the intermittent low growls; intentional entrances remain.
+  if (G.level.art !== 'perimeter' && G.waveActive && G.dinos.some(d=>!d.dead&&!d.leaked)){
     G.voxAmb = (G.voxAmb > 0 ? G.voxAmb : rand(4, 8)) - dt;
     if (G.voxAmb <= 0){ G.voxAmb = rand(5, 10); if (voxGate()) (Math.random() < 0.55 ? SFX.snarl : SFX.bellow)(); }
   }
@@ -5687,6 +5701,7 @@ function render(dt){
     PerimeterScene.draw(ctx, G.sceneTime, G.perimeterScene, G.towers);
     PerimeterScene.weather(ctx, G.sceneTime, W, H);
   }
+  if(G.sanctuaryScene)SanctuaryScene.draw(ctx,G.level.art,G.sceneTime,G.towers);
 
   // open-world maps: show the one route the column is currently marching —
   // it redraws live as weapons reshape the maze
@@ -6299,7 +6314,7 @@ function render(dt){
   }
 
   // ambient particles (fireflies / spores / leaves) — above the light grading
-  drawMapAtmosphere(ctx, G.level, G.amb, G.perimeterScene ? G.sceneTime : G.time, dt, W, H);
+  drawMapAtmosphere(ctx, G.level, G.amb, G.sceneTime, dt, W, H);
 
   // ---- end world camera; the HUD below is drawn in fixed screen space ----
   ctx.restore();

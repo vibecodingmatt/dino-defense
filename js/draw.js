@@ -3701,6 +3701,9 @@ function bakeMapGrade(c,level,W,H){
    the baked canvas, while these few particles sell weather and scale. */
 function drawMapAtmosphere(c,level,amb,time,dt,W,H){
   const art=level.art||'perimeter';
+  if(typeof SanctuaryScene!=='undefined' && SanctuaryScene.owns(art)){
+    SanctuaryScene.atmosphere(c,art,time);return;
+  }
   if(art==='perimeter' && typeof PerimeterScene!=='undefined'){
     PerimeterScene.atmosphere(c,time,W,H);return;
   }
@@ -3736,6 +3739,9 @@ function drawThemedMiniMap(cv,level){
    Returns {cv, flames, exit} — flames/exit are runtime animation anchors. */
 function renderBackground(level, W, H){
   if(level.art==='perimeter' && typeof PerimeterScene!=='undefined')return PerimeterScene.bake(level,W,H);
+  if(typeof SanctuaryScene!=='undefined'){
+    const painted=SanctuaryScene.bake(level,W,H);if(painted)return painted;
+  }
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H;
   const c = cv.getContext('2d');
