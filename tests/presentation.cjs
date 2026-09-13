@@ -9,7 +9,7 @@ const data=fs.readFileSync(path.join(root,'js/data.js'),'utf8'),hosts=[
 ];
 for(const [url,expected] of hosts)assert.equal(vm.runInNewContext(data+';ART_PREVIEW_ENABLED',{location:new URL(url)}),expected,url);
 assert.equal(vm.runInNewContext(data+';ART_PREVIEW_ENABLED'),false);console.log('PASS: local-host allowlist; query flags cannot enable public inspection panels');
-const types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.webp':'image/webp','.png':'image/png','.json':'application/json'};
+const types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.webp':'image/webp','.png':'image/png','.json':'application/json'};
 function asset(url,prefix=''){const name=new URL(url).pathname.slice(prefix.length).replace(/\/$/,'/index.html');const file=path.resolve(root,'.'+name);if(path.relative(root,file).startsWith('..'))return null;return fs.existsSync(file)?file:null;}
 const server=http.createServer((req,res)=>{const file=asset('http://localhost'+req.url);if(!file)return res.writeHead(404).end();res.setHeader('Content-Type',types[path.extname(file)]||'application/octet-stream');res.end(fs.readFileSync(file));});
 let browser;const errors=[];

@@ -3358,6 +3358,7 @@ function buildMenuFx(){
 /* giant boss dinosaurs that roam the menu's terrain, far behind the UI —
    sometimes chasing hapless tourists (and sometimes catching them) */
 let menuDinos = [], menuTourists = [], menuPuffs = [], menuSpawnT = 1.2, menuCv = null, menuCtx = null;
+let menuScenePaused = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const menuTouristFX = TouristFX.create();
 // dropped kit that outlives its owner — currently just Muldoon's rifle
 let menuProps = [];
@@ -4215,6 +4216,7 @@ function menuStageBusy(){
 function menuScene(dt){
   const m = $('#menu');
   if (!m || m.classList.contains('hidden')) return;
+  if (menuScenePaused) dt = 0;
   const cv = menuCv || (menuCv = document.getElementById('menuDinos'));
   if (!cv) return;
   const ctx = menuCtx || (menuCtx = cv.getContext('2d'));
@@ -4544,15 +4546,15 @@ function drawMenuDino(ctx, d){
 }
 function buildMenu(){
   const got = ACHIEVEMENTS.filter(a => save.ach && save.ach[a.key]).length;
-  $('#verChip').innerHTML = `v${VERSION} · 📜 what's new`;
-  $('#menuDna').innerHTML = `🧬 <b>${fmt(save.dna)}</b> DNA`;
-  const sb = $('#statBest'); if (sb) sb.innerHTML = save.bestDiff ? `⛰️ Reached <b>Lv ${save.bestDiff}</b>` : `🌱 New ranger`;
-  const sa = $('#statAch'); if (sa) sa.innerHTML = `🏆 <b>${got}/${ACHIEVEMENTS.length}</b> trophies`;
+  $('#verChip').textContent = `What's new · v${VERSION}`;
+  $('#menuDna').innerHTML = `<b>${fmt(save.dna)}</b> DNA <span aria-hidden="true">↗</span>`;
+  const sb = $('#statBest'); if (sb) sb.innerHTML = save.bestDiff ? `Highest cleared <b>Lv ${save.bestDiff}</b>` : `Welcome, ranger.`;
+  const sa = $('#statAch'); if (sa) sa.innerHTML = `<b>${got}/${ACHIEVEMENTS.length}</b> trophies`;
   // pulse the Lab tile whenever any weapon or base upgrade is affordable
   const canBuy = Object.keys(TOWERS).some(k => save.dna >= wlvCost(TOWERS[k], wlv(k)))
     || META.some(m => save.dna >= metaCost(m, mlvl(m.key)));
   $('#btnLab').classList.toggle('attention', canBuy);
-  const fl = $('#fSubLab'); if (fl) fl.textContent = canBuy ? '⬆ upgrades ready!' : fmt(save.dna) + ' DNA banked';
+  const fl = $('#fSubLab'); if (fl) fl.textContent = canBuy ? 'Upgrades available' : fmt(save.dna) + ' DNA banked';
   // live tallies on the feature-dock tiles
   let sGot = 0, sTot = 0;
   for (const wk of Object.keys(TOWERS)) for (const dk of Object.keys(DINOS)){
@@ -4566,35 +4568,44 @@ function buildMenu(){
   const fa = $('#fSubAch'); if (fa) fa.textContent = `${got}/${ACHIEVEMENTS.length} trophies`;
   if (!selDiff || selDiff < 1) selDiff = unlockedCap();
   setDiff(selDiff, true);
+  const quick = $('#btnQuickPlay');
+  $('#quickPlayLabel').textContent = save.run ? 'Continue run' : 'Play now';
+  $('#quickPlayHint').textContent = save.run
+    ? `${LEVELS[save.run.levelIdx].name} · Wave ${save.run.wave}/100 · Level ${save.run.difficulty || 1}`
+    : 'Free to play · No download · No account needed';
+  quick.onclick = () => save.run ? startLevel(save.run.levelIdx, 'resume') : startLevel(0, 'fresh', selDiff);
   const el = $('#levelCards');
   el.innerHTML = '';
   if (save.run){
     const r = save.run, lv = LEVELS[r.levelIdx];
-    const card = document.createElement('div');
+    const card = document.createElement('button');
+    card.type = 'button';
     card.className = 'levelCard resume';
     card.innerHTML =
-      `<canvas class="lvThumb" width="416" height="192"></canvas>` +
-      `<div class="lvBody">` +
-      `<div class="lvNum">▶ Continue run</div>` +
-      `<div class="lvName">${lv.name} · Lv ${r.difficulty || 1}</div>` +
-      `<div class="lvSub">Wave ${r.wave}/100 · $${fmt(r.cash)} · ${r.towers.length} weapons</div>` +
-      `<div class="lvBest">Click to pick up where you left off</div></div>`;
+      `<canvas class="lvThumb" width="640" height="300" aria-hidden="true"></canvas>` +
+      `<span class="lvBody">` +
+      `<span class="lvNum">SAVED EXPEDITION</span>` +
+      `<span class="lvName">${lv.name} · Lv ${r.difficulty || 1}</span>` +
+      `<span class="lvSub">Wave ${r.wave}/100 · $${fmt(r.cash)} · ${r.towers.length} weapons</span>` +
+      `<span class="lvBest">Continue run <span aria-hidden="true">↗</span></span></span>`;
     drawMiniMap(card.querySelector('.lvThumb'), lv);
     card.onclick = () => startLevel(r.levelIdx, 'resume');
     el.appendChild(card);
   }
   LEVELS.forEach((lv, i) => {
     const mb = save.mapBest[i] || 0;
-    const card = document.createElement('div');
-    card.className = 'levelCard';
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'levelCard' + (i === 0 ? ' featured' : '');
+    card.dataset.zone = i;
     card.innerHTML =
-      `<canvas class="lvThumb" width="416" height="192"></canvas>` +
-      `<div class="lvBody">` +
-      `<div class="lvNum">📍 Zone ${i+1}</div>` +
-      `<div class="lvName">${lv.name}</div>` +
-      `<div class="lvSub">${lv.sub}</div>` +
-      `<div class="lvBest">${mb > 0 ? '★ Best cleared here: Lv ' + mb : 'Not cleared yet'}</div>` +
-      `<div class="lvPlay">▶ Deploy at Level <b class="selD">${selDiff}</b></div></div>`;
+      `<canvas class="lvThumb" width="640" height="300" aria-hidden="true"></canvas>` +
+      `<span class="lvBody">` +
+      `<span class="lvNum">${String(i+1).padStart(2,'0')} / ${['START HERE','GOLDEN HOUR','AIR DEFENSE','LOST EXPEDITION','AFTER DARK','BUILD A MAZE','DEEP WATER'][i]}</span>` +
+      `<span class="lvName">${lv.name}</span>` +
+      `<span class="lvSub">${lv.sub}</span>` +
+      `<span class="lvBest">${mb > 0 ? 'Best: Level ' + mb : '100 waves · ' + (lv.maze ? 'Open terrain' : lv.waterPaths ? 'Land & water' : lv.flyerBias > 2 ? 'Heavy air traffic' : 'Ground & air')}</span>` +
+      `<span class="lvPlay">Play zone <span class="lv-difficulty">· Lv <b class="selD">${selDiff}</b></span><span class="lv-arrow" aria-hidden="true">↗</span></span></span>`;
     drawMiniMap(card.querySelector('.lvThumb'), lv);
     card.onclick = () => {
       setDiff(selDiff, true);
@@ -6657,7 +6668,8 @@ cv.addEventListener('pointercancel', endTouch);
   syncZoomUI();
 })();
 window.addEventListener('keydown', e => {
-  if (G.state !== 'playing') return;
+  if (G.state !== 'playing' || e.target.closest('input,textarea,select,[role="dialog"]')) return;
+  if (e.key === ' ' && e.target.closest('button,a')) return;
   const keys = Object.keys(TOWERS);
   if (e.key >= '1' && e.key <= String(keys.length)){
     const k = keys[+e.key - 1];
@@ -6824,7 +6836,11 @@ $('#setClose').onclick = () => { $('#settings').classList.add('hidden'); };
 $('#sceneToggle').onclick = () => {
   const m = $('#menu'), wasDay = m.getAttribute('data-scene') === 'day';
   m.setAttribute('data-scene', wasDay ? 'night' : 'day');
-  $('#sceneToggle').textContent = wasDay ? '🌙' : '☀️';
+  const toggle = $('#sceneToggle');
+  toggle.setAttribute('aria-pressed', String(!wasDay));
+  toggle.setAttribute('aria-label', wasDay ? 'Switch to day ambience' : 'Switch to night ambience');
+  toggle.title = toggle.getAttribute('aria-label');
+  toggle.querySelector('use').setAttribute('href', 'icons/interface.svg#' + (wasDay ? 'sun' : 'moon'));
 };
 /* Developer cheats live behind a single password gate: ticking "Developer
    options" asks for the password ONCE and, on success, reveals the individual

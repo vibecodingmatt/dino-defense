@@ -1,15 +1,21 @@
 {
   "name": "Dino Defense",
   "short_name": "Dino Defense",
-  "description": "Dinosaur tower-defense: hold the line as prehistoric giants breach containment.",
+  "description": "The fences are down. Build, upgrade, and survive 100 waves of prehistoric chaos in this free dinosaur tower defense game.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
-  "display_override": ["fullscreen", "standalone", "minimal-ui"],
+  "display_override": [
+    "fullscreen",
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "landscape",
-  "background_color": "#12180f",
-  "theme_color": "#12180f",
-  "categories": ["games"],
+  "background_color": "#101719",
+  "theme_color": "#101719",
+  "categories": [
+    "games"
+  ],
   "icons": [
     {
       "src": "icons/icon-192.png",

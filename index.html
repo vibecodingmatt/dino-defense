@@ -1,15 +1,38 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" prefix="og: https://ogp.me/ns#">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Dino Defense — Containment Breach</title>
+<title>Dino Defense — The Fences Are Down. Now What?</title>
+<meta name="description" content="The fences are down. The giants are loose. Build your defenses, unleash nine weapons, and face 100 waves of prehistoric chaos. Play Dino Defense free in your browser.">
+<link rel="canonical" href="https://vibecodingmatt.github.io/dino-defense/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Dino Defense">
+<meta property="og:locale" content="en_US">
+<meta property="og:url" content="https://vibecodingmatt.github.io/dino-defense/">
+<meta property="og:title" content="The fences are down. Now what? | Dino Defense">
+<meta property="og:description" content="33 dinosaurs. Nine weapons. 100 waves. Build your last line of defense and find out what is waiting at wave 100. Play free — no download needed.">
+<meta property="og:image" content="https://vibecodingmatt.github.io/dino-defense/assets/social/containment-breach-v1.jpg">
+<meta property="og:image:secure_url" content="https://vibecodingmatt.github.io/dino-defense/assets/social/containment-breach-v1.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A T-Rex breaks through an electric jungle fence beside the words: The fences are down. Now what? Dino Defense. Play free in your browser.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The fences are down. Now what? | Dino Defense">
+<meta name="twitter:description" content="33 dinosaurs. Nine weapons. 100 waves. How long can you hold the line? Play free in your browser.">
+<meta name="twitter:image" content="https://vibecodingmatt.github.io/dino-defense/assets/social/containment-breach-v1.jpg">
+<meta name="twitter:image:alt" content="A T-Rex breaches an electric fence. The fences are down. Now what?">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"VideoGame","name":"Dino Defense","url":"https://vibecodingmatt.github.io/dino-defense/","description":"A free dinosaur tower defense game. Build and upgrade nine weapons across seven zones and survive 100 waves.","image":"https://vibecodingmatt.github.io/dino-defense/assets/social/containment-breach-v1.jpg","genre":["Tower defense","Strategy"],"gamePlatform":"Web browser","operatingSystem":"Any with a modern web browser","applicationCategory":"GameApplication","playMode":"SinglePlayer","isAccessibleForFree":true,"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="home.css">
 <link rel="preload" as="image" href="assets/maps/sector7-facility.webp">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦖</text></svg>">
+<link rel="icon" type="image/svg+xml" href="icons/favicon.svg">
 <!-- installable PWA: add-to-home-screen, full-screen, offline -->
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#12180f">
+<meta name="theme-color" content="#101719">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -122,72 +145,87 @@
     <div class="mb mb-scan"></div>
   </div>
 
-  <button id="sceneToggle" title="Toggle day / night ambience">🌙</button>
-
+  <a class="skip-link" href="#zones">Skip to game locations</a>
   <div class="menuWrap">
-    <!-- HERO -->
-    <header class="hero">
-      <div class="crest">
-        <span class="crest-ring"></span>
-        <span class="crest-ring2"></span>
-        <span class="crest-core">🦖</span>
-      </div>
-      <h1 class="wordmark" data-text="DINO DEFENSE">DINO DEFENSE</h1>
-      <div class="tagline"><i></i><span>CONTAINMENT&nbsp;BREACH</span><i></i></div>
-      <p class="hero-sub">A dinosaur tower defense — hold the perimeter through 100 relentless waves.</p>
-      <div class="statBar">
-        <button id="menuDna" class="stat" title="Spend DNA in the Research Lab">0 DNA</button>
-        <div class="stat" id="statBest">—</div>
-        <div class="stat" id="statAch">—</div>
-      </div>
+    <header class="home-header">
+      <a class="home-brand" href="./" aria-label="Dino Defense home"><svg class="ui-icon " aria-hidden="true"><use href="icons/interface.svg#brand"></use></svg><span>DINO <b>DEFENSE</b><small>CONTAINMENT BREACH</small></span></a>
+      <nav class="home-utilities" aria-label="Help and options">
+        <button id="btnTips" class="utility" aria-label="How to play" title="How to play"><svg class="ui-icon " aria-hidden="true"><use href="icons/interface.svg#book"></use></svg><span>How to play</span></button>
+        <button id="btnSettings" class="utility" aria-label="Settings" title="Settings"><svg class="ui-icon " aria-hidden="true"><use href="icons/interface.svg#settings"></use></svg><span>Settings</span></button>
+        <button id="sceneToggle" class="utility icon-only" title="Switch to day ambience" aria-label="Switch to day ambience" aria-pressed="false"><svg class="ui-icon " aria-hidden="true"><use href="icons/interface.svg#sun"></use></svg></button>
+        <button id="btnShare" class="utility icon-only" title="Share Dino Defense" aria-label="Share Dino Defense"><svg class="ui-icon " aria-hidden="true"><use href="icons/interface.svg#share"></use></svg></button>
+      </nav>
     </header>
 
-    <!-- FEATURE DOCK: headline destinations, right under the hero where
-         nobody has to scroll to find them (live tallies set by buildMenu) -->
-    <nav id="menuBtns">
-      <button id="btnLab" class="primary"><span class="fIco">🧬</span><span class="fName">Research Lab</span><span class="fSub" id="fSubLab">—</span></button>
-      <button id="btnStickers"><span class="fIco">📖</span><span class="fName">Sticker Book</span><span class="fSub" id="fSubStick">—</span></button>
-      <button id="btnStudio"><span class="fIco">🎨</span><span class="fName">Dino Studio</span><span class="fSub" id="fSubStudio">—</span></button>
-      <button id="btnAch"><span class="fIco">🏆</span><span class="fName">Achievements</span><span class="fSub" id="fSubAch">—</span></button>
-      <button id="btnTips"><span class="fIco">💡</span><span class="fName">Field Manual</span><span class="fSub">tips &amp; tactics</span></button>
-      <button id="btnSettings"><span class="fIco">⚙️</span><span class="fName">Settings</span><span class="fSub">sound · options</span></button>
-    </nav>
-
-    <button id="btnCreatures" class="creatures-open hidden"><span>BEYOND THE FENCE</span> Explore all 33 dinosaurs <b>↗</b></button>
-
-    <!-- COMMAND DECK -->
-    <section class="deck">
-      <div id="diffPick">
-        <div class="diffTop">🎚️ Level <span class="diffHint">— higher is harder</span></div>
-        <div id="diffCtl">
-          <button data-d="-10" title="−10">«</button>
-          <button data-d="-1" title="−1">‹</button>
-          <input id="diffInput" type="number" min="1" max="1000" value="1">
-          <button data-d="1" title="+1">›</button>
-          <button data-d="10" title="+10">»</button>
-          <button id="diffMax" title="Jump to the highest unlocked level">MAX</button>
+    <section class="hero" aria-labelledby="homeTitle">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="status-dot"></span> CONTAINMENT LOST. YOU'RE UP.</p>
+        <h1 id="homeTitle">THE FENCES<br>ARE <em>DOWN.</em></h1>
+        <p class="hero-sub">Build your defenses. Upgrade your arsenal. Survive 100 waves of prehistoric chaos.</p>
+        <div class="hero-actions">
+          <button id="btnQuickPlay" class="play-button"><svg class="ui-icon " aria-hidden="true"><use href="icons/interface.svg#play"></use></svg><span id="quickPlayLabel">Play now</span><svg class="ui-icon " aria-hidden="true"><use href="icons/interface.svg#arrow"></use></svg></button>
+          <a class="browse-zones" href="#zones">Choose your zone <svg class="ui-icon " aria-hidden="true"><use href="icons/interface.svg#down"></use></svg></a>
         </div>
-        <div id="diffInfo"></div>
+        <p id="quickPlayHint" class="play-hint">Free to play · No download · No account needed</p>
       </div>
-
-      <div class="deckMaps">
-        <div id="mapHint">Select a deployment zone</div>
-        <div id="levelCards"></div>
-      </div>
+      <div class="scene-caption" aria-hidden="true"><span class="status-dot"></span> BEYOND THE FENCE <span>Life finds a way.</span></div>
     </section>
 
-    <!-- install-to-device (shown by JS only when installable and not already installed) -->
-    <button id="btnInstall" class="hidden">📲 <span class="instTxt">Install app</span></button>
-
-    <footer class="menuFoot">
-      <div id="verChip" title="See what changed in recent updates"></div>
-      <div class="foot">
-        Pick a zone and a level (1–1000) — the higher the level, the tougher the dinosaurs. Clear all 100 waves. Every kill pays cash for weapons and banks DNA — spend it in the Research Lab to climb higher.<br>
-        An affectionate homage to a certain dinosaur park that definitely spared no expense.
+    <section class="ranger-hub" aria-label="Your ranger progress and collection">
+      <div class="ranger-profile">
+        <div class="profile-title"><span class="eyebrow">YOUR PROGRESS</span><span id="statBest">New ranger</span></div>
+        <div class="statBar"><button id="menuDna" class="stat" title="Spend DNA in the Research Lab">0 DNA</button><span id="statAch">0 trophies</span></div>
       </div>
+      <nav id="menuBtns" aria-label="Upgrades and collections">
+        <button id="btnLab"><svg class="ui-icon fIco" aria-hidden="true"><use href="icons/interface.svg#dna"></use></svg><span class="fName">Research Lab</span><span class="fSub" id="fSubLab">Permanent upgrades</span><svg class="ui-icon nav-arrow" aria-hidden="true"><use href="icons/interface.svg#chevron"></use></svg></button>
+        <button id="btnStickers"><svg class="ui-icon fIco" aria-hidden="true"><use href="icons/interface.svg#cards"></use></svg><span class="fName">Sticker Book</span><span class="fSub" id="fSubStick">Your collection</span><svg class="ui-icon nav-arrow" aria-hidden="true"><use href="icons/interface.svg#chevron"></use></svg></button>
+        <button id="btnStudio"><svg class="ui-icon fIco" aria-hidden="true"><use href="icons/interface.svg#palette"></use></svg><span class="fName">Dino Studio</span><span class="fSub" id="fSubStudio">Create a dinosaur</span><svg class="ui-icon nav-arrow" aria-hidden="true"><use href="icons/interface.svg#chevron"></use></svg></button>
+        <button id="btnAch"><svg class="ui-icon fIco" aria-hidden="true"><use href="icons/interface.svg#trophy"></use></svg><span class="fName">Achievements</span><span class="fSub" id="fSubAch">Your milestones</span><svg class="ui-icon nav-arrow" aria-hidden="true"><use href="icons/interface.svg#chevron"></use></svg></button>
+      </nav>
+    </section>
+
+    <section id="zones" class="deck" aria-labelledby="zonesTitle" tabindex="-1">
+      <div class="zone-heading">
+        <div><p class="eyebrow">SEVEN ZONES. ONE MISSION.</p><h2 id="zonesTitle">Choose your ground.</h2><p id="mapHint">Every zone is open. The Perimeter Fence is a great place to start.</p></div>
+        <details id="diffPick">
+          <summary>Difficulty <b>Level <span class="selD">1</span></b><svg class="ui-icon " aria-hidden="true"><use href="icons/interface.svg#down"></use></svg></summary>
+          <div class="difficulty-panel">
+            <label class="diffTop" for="diffInput">Difficulty level <span class="diffHint">Higher is harder</span></label>
+            <div id="diffCtl">
+              <button data-d="-10" title="Decrease by 10" aria-label="Decrease difficulty by 10">«</button>
+              <button data-d="-1" title="Decrease by 1" aria-label="Decrease difficulty by 1">−</button>
+              <input id="diffInput" type="number" min="1" max="1000" value="1" aria-describedby="diffInfo">
+              <button data-d="1" title="Increase by 1" aria-label="Increase difficulty by 1">+</button>
+              <button data-d="10" title="Increase by 10" aria-label="Increase difficulty by 10">»</button>
+              <button id="diffMax" title="Highest unlocked difficulty">MAX</button>
+            </div>
+            <div id="diffInfo"></div>
+          </div>
+        </details>
+      </div>
+      <div id="levelCards"></div>
+    </section>
+
+    <section class="home-how" aria-label="How the game works">
+      <div><span>01</span><h3>Build your defense.</h3><p>Place nine types of weapons to cover the paths. Every kill funds your next upgrade.</p></div>
+      <div><span>02</span><h3>Expect the unexpected.</h3><p>Ground, air, and water. 33 dinosaurs, giant bosses, and a final test at wave 100.</p></div>
+      <div><span>03</span><h3>Come back stronger.</h3><p>Bank DNA for permanent research. Collect stickers and make your own dinosaurs.</p></div>
+    </section>
+
+    <button id="btnCreatures" class="creatures-open hidden"><span>BEYOND THE FENCE</span> Explore all 33 dinosaurs <b>↗</b></button>
+    <footer class="menuFoot">
+      <div class="footer-brand">DINO DEFENSE <span>Build. Upgrade. Survive.</span></div>
+      <div class="footer-actions"><button id="btnInstall" class="utility hidden"><svg class="ui-icon " aria-hidden="true"><use href="icons/interface.svg#download"></use></svg><span class="instTxt">Install app</span></button><button id="verChip" class="utility" title="See what changed in recent updates"></button></div>
+      <p class="foot">An affectionate homage to a certain dinosaur park that definitely spared no expense.</p>
     </footer>
+    <p id="shareStatus" class="share-status" role="status" aria-live="polite"></p>
   </div>
 </div>
+
+<div id="shareDialog" class="modal hidden">
+  <div class="modalBox"><button class="modalX" aria-label="Close share dialog">✕</button><h2>Send in reinforcements.</h2><p>Share Dino Defense with someone who thinks they can hold the line.</p><label for="shareUrl">Game link</label><input id="shareUrl" readonly value="https://vibecodingmatt.github.io/dino-defense/"><div class="modalBtns"><button id="copyGameLink" class="primary">Copy link</button></div><p id="copyLinkStatus" role="status"></p></div>
+</div>
+<noscript><div class="no-script">Dino Defense needs JavaScript to play. Enable JavaScript in your browser, then reload to enter the park.</div></noscript>
 
 <!-- research lab -->
 <div id="lab" class="modal hidden">
@@ -290,25 +328,29 @@
     <div class="sub">Saved automatically.</div>
     <label class="optRow">
       <input type="checkbox" id="optAuto" checked>
-      <span>▶ Auto-start waves <small>Next wave begins 3 seconds after the last one is cleared.</small></span>
+      <span>Auto-start waves <small>Next wave begins 3 seconds after the last one is cleared.</small></span>
     </label>
     <label class="optRow">
       <input type="checkbox" id="optMusic" checked>
-      <span>🎵 Music <small>A cinematic orchestral score under the action.</small></span>
+      <span>Music <small>A cinematic orchestral score under the action.</small></span>
     </label>
     <label class="optRow">
       <input type="checkbox" id="optMute">
-      <span>🔇 Mute all sound</span>
+      <span>Mute all sound</span>
     </label>
     <label class="optRow">
       <input type="checkbox" id="optPreview" checked>
-      <span>🔭 Incoming wave preview <small>Shows what the next wave brings next to the wave counter — and warns when flyers are coming and you have no anti-air.</small></span>
+      <span>Incoming wave preview <small>See what's coming, with a warning if you need air defenses.</small></span>
     </label>
     <label class="optRow">
       <input type="checkbox" id="optCallouts" checked>
-      <span>💥 Multi-kill callouts <small>TRIPLE! MEGA! ULTRA! popups when one weapon wipes several dinos at once.</small></span>
+      <span>Multi-kill callouts <small>Celebrate when one weapon takes out several dinosaurs.</small></span>
     </label>
-
+    <label class="optRow">
+      <input type="checkbox" id="optSceneMotion" checked>
+      <span>Animate home scenes <small>Pause the background dinosaurs and effects. Follows your device's reduced motion setting by default.</small></span>
+    </label>
+    <details class="advanced-settings"><summary>Advanced options</summary>
     <div class="optHead">🧪 Developer options <small>Tick the box below and enter the developer password once to reveal the cheats. Runs that use a cheat earn no DNA and no achievements.</small></div>
     <label class="optRow">
       <input type="checkbox" id="optDev">
@@ -332,9 +374,10 @@
         <span>📖 Preview all stickers <small>Shows every sticker (and its trading card) as unlocked in the Sticker Book — view-only, your real collection is untouched.</small></span>
       </label>
     </div>
-    <div class="optRow">
-      <button id="btnExport">📋 Copy save code</button>
-      <button id="btnImport">📥 Import save code</button>
+    </details>
+    <div class="optRow save-transfer">
+      <button id="btnExport">Copy save code</button>
+      <button id="btnImport">Import save code</button>
       <span><small>Back up your progress or move it to another browser/device.</small></span>
     </div>
     <div class="modalBtns">
@@ -397,6 +440,7 @@
 <script src="js/dino-fx.js"></script>
 <script src="js/audio-fx.js"></script>
 <script src="js/game.js"></script>
+<script src="js/home.js"></script>
 <script src="js/armory-guide.js"></script>
 <script src="js/creature-guide.js"></script>
 <script>
