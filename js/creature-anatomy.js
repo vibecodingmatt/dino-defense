@@ -55,7 +55,7 @@ const CreatureAnatomy=(()=>{
       for(let j=0;j<rows.length-1;j++)for(let i=0;i<n;i++){const a=rows[j][i],b=rows[j][(i+1)%n],c=rows[j+1][(i+1)%n],d=rows[j+1][i];tri(a.p,b.p,c.p,a.n,b.n,c.n,a.b,b.b,c.b,a.c,b.c,c.c);tri(a.p,c.p,d.p,a.n,c.n,d.n,a.b,c.b,d.b,a.c,c.c,d.c);}
       for(const j of [0,rows.length-1]){const row=rows[j],center=row.reduce((p,v)=>add(p,mul(v.p,1/n)),[0,0,0]);for(let i=0;i<n;i++)tri(center,row[i].p,row[(i+1)%n].p,null,null,null,row[i].b,row[i].b,row[i].b,row[i].c,row[i].c,row[i].c);}
     }
-    function sweep(points,sides=18,boneAt,pigment=true,steps=4){let frame=[0,1,0];const pp=samples(points,steps),rows=pp.map(({p,u},j)=>{const ax=norm(sub(pp[Math.min(pp.length-1,j+1)].p.slice(0,3),pp[Math.max(0,j-1)].p.slice(0,3)));let ac=sub(frame,mul(ax,dot(frame,ax)));if(Math.hypot(...ac)<.01)ac=cross([0,0,1],ax);ac=norm(ac);frame=ac;const wide=cross(ax,ac);return Array.from({length:sides},(_,i)=>{const a=i/sides*TAU,n=add(mul(ac,Math.cos(a)),mul(wide,Math.sin(a)));return {p:add(p.slice(0,3),add(mul(ac,Math.cos(a)*p[3]),mul(wide,Math.sin(a)*p[4]))),n,u};});});surface(rows,boneAt,pigment);}
+    function sweep(points,sides=18,boneAt,pigment=true,steps=4,sculpt){let frame=[0,1,0];const pp=samples(points,steps),rows=pp.map(({p,u},j)=>{const ax=norm(sub(pp[Math.min(pp.length-1,j+1)].p.slice(0,3),pp[Math.max(0,j-1)].p.slice(0,3)));let ac=sub(frame,mul(ax,dot(frame,ax)));if(Math.hypot(...ac)<.01)ac=cross([0,0,1],ax);ac=norm(ac);frame=ac;const wide=cross(ax,ac);return Array.from({length:sides},(_,i)=>{const a=i/sides*TAU,n=add(mul(ac,Math.cos(a)),mul(wide,Math.sin(a))),v=add(p.slice(0,3),add(mul(ac,Math.cos(a)*p[3]),mul(wide,Math.sin(a)*p[4])));return {p:sculpt?sculpt(v,u,a,n):v,n,u};});});surface(rows,boneAt,pigment);}
     function profile(sections,exponent=2.2,pigment=true){
       const pp=profileSamples(sections),rows=pp.map(({p,u})=>Array.from({length:22},(_,i)=>{const a=i/22*TAU,cy=Math.sign(Math.cos(a))*Math.abs(Math.cos(a))**(2/exponent),cz=Math.sign(Math.sin(a))*Math.abs(Math.sin(a))**(2/exponent);return {p:[p[0],(p[1]+p[2])*.5+cy*(p[1]-p[2])*.5,cz*p[3]],n:[0,cy,cz],u};}));surface(rows,null,pigment);
     }
@@ -113,6 +113,14 @@ const CreatureAnatomy=(()=>{
     const skullContour=[[0,1],[.35,.985],[.64,.91],[.84,.78],[.96,.59],[1,.37],[.95,.16],[.86,0],[.65,.025],[.30,.08],[0,.10],[-.30,.08],[-.65,.025],[-.86,0],[-.95,.16],[-1,.37],[-.96,.59],[-.84,.78],[-.64,.91],[-.35,.985]];
     function facial(v){
       const ex=s.eye[0],ey=s.eye[1],dx=(v[0]-ex)/(s.socket?.[0]||.16),dy=(v[1]-ey)/(s.socket?.[1]||.10),dent=Math.exp(-(dx*dx+dy*dy)*1.8),fenestra=Math.exp(-(((v[0]-ex-.20)/.17)**2+((v[1]-ey+.085)/.10)**2)*1.4),cheek=Math.exp(-(((v[0]-ex+.12)/.13)**2+((v[1]-ey+.12)/.12)**2));
+      if(s.blueFilm){
+        const g=(x,y,rx,ry)=>Math.exp(-(((v[0]-x)/rx)**2+((v[1]-y)/ry)**2));
+        v[2]*=1-dent*.26-g(1.25,1.815,.16,.085)*.27+g(.90,1.78,.12,.12)*.15+g(1.14,1.705,.16,.045)*.11;
+        // Low paired nasal ridges and a shallow central furrow, not a crest.
+        const roof=clamp((v[1]-1.86)/.12,0,1),nasal=Math.exp(-(((Math.abs(v[2])-.060)/.034)**2));
+        v[1]+=.014*nasal*roof*clamp((v[0]-1.13)/.20,0,1);
+        return v;
+      }
       if(!s.rex93){v[2]*=1-dent*.11-fenestra*.085+cheek*.09;return v;}
       const g=(x,y,rx,ry)=>Math.exp(-(((v[0]-x)/rx)**2+((v[1]-y)/ry)**2));
       // Deep temporal orbit, recessed antorbital cheek, raised jugal edge.
@@ -128,6 +136,11 @@ const CreatureAnatomy=(()=>{
     if(s.neckSweep)profile(trunk,1.85);
     else loft(join(trunk,cranium),p=>{const t=clamp((p[0]-s.head[0][0]+.15)/.30,0,1);return skullContour.map(([z,y],i)=>{const a=i/20*TAU;return [mix(Math.sin(a),z,t),mix(.5+.5*Math.cos(a),y,t)];});},null,true,v=>{
       if(v[0]>s.head[0][0])return facial(v);
+      if(s.blueFilm){
+        const neck=Math.exp(-(((v[0]-.48)/.25)**2)),fold=Math.sin(v[0]*81-v[1]*19+Math.abs(v[2])*11)*neck;
+        v[2]*=1+fold*.048;v[1]+=fold*.012;
+        const shoulder=Math.exp(-(((v[0]-.23)/.19)**2+((v[1]-1.17)/.17)**2));v[2]*=1+shoulder*.10;
+      }
       if(s.rex93){const fold=Math.exp(-(((v[0]-.71)/.26)**2))*Math.sin(v[0]*69+v[1]*7+Math.abs(v[2])*4);v[2]*=1+fold*.025;v[1]+=fold*.006;}
       return v;
     });
@@ -138,7 +151,16 @@ const CreatureAnatomy=(()=>{
     // Mask whole triangles. Moving only one corner off-screen would stretch
     // boundary faces across the image when a boss loses its head or tail.
     for(let j=0;j<m.data.length;j+=51){const x=(m.data[j]+m.data[j+17]+m.data[j+34])/3,part=x>=s.head[0][0]?1:x<s.body[1][0]?3:0;for(const o of [0,17,34])m.data[j+o+14]=part;}
-    if(s.neckSweep){use(0,'torso');sweep(s.neckSweep,24,u=>[0,1,clamp((u-(s.neckSweep.length-2))/1.3,0,1)]);}
+    if(s.neckSweep){
+      use(0,'torso');const neckStart=m.data.length;
+      // The curved cervical column keeps a full cross-section through the
+      // steep rise. Blue's shallow skin folds wrap that column into the nape.
+      sweep(s.neckSweep,24,u=>[0,1,clamp((u-(s.neckSweep.length-2))/1.3,0,1)],true,s.blueFilm?8:4,s.blueFilm?(v,u,a,n)=>{
+        const fold=Math.sin(u*13+a*.55)*Math.sin(Math.PI*clamp(u/(s.neckSweep.length-1),0,1))*.008;
+        return add(v,mul(n,fold));
+      }:undefined);
+      if(s.blueFilm)for(let j=neckStart;j<m.data.length;j+=51){const x=(m.data[j]+m.data[j+17]+m.data[j+34])/3;if(x>=s.head[0][0])for(const o of [0,17,34])m.data[j+o+14]=1;}
+    }
     // Skull sections have temporal breadth, a cheek wall, a real lip edge,
     // and a recessed palate. Their transverse shape is not a body section.
     const jawContour=[[0,1],[.35,1],[.68,1],[.88,.98],[1,.78],[.99,.46],[.83,.14],[.45,.025],[0,0],[-.45,.025],[-.83,.14],[-.99,.46],[-1,.78],[-.88,.98],[-.68,1],[-.35,1]];
@@ -169,6 +191,7 @@ const CreatureAnatomy=(()=>{
     use(2,'lowerJaw',0,'#604044');loft(mandible.map(p=>[p[0],p[1]+.006,p[1]+.002,p[3]*.68]),[[0,1],[1,0],[0,0],[-1,0]],null,false);
     if(s.beak){use(1,'head',0,'#514b3c');const h=s.head.at(-1),p=s.head.at(-2);profile([[p[0]-.01,p[1]-.04,p[2]+.012,p[3]*.92],h],2.4);}
     const headSamples=profileSamples(s.head,5).map(v=>v.p);
+    const mandibleSamples=s.blueFilm?profileSamples(mandible,5).map(v=>v.p):mandible;
     function faceWidth(x,y){const h=at(headSamples,x),t=clamp((y-h[2])/(h[1]-h[2]),0,1),c=skullContour.slice(0,8).slice().reverse();let i=0;while(i<c.length-2&&c[i+1][1]<t)i++;return h[3]*mix(c[i][0],c[i+1][0],clamp((t-c[i][1])/(c[i+1][1]-c[i][1]),0,1));}
     function feather(p,d,n,length,width,color){
       const axis=norm(d),ac=norm(cross(axis,n)),mid=add(add(p,mul(axis,length*.26)),mul(n,width*.8)),tip=add(add(p,mul(axis,length)),mul(n,width*.5)),left=add(mid,mul(ac,width)),right=sub(mid,mul(ac,width)),ridge=add(mid,mul(n,width*.15)),rootL=add(p,mul(ac,width*.15)),rootR=sub(p,mul(ac,width*.15));
@@ -184,37 +207,81 @@ const CreatureAnatomy=(()=>{
     }
     const [ex,ey,,er]=s.eye,ez=facial([ex,ey,faceWidth(ex,ey)])[2]+(key==='drex'?.040:.006);
     for(const side of [-1,1]){
-      use(1,'head',0,'#272b25');ell([ex,ey,side*ez],[er*1.7,er*1.3,.014]);
-      use(1,'head',2,key==='therizinosaurus'?'#aaa99b':'#c49d44');ell([ex+.004,ey,side*(ez+.010)],[er,er*.88,.009]);
-      use(1,'head',0,'#0f1613');ell([ex+.005,ey,side*(ez+.018)],[er*(s.rex93?.52:.39),er*(s.rex93?.60:.81),.003]);
+      use(1,'head',0,'#272b25');ell([ex,ey,side*ez],[er*(s.blueFilm?1.30:1.7),er*(s.blueFilm?1.07:1.3),.014],s.blueFilm?20:12,s.blueFilm?12:8);
+      use(1,'head',2,key==='therizinosaurus'?'#aaa99b':s.blueFilm?'#b87b2b':'#c49d44');ell([ex+.004,ey,side*(ez+.010)],[er,er*.88,.009],s.blueFilm?20:12,s.blueFilm?12:8);
+      if(s.blueFilm){
+        // Amber iris fibres surround the narrow vertical pupil. Small convex
+        // layers keep the eye seated in the socket at oblique headings.
+        for(let i=0;i<28;i++){const angle=i/28*TAU,r=.68+.15*Math.sin(i*2.1)**2;use(1,'head',2,i%3?'#d7a149':'#8b581f');
+          const p=t=>[ex+.004+Math.cos(angle+t)*er*r,ey+Math.sin(angle+t)*er*.86*r,side*(ez+.018)];
+          tri([ex+.004+Math.cos(angle)*er*.24,ey+Math.sin(angle)*er*.22,side*(ez+.020)],p(-.045),p(.045));
+        }
+      }
+      use(1,'head',0,'#0f1613');ell([ex+.005,ey,side*(ez+(s.blueFilm?.021:.018))],[er*(s.rex93?.52:s.blueFilm?.26:.39),er*(s.rex93?.60:.81),.003]);
+      if(s.blueFilm){use(1,'head',2,'#f2e7cc');ell([ex-.006,ey+.011,side*(ez+.023)],[.004,.005,.002],8,6);}
       use(1,'head');for(const sign of [-1,1]){
         const pts=[];for(let i=0;i<7;i++){
           const t=i/6*Math.PI,x=ex-Math.cos(t)*er*1.75,y=ey+Math.sin(t)*er*1.24*sign;
-          const width=s.rex93?facial([x,y,faceWidth(x,y)])[2]:faceWidth(x,y)*(1-Math.exp(-(((x-ex)/.16)**2+((y-ey)/.1)**2)*1.8)*.11);
+          const width=s.rex93||s.blueFilm?facial([x,y,faceWidth(x,y)])[2]:faceWidth(x,y)*(1-Math.exp(-(((x-ex)/.16)**2+((y-ey)/.1)**2)*1.8)*.11);
           pts.push([x,y,side*(width+.010),er*.23,er*.28]);
         }sweep(pts,8,null,false,2);
       }
       // A nostril follows the nasal wall near the tip, above the closed lip.
-      const nx=mix(ex,s.head.at(-1)[0],.81),nr=at(s.head,nx),ny=mix(nr[2],nr[1],.68),nz=faceWidth(nx,ny)+.004;
-      use(1,'head',0,'#31372c');ell([nx,ny,side*nz],[er*(s.rex93?1.65:1.05),er*(s.rex93?.75:.52),.008],12,8);
+      const nx=mix(ex,s.head.at(-1)[0],s.blueFilm?.82:.81),nr=at(s.head,nx),ny=mix(nr[2],nr[1],.68),nz=s.blueFilm?facial([nx,ny,faceWidth(nx,ny)])[2]+.016:faceWidth(nx,ny)+.004;
+      if(s.blueFilm){use(1,'head');ell([nx-.004,ny+.005,side*(nz-.016)],[.049,.028,.017],16,10);}
+      use(1,'head',0,'#31372c');ell([nx,ny,side*nz],[er*(s.rex93?1.65:s.blueFilm?.95:1.05),er*(s.rex93?.75:.52),.008],12,8);
       // Keratin lip margins cover the tooth roots along the whole arcade.
-      for(const lower of [false,true]){const rows=lower?mandible:s.head,pts=[];for(let i=0;i<22;i++){const x=mix(s.jaw[0][0]+.02,s.head.at(-1)[0]-.018,i/21),p=at(rows,x);pts.push([x,lower?p[1]-.003:p[2]+.003,side*p[3]*(lower?.91:.86),.006,.007]);}use(lower?2:1,lower?'lowerJaw':'head',0,'#625d4c');sweep(pts,8,null,false,2);}
+      for(const lower of [false,true]){const rows=s.blueFilm?(lower?mandibleSamples:headSamples):(lower?mandible:s.head),pts=[],count=s.blueFilm?48:22;for(let i=0;i<count;i++){const x=mix(s.jaw[0][0]+.02,s.head.at(-1)[0]-.018,i/(count-1)),p=at(rows,x);pts.push([x,lower?p[1]-.003:p[2]+.003,side*p[3]*(lower?.91:.86),.006,.007]);}use(lower?2:1,lower?'lowerJaw':'head',0,'#625d4c');sweep(pts,8,null,false,2);}
     }
     if(s.frill){const f=s.frill;use(1,'head',4,cfg.body);const rows=[];for(let j=0;j<=8;j++){const r=j/8;rows.push(Array.from({length:40},(_,i)=>{const a=i/40*TAU,yy=Math.cos(a)*f.height*r,zz=Math.sin(a)*f.width*r;return [f.x+f.lean*r*r,f.y+yy,zz];}));}for(let j=0;j<8;j++)for(let i=0;i<40;i++){const a=rows[j][i],b=rows[j][(i+1)%40],c=rows[j+1][(i+1)%40],d=rows[j+1][i];tri(a,b,c);tri(a,c,d);}use(1,'head',0,'#aaa085');for(let i=0;i<18;i++){const a=i/18*TAU,p=rows[8][Math.round(i/18*40)%40];horn([p,add(p,[-.025,Math.cos(a)*.038,Math.sin(a)*.038])],.025);}}
     for(const h of s.horns||[]){use(1,'head',0,'#c8ba98');horn(h.slice(0,-1),h.at(-1));}
-    if(s.teeth){const [start,end,count,len]=s.teeth;for(const side of [-1,1])for(let i=0;i<count;i++){const x=mix(start,end,i/(count-1)),h=at(s.head,x),j=at(mandible,x),z=side*h[3]*(s.rex93?.74:.71),l=Math.min(len*(.72+.28*Math.sin(i*2.1)**2),(j[1]-j[2])*(s.rex93?.88:.69));use(1,'head',0,s.rex93?'#d7cdb1':'#c4b997');horn([[x,h[2]+(s.rex93?.040:.014),z],[x-.009,h[2]-l*.60,z*.98],[x-(s.rex93?.035:.021),h[2]-l,z*.94]],l*(s.rex93?.245:.19));const lx=x+.013,lh=at(s.head,lx),lj=at(mandible,lx);use(2,'lowerJaw',0,'#bdb298');horn([[lx,lj[1]-.014,side*lh[3]*.64],[lx-.009,lj[1]+l*.53,side*lh[3]*.63],[lx-.015,lj[1]+l*.70,side*lh[3]*.61]],l*(s.rex93?.22:.15));}}
+    if(s.blueFilm){
+      const [start,end,count,len]=s.teeth;
+      for(const side of [-1,1]){
+        for(const lower of [false,true]){
+          const pts=[];for(let i=0;i<32;i++){const x=mix(start-.025,end+.014,i/31),h=at(headSamples,x),j=at(mandibleSamples,x);pts.push([x,lower?j[1]-.002:h[2]+.002,side*h[3]*(lower?.69:.75),.009,.010]);}
+          use(lower?2:1,lower?'lowerJaw':'head',0,lower?'#805953':'#6e4b47');sweep(pts,8,null,false,1);
+        }
+        for(let i=0;i<count;i++)for(const lower of [false,true]){
+          const t=i/(count-1),x=mix(start,end,t)+(lower?.018:0),h=at(headSamples,x),j=at(mandibleSamples,x);
+          const length=Math.min(len*(.58+.42*Math.sin(t*Math.PI)**.7)*(1+.09*Math.sin(i*4.7))*(lower?.78:1),(j[1]-j[2])*.82);
+          const y=lower?j[1]-.012:h[2]+.014,z=side*h[3]*(lower?.69:.75),sign=lower?1:-1,rad=length*.205;
+          use(lower?2:1,lower?'lowerJaw':'head',0,i%4===0?'#c7b893':'#d8ccae');
+          sweep([[x,y,z,rad,rad*.79],[x-.002,y+sign*length*.32,z*.99,rad*.81,rad*.61],[x-.013,y+sign*length*.77,z*.975,rad*.40,rad*.29],[x-.026,y+sign*length,z*.95,.001,.001]],8,null,false,2);
+        }
+      }
+    }else if(s.teeth){const [start,end,count,len]=s.teeth;for(const side of [-1,1])for(let i=0;i<count;i++){const x=mix(start,end,i/(count-1)),h=at(s.head,x),j=at(mandible,x),z=side*h[3]*(s.rex93?.74:.71),l=Math.min(len*(.72+.28*Math.sin(i*2.1)**2),(j[1]-j[2])*(s.rex93?.88:.69));use(1,'head',0,s.rex93?'#d7cdb1':'#c4b997');horn([[x,h[2]+(s.rex93?.040:.014),z],[x-.009,h[2]-l*.60,z*.98],[x-(s.rex93?.035:.021),h[2]-l,z*.94]],l*(s.rex93?.245:.19));const lx=x+.013,lh=at(s.head,lx),lj=at(mandible,lx);use(2,'lowerJaw',0,'#bdb298');horn([[lx,lj[1]-.014,side*lh[3]*.64],[lx-.009,lj[1]+l*.53,side*lh[3]*.63],[lx-.015,lj[1]+l*.70,side*lh[3]*.61]],l*(s.rex93?.22:.15));}}
     if(s.crest){use(1,'head');sweep(s.crest,16);}
     if(s.dome){use(1,'head');ell(s.dome.slice(0,3),s.dome.slice(3),32,20);}
     if(s.crestBlade){const [a,b,t]=s.crestBlade,tip=[...t,0],aa=[...a,.045],bb=[...b,.032],ab=[...a,-.045],ba=[...b,-.032];use(1,'head',4,key==='quetzalcoatlus'?'#80634e':cfg.body);tri(aa,bb,tip);tri(ab,tip,ba);tri(aa,tip,ab);tri(bb,ba,tip);tri(aa,ab,ba);tri(aa,ba,bb);}
     if(s.stygi)for(const side of [-1,1])for(let i=0;i<3;i++){use(1,'head',0,'#9c8b6e');horn([[.67-i*.052,1.84-i*.09,side*(.10+i*.005)],[.51-i*.064,1.91-i*.11,side*(.21+i*.028)],[.41-i*.048,1.95-i*.12,side*(.23+i*.03)]],.041-i*.005);}
     if(s.brows)for(const side of [-1,1]){use(1,'head');
-      if(s.rex93){
+      if(s.blueFilm){
+        const line=(points,ry,rz)=>points.map(([x,y])=>[x,y,side*(facial([x,y,faceWidth(x,y)])[2]-.009),ry,rz]);
+        sweep(line([[.90,1.981],[.965,2.011],[1.035,2.014],[1.105,1.996],[1.16,1.965]],.024,.029),16);
+        sweep(line([[.905,1.944],[.91,1.873],[.995,1.847],[1.10,1.878]],.013,.019),12);
+        // Small, irregular scutes on the brow and nasal roof blend into skin.
+        for(let i=0;i<8;i++){const x=1.15+i*.072,h=at(headSamples,x);ell([x,h[1]-.011,side*.052],[.029,.016+(i%3)*.003,.026],12,8);}
+      }else if(s.rex93){
         const line=(points,ry,rz)=>points.map(([x,y])=>[x,y,side*(facial([x,y,faceWidth(x,y)])[2]-.012),ry,rz]);
         sweep(line([[1.10,1.89],[1.19,1.93],[1.28,1.925],[1.37,1.875],[1.44,1.825]],.043,.055),16);
         sweep(line([[1.13,1.84],[1.115,1.73],[1.18,1.59],[1.30,1.49],[1.43,1.53]],.022,.028),12);
         // Nasal scutes break up the muzzle roof without adding spikes.
         for(let i=0;i<7;i++){const x=1.46+i*.078,h=at(s.head,x),z=side*(.16+.022*Math.sin(i*1.7));ell([x,h[1]-.019,z],[.049,.025+(i%3)*.003,.044],12,6);}
       }else sweep([[ex-.10,ey+.046,side*ez*.85,.025,.036],[ex,ey+.053,side*ez*.95,.028,.035],[ex+.13,ey+.024,side*ez*.85,.007,.008]],12);
+    }
+    if(s.blueFilm){
+      // Retained dermal relief (material 6) uses the same skin shader. Sparse
+      // irregular lip/cheek scutes survive the remesh, with smaller scales
+      // supplied by the hide texture. They sit within the surface, not on stalks.
+      for(const side of [-1,1])for(const lower of [false,true])for(let row=0;row<3;row++)for(let i=0;i<15;i++){
+        const x=1.08+i*.041+(row%2)*.017+.005*Math.sin(i*7+row*3),p=at(lower?mandibleSamples:headSamples,x),rnd=.5+.5*Math.sin(i*13.7+row*9.1+side*2);
+        const t=lower?.25+row*.24:.10+row*.16,y=mix(p[2],p[1],t);
+        let z;
+        if(lower){const c=jawContour.slice(4,9).slice().reverse();let k=0;while(k<c.length-2&&c[k+1][1]<t)k++;z=p[3]*mix(c[k][0],c[k+1][0],clamp((t-c[k][1])/(c[k+1][1]-c[k][1]),0,1));}
+        else z=facial([x,y,faceWidth(x,y)])[2];
+        use(lower?2:1,lower?'lowerJaw':'head',6,[1,0,0]);ell([x,y,side*(z-.0015)],[.014+rnd*.006,.010+rnd*.005,.004+rnd*.002],8,4);
+      }
     }
     if(s.dilo){
       for(const side of [-1,1]){use(1,'head');const start=m.data.length;profile([[.73,.01],[.84,.22],[1.02,.26],[1.23,.12],[1.42,.01]].map(([x,h])=>{const p=at(s.head,x);return [x,p[1]+h,p[1]-.025,.018];}),1.8);for(let j=start;j<m.data.length;j+=17){m.data[j+2]+=side*.092;m.data[j+8]+=side*.092;}}
@@ -254,11 +321,20 @@ const CreatureAnatomy=(()=>{
           use(toe,part,0,'#514731');horn([[end[0]-.07,.12,end[2]-side*.22],[end[0]-.01,.17,end[2]-side*.19]],.025);continue;
         }
         for(let digit=-1;digit<=1;digit++){
+          // Blue walks on digits III/IV. Digit II has its own lifted pad
+          // and sickle below; it is not a fourth claw above three flat toes.
+          if(s.blueFilm&&digit===-side)continue;
           const z=end[2]+digit*fw*.65,x=end[0],len=fl*(digit===0?1:.82);use(toe,part);
           sweep([[x-.09,.083,end[2],.058,.057],[x+.025,.058,z,.048,.041],[x+len*.72,.042,z+digit*.025,.028,.027],[x+len,.033,z+digit*.034,.012,.017]],12,null,false);
           use(toe,part,0,'#514c3d');horn([[x+len*.73,.058,z+digit*.025],[x+len+.055,.063,z+digit*.034],[x+len+.079,.017,z+digit*.035]],.028);
         }
-        if(s.sickle){const z=end[2]-side*fw*.68;use(toe,part,0,'#514839');horn([[end[0]-.02,.09,z],[end[0]+.055,.205,z-side*.016],[end[0]+.15,.18,z-side*.018],[end[0]+.16,.075,z]],.035);}
+        if(s.blueFilm){
+          const z=end[2]-side*fw*.82;
+          use(toe,part);sweep([[end[0]-.055,.096,end[2]],[end[0]+.015,.15,z],[end[0]+.067,.213,z-side*.01]].map((p,i)=>[...p,.036-i*.006,.031-i*.004]),12,null,false);
+          use(toe,part,0,'#393b32');sweep([[end[0]+.055,.208,z,.037,.026],[end[0]+.105,.289,z,.033,.021],[end[0]+.178,.303,z,.020,.012],[end[0]+.230,.248,z,.012,.007],[end[0]+.235,.173,z,.001,.001]],12,null,false,3);
+          use(toe,part);sweep([[end[0]-.12,.12,end[2]],[end[0]-.20,.08,end[2]-side*.046]].map((p,i)=>[...p,.022-i*.009,.022-i*.009]),10,null,false);
+          use(toe,part,0,'#393b32');horn([[end[0]-.195,.085,end[2]-side*.046],[end[0]-.232,.05,end[2]-side*.055]],.015);
+        }else if(s.sickle){const z=end[2]-side*fw*.68;use(toe,part,0,'#514839');horn([[end[0]-.02,.09,z],[end[0]+.055,.205,z-side*.016],[end[0]+.15,.18,z-side*.018],[end[0]+.16,.075,z]],.035);}
         continue;
       }
       // Flat load-bearing pads meet the lower leg. Keratin nails are sunk
@@ -270,7 +346,14 @@ const CreatureAnatomy=(()=>{
     if(s.arms)for(const side of [-1,1]){
       const a=s.arms,part=side>0?'nearArm':'farArm',id=bone('arm'),pts=a.points.map(p=>[p[0],p[1],side*a.z,p[2],p[3]]);rig.arms.push({id,pivot:pts[0].slice(0,3),side});pts[0][1]-=.11;pts[0][2]*=.80;
       const root=pts[0];use(id,part);sweep([[root[0]-.03,root[1]-.07,0,root[3]*.45,root[4]*.45],...pts],18,null,false);const p=pts.at(-1);
-      for(let i=0;i<a.fingers;i++){const theri=key==='therizinosaurus',z=p[2]+(i-(a.fingers-1)/2)*(theri?.095:.047),l=a.claw*(1-Math.abs(i-(a.fingers-1)/2)*.1);use(id,part);sweep([[p[0]-.025,p[1],z,.033,.028],[p[0]+.12,p[1]-.025,z+.012*side,.026,.022],[p[0]+.16,p[1]-.07,z+.019*side,.016,.013]],10,null,false);use(id,part,0,theri?'#403e35':'#67614e');horn(theri?[[p[0]+.14,p[1]-.06,z],[p[0]+.22,p[1]-.07-l*.28,z],[p[0]+.20,p[1]-.07-l*.68,z],[p[0]+.10,p[1]-.07-l,z]]:[[p[0]+.14,p[1]-.06,z],[p[0]+.19+l*.20,p[1]-.07-l*.33,z],[p[0]+.16+l*.24,p[1]-.07-l,z]],theri?.048:.026);}
+      for(let i=0;i<a.fingers;i++){
+        if(s.blueFilm){
+          const z=p[2]+side*(i-1)*.044,length=[.19,.245,.205][i],x=p[0]+[.018,.055,.038][i];
+          use(id,part);sweep([[p[0]-.025,p[1]+.012,z,.031,.028],[x+.042,p[1]-.080,z+side*.016,.030,.024],[x+.056,p[1]-length*.72,z+side*.024,.023,.020],[x+.018,p[1]-length,z+side*.026,.016,.015]],12,null,false);
+          use(id,part,0,'#424238');sweep([[x+.021,p[1]-length+.012,z+side*.026,.024,.018],[x-.008,p[1]-length-.048,z+side*.027,.020,.013],[x-.068,p[1]-length-.075,z+side*.023,.010,.006],[x-.093,p[1]-length-.034,z+side*.020,.001,.001]],10,null,false,3);
+          continue;
+        }
+        const theri=key==='therizinosaurus',z=p[2]+(i-(a.fingers-1)/2)*(theri?.095:.047),l=a.claw*(1-Math.abs(i-(a.fingers-1)/2)*.1);use(id,part);sweep([[p[0]-.025,p[1],z,.033,.028],[p[0]+.12,p[1]-.025,z+.012*side,.026,.022],[p[0]+.16,p[1]-.07,z+.019*side,.016,.013]],10,null,false);use(id,part,0,theri?'#403e35':'#67614e');horn(theri?[[p[0]+.14,p[1]-.06,z],[p[0]+.22,p[1]-.07-l*.28,z],[p[0]+.20,p[1]-.07-l*.68,z],[p[0]+.10,p[1]-.07-l,z]]:[[p[0]+.14,p[1]-.06,z],[p[0]+.19+l*.20,p[1]-.07-l*.33,z],[p[0]+.16+l*.24,p[1]-.07-l,z]],theri?.048:.026);}
       if(s.feathers){const sp=samples(pts,16);use(id,part,5);for(let i=1;i<sp.length-3;i++)for(let j=0;j<18;j++){const p=sp[i].p,axis=norm(sub(sp[i+1].p.slice(0,3),sp[i-1].p.slice(0,3))),ac=norm(cross([0,0,1],axis)),wide=cross(axis,ac),angle=(j+i*.4)/18*TAU,n=add(mul(ac,Math.cos(angle)),mul(wide,Math.sin(angle))),point=add(p.slice(0,3),add(mul(ac,Math.cos(angle)*p[3]),mul(wide,Math.sin(angle)*p[4])));feather(add(point,mul(n,.012)),add(axis,[-.13,-.25,0]),n,.13+.05*Math.sin(i+j)**2,.013,key==='pyroraptor'?[.38,.12,.09]:[.30,.31,.285]);}}
     }
     if(s.club){use(ti.at(-1),'tail',0,'#82765d');ell([-2.17,.43,0],[.245,.145,.26],20,12);}

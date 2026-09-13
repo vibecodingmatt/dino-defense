@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.70.0';
+const VERSION = '1.71.0';
 
 // Art inspection panels are local development tools. URL query flags must
 // never enable them on the public site. Node-based data audits default to off.
@@ -35,7 +35,8 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    Date each entry with the ACTUAL current calendar date — check it, never copy
    the entry above. Same-day reship: edit that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.70.0', date: 'Sep 13, 2026', items: [
+  {v: '1.71.0', date: 'Sep 13, 2026', items: [
+    '🦖 Blue gets a movie-inspired makeover, with a stronger neck, tapered snout, amber eyes, and her signature stripe.',
     '☠️ The D-Rex swells, splits, and erupts in a massive bloody finale with flying limbs and a smoking crater.',
     '🏆 Hold all 100 waves for a full-screen victory ceremony with a golden medal and a choreographed firework finale.',
     '🎥 Bosses and heavy footsteps no longer shake the camera.',
@@ -226,7 +227,7 @@ const DINOS = {
 
   /* --- BOSSES (spawned on schedule, never in random pool) --- */
   blue:             {name:'Blue — Alpha Raptor', epithet:'THE PACK HUNTS WITH HER', painter:'blue', hp:900,  speed:192, armor:1, bounty:120, dmg:15, size:18, boss:true, weight:0,
-                     pal:{body:'#716f68', belly:'#aaa99f', accent:'#315b72'}, feat:{}},
+                     pal:{body:'#858b83', belly:'#c4c2ac', accent:'#294e67'}, feat:{}},
   trex:             {name:'Tyrannosaurus Rex',   epithet:'THE TYRANT QUEEN', painter:'trex', hp:3000, speed:120, armor:3, bounty:300, dmg:25, size:32, boss:true, weight:0, roar:true,
                      pal:{body:'#625947', belly:'#a99b78', accent:'#282a20'}, feat:{}},
   spinosaurus:      {name:'Spinosaurus',         epithet:'THE RIVER MONSTER', painter:'spino', hp:3600, speed:112, armor:3, bounty:340, dmg:28, size:33, boss:true, weight:0, roar:true,

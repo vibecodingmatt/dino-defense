@@ -60,14 +60,14 @@ for key in keys:
         bmesh.ops.remove_doubles(bm,verts=list(bm.verts),dist=0.00001)
         bmesh.ops.recalc_face_normals(bm,faces=list(bm.faces))
         bm.to_mesh(mesh);bm.free()
-        mesh.remesh_voxel_size = .012 if key == 'trex' else .021 if key in ('drex','triceratops','apatosaurus') else .018
+        mesh.remesh_voxel_size = .010 if key == 'blue' else .012 if key == 'trex' else .021 if key in ('drex','triceratops','apatosaurus') else .018
         mesh.use_remesh_preserve_volume = True
         bpy.ops.object.voxel_remesh()
         smooth=obj.modifiers.new('Smooth anatomical region','SMOOTH')
-        smooth.factor=.65 if key == 'trex' else .80
-        smooth.iterations=4 if key == 'trex' else 9
+        smooth.factor=.60 if key == 'blue' else .65 if key == 'trex' else .80
+        smooth.iterations=3 if key == 'blue' else 4 if key == 'trex' else 9
         bpy.ops.object.modifier_apply(modifier=smooth.name)
-        budget=max(350,round((19500 if key == 'trex' else 12500)*areas[name]/total_area))
+        budget=max(350,round((20500 if key == 'blue' else 19500 if key == 'trex' else 12500)*areas[name]/total_area))
         dec=obj.modifiers.new('Browser triangle budget','DECIMATE')
         dec.ratio=min(1,budget/max(1,len(obj.data.polygons)*2))
         bpy.ops.object.modifier_apply(modifier=dec.name)

@@ -30,7 +30,7 @@ const Creatures = (() => {
     float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+1.),f.x),f.y);}
     void main(){vec3 n=normalize(vNormal);if(dot(n,vec3(0.,uView.x,uView.y))<0.)n=-n;vec3 color=vColor;float mat=vMaterial;
       float specular=.04;
-      if(mat>.5&&mat<1.5 || mat>2.5&&mat<3.5){
+      if(mat>.5&&mat<1.5 || mat>2.5&&mat<3.5 || mat>5.5&&mat<6.5){
         color=uBody*vColor.x+uBelly*vColor.y+uMark*vColor.z;
         vec3 an=abs(normalize(vBindNormal));vec2 uv=vRest.xy+vRest.z*.13;
         float broad=noise(uv*7.3+vec2(19.7,7.1)),fine=noise(uv*63.7+vec2(3.7,83.1));
@@ -39,7 +39,7 @@ const Creatures = (() => {
         if(uPattern<1.5&&uPattern>.5)color=mix(color,uMark,stripe*.67*dorsal);
         if(uPattern>1.5&&uPattern<2.5){float y=mix(uStripe.x+max(0.,-vRest.x-.45)*.065,uStripe.z,smoothstep(uStripe.y,uStripe.w,vRest.x))-max(0.,vRest.x-uStripe.w)*.24;float band=1.-smoothstep(.032,.069,abs(vRest.y-y)+(broad-.5)*.009);color=mix(color,uMark,band*step(.025,abs(vRest.z)));}
         if(uPattern>2.5&&uPattern<3.5)color=mix(color,uMark,smoothstep(.47,.78,broad)*.35*dorsal);
-        if(uPattern>3.5){
+        if(uPattern>3.5&&uPattern<4.5){
           // Warm 1993 hide: cream jaw/dewlap, charcoal saddle and broken
           // neck bars. Pigment stays in bind space through every animation.
           float head=step(.88,vRest.x),jaw=step(1.5,vPart)*(1.-step(2.5,vPart));
@@ -59,6 +59,38 @@ const Creatures = (() => {
           float folds=pow(.5+.5*sin(vRest.x*69.+vRest.y*7.+abs(vRest.z)*4.),12.)*exp(-pow((vRest.x-.74)/.24,2.));
           color*=1.-folds*.17;
         }
+        if(uPattern>4.5&&uPattern<5.5){
+          // Blue's silver/olive hide and broken cobalt flank stripe. The
+          // pale edging follows the stripe in bind space, across the neck
+          // and tail, while the arms, thighs and lower jaw stay unstriped.
+          float jaw=step(1.5,vPart)*(1.-step(2.5,vPart));
+          float flank=(1.-step(3.5,vPart))*(1.-jaw);
+          float head=smoothstep(.75,.88,vRest.x);
+          float underside=max(clamp(-vBindNormal.y*.85,0.,.8),jaw*.56);
+          color=mix(uBody,uBelly,underside);
+          float mottle=smoothstep(.35,.78,broad)*.37;
+          float bars=pow(max(0.,sin(vRest.x*21.+vRest.y*9.+broad*4.)),4.);
+          color=mix(color,uBody*.48,(mottle+bars*.29)*(1.-underside*.62));
+          float center=1.225+max(0.,-vRest.x-.55)*.055;
+          center=mix(center,1.925,smoothstep(.19,.87,vRest.x));
+          center-=max(0.,vRest.x-1.025)*.36;
+          float taper=mix(.075,.004,smoothstep(.72,2.83,-vRest.x));
+          float halfWidth=mix(taper,.053,smoothstep(.16,.87,vRest.x));
+          halfWidth*=1.-smoothstep(1.03,1.28,vRest.x);
+          float edgeNoise=(noise(vRest.xy*52.+vRest.z*13.)-.5)*.019+(broad-.5)*.030;
+          float distance=abs(vRest.y-center)+edgeNoise;
+          float side=flank*smoothstep(.35,.77,an.z)*(1.-smoothstep(1.09,1.28,vRest.x));
+          float border=(1.-smoothstep(halfWidth+.004,halfWidth+.014,distance))*side;
+          float band=(1.-smoothstep(max(.001,halfWidth-.006),halfWidth+.003,distance))*side;
+          color=mix(color,mix(uBelly,uBody,.24),border*(.54+fine*.22));
+          float wear=smoothstep(.66,.85,noise(vRest.xy*39.+vRest.z*17.));
+          color=mix(color,uMark*(.84+broad*.38),band*(.89-wear*.21));
+          vec2 orbit=(vRest.xy-vec2(1.015,1.947))/vec2(.081,.065);
+          vec2 hollow=(vRest.xy-vec2(1.25,1.835))/vec2(.18,.083);
+          color=mix(color,uBody*.30,(exp(-dot(orbit,orbit))*.70+exp(-dot(hollow,hollow))*.36)*head*(1.-jaw));
+          float folds=pow(.5+.5*sin(vRest.x*81.-vRest.y*19.+abs(vRest.z)*11.),10.)*exp(-pow((vRest.x-.48)/.25,2.));
+          color*=1.-folds*.19;
+        }
         // Fine scale cells with recessed seams and rough, mottled hide. This
         // is sampled from bind positions, independent of bones and heading.
         vec3 weights=pow(an,vec3(4.));weights/=max(.001,weights.x+weights.y+weights.z);
@@ -69,10 +101,10 @@ const Creatures = (() => {
         color*=.59+broad*.25+fine*.025+skin*.47;
         color=mix(color,uMark,(1.-smoothstep(.48,.93,an.y))*smoothstep(.59,.81,broad)*.10);
         n=normalize(n+vec3((fine-.5)*.025,(skin-.5)*.035,0.));specular=.07;
-        if(mat>2.5){color*=.92+sin(vRest.z*37.)*.045;specular=.035;}
+        if(mat>2.5&&mat<3.5){color*=.92+sin(vRest.z*37.)*.045;specular=.035;}
       }
       if(mat>3.5&&mat<4.5)color*=.82+noise(vRest.xy*5.+vRest.z*7.)*.12+texture2D(uDetail,vRest.xy*.57).r*.21;
-      if(mat>4.5){color*=.78+noise(vec2(vRest.x*71.,vRest.y*13.)+vRest.z*29.)*.34;specular=.02;}
+      if(mat>4.5&&mat<5.5){color*=.78+noise(vec2(vRest.x*71.,vRest.y*13.)+vRest.z*29.)*.34;specular=.02;}
       // Surface treatments use bind coordinates, so frost, scorch and holes
       // stay on the same scales through gait, heading and death transforms.
       float grain=noise(vRest.xy*29.+vRest.z*17.),patch=noise(vRest.xy*6.7+vRest.z*2.3);
