@@ -2721,6 +2721,7 @@ function victory(){
   $('#victoryHealth').textContent = Math.round(healthPct*100) + '%';
   $('#startPrompt').classList.add('hidden');
   $('#towerPop').classList.add('hidden');
+  $('#pausePrompt').classList.add('hidden');
   $('#victoryShow').classList.remove('hidden');
   $('#victorySkip').setAttribute('aria-label','View victory results');
   renderVictory();
@@ -2772,6 +2773,7 @@ function toMenu(){
   // stage overlays must not bleed through onto the home screen
   G.celebration=null;G.fw=[];
   $('#victoryShow').classList.add('hidden');
+  $('#pausePrompt').classList.add('hidden');
   $('#startPrompt').classList.add('hidden');
   $('#towerPop').classList.add('hidden');
   $('#menu').classList.remove('hidden');
@@ -3217,6 +3219,12 @@ function updateHUD(){
   $('#speedCycle').textContent = G.speed + '×';
   $('#speedCycle').classList.toggle('on', G.speed > 1 && !G.paused);
   $('#btnPause').classList.toggle('on', G.paused);
+  const pauseLabel = G.paused ? 'Resume game' : 'Pause game';
+  $('#btnPause').setAttribute('aria-label', pauseLabel);
+  $('#btnPause').title = pauseLabel;
+  const showPause = G.state === 'playing' && G.paused && !G.over;
+  if (!showPause && document.activeElement === $('#btnResume')) $('#btnPause').focus({preventScroll: true});
+  $('#pausePrompt').classList.toggle('hidden', !showPause);
   $('#btnMute').textContent = save.settings.mute ? '🔇' : '🔊';
   $('#btnMute').classList.toggle('on', save.settings.mute);
   // shop affordability + wave-gated unlocks + escalating same-type prices
@@ -6154,8 +6162,6 @@ function render(dt){
   }
   if (G.paused){
     ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 40px Verdana, sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('⏸ PAUSED', W/2, H/2);
   }
   ctx.restore();
 }
@@ -6366,7 +6372,12 @@ window.addEventListener('keydown', e => {
   if (e.key === ' '){ e.preventDefault(); if (!G.waveActive) callWave(); else togglePause(); }
   if (e.key === 'm' || e.key === 'M') toggleMute();
 });
-function togglePause(){ G.paused = !G.paused; if(G.paused)soundFX?.stop(); updateHUD(); }
+function togglePause(){
+  G.paused = !G.paused;
+  if (G.paused) soundFX?.stop();
+  updateHUD();
+  if (G.paused && G.state === 'playing' && !G.over) $('#btnResume').focus({preventScroll: true});
+}
 
 /* ---------------- wire up UI ---------------- */
 /* manual wave start (button or Space): an early call inside the rush window
@@ -6386,6 +6397,7 @@ function callWave(){
 $('#btnWave').onclick = callWave;
 $('#btnSkip').onclick = () => { skipWave(); };
 $('#btnPause').onclick = togglePause;
+$('#btnResume').onclick = () => { if (G.state === 'playing' && G.paused && !G.over) togglePause(); };
 function toggleMute(){
   save.settings.mute = !save.settings.mute;
   if(!save.settings.mute&&audioGestureSeen)audio();

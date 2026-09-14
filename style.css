@@ -94,6 +94,23 @@ canvas#game {
   box-shadow: 0 0 40px #000 inset;
 }
 
+#pausePrompt {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  z-index: 16; max-width: calc(100% - 24px); text-align: center; pointer-events: none;
+}
+#pausePrompt .pause-title {
+  margin-bottom: 12px; color: #fff; font-size: clamp(18px, 3vw, 28px);
+  font-weight: bold; text-shadow: 0 2px 8px #000;
+}
+#btnResume {
+  min-height: 48px; padding: 12px 24px; border: 2px solid var(--amber2); border-radius: 8px;
+  background: var(--amber); color: var(--ink); font: bold 16px Verdana, sans-serif;
+  white-space: nowrap; cursor: pointer; pointer-events: auto; touch-action: manipulation;
+  box-shadow: 0 4px 20px #0008;
+}
+#btnResume:hover { background: var(--amber2); }
+#btnResume:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
+
 /* ---------- shop (right panel) ---------- */
 #shop {
   width: 210px; padding: 10px;
