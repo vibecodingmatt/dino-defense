@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.71.0';
+const VERSION = '1.72.0';
 
 // Art inspection panels are local development tools. URL query flags must
 // never enable them on the public site. Node-based data audits default to off.
@@ -35,6 +35,9 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    Date each entry with the ACTUAL current calendar date — check it, never copy
    the entry above. Same-day reship: edit that day's entry and bump its `v`. */
 const CHANGELOG = [
+  {v: '1.72.0', date: 'Sep 14, 2026', items: [
+    '🦕 Brachiosaurus gets a movie-inspired face with gentle eyes, a rounded snout, and a natural opening jaw.',
+  ]},
   {v: '1.71.0', date: 'Sep 13, 2026', items: [
     '🦖 Blue gets a movie-inspired makeover, with a stronger neck, tapered snout, amber eyes, and her signature stripe.',
     '☠️ The D-Rex swells, splits, and erupts in a massive bloody finale with flying limbs and a smoking crater.',
@@ -223,7 +226,7 @@ const DINOS = {
   apatosaurus:      {name:'Apatosaurus',        painter:'sauropod', hp:1300, speed:28, armor:2, bounty:70, dmg:10, size:42, minWave:35, weight:4,
                      pal:{body:'#7b7466', belly:'#cfc7b4', accent:'#4c473d'}, feat:{}},
   brachiosaurus:    {name:'Brachiosaurus',      painter:'sauropod', hp:1700, speed:25, armor:2, bounty:85, dmg:10, size:48, minWave:45, weight:4,
-                     pal:{body:'#8a8168', belly:'#ddd4b8', accent:'#57503c'}, feat:{tall:true}},
+                     pal:{body:'#807567', belly:'#b8a58a', accent:'#494138'}, feat:{tall:true}},
 
   /* --- BOSSES (spawned on schedule, never in random pool) --- */
   blue:             {name:'Blue — Alpha Raptor', epithet:'THE PACK HUNTS WITH HER', painter:'blue', hp:900,  speed:192, armor:1, bounty:120, dmg:15, size:18, boss:true, weight:0,

@@ -25,6 +25,14 @@ for(const key of Object.keys(context.meshes.catalog)){
   const anchored=points.filter(p=>p.a===1&&p.w<1e-6),free=points.filter(p=>p.b===2&&p.w>.999999),bend=points.filter(p=>p.w>.01&&p.w<.99);
   assert.ok(anchored.length>8&&free.length>60&&bend.length>24,key+' '+label+': missing attached hinge or rigid free jaw');
   const mouth=points.filter(p=>p.p[0]>=m.rig.mouth[0]);assert.ok(mouth.every(p=>p.b===2&&p.w>.999999),key+' '+label+': bite tip bends independently of teeth');
+  if(key==='brachiosaurus'){
+   // A rigid jaw can still have the wrong shape: the first film pass curled
+   // its front edge upward by half the rear jaw depth. Measure the actual
+   // loft's top edge, including the delivered mesh, independently of pose.
+   const top=new Map();for(const {p}of mouth){const x=Math.round(p[0]*1e6);top.set(x,Math.max(top.get(x)??-Infinity,p[1]));}
+   const tip=top.get(Math.max(...top.keys())),lowest=Math.min(...top.values());
+   assert.ok(tip-lowest<depth*.12,key+' '+label+': upturned lower-jaw tip');
+  }
   for(let frame=0;frame<=16;frame++){
    const pose=context.meshes.pose(m,frame/16*Math.PI*2,frame/16);
    for(const q of [...anchored,...bend,...free.filter((_,i)=>i%17===0)]){

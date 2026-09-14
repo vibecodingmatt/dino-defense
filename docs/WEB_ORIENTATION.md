@@ -113,6 +113,14 @@ The prior map verification evidence remains in
 
 ## Ownership
 
+Prepared for 1.72.0 / cache v68: Brachiosaurus has a film-puppet-inspired head with a raised
+nasal dome, broad fleshy muzzle, dark eyes/heavy lids, high nostrils, small rounded
+teeth and a fuller upper neck. Its `brachio93` geometry, pattern 6 palette and
+148,710-vertex export are reviewed in [Brachiosaurus notes](WEB_BRACHIOSAURUS_REVIEW.md).
+The follow-up shortens the muzzle ahead of the dome and removes the lower-jaw
+tip's upward hook; its shape regression checks both delivered and fallback skin.
+The production baseline above is unchanged.
+
 Blue's film-reference sculpt, pattern 5, palette and rebuilt skin shipped in
 1.71.0; see [Blue review](WEB_BLUE_REVIEW.md). The first pass cleared six
 regression suites; the final neck/muzzle export rechecked skin, jaws, creatures

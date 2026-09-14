@@ -116,5 +116,14 @@ the same dense interpolated profiles as the jaw/head lofts. Sparse landmark
 interpolation can place those details off the finished curved surface. Keep
 the chin contour independent of small lip undulations, and inspect fully closed
 and open jaws from the front as well as both sides.
-All other species retain their existing export settings. References, measurements
+All other species retain their existing export settings except the later
+Brachiosaurus pass below. References, measurements
 and visual/test evidence are in `docs/WEB_BLUE_REVIEW.md`.
+
+Brachiosaurus uses `brachio93` and pattern 6 for the film-puppet head. Rebuild
+only `brachiosaurus` with both commands above. Its export uses 0.010 voxels,
+three smoothing passes at 0.60 and a 20,500 skin-triangle target. Retained skin
+material 6 preserves eyelids, nasal rims and fine lips. Nostril ellipses must
+stay entirely on the nasal wall below the roof. Dense upper/lower lip profiles
+and a broad closed palate keep the mouth seated in front views. See
+`docs/WEB_BRACHIOSAURUS_REVIEW.md` for references, measurements and review limits.

@@ -1,29 +1,29 @@
 {
   "species": "brachiosaurus",
-  "source_vertices": 53544,
-  "vertices": 57666,
-  "skin_triangles": 12494,
-  "compressed_bytes": 636333,
+  "source_vertices": 126312,
+  "vertices": 148710,
+  "skin_triangles": 20498,
+  "compressed_bytes": 1316948,
   "regions": [
     {
       "name": "body",
-      "triangles": 6548
+      "triangles": 10884
     },
     {
       "name": "leg0",
-      "triangles": 1428
+      "triangles": 2306
     },
     {
       "name": "leg1",
-      "triangles": 1426
+      "triangles": 2306
     },
     {
       "name": "leg2",
-      "triangles": 1546
+      "triangles": 2500
     },
     {
       "name": "leg3",
-      "triangles": 1546
+      "triangles": 2502
     }
   ]
 }

@@ -111,8 +111,18 @@ const CreatureAnatomy=(()=>{
     const tailRows=s.tail.slice().reverse().map(p=>[p[0],p[1]+p[3],p[1]-p[3],p[4]]);
     const cranium=s.head;
     const skullContour=[[0,1],[.35,.985],[.64,.91],[.84,.78],[.96,.59],[1,.37],[.95,.16],[.86,0],[.65,.025],[.30,.08],[0,.10],[-.30,.08],[-.65,.025],[-.86,0],[-.95,.16],[-1,.37],[-.96,.59],[-.84,.78],[-.64,.91],[-.35,.985]];
+    // The broad sauropod palate meets the flat top of its mandible. The
+    // carnivore's arched palate would expose a triangular hole head-on.
+    if(s.brachio93)for(let i=8;i<=12;i++)skullContour[i][1]=0;
     function facial(v){
       const ex=s.eye[0],ey=s.eye[1],dx=(v[0]-ex)/(s.socket?.[0]||.16),dy=(v[1]-ey)/(s.socket?.[1]||.10),dent=Math.exp(-(dx*dx+dy*dy)*1.8),fenestra=Math.exp(-(((v[0]-ex-.20)/.17)**2+((v[1]-ey+.085)/.10)**2)*1.4),cheek=Math.exp(-(((v[0]-ex+.12)/.13)**2+((v[1]-ey+.12)/.12)**2));
+      if(s.brachio93){
+        const g=(x,y,rx,ry)=>Math.exp(-(((v[0]-x)/rx)**2+((v[1]-y)/ry)**2));
+        // Recess the orbit, keep a soft cheek below it, and pinch the bridge
+        // between the nasal dome and the broad, rounded upper lip.
+        v[2]*=1-dent*.23-g(1.522,4.075,.049,.07)*.09+g(1.32,3.955,.095,.070)*.09+g(1.655,3.88,.098,.05)*.06;
+        return v;
+      }
       if(s.blueFilm){
         const g=(x,y,rx,ry)=>Math.exp(-(((v[0]-x)/rx)**2+((v[1]-y)/ry)**2));
         v[2]*=1-dent*.26-g(1.25,1.815,.16,.085)*.27+g(.90,1.78,.12,.12)*.15+g(1.14,1.705,.16,.045)*.11;
@@ -155,8 +165,8 @@ const CreatureAnatomy=(()=>{
       use(0,'torso');const neckStart=m.data.length;
       // The curved cervical column keeps a full cross-section through the
       // steep rise. Blue's shallow skin folds wrap that column into the nape.
-      sweep(s.neckSweep,24,u=>[0,1,clamp((u-(s.neckSweep.length-2))/1.3,0,1)],true,s.blueFilm?8:4,s.blueFilm?(v,u,a,n)=>{
-        const fold=Math.sin(u*13+a*.55)*Math.sin(Math.PI*clamp(u/(s.neckSweep.length-1),0,1))*.008;
+      sweep(s.neckSweep,24,u=>[0,1,clamp((u-(s.neckSweep.length-2))/1.3,0,1)],true,s.blueFilm||s.brachio93?8:4,s.blueFilm||s.brachio93?(v,u,a,n)=>{
+        const fold=s.brachio93?Math.sin(u*15+Math.sin(a*2)*.9)*.006*clamp((u-2)/2,0,1):Math.sin(u*13+a*.55)*Math.sin(Math.PI*clamp(u/(s.neckSweep.length-1),0,1))*.008;
         return add(v,mul(n,fold));
       }:undefined);
       if(s.blueFilm)for(let j=neckStart;j<m.data.length;j+=51){const x=(m.data[j]+m.data[j+17]+m.data[j+34])/3;if(x>=s.head[0][0])for(const o of [0,17,34])m.data[j+o+14]=1;}
@@ -167,7 +177,8 @@ const CreatureAnatomy=(()=>{
     if(s.neckSweep){use(1,'head');loft(cranium,skullContour,null,true,facial);}
     // Closed lower lips follow the upper tooth line exactly; teeth sit
     // medial to both lips and are occluded by the opposing jaw at rest.
-    const mandible=s.jaw.map(p=>{const h=at(s.head,p[0]),depth=p[1]-p[2];return [p[0],h[2]-.006,h[2]-.006-depth,Math.max(p[3],h[3]*.94)];});
+    const headSamples=profileSamples(s.head,5).map(v=>v.p);
+    const mandible=s.jaw.map(p=>{const h=at(s.brachio93?headSamples:s.head,p[0]),depth=p[1]-p[2];return [p[0],h[2]-.006,h[2]-.006-depth,Math.max(p[3],h[3]*.94)];});
     rig.jaw=[s.jawPivot[0],at(s.head,s.jawPivot[0])[2],0];rig.mouth=[s.mouth[0],at(s.head,s.mouth[0])[2]-.008,0];
     // A rounded retroarticular heel seats behind the mouth corner, inside
     // the cheek. The old full-depth end cap looked like a detached plank.
@@ -190,8 +201,7 @@ const CreatureAnatomy=(()=>{
     use(1,'head',0,'#382729');loft(s.head.filter(p=>p[0]>=s.jaw[0][0]).map(p=>[p[0],p[2]+.011,p[2]+.006,p[3]*.66]),[[0,1],[1,0],[0,0],[-1,0]],null,false);
     use(2,'lowerJaw',0,'#604044');loft(mandible.map(p=>[p[0],p[1]+.006,p[1]+.002,p[3]*.68]),[[0,1],[1,0],[0,0],[-1,0]],null,false);
     if(s.beak){use(1,'head',0,'#514b3c');const h=s.head.at(-1),p=s.head.at(-2);profile([[p[0]-.01,p[1]-.04,p[2]+.012,p[3]*.92],h],2.4);}
-    const headSamples=profileSamples(s.head,5).map(v=>v.p);
-    const mandibleSamples=s.blueFilm?profileSamples(mandible,5).map(v=>v.p):mandible;
+    const mandibleSamples=s.blueFilm||s.brachio93?profileSamples(mandible,5).map(v=>v.p):mandible;
     function faceWidth(x,y){const h=at(headSamples,x),t=clamp((y-h[2])/(h[1]-h[2]),0,1),c=skullContour.slice(0,8).slice().reverse();let i=0;while(i<c.length-2&&c[i+1][1]<t)i++;return h[3]*mix(c[i][0],c[i+1][0],clamp((t-c[i][1])/(c[i+1][1]-c[i][1]),0,1));}
     function feather(p,d,n,length,width,color){
       const axis=norm(d),ac=norm(cross(axis,n)),mid=add(add(p,mul(axis,length*.26)),mul(n,width*.8)),tip=add(add(p,mul(axis,length)),mul(n,width*.5)),left=add(mid,mul(ac,width)),right=sub(mid,mul(ac,width)),ridge=add(mid,mul(n,width*.15)),rootL=add(p,mul(ac,width*.15)),rootR=sub(p,mul(ac,width*.15));
@@ -206,7 +216,72 @@ const CreatureAnatomy=(()=>{
       use(1,'head',5);for(let i=0;i<12;i++)for(let j=0;j<20;j++){const x=mix(s.head[0][0],s.eye[0]+.055,i/11),p=at(headSamples,x),[z,y]=skullContour[j];if(y<.30)continue;const point=facial([x,mix(p[2],p[1],y),p[3]*z]),n=norm([-.15,y-.5,z]);feather(add(point,mul(n,.009)),[-1,-.12,z*.1],n,.065,.009,theri?[.42,.44,.415]:[.40,.14,.105]);}
     }
     const [ex,ey,,er]=s.eye,ez=facial([ex,ey,faceWidth(ex,ey)])[2]+(key==='drex'?.040:.006);
-    for(const side of [-1,1]){
+    if(s.brachio93){
+      // Small facial tissue stays authored (skin material 6) so remeshing
+      // cannot erase the eyelids or turn the nostril rims into solid plugs.
+      const wall=(x,y)=>facial([x,y,faceWidth(x,y)])[2];
+      for(const side of [-1,1]){
+        const crease=(points,r=.003,offset=.001)=>{
+          use(1,'head',6,[1,0,0]);
+          sweep(points.map(([x,y],i)=>[x,y,side*(wall(x,y)+offset),r*(i===0||i===points.length-1?.4:1),r]),8,null,false,3);
+        };
+        // Dark chestnut iris and a broad round pupil, enclosed by fleshy
+        // almond lids. The corneal dome is deliberately very shallow.
+        use(1,'head',0,'#25231d');ell([ex,ey,side*(ez-.001)],[er*1.10,er*.85,.010],24,16);
+        use(1,'head',2,'#46392a');ell([ex+.003,ey-.002,side*(ez+.007)],[er*.78,er*.72,.006],24,16);
+        for(let i=0;i<32;i++){
+          const a=i/32*TAU;
+          use(1,'head',2,i%3?'#594830':'#392f23');
+          const p=(r,t)=>[ex+.003+Math.cos(a+t)*er*r,ey-.002+Math.sin(a+t)*er*r*.92,side*(ez+.012)];
+          tri(p(.46,0),p(.73,-.028),p(.73,.028));
+        }
+        use(1,'head',2,'#100f0d');ell([ex+.003,ey-.002,side*(ez+.013)],[er*.64,er*.61,.004],24,16);
+        use(1,'head',2,'#e2dcc5');ell([ex-.009,ey+.009,side*(ez+.017)],[.0048,.003,.0015],12,8);
+        ell([ex+.009,ey-.011,side*(ez+.017)],[.002,.0015,.001],8,6);
+        for(const sign of [-1,1]){
+          const pts=[];
+          for(let i=0;i<=16;i++){
+            const a=i/16*Math.PI,x=ex-Math.cos(a)*er*1.10,y=ey+Math.sin(a)*er*(sign>0?.87:.78)*sign-.003*Math.sin(a*2);
+            pts.push([x,y,side*Math.max(wall(x,y)+.003,ez+.005),sign>0?.009:.006,.009]);
+          }
+          use(1,'head',6,[1,0,0]);sweep(pts,10,null,false,2);
+        }
+        crease([[ex-.064,ey+.013],[ex-.048,ey+.049],[ex-.014,ey+.064],[ex+.027,ey+.059],[ex+.057,ey+.031],[ex+.067,ey+.003]],.013,-.006);
+        for(let ring=0;ring<2;ring++){
+          const points=[];
+          for(let i=0;i<=12;i++){const a=.20+i/12*Math.PI*.84;points.push([ex-Math.cos(a)*(.049+ring*.018)+.002*Math.sin(a*4+ring),ey-Math.sin(a)*(.040+ring*.019)]);}
+          crease(points,.0022+ring*.0004,-.001);
+        }
+        // The nostrils sit high on the forward nasal vault. Concentric
+        // surface-following rings make a recessed opening and a skin rim.
+        const [nx,ny,rx,ry]=s.nostril;
+        const ringPoint=(a,r)=>{const x=nx+Math.cos(a)*rx*r,y=ny+Math.sin(a)*ry*r-Math.cos(a)*.007*r;return [x,y,side*(wall(x,y)+.003+(1-r*r)*.002)];};
+        use(1,'head',0,'#26241e');
+        for(let i=0;i<32;i++)tri(ringPoint(0,0),ringPoint(i/32*TAU,1),ringPoint((i+1)/32*TAU,1));
+        const rim=[];for(let i=0;i<=32;i++){const p=ringPoint(i/32*TAU,1.08);rim.push([...p,.0045,.005]);}
+        use(1,'head',6,[1,0,0]);sweep(rim,8,null,false,1);
+        // Uneven cheek folds flow into the mouth corner, with a low ridge
+        // over the muzzle rather than a hard-edged beak overlay.
+        crease([[1.255,4.056],[1.247,3.998],[1.261,3.942],[1.303,3.904],[1.359,3.889]],.004,-.001);
+        crease([[1.475,4.015],[1.529,3.978],[1.592,3.972],[1.659,3.963],[1.716,3.952]],.0028,-.002);
+        crease([[1.43,3.947],[1.515,3.934],[1.606,3.925],[1.683,3.917],[1.728,3.92]],.002,-.001);
+        for(const lower of [false,true]){
+          const rows=lower?mandibleSamples:headSamples,pts=[];
+          for(let i=0;i<60;i++){
+            const x=mix(1.29,s.head.at(-1)[0]-.002,i/59),p=at(rows,x),y=lower?p[1]+.001:p[2]+.004,z=lower?p[3]*.88:wall(x,y);
+            pts.push([x,y,side*(z-.002),.003,.0035]);
+          }
+          use(lower?2:1,lower?'lowerJaw':'head',6,[1,0,0]);sweep(pts,8,null,false,2);
+        }
+        // Short, rounded spoon-like crowns line the FRONT of the mouth.
+        // Their roots remain buried inside the matching upper/lower lips.
+        for(const lower of [false,true])for(let i=0;i<9;i++){
+          const x=1.543+i*.0224+(lower?.0084:0),h=at(headSamples,x),j=at(mandibleSamples,x),sign=lower?1:-1,y=lower?j[1]-.009:h[2]+.010,z=side*h[3]*(lower?.67:.72),len=.022+(i%3)*.002;
+          use(lower?2:1,lower?'lowerJaw':'head',0,i%3?'#c9b991':'#b5a67f');
+          sweep([[x,y,z,.008,.007],[x,y+sign*len*.65,z,.0084,.0065],[x+.002,y+sign*len,z*.99,.0048,.004],[x+.002,y+sign*(len+.003),z*.99,.001,.001]],10,null,false,2);
+        }
+      }
+    }else for(const side of [-1,1]){
       use(1,'head',0,'#272b25');ell([ex,ey,side*ez],[er*(s.blueFilm?1.30:1.7),er*(s.blueFilm?1.07:1.3),.014],s.blueFilm?20:12,s.blueFilm?12:8);
       use(1,'head',2,key==='therizinosaurus'?'#aaa99b':s.blueFilm?'#b87b2b':'#c49d44');ell([ex+.004,ey,side*(ez+.010)],[er,er*.88,.009],s.blueFilm?20:12,s.blueFilm?12:8);
       if(s.blueFilm){

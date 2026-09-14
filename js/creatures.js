@@ -91,14 +91,33 @@ const Creatures = (() => {
           float folds=pow(.5+.5*sin(vRest.x*81.-vRest.y*19.+abs(vRest.z)*11.),10.)*exp(-pow((vRest.x-.48)/.25,2.));
           color*=1.-folds*.19;
         }
+        if(uPattern>5.5&&uPattern<6.5){
+          // Brachiosaurus: muted umber crown, warm lips/throat, and fine
+          // branching folds around the soft orbit. All pigment follows skin.
+          float head=smoothstep(3.68,3.91,vRest.y),jaw=step(1.5,vPart)*(1.-step(2.5,vPart));
+          float lip=(1.-smoothstep(3.87,3.985,vRest.y))*smoothstep(1.28,1.61,vRest.x);
+          float pale=max(jaw*.42*(1.-smoothstep(3.81,3.91,vRest.y)),lip*.38);
+          color=mix(color,uBelly,pale);
+          color=mix(color,uMark,smoothstep(.38,.77,broad)*head*.31*(1.-pale));
+          vec2 orbit=(vRest.xy-vec2(1.365,4.115))/vec2(.079,.070);
+          float distance=length(orbit),eye=exp(-dot(orbit,orbit)*.9);
+          color=mix(color,uMark,eye*.56*head*(1.-jaw));
+          float rings=pow(.5+.5*sin(distance*19.+broad*2.),10.)*exp(-pow((distance-1.1)/.75,2.));
+          float cheek=exp(-pow((vRest.x-1.34)/.22,2.)-pow((vRest.y-3.98)/.19,2.));
+          float folds=pow(.5+.5*sin(vRest.y*105.+sin(vRest.x*27.)*1.3+vRest.z*13.),14.);
+          float neck=smoothstep(3.35,3.75,vRest.y)*(1.-smoothstep(3.89,4.05,vRest.y));
+          float wrinkles=pow(.5+.5*sin(vRest.y*145.+noise(vRest.xy*37.)*5.+vRest.x*25.+vRest.z*17.),16.);
+          color*=1.-rings*.07*head-folds*.18*cheek-wrinkles*.15*max(cheek,neck);
+        }
         // Fine scale cells with recessed seams and rough, mottled hide. This
         // is sampled from bind positions, independent of bones and heading.
         vec3 weights=pow(an,vec3(4.));weights/=max(.001,weights.x+weights.y+weights.z);
-        vec3 tex=vRest*.57;float yz=texture2D(uDetail,tex.zy).r,xz=texture2D(uDetail,tex.xz).r,xy=texture2D(uDetail,tex.xy).r;
+        float brachioHead=step(5.5,uPattern)*(1.-step(6.5,uPattern))*smoothstep(3.35,3.91,vRest.y);
+        vec3 tex=vRest*mix(.57,1.18,brachioHead);float yz=texture2D(uDetail,tex.zy).r,xz=texture2D(uDetail,tex.xz).r,xy=texture2D(uDetail,tex.xy).r;
         float skin=yz*weights.x+xz*weights.y+xy*weights.z;
         vec2 e=vec2(.0018,0.);vec3 grad=vec3((texture2D(uDetail,tex.xz+e).r-xz)*weights.y+(texture2D(uDetail,tex.xy+e).r-xy)*weights.z,(texture2D(uDetail,tex.zy+e.yx).r-yz)*weights.x+(texture2D(uDetail,tex.xy+e.yx).r-xy)*weights.z,(texture2D(uDetail,tex.zy+e).r-yz)*weights.x+(texture2D(uDetail,tex.xz+e.yx).r-xz)*weights.y);
-        vec3 bn=normalize(vBindNormal);grad-=bn*dot(bn,grad);float cy=cos(uYaw),sy=sin(uYaw);grad=vec3(grad.x*cy-grad.z*sy,grad.y,grad.x*sy+grad.z*cy);n=normalize(n-grad*1.7);
-        color*=.59+broad*.25+fine*.025+skin*.47;
+        vec3 bn=normalize(vBindNormal);grad-=bn*dot(bn,grad);float cy=cos(uYaw),sy=sin(uYaw);grad=vec3(grad.x*cy-grad.z*sy,grad.y,grad.x*sy+grad.z*cy);n=normalize(n-grad*mix(1.7,.85,brachioHead));
+        color*=mix(.59+broad*.25+fine*.025+skin*.47,.70+broad*.17+fine*.02+skin*.33,brachioHead);
         color=mix(color,uMark,(1.-smoothstep(.48,.93,an.y))*smoothstep(.59,.81,broad)*.10);
         n=normalize(n+vec3((fine-.5)*.025,(skin-.5)*.035,0.));specular=.07;
         if(mat>2.5&&mat<3.5){color*=.92+sin(vRest.z*37.)*.045;specular=.035;}
