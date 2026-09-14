@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.74.0';
+const VERSION = '1.74.1';
 
 // Art inspection panels are local development tools. URL query flags must
 // never enable them on the public site. Node-based data audits default to off.
@@ -35,11 +35,12 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    Date each entry with the ACTUAL current calendar date — check it, never copy
    the entry above. Same-day reship: edit that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.74.0', date: 'Sep 14, 2026', items: [
+  {v: '1.74.1', date: 'Sep 14, 2026', items: [
     '🦕 Brachiosaurus gets a movie-inspired face with gentle eyes, a rounded snout, and a natural opening jaw.',
     '▶️ Resume a paused game with a button in the center of the screen.',
     '🪽 The tourist-snatching Pteranodon gets detailed wings, a sculpted face, and gripping claws.',
     '☀️ Build the Extinction Cannon to launch miniature suns, fracture dinosaur hides, and unleash the Extinction Engine.',
+    '📖 Hold a weapon in the armory to read its description, price, and upgrades on phones and tablets.',
   ]},
   {v: '1.71.0', date: 'Sep 13, 2026', items: [
     '🦖 Blue gets a movie-inspired makeover, with a stronger neck, tapered snout, amber eyes, and her signature stripe.',

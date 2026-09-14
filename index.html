@@ -106,6 +106,7 @@
     <!-- tower shop -->
     <div id="shop" class="hidden">
       <h3>Armory</h3>
+      <p id="weaponHoldHint">Tap to select · Hold for details</p>
       <button id="btnArsenal" class="arsenal-open hidden">Inspect weapons &amp; upgrades <span>↗</span></button>
       <button id="btnFieldCreatures" class="arsenal-open hidden">Explore the dinosaurs <span>↗</span></button>
       <div id="shopCards"></div>
@@ -129,6 +130,16 @@
     </div>
   </div>
 </div>
+
+<dialog id="weaponInfo" aria-labelledby="wiName" aria-describedby="wiDescription" role="dialog">
+  <button id="wiClose" type="button" aria-label="Close weapon details">✕</button>
+  <p class="wi-eyebrow">ARMORY FIELD GUIDE</p>
+  <div class="wi-heading"><canvas id="wiModel" width="336" height="224" aria-hidden="true"></canvas><div><h2 id="wiName"></h2><p id="wiStatus"></p></div></div>
+  <div class="wi-facts"><span><small>PRICE</small><b id="wiPrice"></b></span><span><small>TARGETS</small><b id="wiTargets"></b></span><span><small>GROWTH</small><b id="wiUpgrades"></b></span></div>
+  <p id="wiDescription"></p>
+  <button id="wiSelect" type="button">Select weapon</button>
+  <p id="wiPause"></p>
+</dialog>
 
 <!-- main menu -->
 <div id="menu" data-scene="night">
@@ -482,6 +493,7 @@
 <script src="js/audio-fx.js"></script>
 <script src="js/home-scenery.js"></script>
 <script src="js/endgame-fx.js"></script>
+<script src="js/weapon-info.js"></script>
 <script src="js/game.js"></script>
 <script src="js/home.js"></script>
 <script src="js/armory-guide.js"></script>

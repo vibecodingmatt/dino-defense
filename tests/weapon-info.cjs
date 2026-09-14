@@ -1,0 +1,58 @@
+'use strict';
+// Real touch input: holds must coexist with taps, placement, scrolling and pause.
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),http=require('node:http');
+const root=path.resolve(__dirname,'..'),out=process.env.WEAPON_INFO_REVIEW_DIR||path.resolve(root,'../../dino-perimeter-review/weapon-info/local');fs.mkdirSync(out,{recursive:true});
+const {chromium}=require(require.resolve('playwright-core',{paths:[root,path.resolve(root,'../war-survival')]}));
+const server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+new URL(req.url,'http://localhost').pathname.replace(/\/$/,'/index.html'));if(path.relative(root,file).startsWith('..'))return res.writeHead(403).end();fs.readFile(file,(e,b)=>{res.writeHead(e?404:200,{'Content-Type':({'.html':'text/html','.css':'text/css','.js':'text/javascript'})[path.extname(file)]||'application/octet-stream'});res.end(e?'':b);});});
+let browser;const errors=[],reports=[];
+(async()=>{
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));const base=process.env.WEAPON_INFO_REVIEW_URL||'http://127.0.0.1:'+server.address().port+'/';
+ browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',args:['--enable-unsafe-swiftshader']});
+ async function setup(width,height,touch=true,offline=false){
+  const context=await browser.newContext({viewport:{width,height},hasTouch:touch,isMobile:touch,serviceWorkers:offline?'allow':'block'});await context.route('https://www.googletagmanager.com/**',r=>r.abort());
+  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(5000);await page.goto(base);const cdp=await context.newCDPSession(page);
+  async function reset(paused=false){await page.evaluate(paused=>{save.settings.mute=true;startLevel(0,'fresh',1);G.speed=4;G.paused=paused;G.cash=180;updateHUD();},paused);}
+  async function point(key){const card=page.locator('.shopCard[data-key="'+key+'"]');await card.scrollIntoViewIfNeeded();await page.waitForTimeout(60);const b=await card.boundingBox();return{x:b.x+b.width/2,y:b.y+b.height/2,id:1};}
+  const touchEvent=(type,points=[])=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints:points});
+  async function hold(key){const pos=await point(key);await touchEvent('touchStart',[pos]);await page.waitForFunction(()=>WeaponInfo.isOpen);await touchEvent('touchEnd');await page.waitForTimeout(80);assert.equal(await page.locator('#weaponInfo').evaluate(el=>el.open),true,'Finger release closed the sheet');return pos;}
+  await reset();return{context,page,cdp,reset,point,touchEvent,hold};
+ }
+ for(const [name,width,height]of [['phone',390,844],['small-phone',320,568],['phone-landscape',844,390],['tablet',768,1024],['tablet-landscape',1024,768],['large-tablet',1366,1024]]){
+  const {context,page,reset,point,touchEvent,hold}=await setup(width,height);
+  await page.evaluate(()=>{G.placing='gatling';});const before=await page.evaluate(()=>({cash:G.cash,towers:G.towers.length,speed:G.speed,placing:G.placing}));
+  await hold('extinction');
+  assert.deepEqual(await page.evaluate(()=>({cash:G.cash,towers:G.towers.length,speed:G.speed,placing:G.placing})),before);
+  assert.equal(await page.locator('#wiDescription').innerText(),await page.evaluate(()=>TOWERS.extinction.desc));assert.equal(await page.locator('#wiSelect').isDisabled(),true);assert.match(await page.locator('#wiStatus').innerText(),/wave 40/);
+  assert.equal(await page.locator('#pausePrompt').isVisible(),false);
+  const clock=await page.evaluate(()=>G.sceneTime);await page.waitForTimeout(120);assert.equal(await page.evaluate(()=>G.sceneTime),clock);
+  const bounds=await page.locator('#weaponInfo').boundingBox();assert.ok(bounds.x>=0&&bounds.y>=0&&bounds.x+bounds.width<=width+.5&&bounds.y+bounds.height<=height+.5);if(width<=600&&height>=500)assert.equal(Math.round(bounds.width),width,'Phone sheet should fill the width');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  await page.screenshot({path:path.join(out,name+'-locked.png')});
+  await page.locator('#wiClose').tap();assert.equal(await page.evaluate(()=>G.paused),false);assert.equal(await page.evaluate(()=>G.placing),'gatling');
+  // A short tap retains selection; movement cancels the hold and can be canceled safely.
+  await reset();await page.locator('.shopCard[data-key="gatling"]').tap();assert.equal(await page.evaluate(()=>G.placing),'gatling');await page.locator('.shopCard[data-key="gatling"]').tap();assert.equal(await page.evaluate(()=>G.placing),null);
+  const pos=await point('gatling');await touchEvent('touchStart',[pos]);await touchEvent('touchMove',[{...pos,x:pos.x+18}]);await page.waitForTimeout(550);assert.equal(await page.evaluate(()=>WeaponInfo.isOpen),false);await touchEvent('touchCancel');assert.equal(await page.evaluate(()=>G.placing),null);
+  // Reading while already paused must preserve both pause and speed.
+  await reset(true);await hold('gatling');await page.locator('#wiClose').tap();assert.equal(await page.evaluate(()=>G.paused&&G.speed===4),true);
+  // Explicit select arms placement but never spends cash; the next map tap buys it.
+  await reset();await hold('gatling');assert.equal(await page.locator('#wiPrice').innerText(),'$180');await page.screenshot({path:path.join(out,name+'-ready.png')});await page.locator('#wiSelect').tap();assert.equal(await page.evaluate(()=>G.placing==='gatling'&&G.cash===180&&G.towers.length===0&&!G.paused),true);
+  const map=await page.evaluate(()=>{const r=cv.getBoundingClientRect();return{x:r.left+140*r.width/W,y:r.top+230*r.height/H+PLACE_LIFT_PX};});await page.touchscreen.tap(map.x,map.y);assert.equal(await page.evaluate(()=>G.towers.length===1&&G.cash===0),true,'Tap to place after reading');
+  // Keep a stationary scene while testing inability to afford the next copy.
+  await page.evaluate(()=>{G.paused=true;});await hold('gatling');assert.equal(await page.locator('#wiPrice').innerText(),'$207');assert.equal(await page.locator('#wiSelect').isDisabled(),true);await page.locator('#wiClose').tap();
+  // Start a hold and navigate away; its timer cannot leak into another game.
+  await reset();const leave=await point('gatling');await touchEvent('touchStart',[leave]);await page.evaluate(()=>toMenu());await page.waitForTimeout(550);await touchEvent('touchEnd');assert.equal(await page.evaluate(()=>WeaponInfo.isOpen),false);
+  await reset();await hold('gatling');await page.evaluate(()=>startLevel(1,'fresh',1));assert.equal(await page.evaluate(()=>!WeaponInfo.isOpen&&!G.paused),true);
+  reports.push({name,width,height,hold:true,placement:true,pause:true,locked:true});console.log('PASS:',name,'real long press, release suppression, tap/drag, locked and duplicate prices, pause, explicit placement and lifecycle cleanup');await context.close();
+ }
+ // Desktop hover/title survives; keyboard and assistive activation expose details.
+ const desktop=await setup(1440,1000,false);const {page}=desktop;
+ const card=page.locator('.shopCard[data-key="gatling"]');await card.hover();assert.match(await card.getAttribute('title'),/Gatling/);const b=await card.boundingBox();await page.mouse.move(b.x+b.width/2,b.y+b.height/2);await page.mouse.down();await page.waitForTimeout(600);assert.equal(await page.evaluate(()=>WeaponInfo.isOpen),false);await page.mouse.up();assert.equal(await page.evaluate(()=>G.placing),'gatling');
+ await card.focus();await page.keyboard.press('Enter');assert.equal(await page.evaluate(()=>WeaponInfo.isOpen),true);await page.keyboard.press('Tab');assert.equal(await page.evaluate(()=>document.activeElement.id),'wiSelect');await page.keyboard.press('Tab');assert.equal(await page.evaluate(()=>document.activeElement.id),'wiClose');await page.keyboard.press('Escape');assert.equal(await page.evaluate(()=>!WeaponInfo.isOpen&&G.placing==='gatling'),true);
+ await card.press('Space');await page.mouse.click(5,5);assert.equal(await page.evaluate(()=>!WeaponInfo.isOpen&&!G.paused),true,'Backdrop dismissal');
+ for(const key of await page.evaluate(()=>Object.keys(TOWERS))){const c=page.locator('.shopCard[data-key="'+key+'"]');await c.focus();await page.keyboard.press('Enter');assert.equal(await page.locator('#wiDescription').innerText(),await page.evaluate(k=>TOWERS[k].desc,key));await page.keyboard.press('Escape');}
+ await card.scrollIntoViewIfNeeded();const pen=await card.boundingBox();await desktop.cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',x:pen.x+20,y:pen.y+20,button:'left',buttons:1,pointerType:'pen'});await page.waitForFunction(()=>WeaponInfo.isOpen);await desktop.cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:pen.x+20,y:pen.y+20,button:'left',buttons:0,pointerType:'pen'});assert.equal(await page.evaluate(()=>WeaponInfo.isOpen),true);await page.locator('#wiClose').click();await desktop.context.close();
+ // Multitouch, scrolling and resizing abort a pending hold.
+ const extra=await setup(390,844);for(const action of ['multitouch','scroll','resize']){await extra.reset();const pos=await extra.point('gatling');await extra.touchEvent('touchStart',[pos]);if(action==='multitouch')await extra.touchEvent('touchStart',[pos,{x:pos.x+30,y:pos.y+10,id:2}]);else if(action==='scroll')await extra.page.evaluate(()=>document.getElementById('shop').dispatchEvent(new Event('scroll')));else await extra.page.setViewportSize({width:400,height:850});await extra.page.waitForTimeout(550);assert.equal(await extra.page.evaluate(()=>WeaponInfo.isOpen||G.placing!==null),false,action);await extra.touchEvent('touchCancel');}
+ await extra.page.setViewportSize({width:320,height:568});await extra.reset();const swipe=await extra.point('extinction'),scrollBefore=await extra.page.locator('#shop').evaluate(e=>e.scrollTop);await extra.touchEvent('touchStart',[swipe]);for(let i=1;i<=5;i++){await extra.touchEvent('touchMove',[{...swipe,y:swipe.y-i*15}]);await extra.page.waitForTimeout(30);}await extra.touchEvent('touchEnd');await extra.page.waitForTimeout(550);assert.equal(await extra.page.evaluate(()=>WeaponInfo.isOpen||G.placing!==null),false);assert.ok(await extra.page.locator('#shop').evaluate(e=>e.scrollTop)>scrollBefore,'Real vertical swipe should scroll the bay');await extra.context.close();
+ const offline=await setup(390,844,true,true);await offline.page.evaluate(()=>navigator.serviceWorker.ready);await offline.page.reload();await offline.page.waitForFunction(()=>navigator.serviceWorker.controller);await offline.context.setOffline(true);await offline.page.reload();await offline.reset();await offline.hold('extinction');assert.match(await offline.page.locator('#wiDescription').innerText(),/miniature sun/);await offline.context.close();
+ assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'verification.json'),JSON.stringify({base,reports,errors},null,2));console.log('PASS: mouse hover, keyboard focus and dismissal, multitouch/scroll/resize cancellation, offline details; no browser errors');
+})().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{await browser?.close();server.close();});

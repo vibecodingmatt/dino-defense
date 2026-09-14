@@ -2538,6 +2538,7 @@ function restoreSnapshot(s){
 /* ---------------- level lifecycle ---------------- */
 /* mode: 'fresh' | 'resume' (saved run). diff = chosen difficulty level. */
 function startLevel(idx, mode, diff){
+  WeaponInfo.close(true);
   G.levelIdx = idx;
   G.level = LEVELS[idx];
   $('#stage').dataset.mapArt = G.level.art;
@@ -2770,6 +2771,7 @@ function defeat(){
   $('#gameover').classList.remove('hidden');
 }
 function toMenu(){
+  WeaponInfo.close(true);
   soundFX?.stop();
   G.state = 'menu';
   G.runCheated = false;   // no run in progress — Lab actions here are eligible for trophies
@@ -3231,7 +3233,7 @@ function updateHUD(){
   const pauseLabel = G.paused ? 'Resume game' : 'Pause game';
   $('#btnPause').setAttribute('aria-label', pauseLabel);
   $('#btnPause').title = pauseLabel;
-  const showPause = G.state === 'playing' && G.paused && !G.over;
+  const showPause = G.state === 'playing' && G.paused && !G.over && !WeaponInfo.isOpen;
   if (!showPause && document.activeElement === $('#btnResume')) $('#btnPause').focus({preventScroll: true});
   $('#pausePrompt').classList.toggle('hidden', !showPause);
   $('#btnMute').textContent = save.settings.mute ? '🔇' : '🔊';
@@ -3277,12 +3279,17 @@ function updateStartPrompt(){
   }
 }
 function buildShop(){
+  WeaponInfo.cancelHold(true);
   const el = $('#shopCards');
   el.innerHTML = '';
   for (const [key, def] of Object.entries(TOWERS)){
     const card = document.createElement('div');
     card.className = 'shopCard';
     card.dataset.key = key;
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-haspopup', 'dialog');
+    card.setAttribute('aria-label', def.name + ' — weapon details');
     card.style.borderTop = `3px solid ${def.color}`;
     card.innerHTML = `<div class="ico"><canvas width="168" height="112" aria-hidden="true"></canvas></div><div class="nm">${def.shortName || def.name}</div><div class="cost">$${def.cost}</div>`;
     Arsenal.preview(card.querySelector('canvas'),key,0);
@@ -3291,15 +3298,17 @@ function buildShop(){
     // select then tap the map. A mostly-VERTICAL drag on a card just scrolls the
     // shop (touch-action: pan-y), so the panel always catches a scroll.
     card.addEventListener('pointerdown', e => {
-      if (G.state !== 'playing') return;
-      if (!towerUnlocked(key)){ SFX.error(); return; }
+      if (G.state !== 'playing' || !e.isPrimary || e.button !== 0) return;
       // no preventDefault: let the browser scroll the shop on a vertical drag
       card._drag = {id: e.pointerId, sx: e.clientX, sy: e.clientY, moved: false, prev: G.placing};
+      WeaponInfo.hold(card, key, e, () => { card._drag = null; });
     });
     card.addEventListener('pointermove', e => {
       const d = card._drag; if (!d || e.pointerId !== d.id) return;
       if (!d.moved){
         if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 10) return;
+        WeaponInfo.cancelHold();
+        if (!towerUnlocked(key)){ card._drag = null; return; }
         d.moved = true;                    // began a place-drag (browser didn't scroll)
         try { card.setPointerCapture(e.pointerId); } catch(_){}
         G.placing = key; G.pendingTap = null; G.targeting = null; selectTower(null);
@@ -3307,7 +3316,9 @@ function buildShop(){
       mouseFromPointer(e);                 // range preview tracks the finger/cursor
     });
     card.addEventListener('pointerup', e => {
-      const d = card._drag; card._drag = null; if (!d) return;
+      const d = card._drag; if (!d || e.pointerId !== d.id) return;
+      WeaponInfo.cancelHold(); card._drag = null;
+      if (!towerUnlocked(key)){ SFX.error(); return; }
       if (d.moved){                        // dragged onto the map → drop it there
         mouseFromPointer(e);
         if (G.mouse.on) placeTower(key, G.mouse.x, G.mouse.y);
@@ -3320,10 +3331,18 @@ function buildShop(){
       updateHUD();
     });
     card.addEventListener('pointercancel', () => {
+      WeaponInfo.cancelHold();
       const d = card._drag; card._drag = null;
       if (d && d.moved) G.placing = d.prev; // a scroll interrupted a place-drag → undo it
       G.mouse.on = false; updateHUD();
     });
+    card.addEventListener('contextmenu', e => { if (e.pointerType !== 'mouse') e.preventDefault(); });
+    card.addEventListener('keydown', e => {
+      if (['Enter', ' ', 'ContextMenu'].includes(e.key) || e.key === 'F10' && e.shiftKey){
+        e.preventDefault(); e.stopPropagation(); WeaponInfo.show(key, card);
+      }
+    });
+    card.addEventListener('click', e => { if (e.detail === 0) WeaponInfo.show(key, card); });
     el.appendChild(card);
   }
 }

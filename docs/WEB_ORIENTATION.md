@@ -184,6 +184,7 @@ Audio authoring uses the [export instructions](../art/browser-audio/README.md).
 | Rules, roster, tower stats, seven maps, version and What's New | `js/data.js` |
 | Homepage, shared dialog design, navigation/accessibility and social sharing | `index.html`, `home.css`, `js/home.js`; [homepage notes](WEB_HOME_REVIEW.md) |
 | Saves/import/export, placement, first wave, combat, homepage actors | `js/game.js` |
+| Touch weapon descriptions, hold recognition and reading pause | `js/weapon-info.js`, shop gestures in `js/game.js`, `#weaponInfo` in `index.html`/`style.css` |
 | Homepage fence/outhouse paintings, debris and electrical effects | `js/home-scenery.js`; scene simulation in `js/game.js`; [homepage notes](WEB_HOME_REVIEW.md) |
 | Shared 3D tourists, guest costumes, articulated poses and bounded sprite cache | `js/tourists.js`; look factories in `js/looks.js` |
 | Wave-one Pteranodon pickup, flight pose and guest attachment | `js/game.js`, `js/creatures.js`, `Tourists.shoulder()`; [Pteranodon review](WEB_PTERANODON_REVIEW.md) |
@@ -212,6 +213,17 @@ port. The server binds only to loopback and needs no Python launcher or packages
 Check whether an old preview is still running; tests start their own servers.
 
 ## Behaviors to preserve
+
+- **Weapon descriptions:** touch or pen holds open the public `#weaponInfo`
+  sheet after 480 ms, including for locked/unaffordable gear. Tap selects and
+  movement beyond 10 px cancels the hold for dragging/scrolling. Multi-touch,
+  scroll, resize, hidden tabs and match transitions cancel pending holds.
+  The opening finger's release cannot dismiss the sheet or buy a weapon.
+  Reading temporarily pauses play and restores its previous pause/speed/selection;
+  explicit Select only arms placement. Native modal isolation, trapped keyboard
+  focus, close/backdrop/Escape and coarse-pointer hints keep it accessible.
+  Desktop hover titles remain. Descriptions use `TOWERS`; prices use `towerCost`.
+  This is a player feature, separate from the localhost-only art inspection menu.
 
 - **Pause controls:** the centered `#pausePrompt` uses a native resume button
   above the map; it shares `togglePause()` with the HUD. `updateHUD()` controls
@@ -291,6 +303,7 @@ not a runtime game dependency. Only creature topology checks need Node alone.
 | Tourists, guest cameos, evacuation, bite effects | `node tests/tourists.cjs`; `node tests/presentation.cjs`; `node tests/resume.cjs` |
 | First-wave state, saved towers, cross-device transfers | `node tests/resume.cjs` |
 | Weapons/upgrades/projectiles/effects | `node tests/arsenal.cjs`; `node tests/dino-fx.cjs` |
+| Touch weapon descriptions, bay gestures and reading pause | `node tests/weapon-info.cjs`; `node tests/resume.cjs`; `WEAPON_INFO_REVIEW_URL` and `WEAPON_INFO_REVIEW_DIR` select live checks/evidence |
 | Extinction Cannon economy, placement, upgrades, fracture and offline attack | Also `node tests/extinction.cjs`; `EXTINCTION_REVIEW_URL` and `EXTINCTION_REVIEW_DIR` select live verification/evidence |
 | Missile kill blood, splash credit, persistence and cleanup | Also `node tests/missile-gore.cjs`; `FX_REVIEW_URL` and `FX_REVIEW_DIR` select live verification/evidence |
 | D-Rex finale, boss camera and wave-100 victory | `node tests/endgame.cjs`; creature/audio suites for shared painters or sound triggers; `ENDGAME_REVIEW_URL` and `ENDGAME_REVIEW_DIR` select live verification/evidence |

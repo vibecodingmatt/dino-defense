@@ -230,6 +230,37 @@ canvas#game {
 .shopCard .nm { font-size: 10.5px; margin-top: 3px; line-height: 1.2; }
 .shopCard .cost { font-size: 11px; color: var(--amber2); margin-top: 2px; font-weight: bold; }
 
+/* Hold-to-read descriptions: a compact sheet on phones, a card on tablets. */
+#weaponHoldHint { display: none; color: var(--dim); font-size: 11px; line-height: 1.4; margin-top: -5px; }
+.shopCard { position: relative; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.shopCard:focus-visible { outline: 2px solid var(--amber2); outline-offset: 3px; }
+.shopCard.info-holding::after { content: ''; position: absolute; inset: auto 8px 3px; height: 2px; border-radius: 2px; background: var(--amber2); transform-origin: left; animation: weapon-hold .48s linear both; pointer-events: none; }
+@keyframes weapon-hold { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+#weaponInfo { --weapon-accent: #edbc65; position: fixed; inset: 0; margin: auto; width: min(440px,calc(100vw - 32px)); max-width: none; max-height: calc(100dvh - 32px); padding: 24px; overflow-y: auto; overscroll-behavior: contain; border: 1px solid #64746b; border-top: 3px solid var(--weapon-accent); border-radius: 16px; color: #f0eee3; background: #172124; box-shadow: 0 24px 90px #0009; font-family: system-ui,sans-serif; text-align: left; }
+#weaponInfo::backdrop { background: #061013b8; }
+#weaponInfo button { font: inherit; min-height: 44px; cursor: pointer; touch-action: manipulation; }
+#weaponInfo button:focus-visible { outline: 3px solid #f4c36b; outline-offset: 3px; }
+#wiClose { float: right; position: sticky; top: 0; margin: -12px -12px 0 4px; width: 44px; border: 1px solid #53635b; border-radius: 8px; color: #d6e0d5; background: #253337; z-index: 1; }
+.wi-eyebrow { color: var(--weapon-accent); font-size: 10px; font-weight: 700; letter-spacing: 1.6px; line-height: 20px; }
+.wi-heading { display: flex; align-items: center; gap: 12px; clear: both; margin: 12px 0 18px; }
+#wiModel { width: 108px; height: 72px; flex: 0 0 108px; object-fit: contain; }
+#wiName { font-size: 23px; line-height: 1.12; letter-spacing: -.5px; margin: 0 0 8px; overflow-wrap: anywhere; }
+#wiStatus { color: #c6cdbb; font-size: 12px; line-height: 1.4; }
+.wi-facts { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; padding: 14px 0; border-block: 1px solid #ffffff20; }
+.wi-facts small { display: block; font-size: 9px; letter-spacing: 1px; color: #9daf9f; margin-bottom: 5px; }
+.wi-facts b { font-size: 13px; font-weight: 600; }
+#wiPrice { color: #f4cc83; }
+#wiDescription { font-size: 15px; line-height: 1.65; margin: 18px 0 20px; }
+#wiSelect { width: 100%; padding: 11px 16px; border: 1px solid #f4cc83; border-radius: 8px; color: #172124; background: #edbc65; font-weight: 700 !important; }
+#wiSelect:disabled { background: #273533; border-color: #53635b; color: #b2bdad; cursor: default; }
+#wiPause { margin: 12px 0 0; color: #a8baac; font-size: 11px; line-height: 1.5; text-align: center; }
+@media (any-pointer: coarse) { #weaponHoldHint { display: block; } }
+@media (max-width: 600px) and (min-height: 500px) {
+  #weaponInfo { inset: auto 0 0; width: 100%; max-height: calc(100dvh - max(24px,env(safe-area-inset-top))); margin: 0; border-radius: 20px 20px 0 0; padding: 22px 20px max(20px,env(safe-area-inset-bottom)); }
+}
+@media (max-height: 499px) { #weaponInfo { padding: 18px 22px; } .wi-heading { margin: 4px 0 10px; } #wiDescription { margin-block: 12px; } }
+@media (prefers-reduced-motion: reduce) { .shopCard.info-holding::after { animation: none; } }
+
 #airCard {
   display: flex; align-items: center; gap: 10px;
   background: linear-gradient(135deg, #2a3040, #1c2128);
