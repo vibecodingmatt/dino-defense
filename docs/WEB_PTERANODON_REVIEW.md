@@ -1,6 +1,6 @@
 # Pteranodon and wave-one tourist pickup
 
-Prepared September 14, 2026 for browser release 1.73.0.
+Published September 14, 2026 in browser release 1.73.0.
 
 The wave-one carrier previously bypassed the shared creature renderer and used
 the old flat Canvas bird. It now draws the same exported Pteranodon used by
@@ -80,3 +80,14 @@ and `joinedSkin` was confirmed. Evidence in the external directory above include
 
 These checks establish appearance, attachment and browser behavior. Headless
 software rendering does not establish physical-phone GPU frame rates.
+
+Production commit `2004551037a3f14b29f94fbbf8e96ecb4e322799` deployed through
+[successful Pages run 34906055860](https://github.com/vibecodingmatt/dino-defense/actions/runs/34906055860).
+The full release verifier passed exact committed hashes for 86 live pages/assets,
+all 33 loaded skins, gameplay/audio/resume checks, phone layout and offline
+cache v70. The scene suite also passed against the ordinary production URL:
+all seven maps, four layouts, 233 passenger attachment samples, 48 heading/flap
+poses per layout, pure redraws, centered pause/resume, procedural/Canvas fallbacks
+and offline loading, with zero page errors. The live sequence and unobscured
+scene captures were visually reviewed. Reports and images are in `production/`
+and `production-release/` under the external evidence directory above.

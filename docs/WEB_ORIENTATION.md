@@ -6,23 +6,35 @@ separate maintained products. This is the browser handoff. Roblox starts at
 
 ## Production baseline
 
-Last verified runtime release: **1.72.1**, September 14, 2026; service-worker cache
-**dino-defense-v69**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
-from root `main`, commit `f6a268a9ca9556767416e53611999bb3fcfce542`.
-[Pages run 34902861847 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34902861847).
+Last verified runtime release: **1.73.0**, September 14, 2026; service-worker cache
+**dino-defense-v70**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
+from root `main`, commit `2004551037a3f14b29f94fbbf8e96ecb4e322799`.
+[Pages run 34906055860 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34906055860).
 This is a recorded deployment baseline; inspect Git and the live version before
 the next release rather than assuming HEAD still equals this commit.
 
-Live verification checked HTTP 200 and committed SHA-256 for 85 pages and
+Live verification checked HTTP 200 and committed SHA-256 for 86 pages and
 dependencies, all 33 loaded dinosaur skins and polished jaw attachments,
 the guest renderer, hidden art menus,
 ascending weapon prices, matching number keys and Gas selection, actual kills
 with all nine finishers, surface effects and red-ring removal, resumed wave one
-with one weapon and zero cash, phone layout and offline loading under cache v69.
+with one weapon and zero cash, phone layout and offline loading under cache v70.
 It also checked the authored audio bank online/offline, larger Gennaro scale,
 and deaths of all 33 species and nine bosses without creature vocalizations.
 No browser JavaScript errors were found in those checks. Physical phone GPU
 performance and film-quality likeness were not established by headless tests.
+
+The 1.73.0 wave-one Pteranodon now uses the detailed shared 3D model: sculpted
+beak/crest, recessed eyes, mottled leathery wings and articulated gripping feet.
+The guest follows the posed foot sockets through the carry. Production checks
+confirmed the actual 156,456-vertex export, the full adult pickup on all seven
+maps, both headings, exact passenger attachment, pure redraws and unchanged
+lives/cash/kills. Desktop, 390/320 px phones, short landscape, centered pause/resume,
+missing-skin/Canvas fallbacks and a real offline reload passed without browser
+errors. [Pteranodon review](WEB_PTERANODON_REVIEW.md) records geometry, reference
+and export details. Live sequence/scene captures were reviewed; evidence is in
+`C:/Users/burns/dev/dino-perimeter-review/ptera-film/production/` and
+`production-release/`.
 
 The 1.72.1 pause screen adds a centered native **Resume game** button, with
 mouse, touch, Enter and Space support. Local and production interaction checks
