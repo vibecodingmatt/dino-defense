@@ -10,7 +10,7 @@ const CreatureMeshes = (() => {
     atrociraptor:{family:'raptor',body:'#976e4c',belly:'#c9b08a',mark:'#3d3028',pattern:1},
     pyroraptor:{family:'raptor',body:'#793d30',belly:'#b58a65',mark:'#302d2b',pattern:1},
     dimorphodon:{family:'flyer',body:'#675647',belly:'#c3a483',mark:'#2a3434',pattern:3},
-    pteranodon:{family:'flyer',body:'#837562',belly:'#b8ac92',mark:'#4d4a3d',pattern:3},
+    pteranodon:{family:'flyer',body:'#58615c',belly:'#c0aa85',mark:'#994c39',pattern:7},
     quetzalcoatlus:{family:'flyer',body:'#b4aa88',belly:'#dad0ad',mark:'#695144',pattern:3},
     ichthyosaurus:{family:'marine',body:'#436470',belly:'#bdc9c7',mark:'#233d46',pattern:3,stride:2},
     plesiosaurus:{family:'marine',body:'#4a6b64',belly:'#bac7b1',mark:'#293f38',stride:2.3},
@@ -50,6 +50,6 @@ const CreatureMeshes = (() => {
     if(!C[key]||!CreatureAnatomy.has(key))throw Error('Missing authored anatomy: '+key);
     return CreatureAnatomy.build(key,C[key]);
   }
-  const pose=(model,phase,roar=0,frill=roar)=>CreatureAnatomy.pose(model,phase,roar,frill);
+  const pose=(model,phase,roar=0,frill=roar,flight)=>CreatureAnatomy.pose(model,phase,roar,frill,flight);
   return {catalog:C,build,pose,rgb};
 })();

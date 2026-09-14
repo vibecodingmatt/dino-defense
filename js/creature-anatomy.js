@@ -73,7 +73,7 @@ const CreatureAnatomy=(()=>{
     // membrane. Separate sweeps and a straight-edged fan diverge at the wrist
     // and leave exposed "ropes" above the cambered skin. Keep this authored
     // shell as membrane material: voxel remeshing would erase its thin edges.
-    function wing(points,web){
+    function wing(points,web,boneAt){
       const side=Math.sign(points.at(-1)[2]),edge=profileSamples([...web.slice().reverse(),points.at(-1)].map((p,i)=>[i===0?points[0][2]*side:p[2]*side,p[0],p[1],0]),8).map(v=>v.p);
       const leading=samples(points.map((p,i)=>[...p,[.085,.060,.034,.0015][i],[.073,.047,.027,.0015][i]]),12);
       const chordSteps=[0,.015,.035,.06,.10,.16,.24,.34,.46,.60,.74,.86,.94,1];
@@ -94,7 +94,7 @@ const CreatureAnatomy=(()=>{
         for(let j=1;j<4;j++){const angle=Math.PI*1.5-j*Math.PI/8;push(Math.cos(angle)*rw,Math.sin(angle)*ry,add(mul(along,Math.cos(angle)),mul(up,Math.sin(angle))),0);}
         return row;
       });
-      surface(rows,null,false);
+      surface(rows,boneAt,false);
     }
     return {data,parts,use,tri,sweep,profile,loft,ell,horn,wing};
   }
@@ -116,6 +116,11 @@ const CreatureAnatomy=(()=>{
     if(s.brachio93)for(let i=8;i<=12;i++)skullContour[i][1]=0;
     function facial(v){
       const ex=s.eye[0],ey=s.eye[1],dx=(v[0]-ex)/(s.socket?.[0]||.16),dy=(v[1]-ey)/(s.socket?.[1]||.10),dent=Math.exp(-(dx*dx+dy*dy)*1.8),fenestra=Math.exp(-(((v[0]-ex-.20)/.17)**2+((v[1]-ey+.085)/.10)**2)*1.4),cheek=Math.exp(-(((v[0]-ex+.12)/.13)**2+((v[1]-ey+.12)/.12)**2));
+      if(s.pteraFilm){
+        const hollow=Math.exp(-(((v[0]-1.02)/.13)**2+((v[1]-1.965)/.072)**2));
+        v[2]*=1-dent*.23-hollow*.18+cheek*.10;
+        return v;
+      }
       if(s.brachio93){
         const g=(x,y,rx,ry)=>Math.exp(-(((v[0]-x)/rx)**2+((v[1]-y)/ry)**2));
         // Recess the orbit, keep a soft cheek below it, and pinch the bridge
@@ -165,8 +170,8 @@ const CreatureAnatomy=(()=>{
       use(0,'torso');const neckStart=m.data.length;
       // The curved cervical column keeps a full cross-section through the
       // steep rise. Blue's shallow skin folds wrap that column into the nape.
-      sweep(s.neckSweep,24,u=>[0,1,clamp((u-(s.neckSweep.length-2))/1.3,0,1)],true,s.blueFilm||s.brachio93?8:4,s.blueFilm||s.brachio93?(v,u,a,n)=>{
-        const fold=s.brachio93?Math.sin(u*15+Math.sin(a*2)*.9)*.006*clamp((u-2)/2,0,1):Math.sin(u*13+a*.55)*Math.sin(Math.PI*clamp(u/(s.neckSweep.length-1),0,1))*.008;
+      sweep(s.neckSweep,24,u=>[0,1,clamp((u-(s.neckSweep.length-2))/1.3,0,1)],true,s.blueFilm||s.brachio93||s.pteraFilm?8:4,s.blueFilm||s.brachio93||s.pteraFilm?(v,u,a,n)=>{
+        const fold=s.brachio93?Math.sin(u*15+Math.sin(a*2)*.9)*.006*clamp((u-2)/2,0,1):Math.sin(u*13+a*.55)*Math.sin(Math.PI*clamp(u/(s.neckSweep.length-1),0,1))*(s.pteraFilm?.005:.008);
         return add(v,mul(n,fold));
       }:undefined);
       if(s.blueFilm)for(let j=neckStart;j<m.data.length;j+=51){const x=(m.data[j]+m.data[j+17]+m.data[j+34])/3;if(x>=s.head[0][0])for(const o of [0,17,34])m.data[j+o+14]=1;}
@@ -178,7 +183,7 @@ const CreatureAnatomy=(()=>{
     // Closed lower lips follow the upper tooth line exactly; teeth sit
     // medial to both lips and are occluded by the opposing jaw at rest.
     const headSamples=profileSamples(s.head,5).map(v=>v.p);
-    const mandible=s.jaw.map(p=>{const h=at(s.brachio93?headSamples:s.head,p[0]),depth=p[1]-p[2];return [p[0],h[2]-.006,h[2]-.006-depth,Math.max(p[3],h[3]*.94)];});
+    const mandible=s.jaw.map(p=>{const h=at(s.brachio93||s.pteraFilm?headSamples:s.head,p[0]),depth=p[1]-p[2];return [p[0],h[2]-.006,h[2]-.006-depth,Math.max(p[3],h[3]*.94)];});
     rig.jaw=[s.jawPivot[0],at(s.head,s.jawPivot[0])[2],0];rig.mouth=[s.mouth[0],at(s.head,s.mouth[0])[2]-.008,0];
     // A rounded retroarticular heel seats behind the mouth corner, inside
     // the cheek. The old full-depth end cap looked like a detached plank.
@@ -200,8 +205,8 @@ const CreatureAnatomy=(()=>{
     // Palate and tongue are inside the jaws, visible only when they open.
     use(1,'head',0,'#382729');loft(s.head.filter(p=>p[0]>=s.jaw[0][0]).map(p=>[p[0],p[2]+.011,p[2]+.006,p[3]*.66]),[[0,1],[1,0],[0,0],[-1,0]],null,false);
     use(2,'lowerJaw',0,'#604044');loft(mandible.map(p=>[p[0],p[1]+.006,p[1]+.002,p[3]*.68]),[[0,1],[1,0],[0,0],[-1,0]],null,false);
-    if(s.beak){use(1,'head',0,'#514b3c');const h=s.head.at(-1),p=s.head.at(-2);profile([[p[0]-.01,p[1]-.04,p[2]+.012,p[3]*.92],h],2.4);}
-    const mandibleSamples=s.blueFilm||s.brachio93?profileSamples(mandible,5).map(v=>v.p):mandible;
+    if(s.beak&&!s.pteraFilm){use(1,'head',0,'#514b3c');const h=s.head.at(-1),p=s.head.at(-2);profile([[p[0]-.01,p[1]-.04,p[2]+.012,p[3]*.92],h],2.4);}
+    const mandibleSamples=s.blueFilm||s.brachio93||s.pteraFilm?profileSamples(mandible,5).map(v=>v.p):mandible;
     function faceWidth(x,y){const h=at(headSamples,x),t=clamp((y-h[2])/(h[1]-h[2]),0,1),c=skullContour.slice(0,8).slice().reverse();let i=0;while(i<c.length-2&&c[i+1][1]<t)i++;return h[3]*mix(c[i][0],c[i+1][0],clamp((t-c[i][1])/(c[i+1][1]-c[i][1]),0,1));}
     function feather(p,d,n,length,width,color){
       const axis=norm(d),ac=norm(cross(axis,n)),mid=add(add(p,mul(axis,length*.26)),mul(n,width*.8)),tip=add(add(p,mul(axis,length)),mul(n,width*.5)),left=add(mid,mul(ac,width)),right=sub(mid,mul(ac,width)),ridge=add(mid,mul(n,width*.15)),rootL=add(p,mul(ac,width*.15)),rootR=sub(p,mul(ac,width*.15));
@@ -281,6 +286,40 @@ const CreatureAnatomy=(()=>{
           sweep([[x,y,z,.008,.007],[x,y+sign*len*.65,z,.0084,.0065],[x+.002,y+sign*len,z*.99,.0048,.004],[x+.002,y+sign*(len+.003),z*.99,.001,.001]],10,null,false,2);
         }
       }
+    }else if(s.pteraFilm){
+      for(const side of [-1,1]){
+        const wall=(x,y)=>facial([x,y,faceWidth(x,y)])[2];
+        const orbit=wall(ex,ey)+.012;
+        use(1,'head',0,'#292f29');ell([ex,ey,side*orbit],[er*1.34,er*1.13,.018],24,14);
+        use(1,'head',2,'#c78539');ell([ex+.003,ey,side*(orbit+.014)],[er,er*.86,.012],24,14);
+        for(let i=0;i<24;i++){
+          const a=i/24*TAU,r=er*(.70+.1*Math.sin(i*2.4));use(1,'head',2,i%3?'#d9b45f':'#806232');
+          tri([ex+.003+Math.cos(a)*er*.28,ey+Math.sin(a)*er*.24,side*(orbit+.027)],
+            [ex+.003+Math.cos(a-.045)*r,ey+Math.sin(a-.045)*r*.86,side*(orbit+.022)],
+            [ex+.003+Math.cos(a+.045)*r,ey+Math.sin(a+.045)*r*.86,side*(orbit+.022)]);
+        }
+        use(1,'head',0,'#101914');ell([ex+.005,ey,side*(orbit+.027)],[er*.34,er*.72,.003],16,10);
+        use(1,'head',2,'#fff2ce');ell([ex-.007,ey+.01,side*(orbit+.031)],[.004,.004,.002],8,6);
+        for(const sign of [-1,1]){
+          const pts=[];for(let i=0;i<=16;i++){const a=i/16*Math.PI,x=ex-Math.cos(a)*er*1.52,y=ey+Math.sin(a)*er*1.17*sign;pts.push([x,y,side*(wall(x,y)+.005),.009,.012]);}
+          use(1,'head',6,[1,0,0]);sweep(pts,10,null,false,2);
+        }
+        const [nx,ny,nrx,nry]=s.nostril,nz=wall(nx,ny)+.003;
+        use(1,'head',0,'#242923');ell([nx,ny,side*nz],[nrx,nry,.006],20,12);
+        const rim=[];for(let i=0;i<=32;i++){const a=i/32*TAU,x=nx+Math.cos(a)*nrx*1.18,y=ny+Math.sin(a)*nry*1.3;rim.push([x,y,side*(wall(x,y)+.003),.003,.004]);}
+        use(1,'head',6,[1,0,0]);sweep(rim,8,null,false,1);
+        // Dense lip borders hug the beak and continue into the jaw hinge.
+        for(const lower of [false,true]){
+          const pts=[],rows=lower?mandibleSamples:headSamples;
+          for(let i=0;i<64;i++){const x=mix(.725,2.05,i/63),p=at(rows,x);pts.push([x,lower?p[1]-.001:p[2]+.002,side*p[3]*(lower?.9:.86),.0032,.004]);}
+          use(lower?2:1,lower?'lowerJaw':'head',6,[.82,.18,0]);sweep(pts,8,null,false,1);
+        }
+        // Small folds around the eye/cheek remain geometry at close range.
+        for(let j=0;j<6;j++){
+          const pts=[];for(let i=0;i<12;i++){const x=.69+i*.026,y=1.925+j*.017+Math.sin(i*.38+j)*.007;pts.push([x,y,side*(wall(x,y)-.001),.0025,.0035]);}
+          use(1,'head',6,[.9,.1,0]);sweep(pts,6,null,false,1);
+        }
+      }
     }else for(const side of [-1,1]){
       use(1,'head',0,'#272b25');ell([ex,ey,side*ez],[er*(s.blueFilm?1.30:1.7),er*(s.blueFilm?1.07:1.3),.014],s.blueFilm?20:12,s.blueFilm?12:8);
       use(1,'head',2,key==='therizinosaurus'?'#aaa99b':s.blueFilm?'#b87b2b':'#c49d44');ell([ex+.004,ey,side*(ez+.010)],[er,er*.88,.009],s.blueFilm?20:12,s.blueFilm?12:8);
@@ -329,6 +368,7 @@ const CreatureAnatomy=(()=>{
     if(s.crest){use(1,'head');sweep(s.crest,16);}
     if(s.dome){use(1,'head');ell(s.dome.slice(0,3),s.dome.slice(3),32,20);}
     if(s.crestBlade){const [a,b,t]=s.crestBlade,tip=[...t,0],aa=[...a,.045],bb=[...b,.032],ab=[...a,-.045],ba=[...b,-.032];use(1,'head',4,key==='quetzalcoatlus'?'#80634e':cfg.body);tri(aa,bb,tip);tri(ab,tip,ba);tri(aa,tip,ab);tri(bb,ba,tip);tri(aa,ab,ba);tri(aa,ba,bb);}
+    if(s.crestSculpt){use(1,'head',6,[0,0,1]);profile(s.crestSculpt,1.75,false);}
     if(s.stygi)for(const side of [-1,1])for(let i=0;i<3;i++){use(1,'head',0,'#9c8b6e');horn([[.67-i*.052,1.84-i*.09,side*(.10+i*.005)],[.51-i*.064,1.91-i*.11,side*(.21+i*.028)],[.41-i*.048,1.95-i*.12,side*(.23+i*.03)]],.041-i*.005);}
     if(s.brows)for(const side of [-1,1]){use(1,'head');
       if(s.blueFilm){
@@ -441,7 +481,32 @@ const CreatureAnatomy=(()=>{
     // membrane. Their attachment, elbow and wrist are authored per species.
     if(s.wing)for(const side of [-1,1]){
       const id=bone('wing'),part=side>0?'wingNear':'wingFar',points=s.wing.map(p=>[p[0],p[1],p[2]*side]);rig.wings.push({id,pivot:points[0].slice(),side});points[0][2]*=.18;points[0][1]-=.09;
-      use(id,part,3);wing(points,s.web.map(p=>[p[0],p[1],p[2]*side]));
+      use(id,part,3);wing(points,s.web.map(p=>[p[0],p[1],p[2]*side]),s.pteraFilm?u=>[id,0,1-clamp(u/.40,0,1)]:undefined);
+      if(s.pteraFilm){
+        // The three free fingers sit at the wrist; the long fourth digit
+        // remains enclosed by the existing continuous wing shell.
+        const wrist=points[2];
+        for(let i=0;i<3;i++){
+          const z=wrist[2]+side*(i-1)*.039,x=wrist[0]+.016,y=wrist[1]+.005;
+          use(id,side>0?'nearArm':'farArm',6,[1,0,0]);
+          sweep([[x-.025,y,z,.026,.023],[x+.085,y+.035,z+side*.025,.024,.020],[x+.15,y+.012,z+side*.042,.014,.013]],10,null,false,3);
+          use(id,side>0?'nearArm':'farArm',0,'#3b3930');horn([[x+.14,y+.015,z+side*.042],[x+.18,y-.02,z+side*.05],[x+.155,y-.057,z+side*.05]],.022);
+        }
+        const leg=bone('grip'),lp=side>0?'nearLeg':'farLeg',hip=[-.40,1.45,side*.145],ankle=[-.245,.635,side*.19],digits=[];
+        (rig.grips||=[]).push({id:leg,pivot:hip,side,digits,socket:[-.14,.50,side*.19]});
+        // Retain these narrow closed lofts: a voxel pass can perforate the
+        // ankle and merge neighbouring toes before the grasp is animated.
+        use(leg,lp,6,[1,0,0]);sweep([[...hip,.095,.084],[-.51,1.18,side*.23,.072,.061],[-.40,.99,side*.215,.044,.040],[...ankle,.034,.032],[-.185,.575,side*.19,.055,.055]],18,u=>[leg,0,1-clamp(u/.8,0,1)],false,6);
+        for(let i=0;i<4;i++){
+          const reverse=i===3,z=side*.19+(i-1)*.045*(reverse?0:1),pivot=[-.185,.585,z],toe=bone('digit'),dx=reverse?-.16:.17+[.0,.035,-.01][i];
+          digits.push({id:toe,pivot,reverse});
+          use(toe,lp,6,[1,0,0]);sweep([[...pivot,.031,.027],[pivot[0]+dx*.50,.542,z+(i-1)*.01,.029,.022],[pivot[0]+dx,.505,z+(i-1)*.018,.021,.016]],12,u=>[toe,leg,1-clamp(u/1.1,0,1)],false,4);
+          use(toe,lp,0,'#39382f');sweep([[pivot[0]+dx*.94,.508,z+(i-1)*.018,.028,.022],[pivot[0]+dx*1.25,.463,z+(i-1)*.02,.022,.017],[pivot[0]+dx*1.20,.405,z+(i-1)*.02,.009,.007],[pivot[0]+dx*.92,.391,z+(i-1)*.018,.001,.001]],10,null,false,3);
+          // Small dorsal scales follow the moving toe rather than floating.
+          for(let j=0;j<4;j++){use(toe,lp,6,[.85,.15,0]);ell([pivot[0]+dx*(.28+j*.17),.568-j*.015,z],[.018,.010,.025-j*.002],10,6);}
+        }
+        continue;
+      }
       use(0,side>0?'nearLeg':'farLeg');sweep([[-.44,1.34,side*.13,.056,.048],[-.58,1.15,side*.31,.032,.029],[-.87,1.26,side*.41,.019,.02]],12,null,false);
       for(let i=0;i<3;i++){use(0,side>0?'nearLeg':'farLeg',0,'#514b40');horn([[-.86,1.26,side*(.38+i*.032)],[-.97,1.25,side*(.38+i*.038)]],.013);}
     }
@@ -454,11 +519,20 @@ const CreatureAnatomy=(()=>{
     if(s.tailVane){use(ti.at(-1),'tail',3,[.7,.1,.2]);tri([-1.44,1.33,0],[-1.66,1.53,0],[-1.91,1.33,0]);tri([-1.44,1.33,0],[-1.66,1.14,0],[-1.91,1.33,0]);}
     return {vertices:new Float32Array(m.data),vertexStride:17,bones,parts:m.parts,rig,cfg,key,anatomy:s};
   }
-  function pose(m,phase,roar=0,frill=roar){
+  function pose(m,phase,roar=0,frill=roar,flight){
     const s=m.anatomy,r=m.rig,bob=Math.sin(phase*2)*.008,ms=Array.from({length:48},I);ms[0]=T(0,bob,0);ms[1]=MM(ms[0],R(Math.sin(phase)*.009-roar*.04,r.head));ms[2]=MM(ms[1],R(-roar*(s.gape||(s.teeth?.48:.17)),r.jaw));
     for(const l of r.legs){const f=foot(phase,l.offset,l.span,l.duty,l.lift),aa=add(l.base,[0,bob,0]),bb=add(l.ankle,[f.x,f.y,0]),kk=knee(aa,bb,l.l1,l.l2,l.bend);ms[l.upper]=segment(l.base,l.knee,aa,kk);ms[l.lower]=segment(l.knee,l.ankle,kk,bb);ms[l.toe]=T(f.x,f.y,0);}
     for(const a of r.arms)ms[a.id]=MM(ms[0],R(Math.sin(phase+a.side)*.045,a.pivot));
-    for(const w of r.wings)ms[w.id]=MM(ms[0],R(Math.sin(phase+(w.index||0)*.75)*(s.wingAmplitude||.23)*w.side,w.pivot,'x'));
+    for(const w of r.wings){
+      const spread=flight?.spread??1,flap=Math.sin(phase+(w.index||0)*.75)*(s.wingAmplitude||.23)*(flight?.spread===undefined?1:.20+.80*spread);
+      ms[w.id]=MM(ms[0],R(flap*w.side,w.pivot,'x'));
+      if(s.pteraFilm&&flight)ms[w.id]=MM(ms[w.id],R(-(1-spread)*.95*w.side,w.pivot,'y'));
+    }
+    for(const g of r.grips||[]){
+      const reach=flight?.reach??0,curl=flight?.grip??.25;
+      ms[g.id]=MM(ms[0],R(-(1-reach)*1.36,g.pivot));
+      for(const toe of g.digits)ms[toe.id]=MM(ms[g.id],R((toe.reverse?1:-1)*curl*.28,toe.pivot));
+    }
     for(const f of r.frills||[]){const fold=I();fold[5]=.44+.56*frill;fold[10]=.045+.955*frill;fold[12]=-.055*(1-frill);fold[13]=f.pivot[1]*(1-fold[5]);ms[f.id]=MM(ms[1],fold);}
     for(const t of r.tails){const f=t.i/(r.tails.length-1);ms[t.id]=T(0,bob*(1-f),Math.sin(phase-f*2)*.06*f);}
     return new Float32Array(ms.flat());

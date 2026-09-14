@@ -155,6 +155,7 @@ Audio authoring uses the [export instructions](../art/browser-audio/README.md).
 | Saves/import/export, placement, first wave, combat, homepage actors | `js/game.js` |
 | Homepage fence/outhouse paintings, debris and electrical effects | `js/home-scenery.js`; scene simulation in `js/game.js`; [homepage notes](WEB_HOME_REVIEW.md) |
 | Shared 3D tourists, guest costumes, articulated poses and bounded sprite cache | `js/tourists.js`; look factories in `js/looks.js` |
+| Wave-one Pteranodon pickup, flight pose and guest attachment | `js/game.js`, `js/creatures.js`, `Tourists.shoulder()`; [Pteranodon review](WEB_PTERANODON_REVIEW.md) |
 | Tourist bite sprays, debris, ground stains and independent effect clocks | `js/tourist-fx.js`; scene integration in `js/game.js` |
 | Canvas painters and fallback art | `js/draw.js`, `js/drex.js` |
 | Sector 7 scene and its distinct resident raptors | `js/perimeter.js`, `js/paddock-raptors.js`, [map notes](../assets/maps/README.md) |
@@ -209,6 +210,10 @@ Check whether an old preview is still running; tests start their own servers.
   can accidentally review the procedural fallback. No WebGL retains Canvas art.
 - **Drawing:** render functions must not advance simulation, spawn particles or
   spend resources. Inspection renders must not overwrite live atlas snapshots.
+- **Wave-one carrier:** use the shared Pteranodon export and its posed foot
+  sockets with the guest sprite's shoulder anchor. The cameo changes no match
+  accounting. Keep its pure bounded tile draw, pause behavior, procedural/Canvas
+  fallbacks and retained closed leg/toe skin; see the Pteranodon review above.
 - **Endgame:** the final corpse holds victory through its full duration. The
   ceremony uses a separate real-time clock, pauses in hidden tabs and grants no
   extra rewards on redraw or dismissal. Keep keyboard/touch results access,
@@ -247,6 +252,7 @@ not a runtime game dependency. Only creature topology checks need Node alone.
 | Jaw shape, head attachment and bite motion | Also `node tests/creature-jaws.cjs` |
 | Sound effects, mutes, output mix, voice/cache limits and offline bank | `node tests/audio-fx.cjs` |
 | Pterosaur wings | Also `node tests/creature-wings.cjs` |
+| Wave-one Pteranodon pickup and guest attachment | Also `node tests/snatcher.cjs`; `SNATCH_REVIEW_URL` and `SNATCH_REVIEW_DIR` select live verification/evidence |
 | Homepage art, art-panel visibility | `node tests/presentation.cjs`; creature suite for shared rigs |
 | Homepage UI, dialogs, sharing, Play/Continue and social metadata | `node tests/homepage.cjs`; `node tests/presentation.cjs`; `node tests/resume.cjs` |
 | Homepage fence/outhouse art, breakup, electrical effects and phone framing | `node tests/home-scenery.cjs`; `node tests/homepage.cjs`; `node tests/presentation.cjs`; `node tests/tourists.cjs` |

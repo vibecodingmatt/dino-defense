@@ -117,7 +117,7 @@ interpolation can place those details off the finished curved surface. Keep
 the chin contour independent of small lip undulations, and inspect fully closed
 and open jaws from the front as well as both sides.
 All other species retain their existing export settings except the later
-Brachiosaurus pass below. References, measurements
+Brachiosaurus and Pteranodon passes below. References, measurements
 and visual/test evidence are in `docs/WEB_BLUE_REVIEW.md`.
 
 Brachiosaurus uses `brachio93` and pattern 6 for the film-puppet head. Rebuild
@@ -127,3 +127,13 @@ material 6 preserves eyelids, nasal rims and fine lips. Nostril ellipses must
 stay entirely on the nasal wall below the roof. Dense upper/lower lip profiles
 and a broad closed palate keep the mouth seated in front views. See
 `docs/WEB_BRACHIOSAURUS_REVIEW.md` for references, measurements and review limits.
+
+Pteranodon uses `pteraFilm` and pattern 7. Rebuild only `pteranodon` with both
+commands above. It shares the 0.010 voxel, three-pass 0.60 smoothing and
+20,500 skin-triangle settings. Material 6 retains the narrow closed legs, toes,
+crest and facial detail: voxel remeshing can perforate the ankles. Keep each
+`rig.grips` leg and its digit bones in one ownership group, separate from the
+other foot and wings. Wing roots blend into the torso during flight folding.
+Run `node tests/snatcher.cjs` alongside skin, wing and jaw checks; it exercises
+the actual wave-one scene and posed guest attachment. See
+`docs/WEB_PTERANODON_REVIEW.md` for reference, geometry and verification notes.

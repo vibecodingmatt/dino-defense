@@ -23,6 +23,7 @@ for(const key of Object.keys(ctx.meshes.catalog)){
  const m=ctx.meshes.build(key),bytes=zlib.gunzipSync(fs.readFileSync(file)),v=new Float32Array(bytes.buffer,bytes.byteOffset,bytes.length/4),owners=new Map();
  m.rig.legs.forEach((l,i)=>[l.upper,l.lower,l.toe].forEach(b=>owners.set(b,'leg'+i)));
  m.rig.arms.forEach((a,i)=>owners.set(a.id,'arm'+i));m.rig.wings.forEach((w,i)=>owners.set(w.id,'wing'+i));
+ (m.rig.grips||[]).forEach((g,i)=>[g.id,...g.digits.map(d=>d.id)].forEach(b=>owners.set(b,'grip'+i)));
  let crossed=0,bodyDrag=0;
  for(let i=0;i<v.length;i+=51){const groups=new Set();for(const p of [i,i+17,i+34])for(const [bone,weight] of [[v[p+12],1-v[p+16]],[v[p+15],v[p+16]]])if(weight>1e-4&&owners.has(bone)){groups.add(owners.get(bone));if(v[p+14]===0)bodyDrag++;}if(groups.size>1)crossed++;triangles++;}
  invalid+=crossed+bodyDrag;

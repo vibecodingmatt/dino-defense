@@ -2056,6 +2056,7 @@ function updateTourists(dt){
    talons. Costs no lives, counts as nothing — the victim is merely
    redistributed. Phases: omen → dive → grab → carry. */
 function beginSnatch(u){
+  Creatures.ready(['pteranodon']);
   u.snatchAt = -1;
   G.snatch = {phase: 'omen', t: 0, u, dir: u.dirT >= 0 ? 1 : -1, size: 46,
               ph: rand(0, 6), spread: 1, talon: 0, x: 0, y: -300, gy: u.py, yellQ: []};
@@ -2163,13 +2164,16 @@ function drawSnatch(ctx){
   ctx.beginPath();
   ctx.ellipse(s.x, s.gy + 2, s.size * (1.15 - alt * 0.65), s.size * 0.26 * (1.15 - alt * 0.65), 0, 0, Math.PI * 2);
   ctx.fill();
-  // the cargo, dangling from the talons (drawn first so wings overlap)
+  // The cargo follows the same posed foot socket as the rendered skin.
+  // The original Canvas carrier retains its matching fallback offset.
+  const frame = Creatures.snatchFrame(s);
   if (s.phase !== 'dive'){
     const v = s.u;
-    const vy = s.y + s.size * 0.72 + 1.27 * v.tall * v.size + Math.sin(s.t * 6) * 2;
-    drawTourist(ctx, v, s.x + s.dir * 2, vy, s.dir, v.phase, 1, 0, true);
+    const grip = frame?.grip || {x: s.x + s.dir * 2, y: s.y + s.size * 0.72};
+    const shoulder = Tourists.shoulder(v, v.phase, s.dir);
+    drawTourist(ctx, v, grip.x - shoulder.x * v.size, grip.y - shoulder.y * v.size, s.dir, v.phase, 1, 0, true);
   }
-  drawSnatcher(ctx, s);
+  drawSnatcher(ctx, s, frame);
 }
 
 /* ---------------- "CLEVER GIRL." ----------------

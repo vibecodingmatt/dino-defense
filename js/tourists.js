@@ -294,5 +294,13 @@ const Tourists = (() => {
     if(!available())return false;
     const s=u.size||14;c.save();c.translate(m.x,m.y);c.scale(dir,1);c.rotate(2.70+Math.sin(time*16)*.1);c.translate(0,s*.99);draw(c,u,0,0,1,time*19,1,0,'caught',true);c.restore();return true;
   }
-  return {draw,caught,get available(){return available();},stats:()=>({available:available(),error,models:models.size,sprites:sprites.size,spritePixels,draws,triangles:[...models.values()].map(m=>m.triangles)}),context:()=>gl};
+  function shoulder(u,phase,dir=1){
+    if(!available())return {x:0,y:-1.27*u.tall};
+    // Match the sprite's quantized running pose and projection exactly.
+    const frame=((Math.round(phase/TAU*24)%24)+24)%24,b=matrices(u,frame/24*TAU,'run');
+    const p=[0,1,2].map(i=>(b[2*16+12+i]+b[5*16+12+i])*.5),yaw=Number.isFinite(u.artHeading)?u.artHeading:-.56;
+    const x=p[0]*Math.cos(yaw)+p[2]*Math.sin(yaw),z=-p[0]*Math.sin(yaw)+p[2]*Math.cos(yaw);
+    return {x:x*dir,y:-p[1]*.974+z*.225};
+  }
+  return {draw,caught,shoulder,get available(){return available();},stats:()=>({available:available(),error,models:models.size,sprites:sprites.size,spritePixels,draws,triangles:[...models.values()].map(m=>m.triangles)}),context:()=>gl};
 })();

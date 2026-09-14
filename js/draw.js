@@ -2113,7 +2113,8 @@ function drawTouristZapped(ctx, u, x, y, dir, rot, burn, alpha){
    opens the wings (0 = swept dive tuck, 1 = full flare), `talon`
    extends the legs from tucked to reaching. Deep slate hide, blood-red
    crest, burning eye: serious monster, comedic cargo. */
-function drawSnatcher(ctx, o){
+function drawSnatcher(ctx, o, frame){
+  if (typeof Creatures !== 'undefined' && Creatures.drawSnatcher(ctx, o, frame)) return;
   const s = o.size, flap = Math.sin(o.ph * 2.2) * (0.35 + o.spread * 0.75);
   const body = '#332e3d', belly = '#59525f', crest = '#8a2430';
   const span = 0.85 + o.spread * 0.45;

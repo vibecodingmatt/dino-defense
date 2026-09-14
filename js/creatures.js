@@ -109,6 +109,21 @@ const Creatures = (() => {
           float wrinkles=pow(.5+.5*sin(vRest.y*145.+noise(vRest.xy*37.)*5.+vRest.x*25.+vRest.z*17.),16.);
           color*=1.-rings*.07*head-folds*.18*cheek-wrinkles*.15*max(cheek,neck);
         }
+        if(uPattern>6.5&&uPattern<7.5){
+          float crest=step(.85,vColor.z),jaw=step(1.5,vPart)*(1.-step(2.5,vPart));
+          float pale=max(clamp(-vBindNormal.y*.7,0.,.65),jaw*.36);
+          color=mix(uBody,uBelly,pale);
+          color=mix(color,uBody*.39,smoothstep(.37,.78,broad)*.48*(1.-pale));
+          float beak=smoothstep(.96,1.62,vRest.x)*(1.-crest);
+          color=mix(color,vec3(.45,.36,.25),beak*.7);
+          vec2 orbit=(vRest.xy-vec2(.825,2.086))/vec2(.098,.078);
+          color=mix(color,uBody*.30,exp(-dot(orbit,orbit))*step(.04,abs(vRest.z))*.60);
+          float folds=pow(.5+.5*sin(vRest.y*97.+vRest.x*37.+broad*3.),14.);
+          color*=1.-folds*.11*exp(-pow((vRest.x-.52)/.31,2.));
+          color=mix(color,uMark*(.70+broad*.55)+uBelly*fine*.10,crest);
+          float striae=pow(.5+.5*sin(vRest.x*92.+vRest.y*55.+broad*2.),12.);
+          color*=1.-striae*(crest*.13+beak*.07);
+        }
         // Fine scale cells with recessed seams and rough, mottled hide. This
         // is sampled from bind positions, independent of bones and heading.
         vec3 weights=pow(an,vec3(4.));weights/=max(.001,weights.x+weights.y+weights.z);
@@ -121,6 +136,17 @@ const Creatures = (() => {
         color=mix(color,uMark,(1.-smoothstep(.48,.93,an.y))*smoothstep(.59,.81,broad)*.10);
         n=normalize(n+vec3((fine-.5)*.025,(skin-.5)*.035,0.));specular=.07;
         if(mat>2.5&&mat<3.5){color*=.92+sin(vRest.z*37.)*.045;specular=.035;}
+        if(mat>2.5&&mat<3.5&&uPattern>6.5&&uPattern<7.5){
+          // Thin russet flight skin: mottled transmitted light, radiating
+          // tension fibres and fine branching veins follow the bind surface.
+          float edge=clamp(vColor.x,0.,1.),web=smoothstep(.09,.235,1.-edge);
+          vec2 wing=vRest.xz;float patches=noise(wing*8.5)+noise(wing*29.)*.25;
+          float veins=pow(.5+.5*sin(vRest.z*53.+sin(vRest.x*18.)*2.1+noise(wing*17.)*5.),22.);
+          float fibres=pow(.5+.5*sin(vRest.z*125.+vRest.x*49.),16.);
+          vec3 leather=mix(vec3(.32,.22,.145),vec3(.55,.38,.22),smoothstep(.24,.95,patches));
+          leather*=1.-veins*.12-fibres*.06;
+          color=mix(uBody*(.57+skin*.42),leather,web*.90);specular=.045;
+        }
       }
       if(mat>3.5&&mat<4.5)color*=.82+noise(vRest.xy*5.+vRest.z*7.)*.12+texture2D(uDetail,vRest.xy*.57).r*.21;
       if(mat>4.5&&mat<5.5){color*=.78+noise(vec2(vRest.x*71.,vRest.y*13.)+vRest.z*29.)*.34;specular=.02;}
@@ -211,7 +237,7 @@ const Creatures = (() => {
     gl.useProgram(program);gl.viewport(col*cellW,source.height-(row+1)*cellH,cellW,cellH);gl.scissor(col*cellW,source.height-(row+1)*cellH,cellW,cellH);gl.enable(gl.SCISSOR_TEST);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
     gl.bindBuffer(gl.ARRAY_BUFFER,m.buffer);let offset=0;for(const [name,size] of [['aPosition',3],['aNormal',3],['aRest',3],['aColor',3],['aBone',1],['aMaterial',1],['aPart',1]]){const l=loc[name];gl.enableVertexAttribArray(l);gl.vertexAttribPointer(l,size,gl.FLOAT,false,(m.vertexStride||15)*4,offset*4);offset+=size;}
     if(m.vertexStride===17){gl.enableVertexAttribArray(loc.aBlend);gl.vertexAttribPointer(loc.aBlend,2,gl.FLOAT,false,68,60);}else{gl.disableVertexAttribArray(loc.aBlend);gl.vertexAttrib2f(loc.aBlend,0,0);}
-    gl.uniformMatrix4fv(loc.uBones,false,CreatureMeshes.pose(m,d.entranceT>0?0:phase,roar(d),frill(d)));gl.uniform1f(loc.uYaw,yaw);gl.uniform1fv(loc.uMask,new Float32Array(mask));gl.uniform2f(loc.uSize,cellW,cellH);gl.uniform1f(loc.uScale,cellW/5.8);
+    gl.uniformMatrix4fv(loc.uBones,false,CreatureMeshes.pose(m,d.entranceT>0?0:phase,roar(d),frill(d),d.artFlight));gl.uniform1f(loc.uYaw,yaw);gl.uniform1fv(loc.uMask,new Float32Array(mask));gl.uniform2f(loc.uSize,cellW,cellH);gl.uniform1f(loc.uScale,cellW/5.8);
     const view=d.artView===undefined?GROUND:Math.max(0,Math.min(.8,d.artView));gl.uniform2f(loc.uView,view,Math.sqrt(1-view*view));
     gl.uniform3fv(loc.uBody,p.body);gl.uniform3fv(loc.uBelly,p.belly);gl.uniform3fv(loc.uMark,p.mark);gl.uniform4fv(loc.uStripe,key==='blue'?[1.18,.31,1.71,.97]:[1.10,.35,1.54,1.00]);gl.uniform1f(loc.uPattern,m.cfg.pattern||0);gl.uniform1f(loc.uStatus,p.override);
     const fx=treatment(d),body=m.anatomy?.body||[[-.6,1,.3,.3],[.5,1,.3,.3]],wide=body.reduce((a,b)=>a[3]>b[3]?a:b);
@@ -226,7 +252,7 @@ const Creatures = (() => {
     const cell=detailed&&items.length<=8?Math.min(maxEdge,coarse?320:640):CW;
     const maxCols=Math.max(1,Math.min(COLS,Math.floor(maxEdge/cell))),capacity=Math.min(MAX,maxCols*Math.floor(maxEdge/cell));
     const entries=items.filter(d=>!d.dead&&!d.leaked&&keyOf(d)).slice(0,capacity);if(!entries.length){lastSignature='';return;}
-    const signature=cell+':'+entries.map(d=>{if(!objectIds.has(d))objectIds.set(d,++nextId);return [objectIds.get(d),d.phase||0,yawFor(d,d.turn===undefined?d.dir:d.turn),roar(d),frill(d),d.entranceT>0?1:0,JSON.stringify(d.pal),d.artView,treatment(d).join(',')].join(',');}).join(';');
+    const signature=cell+':'+entries.map(d=>{if(!objectIds.has(d))objectIds.set(d,++nextId);return [objectIds.get(d),d.phase||0,yawFor(d,d.turn===undefined?d.dir:d.turn),roar(d),frill(d),d.entranceT>0?1:0,JSON.stringify(d.pal),d.artView,JSON.stringify(d.artFlight),treatment(d).join(',')].join(',');}).join(';');
     if(signature===lastSignature)return;lastSignature=signature;generation++;
     const cols=Math.min(maxCols,entries.length),rows=Math.ceil(entries.length/cols);resize(cols*cell,rows*cell);
     gl.disable(gl.SCISSOR_TEST);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
@@ -237,7 +263,7 @@ const Creatures = (() => {
   function sprite(d,phase,yaw){
     const key=keyOf(d);if(!key||!available())return null;
     const frame=((Math.round(phase/TAU*16)%16)+16)%16,angle=Math.round(yaw/TAU*32),mouth=Math.round(roar(d)*5),mask=d.deathMask||{},pal=status(d,key);
-    const display=Math.round(frill(d)*12),id=[key,frame,angle,mouth,display,JSON.stringify(mask),d.hideSail?1:0,JSON.stringify(d.pal),d.artView,treatment(d).join(',')].join(':');
+    const display=Math.round(frill(d)*12),id=[key,frame,angle,mouth,display,JSON.stringify(mask),d.hideSail?1:0,JSON.stringify(d.pal),d.artView,JSON.stringify(d.artFlight),treatment(d).join(',')].join(':');
     if(cache.has(id)){const hit=cache.get(id);cache.delete(id);cache.set(id,hit);return hit;}
     resize(CW,CH);renderTile({...d,artRoar:mouth/5,artFrill:display/12},key,frame/16*TAU,angle/32*TAU,0,0);
     const cv=document.createElement('canvas');cv.width=CW;cv.height=CH;cv.getContext('2d').drawImage(source,0,0);cache.set(id,cv);if(cache.size>MAX_CACHE)cache.delete(cache.keys().next().value);return cv;
@@ -264,7 +290,7 @@ const Creatures = (() => {
     c.restore();return true;
   }
   function mouth(d){
-    const key=keyOf(d);if(!key||!available())return null;const m=model(key),r=m.rig,p=r.mouth||[1,1,0],bones=CreatureMeshes.pose(m,d.phase||0,roar(d));
+    const key=keyOf(d);if(!key||!available())return null;const m=model(key),r=m.rig,p=r.mouth||[1,1,0],bones=CreatureMeshes.pose(m,d.phase||0,roar(d),frill(d),d.artFlight);
     const point=id=>{const b=bones.subarray(id*16,id*16+16);return [b[0]*p[0]+b[4]*p[1]+b[8]*p[2]+b[12],b[1]*p[0]+b[5]*p[1]+b[9]*p[2]+b[13],b[2]*p[0]+b[6]*p[1]+b[10]*p[2]+b[14]];};
     const upper=point(r.headBone),lower=point(r.jawBone),q=upper.map((n,i)=>(n+lower[i])*.5),live=Number.isFinite(d.artHeading),yaw=live?d.artHeading:.16,dir=live?(d.dir||d.dirT||1):1;
     const view=d.artView===undefined?GROUND:Math.max(0,Math.min(.8,d.artView)),height=Math.sqrt(1-view*view);
@@ -274,6 +300,30 @@ const Creatures = (() => {
     const key=keyOf(d);if(!key||!available())return false;
     const resolution=Math.min(maxEdge,coarse?640:1024);resize(resolution,resolution);renderTile({...d,artRoar:opening},key,phase,yaw,0,0,resolution,resolution);
     c.drawImage(source,x-ORIGIN_X*size,y-ORIGIN_Y*size,5.8*size,5.8*size);return true;
+  }
+  // The wave-one visitor carrier shares the exported Pteranodon, with its
+  // own flight controls and a foot socket projected from those exact bones.
+  function snatchFrame(o){
+    if(!available())return null;
+    const m=model('pteranodon');if(!m.rig.grips?.length)return null;
+    const actor={key:'pteranodon',artView:.46,artRoar:o.phase==='grab'?.65:o.phase==='dive'?.22:.30,
+      artFlight:{spread:o.spread,reach:o.talon,grip:o.phase==='grab'||o.phase==='carry'?1:0}};
+    const phase=o.ph,yaw=o.dir<0?Math.PI-.42:.42,size=o.size*.88,view=actor.artView,height=Math.sqrt(1-view*view);
+    const bones=CreatureMeshes.pose(m,phase,actor.artRoar,0,actor.artFlight),bank=(o.bank??(o.phase==='dive'?(1-o.spread)*.18:o.phase==='carry'?-.12:0))*o.dir;
+    const project=(p,id)=>{const k=id*16,q=[0,1,2].map(i=>bones[k+i]*p[0]+bones[k+4+i]*p[1]+bones[k+8+i]*p[2]+bones[k+12+i]);return {x:q[0]*Math.cos(yaw)-q[2]*Math.sin(yaw),y:(q[0]*Math.sin(yaw)+q[2]*Math.cos(yaw))*view-q[1]*height};};
+    const center=project([-.1,1.50,0],0),feet=m.rig.grips.map(g=>project(g.socket,g.id));
+    const local={x:(feet[0].x+feet[1].x)/2-center.x,y:(feet[0].y+feet[1].y)/2-center.y};
+    const grip={x:o.x+(local.x*Math.cos(bank)-local.y*Math.sin(bank))*size,y:o.y+(local.x*Math.sin(bank)+local.y*Math.cos(bank))*size};
+    return {actor,phase,yaw,size,bank,center,grip};
+  }
+  function drawSnatcher(c,o,frame=snatchFrame(o)){
+    if(!frame||!available())return false;
+    const {actor,phase,yaw,size,bank,center}=frame,tf=c.getTransform();
+    const scale=Math.max(Math.hypot(tf.a,tf.b),Math.hypot(tf.c,tf.d));
+    const resolution=Math.min(maxEdge,coarse?384:640,Math.max(224,Math.ceil(size*5.8*scale)));
+    resize(resolution,resolution);renderTile(actor,'pteranodon',phase,yaw,0,0,resolution,resolution);
+    c.save();c.translate(o.x,o.y);c.rotate(bank);
+    c.drawImage(source,(-ORIGIN_X-center.x)*size,(-ORIGIN_Y-center.y)*size,5.8*size,5.8*size);c.restore();return true;
   }
   // A small set of real skin vertices feeds surface effects. Their positions
   // use exactly the same blended bones and projection as the rendered mesh.
@@ -289,7 +339,7 @@ const Creatures = (() => {
       const candidates=[...cells.values()],sites=[...new Set(extremes.values())];for(let n=0;sites.length<96&&n<Math.min(96,candidates.length);n++){const i=candidates[Math.floor(n*candidates.length/Math.min(96,candidates.length))];if(!sites.includes(i))sites.push(i);}
       const fire=[...tops.values()].sort((a,b)=>v[a]-v[b]);m.effectSites={sites:sites.slice(0,96),fire:Array.from({length:Math.min(14,fire.length)},(_,i)=>fire[Math.floor(i*fire.length/Math.min(14,fire.length))])};
     }
-    const bones=CreatureMeshes.pose(m,d.entranceT>0?0:phase,roar(d),frill(d)),yaw=yawFor(d,turn),cy=Math.cos(yaw),sy=Math.sin(yaw),view=Math.max(0,Math.min(.8,d.artView??GROUND)),height=Math.sqrt(1-view*view);
+    const bones=CreatureMeshes.pose(m,d.entranceT>0?0:phase,roar(d),frill(d),d.artFlight),yaw=yawFor(d,turn),cy=Math.cos(yaw),sy=Math.sin(yaw),view=Math.max(0,Math.min(.8,d.artView??GROUND)),height=Math.sqrt(1-view*view);
     const bonePoint=(p,id)=>{const k=id*16;return [bones[k]*p[0]+bones[k+4]*p[1]+bones[k+8]*p[2]+bones[k+12],bones[k+1]*p[0]+bones[k+5]*p[1]+bones[k+9]*p[2]+bones[k+13],bones[k+2]*p[0]+bones[k+6]*p[1]+bones[k+10]*p[2]+bones[k+14]];};
     function project(p,a=0,b=0,blend=0){const q=bonePoint(p,a),r=blend?bonePoint(p,b):q,x=q[0]+(r[0]-q[0])*blend,y=q[1]+(r[1]-q[1])*blend,z=q[2]+(r[2]-q[2])*blend,X=x*cy-z*sy,Z=x*sy+z*cy;return {x:X,y:Z*view-y*height,depth:y*view+Z*height};}
     const point=i=>({...project([v[i],v[i+1],v[i+2]],v[i+12],stride===17?v[i+15]:0,stride===17?v[i+16]:0),part:m.parts[v[i+14]]});
@@ -318,6 +368,6 @@ const Creatures = (() => {
   }
   for(const key of ids){const cfg=CreatureMeshes.catalog[key];DINOS[key].pal={body:cfg.body,belly:cfg.belly,accent:cfg.mark};}
   const ready=async(keys=ids)=>available()?Promise.all(keys.map(key=>model(key).ready||Promise.resolve(false))):keys.map(()=>false);
-  return {draw,unit,prepare,inspect,part,keyOf,mouth,model,ready,roar,effectFrame,GROUND,HEIGHT,
+  return {draw,unit,prepare,inspect,part,keyOf,mouth,model,ready,roar,effectFrame,snatchFrame,drawSnatcher,GROUND,HEIGHT,
     get available(){return available();},get error(){return error;},get modelCount(){return models.size;},get cacheBytes(){return cache.size*CW*CH*4;},get atlasBytes(){return atlas.width*atlas.height*4;},get cacheLimit(){return MAX_CACHE;},get cachedSprites(){return cache.size;}};
 })();
