@@ -6,10 +6,10 @@ separate maintained products. This is the browser handoff. Roblox starts at
 
 ## Production baseline
 
-Last verified runtime release: **1.73.0**, September 14, 2026; service-worker cache
-**dino-defense-v70**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
-from root `main`, commit `2004551037a3f14b29f94fbbf8e96ecb4e322799`.
-[Pages run 34906055860 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34906055860).
+Last verified runtime release: **1.74.0**, September 14, 2026; service-worker cache
+**dino-defense-v71**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
+from root `main`, commit `e4f3d86e9dfa3510cc92b740aec288b74e593b17`.
+[Pages run 34908907685 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34908907685).
 This is a recorded deployment baseline; inspect Git and the live version before
 the next release rather than assuming HEAD still equals this commit.
 
@@ -17,12 +17,31 @@ Live verification checked HTTP 200 and committed SHA-256 for 86 pages and
 dependencies, all 33 loaded dinosaur skins and polished jaw attachments,
 the guest renderer, hidden art menus,
 ascending weapon prices, matching number keys and Gas selection, actual kills
-with all nine finishers, surface effects and red-ring removal, resumed wave one
-with one weapon and zero cash, phone layout and offline loading under cache v70.
+with all ten finishers, surface effects and red-ring removal, resumed wave one
+with one weapon and zero cash, phone layout and offline loading under cache v71.
 It also checked the authored audio bank online/offline, larger Gennaro scale,
 and deaths of all 33 species and nine bosses without creature vocalizations.
 No browser JavaScript errors were found in those checks. Physical phone GPU
 performance and film-quality likeness were not established by headless tests.
+
+The 1.74.0 Extinction Cannon unlocks at wave 40 for $2,600 and upgrades through
+Prometheus, Sunbreaker and the Extinction Engine. Mechanical charge petals hold
+a miniature sun; its armor-piercing blast fractures surviving hides for 20% more
+incoming damage over 2.4 seconds. Sunfall kills dissolve the actual dinosaur skin
+into rising embers. Key `0` selects it; the shop and homepage now list ten weapons.
+[Weapon review](WEB_EXTINCTION_REVIEW.md) records the three tiers, balance,
+visual design, audio recipes and bounded rendering budgets.
+
+Production checks passed real mouse/touch placement, all three attack and upgrade
+flows, seven-map placement/attacks/saves, armor and targeting exclusions, damage
+falloff, fracture expiry, unique rewards, pause, desktop, 390/320 px phones,
+short landscape, Canvas fallback and offline loading of the weapon and sound bank.
+No browser errors were found. Production evidence is in
+`C:/Users/burns/dev/dino-perimeter-review/extinction/production/` and
+`production-release/`. Its parent directory contains an eleven-second gameplay
+recording with the authored audio, plus reviewed charge and impact frames.
+The production homepage suite also passed all seven layouts, menus, Play/Continue,
+sharing, metadata and offline behavior; those captures are in `production-home/`.
 
 The 1.73.0 wave-one Pteranodon now uses the detailed shared 3D model: sculpted
 beak/crest, recessed eyes, mottled leathery wings and articulated gripping feet.
@@ -126,7 +145,7 @@ raptor on the field. Desktop scenery CPU submission p95 was 0.2–0.5 ms in that
 run; this is not a physical-device GPU frame-rate benchmark.
 
 The current release also retains the rounded jaw polish plus the film-reference
-T-Rex, authored audio, guest models/gore, larger Gennaro, nine weapon finishers,
+T-Rex, authored audio, guest models/gore, larger Gennaro, ten weapon finishers,
 surface effects, price-sorted armory, all seven detailed map environments and
 earlier anatomy/resume repairs. The six-map release adds fountains, waterfalls,
 an expedition helicopter, estate ambience, the Helios array and a luminous reef,
