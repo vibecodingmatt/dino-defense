@@ -6,23 +6,33 @@ separate maintained products. This is the browser handoff. Roblox starts at
 
 ## Production baseline
 
-Last verified runtime release: **1.72.0**, September 14, 2026; service-worker cache
-**dino-defense-v68**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
-from root `main`, commit `719e44cc2e5e799df4b15c0eb0291fcd1a3e6e96`.
-[Pages run 34886290894 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34886290894).
+Last verified runtime release: **1.72.1**, September 14, 2026; service-worker cache
+**dino-defense-v69**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
+from root `main`, commit `f6a268a9ca9556767416e53611999bb3fcfce542`.
+[Pages run 34902861847 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34902861847).
 This is a recorded deployment baseline; inspect Git and the live version before
 the next release rather than assuming HEAD still equals this commit.
 
-Live verification checked HTTP 200 and committed SHA-256 for 86 pages and
+Live verification checked HTTP 200 and committed SHA-256 for 85 pages and
 dependencies, all 33 loaded dinosaur skins and polished jaw attachments,
 the guest renderer, hidden art menus,
 ascending weapon prices, matching number keys and Gas selection, actual kills
 with all nine finishers, surface effects and red-ring removal, resumed wave one
-with one weapon and zero cash, phone layout and offline loading under cache v68.
+with one weapon and zero cash, phone layout and offline loading under cache v69.
 It also checked the authored audio bank online/offline, larger Gennaro scale,
 and deaths of all 33 species and nine bosses without creature vocalizations.
 No browser JavaScript errors were found in those checks. Physical phone GPU
 performance and film-quality likeness were not established by headless tests.
+
+The 1.72.1 pause screen adds a centered native **Resume game** button, with
+mouse, touch, Enter and Space support. Local and production interaction checks
+passed desktop, 390/320 px phones and short landscape: centered layout, frozen
+simulation, pre-wave and active-wave resume, retained speed, no map click-through,
+and cleanup on returning to the menu. The release verifier also exercised the
+button after an offline reload. Existing save-transfer/resume checks passed.
+Rendered release notes and phone screenshots were reviewed; evidence is under
+`C:/Users/burns/dev/dino-perimeter-review/pause1721/` in `local/`, `production/`
+and `production-release/`.
 
 The 1.72.0 Brachiosaurus makeover adds a raised nasal dome, short rounded muzzle,
 dark eyes/heavy lids, high nostrils, finer facial detail and a lower jaw whose tip
@@ -170,6 +180,11 @@ Check whether an old preview is still running; tests start their own servers.
 
 ## Behaviors to preserve
 
+- **Pause controls:** the centered `#pausePrompt` uses a native resume button
+  above the map; it shares `togglePause()` with the HUD. `updateHUD()` controls
+  visibility and restores focus when it hides, while menu/victory transitions
+  clear it immediately. Keep touch clicks off the underlying placement canvas,
+  retain game speed and keep the original HUD/speed resume controls working.
 - **Resume:** `beginFirstWaveCountdown()` runs after both saved-tower restoration
   and placement. At wave zero, existing towers suffice to begin; restored cash
   may be zero. `updateStartPrompt()` checks actual tower presence. Do not fix
