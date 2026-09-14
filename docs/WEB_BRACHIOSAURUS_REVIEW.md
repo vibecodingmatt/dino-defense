@@ -1,7 +1,9 @@
 # Brachiosaurus head - September 14, 2026
 
-Prepared for browser **1.72.0 / cache v68**. The verified production baseline is in
-[WEB_ORIENTATION.md](WEB_ORIENTATION.md).
+Published and verified: **1.72.0 / cache v68**, runtime commit
+`719e44cc2e5e799df4b15c0eb0291fcd1a3e6e96`;
+[Pages run 34886290894 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34886290894).
+The current production baseline is in [WEB_ORIENTATION.md](WEB_ORIENTATION.md).
 
 The sculpt uses the original Jurassic Park puppet as its visual reference:
 [Stan Winston School's puppet rehearsal photos](https://www.stanwinstonschool.com/blog/rehearsing-jurassic-park-brachiosaurus-puppet).
@@ -69,6 +71,14 @@ surfaces, independently of animation. The saved first pass fails that bound;
 the refined export passes. Matching side views compare closed, half-open and
 fully open jaws, in addition to the six-heading views.
 
+Production verification matched committed SHA-256 bytes for 86 live pages and
+assets, and passed the shared gameplay, phone and offline checks. The focused
+live review confirmed the 148,710-vertex skin and pattern 6 on desktop and phone,
+17 jaw/gait poses per viewport, the shortened 1.759 muzzle endpoint, and only
+0.002 units of front-tip rise (below the 0.0144 regression limit). Both rendered
+release notes and real combat were captured. An offline reload used cache v68
+and loaded the same Brachiosaurus export. No browser errors were observed.
+
 This is a substantial likeness improvement within the existing browser model
 and renderer. It remains a simplified game sculpt, without film-production
 displacement or facial-muscle simulation. Headless tests do not establish
@@ -81,3 +91,6 @@ pass with the shorter muzzle at three jaw openings. `final-face.png`,
 `final-body.png` and `final-cycle.png` record six actual rendered views each.
 Run `node preview.cjs` there for the local before/after viewer on port 4179;
 `audit.cjs` verifies desktop/phone combat, viewer controls and procedural fallback.
+`production/verification.json` holds the reusable live release check;
+`production-scenes/scene-audit.json` and its captures hold the focused live
+Brachiosaurus, jaw, notes and offline verification.

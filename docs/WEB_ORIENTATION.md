@@ -6,10 +6,10 @@ separate maintained products. This is the browser handoff. Roblox starts at
 
 ## Production baseline
 
-Last verified runtime release: **1.71.0**, September 13, 2026; service-worker cache
-**dino-defense-v67**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
-from root `main`, commit `1d015d2f44c34314610a6a9340e4a0646fc5cc31`.
-[Pages run 34781053595 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34781053595).
+Last verified runtime release: **1.72.0**, September 14, 2026; service-worker cache
+**dino-defense-v68**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
+from root `main`, commit `719e44cc2e5e799df4b15c0eb0291fcd1a3e6e96`.
+[Pages run 34886290894 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34886290894).
 This is a recorded deployment baseline; inspect Git and the live version before
 the next release rather than assuming HEAD still equals this commit.
 
@@ -18,11 +18,21 @@ dependencies, all 33 loaded dinosaur skins and polished jaw attachments,
 the guest renderer, hidden art menus,
 ascending weapon prices, matching number keys and Gas selection, actual kills
 with all nine finishers, surface effects and red-ring removal, resumed wave one
-with one weapon and zero cash, phone layout and offline loading under cache v67.
+with one weapon and zero cash, phone layout and offline loading under cache v68.
 It also checked the authored audio bank online/offline, larger Gennaro scale,
 and deaths of all 33 species and nine bosses without creature vocalizations.
 No browser JavaScript errors were found in those checks. Physical phone GPU
 performance and film-quality likeness were not established by headless tests.
+
+The 1.72.0 Brachiosaurus makeover adds a raised nasal dome, short rounded muzzle,
+dark eyes/heavy lids, high nostrils, finer facial detail and a lower jaw whose tip
+stays level when opened. Focused production checks confirmed its actual
+148,710-vertex export, 34 finite jaw/gait poses, the shortened muzzle and corrected
+tip, desktop/phone combat, rendered release notes and an offline reload under
+cache v68. No browser errors were reported. [Brachiosaurus review](WEB_BRACHIOSAURUS_REVIEW.md)
+records the references, export budget and shape regression. Live evidence is in
+`C:/Users/burns/dev/dino-perimeter-review/brachio-film/production/` and
+`production-scenes/`.
 
 The 1.71.0 Blue makeover adds a fuller curved neck, a muzzle tapered in width
 and depth, an uneven lip, amber eyes, curved teeth, articulated fingers and
@@ -113,13 +123,13 @@ The prior map verification evidence remains in
 
 ## Ownership
 
-Prepared for 1.72.0 / cache v68: Brachiosaurus has a film-puppet-inspired head with a raised
+Brachiosaurus shipped in 1.72.0 / cache v68 with a film-puppet-inspired head: a raised
 nasal dome, broad fleshy muzzle, dark eyes/heavy lids, high nostrils, small rounded
 teeth and a fuller upper neck. Its `brachio93` geometry, pattern 6 palette and
 148,710-vertex export are reviewed in [Brachiosaurus notes](WEB_BRACHIOSAURUS_REVIEW.md).
 The follow-up shortens the muzzle ahead of the dome and removes the lower-jaw
 tip's upward hook; its shape regression checks both delivered and fallback skin.
-The production baseline above is unchanged.
+The production verification is recorded above.
 
 Blue's film-reference sculpt, pattern 5, palette and rebuilt skin shipped in
 1.71.0; see [Blue review](WEB_BLUE_REVIEW.md). The first pass cleared six
