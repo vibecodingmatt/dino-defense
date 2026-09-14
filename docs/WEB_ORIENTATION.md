@@ -174,6 +174,7 @@ Audio authoring uses the [export instructions](../art/browser-audio/README.md).
 | Other six painted environments and animated set pieces | `js/sanctuary-scenes.js`, `assets/maps/*-sanctuary.webp`, [authoring prompts](../art/browser-maps/prompts.json) |
 | Weapon models, upgrade silhouettes, muzzle anchors | `js/arsenal.js` |
 | Firing, projectiles and impacts | `js/weapon-fx.js`, integrations in `js/game.js` |
+| Extinction Cannon charge, star projectile, blast and tuning | `js/extinction.js`; [review](WEB_EXTINCTION_REVIEW.md) |
 | Skin-bound status effects and nine weapon finishers | `js/dino-fx.js`; attachment sampling/materials in `js/creatures.js` |
 | D-Rex rupture and full-screen victory ceremony | `js/endgame-fx.js`; transitions/rewards in `js/game.js`; [endgame notes](WEB_ENDGAME_REVIEW.md) |
 | Authored effect sounds, bank, stereo mix and voice budgets | `js/audio-fx.js`; game triggers/mutes in `js/game.js`; `art/browser-audio/export-bank.cjs` |
@@ -271,6 +272,7 @@ not a runtime game dependency. Only creature topology checks need Node alone.
 | Tourists, guest cameos, evacuation, bite effects | `node tests/tourists.cjs`; `node tests/presentation.cjs`; `node tests/resume.cjs` |
 | First-wave state, saved towers, cross-device transfers | `node tests/resume.cjs` |
 | Weapons/upgrades/projectiles/effects | `node tests/arsenal.cjs`; `node tests/dino-fx.cjs` |
+| Extinction Cannon economy, placement, upgrades, fracture and offline attack | Also `node tests/extinction.cjs`; `EXTINCTION_REVIEW_URL` and `EXTINCTION_REVIEW_DIR` select live verification/evidence |
 | Missile kill blood, splash credit, persistence and cleanup | Also `node tests/missile-gore.cjs`; `FX_REVIEW_URL` and `FX_REVIEW_DIR` select live verification/evidence |
 | D-Rex finale, boss camera and wave-100 victory | `node tests/endgame.cjs`; creature/audio suites for shared painters or sound triggers; `ENDGAME_REVIEW_URL` and `ENDGAME_REVIEW_DIR` select live verification/evidence |
 | Perimeter map/resident raptors/placement | `node tests/perimeter.cjs` |

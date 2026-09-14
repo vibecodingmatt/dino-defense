@@ -29,13 +29,13 @@
     Arsenal.catalog[key].tiers.forEach((name,i)=>{const b=document.createElement('button');b.type='button';b.className=i===lv?'active':'';b.setAttribute('aria-pressed',i===lv?'true':'false');b.innerHTML=`<span>0${i+1}</span> ${name}`;b.onclick=()=>choose(key,i);$('.ag-tiers').appendChild(b);});
     paint(0);
   }
-  function pose(){return {key,ulv:lv,x:94,y:117,angle,spin:time*26,recoil:Math.max(0,1-(time-shotAt)*6),cd:Math.max(0,1.2-(time-shotAt)),cdMax:1.2};}
+  function pose(){return {key,ulv:lv,x:94,y:117,angle,spin:time*26,recoil:Math.max(0,1-(time-shotAt)*6),cd:Math.max(0,1.2-(time-shotAt)),cdMax:1.2,novaCharge:key==='extinction'?Math.max(0,Math.min(1,(time-shotAt-(DinoFX.durations[key]+.5-.85))/.85)):0};}
   function target(t){const p=Arsenal.anchor(t);return {x:p.x+Math.cos(angle)*63,y:p.y+Math.sin(angle)*63+10};}
   function shoot(){
     shotAt=time;const t=pose(),p=Arsenal.anchor(t),end=target(t);victim=null;
     WeaponFX.fire(particles,t,80);
-    const impactKind=key==='cryo'?'frost':key==='missile'||key==='mortar'?'boom':key==='sonic'?'sonic':'spark';
-    if(['gatling','cryo','missile','mortar'].includes(key)){
+    const impactKind=key==='extinction'?'novaBlast':key==='cryo'?'frost':key==='missile'||key==='mortar'?'boom':key==='sonic'?'sonic':'spark';
+    if(['gatling','cryo','missile','mortar','extinction'].includes(key)){
       const count=key==='missile'?lv+1:1;
       for(let i=0;i<count;i++){const a=Arsenal.anchor(t,i);projs.push({kind:TOWERS[key].proj,tower:t,x:a.x,y:a.y,x0:a.x,y0:a.y,tx:end.x,ty:end.y-10,t:0,dur:key==='mortar'?.68:.3,trail:[],arc:0,vx:Math.cos(angle),vy:Math.sin(angle),impactKind});}
     }else{
@@ -60,7 +60,7 @@
       for(const b of bolts)b.t-=dt;bolts=bolts.filter(b=>b.t>0);
       for(const f of clouds)f.t+=dt;clouds=clouds.filter(f=>f.t<f.dur);
       for(const pr of projs){WeaponFX.trail(pr,dt);pr.t+=dt;const q=Math.min(1,pr.t/pr.dur);pr.x=pr.x0+(pr.tx-pr.x0)*q;pr.y=pr.y0+(pr.ty-pr.y0)*q;pr.arc=pr.kind==='mortar'?Math.sin(q*Math.PI)*35:0;
-        if(q>=1){WeaponFX.emit(particles,pr.impactKind,pr.tx,pr.ty,{r:pr.kind==='bullet'?7:35,dur:.7,weapon:key,lv});kill(pr.tower,{x:pr.tx,y:pr.ty+10});}}
+        if(q>=1){WeaponFX.emit(particles,pr.impactKind,pr.tx,pr.ty,{r:pr.kind==='bullet'?7:35,dur:pr.kind==='nova'?2.65:.7,weapon:key,lv});kill(pr.tower,{x:pr.tx,y:pr.ty+10});}}
       projs=projs.filter(p=>p.t<p.dur);
     }
     c.setTransform(4,0,0,4,0,0);c.fillStyle='#101b22';c.fillRect(0,0,width,height);

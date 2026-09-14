@@ -1,5 +1,10 @@
 # Browser combat effects
 
+The 1.74.0 [Extinction Cannon](WEB_EXTINCTION_REVIEW.md) adds a tenth finisher,
+Sunfall, and thermal-fracture skin treatment. Charge, projectile and blast
+painters live in `js/extinction.js`; its review owns tuning and current evidence.
+The original nine-weapon review follows as release history.
+
 Release implementation: **1.64.0**, cache **v58**, September 12, 2026. Deployment
 status is recorded separately in the browser orientation.
 

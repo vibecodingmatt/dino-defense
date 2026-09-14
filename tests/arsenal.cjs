@@ -1,5 +1,5 @@
 'use strict';
-/* Browser integration checks for the 27 weapon configurations. No build step. */
+/* Browser integration checks for the weapon catalog. No build step. */
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),http=require('node:http'),vm=require('node:vm');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||require.resolve('playwright-core',{paths:[process.cwd(),path.resolve(__dirname,'../../war-survival')]}));
 const root=path.resolve(__dirname,'..'),out=path.resolve(root,'../../dino-perimeter-review');
@@ -30,7 +30,7 @@ let browser;
      if(new Set(hashes).size!==TOWERS[key].maxUp+1)throw Error('Indistinguishable upgrade '+key);
    }
    return {models:all.length,headings:all.length*64,minPixels,minWidth,cacheBytes:Arsenal.cacheBytes,sprites:Arsenal.cachedSprites,limit:Arsenal.cacheLimit};
- });assert.equal(shapes.models,27);assert.ok(shapes.minWidth>10);assert.ok(shapes.minPixels>200);assert.ok(shapes.sprites<=shapes.limit);assert.ok(shapes.cacheBytes<64e6);pass('27 distinct models remain solid through all 1,728 angle/configuration combinations; cache stays bounded',shapes);
+ });assert.equal(shapes.models,30);assert.ok(shapes.minWidth>10);assert.ok(shapes.minPixels>200);assert.ok(shapes.sprites<=shapes.limit);assert.ok(shapes.cacheBytes<64e6);pass('30 distinct models remain solid through all 1,920 angle/configuration combinations; cache stays bounded',shapes);
  const combat=await page.evaluate(()=>{
    const result=[];
    for(const [key,def] of Object.entries(TOWERS))for(let lv=0;lv<=def.maxUp;lv++){
@@ -41,6 +41,7 @@ let browser;
      const launches=G.projs.length,ports=G.projs.map(p=>[p.x,p.y]);
      if(key==='missile'&&(launches!==lv+1||new Set(ports.map(p=>p.join(','))).size!==lv+1))throw Error('Wrong salvo '+lv);
      for(let n=0;n<180;n++){
+       if(key==='extinction')fireTower(t,1/120);
        updateProjs(1/120);runZapQ(1/120);updateClouds(1/120);updateDinos(1/120);
        for(const f of G.fx){f.t+=1/120;WeaponFX.draw(ctx,f,n/120);}G.fx=G.fx.filter(f=>f.t<f.dur);
      }
@@ -60,13 +61,13 @@ let browser;
  assert.equal(await page.locator('#up_main').isDisabled(),true);await page.screenshot({path:path.join(out,'arsenal-upgrade.png')});pass('Real upgrade purchases charge the correct price and change the displayed hardware through maximum level');
  await page.locator('#tpClose').click();await page.evaluate(()=>{G.paused=false;});await page.locator('#btnArsenal').click();
  assert.ok(await page.evaluate(()=>G.paused));await page.keyboard.press('Digit8');assert.equal(await page.evaluate(()=>G.placing),null);
- for(const key of ['gatling','flamer','sniper','cryo','tesla','sonic','missile','mortar','gas']){
+ for(const key of await page.evaluate(()=>Object.keys(TOWERS))){
    await page.locator('.ag-weapons button[data-key="'+key+'"]').click();await page.locator('.ag-tiers button').last().click();await page.waitForTimeout(350);
  }
  await page.locator('.ag-weapons button[data-key="tesla"]').click();await page.locator('.ag-tiers button').last().click();await page.waitForTimeout(70);
  await page.screenshot({path:path.join(out,'arsenal-guide-desktop.png')});
  await page.keyboard.press('Escape');assert.equal(await page.evaluate(()=>document.querySelector('#armoryGuide').open),false);assert.equal(await page.evaluate(()=>G.paused),false);
- pass('Guide previews all nine weapons, pauses the match, blocks game hotkeys and restores play on Escape');
+ pass('Guide previews every weapon, pauses the match, blocks game hotkeys and restores play on Escape');
  // Let the closed dialog's backdrop leave the compositor before timing play.
  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
  const perf=await page.evaluate(()=>{

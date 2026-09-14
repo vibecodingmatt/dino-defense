@@ -7,6 +7,7 @@ const Arsenal = (() => {
   const TAU=Math.PI*2, GROUND=.72, HEIGHT=Math.sqrt(1-GROUND*GROUND);
   const SIZE=192, SCALE=2, AX=48, AY=63, DIRECTIONS=64, LIMIT=matchMedia('(pointer: coarse)').matches?192:384;
   const models=new Map(), sprites=new Map(), bases=new Map();
+  let spriteBytes=0;
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const mod=(v,n)=>(v%n+n)%n;
   const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
@@ -33,6 +34,8 @@ const Arsenal = (() => {
       details:['Single homing launch rail','Twin armored launch pods','Triple salvo rack & blast baffles']},
     mortar:{color:'#efcf85',rgb:[255,183,68],tiers:['Earthshaker','Siegebreaker'],
       details:['Hydraulic siege mortar','Heavy-bore artillery & recoil outriggers']},
+    extinction:{color:'#ffbf69',rgb:[255,177,72],tiers:['Prometheus','Sunbreaker','Extinction Engine'],
+      details:['Contained-star launcher & four focusing jaws','Twin capacitor banks & six plasma lenses','Armored fusion reactor & eight containment petals']},
     gas:{color:'#b8ed7c',rgb:[152,223,78],tiers:['Venom','Miasma','Basilisk'],
       details:['Pressurized toxin disperser','Twin reservoirs & rotary atomizer','Triple reaction chambers & exhaust manifold']}
   };
@@ -84,9 +87,10 @@ const Arsenal = (() => {
     // Warning stripes, inset fasteners and a serial plate belong to the mount.
     for(const y of [-R+2,R-2])for(let i=-2;i<=2;i++)box(i*2.2,y,4.9,1.1,1.7,.12,i%2?'black':'yellow',0);
     if(key==='mortar')for(const y of [-1,1]){box(-7,y*20,1,20,5,3,'armor');tube([-4,y*9,9],[-10,y*20,3],1.4,1.4,'edge');}
+    if(key==='extinction')for(const sx of [-1,1])for(const sy of [-1,1]){box(sx*17,sy*18,1,12,8,3,'dark');tube([sx*9,sy*8,10],[sx*20,sy*19,3],1.8,1.8,'steel');glow([sx*18,sy*19,4.2],[sx*22,sy*19,4.2],.55,col);}
     return m.faces;
   }
-  function makeModel(key,lv){
+  function makeModel(key,lv,stage=0){
     const m=mesh(),{box,tube,ring,glow,bolt,vents,cable}=m,col=catalog[key].rgb;
     const full=lv===catalog[key].tiers.length-1,h=14+lv*.8;
     let muzzle=[26+lv*2,0,h],muzzles=[];
@@ -165,6 +169,30 @@ const Arsenal = (() => {
       tube(last,end,full?9:7,full?9:7,'steel',20);tube(end,end.map((v,i)=>v+tip[i]*.005),full?6.3:4.9,full?6.3:4.9,'black',20);
       for(const y of [-1,1]){tube([-9,y*10,10],[7,y*8,23],1.6,1.6,'steel');tube([-9,y*10,10],[-1,y*9,17],2.5,2.5,'dark');box(-8,y*11,9,12,4,5,'armor');}
       if(full){for(let i=0;i<3;i++)tube([-14+i*4,-14,8],[-14+i*4,-14,17],1.6,1.6,'brass');box(-12,0,9,5,29,8,'armor');}
+    } else if(key==='extinction'){
+      const z=23+lv,end=35+lv*2,open=stage/4,petals=4+lv*2;
+      muzzle=[end+1,0,z];
+      box(-6,0,10,25,24+lv*2,11,'dark',1.5);box(-10,0,21,14,16,3,'steel');
+      for(const side of [-1,1]){
+        if(lv>0)tank(-12,side*(10+lv),13,3.4,12+lv*2,'blue');
+        if(lv>0)glow([-15.5,side*(10+lv),16],[-15.5,side*(10+lv),24+lv*2],.75,[101,206,241]);
+        box(-5,side*13,11,14,4,9,'dark');vents(-10,side*13,20.2,5);
+        cable([[-12,side*(lv?11:4.5),22],[-3,side*12,21],[8,side*7,z]],1.15,'copper');
+        tube([-5,side*10,12],[12,side*9,z-4],1.2,1.2,'edge');
+      }
+      if(!lv){tank(-14,0,13,5.2,14,'blue');for(const side of [-1,1])glow([-17,side*3.5,17],[-17,side*3.5,25],.65,[101,206,241]);}
+      tube([0,0,z],[10,0,z],6.5,5.5,'steel',20);tube([9,0,z],[18,0,z],4.8,4.8,'black',20);
+      for(let i=0;i<3+lv;i++){ring(4+i*4,0,z,6.5+lv*.3,.9,i%2?'copper':'steel',true);}
+      for(let j=0;j<petals;j++){
+        const a=j/petals*TAU+Math.PI/4,R=8+open*5+lv*.6,cs=Math.cos(a),sn=Math.sin(a),w=2.8;
+        const point=(x,r,tan)=>[x,r*cs-tan*sn,z+r*sn+tan*cs];
+        const p=[point(12,6,-w),point(end-2,R,-w),point(end,R+2,-w*.5),point(12,10,-w),point(12,6,w),point(end-2,R,w),point(end,R+2,w*.5),point(12,10,w)];
+        for(const [ids,mat]of [[[0,1,2,3],'armor'],[[4,7,6,5],'steel'],[[0,4,5,1],'copper'],[[3,2,6,7],'steel'],[[1,5,6,2],'edge'],[[0,3,7,4],'dark']])m.face(ids.map(i=>p[i]),mat);
+        glow(point(15,6.6,0),point(end-2,R-.2,0),.75,col);
+        tube(point(9,7,0),point(19,R+1,0),.65,.65,'edge',8);
+        if(lv>0){const a=point(10,12.4,0),b=point(16,12.4,0);tube(a,b,2,2,'dark',10);glow(a,b,.75,[111,201,232]);}
+      }
+      if(full){box(-16,0,10,7,31,17,'dark');for(const side of [-1,1]){box(-12,side*17,10,11,4,15,'armor');for(let i=0;i<4;i++)glow([-16+i*2,side*19.1,13],[-16+i*2,side*19.1,21],.4,col);}ring(-1,0,z,10,.8,'brass',true);}
     } else if(key==='gas'){
       const ys=lv===0?[0]:lv===1?[-6,6]:[-9,0,9];
       for(const y of ys){tank(-9,y,10,3.3,14,'green');glow([-9,y-3.4,14],[-9,y-3.4,20],.7,full?[194,130,255]:col);box(-9,y,24.5,3,3,1,'yellow');}
@@ -190,10 +218,11 @@ const Arsenal = (() => {
     }
     return {faces:m.faces,muzzle,muzzles:muzzles.length?muzzles:[muzzle]};
   }
-  function model(key,lv){const id=key+lv;if(!models.has(id))models.set(id,makeModel(key,lv));return models.get(id);}
+  function model(key,lv,stage=0){const id=key+lv+':'+stage;if(!models.has(id))models.set(id,makeModel(key,lv,stage));return models.get(id);}
   function heading(key,angle){return key==='tesla'?0:Math.atan2(Math.sin(angle)/GROUND,Math.cos(angle));}
   function project(p,a){const cs=Math.cos(a),sn=Math.sin(a),x=p[0]*cs-p[1]*sn,y=p[0]*sn+p[1]*cs;return [x,y*GROUND-p[2]*HEIGHT,y*HEIGHT+p[2]*GROUND];}
-  function raster(faces,angle){
+  function raster(faces,angle,SIZE=192){
+    const SCALE=SIZE/96;
     const cv=document.createElement('canvas');cv.width=cv.height=SIZE;
     const c=cv.getContext('2d'),im=c.createImageData(SIZE,SIZE),pixels=im.data,depth=new Float32Array(SIZE*SIZE);depth.fill(-1e8);
     const cs=Math.cos(angle),sn=Math.sin(angle);
@@ -219,11 +248,12 @@ const Arsenal = (() => {
     }
     c.putImageData(im,0,0);return cv;
   }
-  function sprite(key,lv,angle){
-    const dir=mod(Math.round(heading(key,angle)/TAU*DIRECTIONS),DIRECTIONS),id=key+lv+':'+dir;
+  function sprite(key,lv,angle,stage=0){
+    const dir=mod(Math.round(heading(key,angle)/TAU*DIRECTIONS),DIRECTIONS),id=key+lv+':'+dir+':'+stage;
     if(sprites.has(id)){const cv=sprites.get(id);sprites.delete(id);sprites.set(id,cv);return cv;}
-    const cv=raster(model(key,lv).faces,dir/DIRECTIONS*TAU);sprites.set(id,cv);
-    if(sprites.size>LIMIT)sprites.delete(sprites.keys().next().value);return cv;
+    const cv=raster(model(key,lv,stage).faces,dir/DIRECTIONS*TAU,key==='extinction'?384:192);sprites.set(id,cv);
+    spriteBytes+=cv.width*cv.height*4;
+    while(sprites.size>LIMIT||spriteBytes>LIMIT*SIZE*SIZE*4){const first=sprites.keys().next().value,old=sprites.get(first);spriteBytes-=old.width*old.height*4;sprites.delete(first);}return cv;
   }
   function anchor(t,index=0,recoil=false){
     const m=model(t.key,t.ulv||0),a=heading(t.key,t.angle||0),p=m.muzzles[mod(index,m.muzzles.length)].slice();
@@ -237,7 +267,7 @@ const Arsenal = (() => {
     const a=c.globalAlpha;c.globalAlpha=a*clamp(alpha,0,1);c.drawImage(cv,x-r,y-r,r*2,r*2);c.globalAlpha=a;
   }
   function base(c,x,y,key,selected,lv=0){
-    const id=key+lv;if(!bases.has(id))bases.set(id,raster(makeBase(key,lv),0));
+    const id=key+lv;if(!bases.has(id))bases.set(id,raster(makeBase(key,lv),0,key==='extinction'?384:192));
     c.save();c.fillStyle='rgba(0,5,8,.46)';c.beginPath();c.ellipse(x+3,y+3,23+lv,17+lv,0,0,TAU);c.fill();
     c.drawImage(bases.get(id),x-AX,y-AY,SIZE/SCALE,SIZE/SCALE);
     if(selected){c.strokeStyle='#ffdb82';c.lineWidth=1.6;c.beginPath();c.ellipse(x,y,25+lv,19+lv,0,0,TAU);c.stroke();}
@@ -251,7 +281,9 @@ const Arsenal = (() => {
     const lv=t.ulv||0,mt=model(t.key,lv),a=heading(t.key,t.angle||0),rec=(t.recoil||0)*2.2;
     const q=project([-rec,0,0],a),color=catalog[t.key].rgb,full=lv===catalog[t.key].tiers.length-1;
     c.save();
-    c.drawImage(sprite(t.key,lv,t.angle||0),t.x-AX+q[0],t.y-AY+q[1],SIZE/SCALE,SIZE/SCALE);
+    const stage=t.key==='extinction'?Math.round(clamp(t.novaCharge||0,0,1)*4):0;
+    c.drawImage(sprite(t.key,lv,t.angle||0,stage),t.x-AX+q[0],t.y-AY+q[1],SIZE/SCALE,SIZE/SCALE);
+    if(t.key==='extinction')Extinction.turret(c,t,time);
     const p=anchor(t,0,true),charge=1-clamp((t.cd||0)/(t.cdMax||1),0,1);
     if(['tesla','cryo','sonic'].includes(t.key)){
       const power=.13+charge*.20+(flash>0?.28:0);
@@ -277,5 +309,5 @@ const Arsenal = (() => {
   }
   function preview(cv,key,lv=0,angle=-.45){const c=cv.getContext('2d');c.clearRect(0,0,cv.width,cv.height);c.save();const scale=Math.min(cv.width/87,cv.height/64);c.translate(cv.width/2,cv.height*.74);c.scale(scale,scale);base(c,0,0,key,false,lv);turret(c,{key,ulv:lv,x:0,y:0,angle},0,0);c.restore();}
   return {catalog,info,base,turret,anchor,preview,haze,project,heading,model,
-    get cacheBytes(){return (sprites.size+bases.size)*SIZE*SIZE*4;},get cachedSprites(){return sprites.size;},cacheLimit:LIMIT};
+    get cacheBytes(){return spriteBytes+[...bases.values()].reduce((n,c)=>n+c.width*c.height*4,0);},get cachedSprites(){return sprites.size;},cacheLimit:LIMIT};
 })();

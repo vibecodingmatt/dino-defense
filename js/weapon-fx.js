@@ -33,6 +33,7 @@ const WeaponFX = (() => {
     if(pr.trailClock>=.022){pr.trailClock=0;list.push({x:pr.x,y:pr.y-(pr.arc||0),age:0});if(list.length>20)list.shift();}
   }
   function projectile(c,pr,time){
+    if(pr.kind==='nova')return Extinction.projectile(c,pr);
     if(!['bullet','missile','mortar','cryo'].includes(pr.kind))return false;
     const lv=pr.tower.ulv||0,col=rgb(pr.tower.key,lv),path=pr.trail||[];
     let a=Math.atan2(pr.vy||0,pr.vx||1),x=pr.x,y=pr.y-(pr.arc||0);
@@ -87,6 +88,7 @@ const WeaponFX = (() => {
   function death(list,d,p,src){return DinoFX.death(list,d,p,src);}
   function update(f,dt,play){return DinoFX.update(f,dt,play);}
   function draw(c,f,time=0){
+    if(Extinction.draw(c,f))return true;
     const k=clamp(f.t/f.dur),fade=1-k,r=f.r||12,seed=f.seed||1,lv=f.lv||0;
     switch(f.kind){
       case 'weaponDeath':return DinoFX.drawDeath(c,f);

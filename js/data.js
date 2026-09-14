@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.73.0';
+const VERSION = '1.74.0';
 
 // Art inspection panels are local development tools. URL query flags must
 // never enable them on the public site. Node-based data audits default to off.
@@ -35,10 +35,11 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    Date each entry with the ACTUAL current calendar date — check it, never copy
    the entry above. Same-day reship: edit that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.73.0', date: 'Sep 14, 2026', items: [
+  {v: '1.74.0', date: 'Sep 14, 2026', items: [
     '🦕 Brachiosaurus gets a movie-inspired face with gentle eyes, a rounded snout, and a natural opening jaw.',
     '▶️ Resume a paused game with a button in the center of the screen.',
     '🪽 The tourist-snatching Pteranodon gets detailed wings, a sculpted face, and gripping claws.',
+    '☀️ Build the Extinction Cannon to launch miniature suns, fracture dinosaur hides, and unleash the Extinction Engine.',
   ]},
   {v: '1.71.0', date: 'Sep 13, 2026', items: [
     '🦖 Blue gets a movie-inspired makeover, with a stronger neck, tapered snout, amber eyes, and her signature stripe.',
@@ -305,6 +306,9 @@ const TOWERS = {
   mortar:  {name:'Mortar',         icon:'💣', cost:1000, dmg:200, rof:0.3, range:145, air:false, proj:'mortar', maxUp:1, unlock:28,
             splash:100, minRange:30,
             desc:'Lobbed shells devastate herds at the longest range in the armory. Cannot hit flyers or anything too close. One upgrade: massive damage, splash, and extra range.', color:'#e0b64f'},
+  extinction: {name:'Extinction Cannon', shortName:'Extinction', icon:'☀️', cost:2600, dmg:900, rof:0.18, range:125, air:false, proj:'nova', maxUp:2, unlock:40,
+            splash:86, minRange:26, pierce:true, charge:.85, fracture:2.4,
+            desc:'Charge a miniature sun. Armor-piercing plasma devastates the impact core; damage falls to 35% at the blast edge. Survivors take 20% more damage for 2.4 seconds. Slow reload; no flyers or close targets. Two spectacular upgrades.', color:'#ffbf69'},
 };
 
 /* Single-track upgrade tuning: every upgrade costs more than the weapon

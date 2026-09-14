@@ -1052,7 +1052,7 @@ const towerUnlocked = key => activeOrNextWave() >= (TOWERS[key].unlock || 1);
 function towerCost(key){
   const def = TOWERS[key];
   const count = G.towers.filter(t => t.key === key).length;
-  const esc = key === 'mortar' ? 0.35 : 0.15;
+  const esc = key === 'extinction' ? 0.50 : key === 'mortar' ? 0.35 : 0.15;
   return Math.round(def.cost * (1 + esc * count));
 }
 const startCash  = () => 300 + 75 * mlvl('start_cash');
@@ -1255,7 +1255,7 @@ const mazeSnap = (x, y) => ({
 });
 // Proving Grounds ranges are measured in SQUARES: the ring reaches N full
 // squares out in every direction ((N + 0.5) × 64px from the weapon's centre)
-const MAZE_RANGE_SQ = {gatling: 1, flamer: 1, gas: 1, cryo: 2, tesla: 2, sonic: 2, sniper: 3, missile: 3, mortar: 4};
+const MAZE_RANGE_SQ = {gatling: 1, flamer: 1, gas: 1, cryo: 2, tesla: 2, sonic: 2, sniper: 3, missile: 3, mortar: 4, extinction: 3};
 const mazeRange = (key, u) =>
   ((MAZE_RANGE_SQ[key] || 2) + 0.5 + (key === 'mortar' ? (u || 0) / TOWERS.mortar.maxUp : 0)) * MAZE_CS;
 function mazeRebuild(extra){
@@ -1393,7 +1393,7 @@ function damage(d, amt, pierce, src){
   if (d.cloaked && d.revealT <= 0) return;
   // Blue is untouchable for the few seconds her "Clever girl!" scene runs
   if (d.noHurt) return;
-  const eff = pierce ? amt : Math.max(1, amt - d.armor);
+  const eff = (pierce ? amt : Math.max(1, amt - d.armor)) * (d.plasmaT > 0 ? 1.20 : 1);
   d.hp -= eff;
   if (eff >= 70){ // only truly big hits pop a damage number
     const p = dinoPos(d);
@@ -1501,6 +1501,8 @@ function fireTower(t, dt){
   t.cd -= dt;
   t.flash = Math.max(0, (t.flash || 0) - dt * 3);
   t.recoil = Math.max(0, (t.recoil || 0) - dt * 6);
+
+  if (t.key === 'extinction'){ Extinction.fire(t,dt,st); return; }
 
   if (t.key === 'sonic'){
     if (t.cd > 0) return;
@@ -1641,6 +1643,7 @@ function updateProjs(dt){
   for (const pr of G.projs){
     if (pr.hit) continue;
     WeaponFX.trail(pr,dt);
+    if (pr.kind === 'nova'){ Extinction.advance(pr,dt); continue; }
     if (pr.kind === 'mortar'){ // ballistic: flies to a fixed landing point
       pr.t += dt;
       const k = clamp(pr.t / pr.dur, 0, 1);
@@ -1825,6 +1828,7 @@ function updateDinos(dt){
     if (d.revealT > 0) d.revealT -= dt;
     if (d.poisonT > 0) d.poisonT = Math.max(0,d.poisonT-dt);
     if (d.sonicT > 0) d.sonicT = Math.max(0,d.sonicT-dt);
+    if (d.plasmaT > 0){ d.plasmaT = Math.max(0,d.plasmaT-dt); d.plasmaPhase = (d.plasmaPhase || 0) + dt; }
     if (d.zapT > 0) d.zapT -= dt;   // electrical discharge timer
     else if (d.charT > 0) d.charT -= dt;   // post-zap smoking/sooty hangover
     if (d.regen > 0 && d.hp < d.maxHp) d.hp = Math.min(d.maxHp, d.hp + d.regen * d.maxHp * dt);
@@ -2877,6 +2881,7 @@ function renderTowerPanel(){
       ? `POISON <b>${st.dmg.toFixed(0)}</b>/s · CLOUD every <b>${(1/st.rof).toFixed(1)}s</b> · RNG <b>${Math.round(st.range)}</b>`
       : `DMG <b>${st.dmg.toFixed(0)}</b> · ROF <b>${st.rof.toFixed(2)}/s</b> · RNG <b>${Math.round(st.range)}</b>`) +
     (t.key === 'missile' ? ` · <b>${1 + t.ulv}</b> rocket${t.ulv ? 's' : ''}/salvo` : '') +
+    (t.key === 'extinction' ? ` · CHARGE <b>${Extinction.chargeTime(st).toFixed(2)}s</b> · FRACTURE <b>+20%</b>` : '') +
     (st.splash ? ` · SPLASH <b>${Math.round(st.splash)}</b>` : '') +
     (def.air ? '' : ' · <span class="warn">cannot hit flyers</span>') +
     ` · <span class="mast" title="Weapon mastery: career kills across all runs earn bronze, silver, and gold laurels${mNext ? ' — next at ' + fmt(mNext) : ''}">` +
@@ -3279,9 +3284,9 @@ function buildShop(){
     card.className = 'shopCard';
     card.dataset.key = key;
     card.style.borderTop = `3px solid ${def.color}`;
-    card.innerHTML = `<div class="ico"><canvas width="168" height="112" aria-hidden="true"></canvas></div><div class="nm">${def.name}</div><div class="cost">$${def.cost}</div>`;
+    card.innerHTML = `<div class="ico"><canvas width="168" height="112" aria-hidden="true"></canvas></div><div class="nm">${def.shortName || def.name}</div><div class="cost">$${def.cost}</div>`;
     Arsenal.preview(card.querySelector('canvas'),key,0);
-    card.title = def.desc + (def.air ? '' : '  (Cannot hit flying dinosaurs.)');
+    card.title = def.name + ': ' + def.desc + (def.air ? '' : '  (Cannot hit flying dinosaurs.)');
     // Drag a weapon onto the map (range preview follows) to drop it, or tap to
     // select then tap the map. A mostly-VERTICAL drag on a card just scrolls the
     // shop (touch-action: pan-y), so the panel always catches a scroll.
@@ -4811,10 +4816,10 @@ function buildLab(){
 }
 /* ---------------- tips / field manual ---------------- */
 const TIPS = [
-  '<b>Hotkeys:</b> 1–9 select weapons, <b>Space</b> starts a wave or pauses, <b>M</b> mutes, <b>Esc</b> cancels. Hold <b>Shift</b> while building to place several.',
+  '<b>Hotkeys:</b> 1–9 select weapons; <b>0</b> selects the Extinction Cannon. <b>Space</b> starts a wave or pauses, <b>M</b> mutes, <b>Esc</b> cancels. Hold <b>Shift</b> while building to place several.',
   '<b>Upgrades:</b> click a placed weapon to upgrade it (2–3 levels max — each level is a big jump in damage and fire rate, and the hardware visibly grows). A weapon\'s range doesn\'t grow with upgrades (only the 💣 Mortar does), but every weapon has a one-time <b>+10% range</b> unlock in the Research Lab. Upgrades cost more than the weapon itself, and each level costs more than the last.',
   '<b>The armory grows with you:</b> heavier weapons unlock as you survive deeper waves — the shop card shows the unlock wave on locked gear.',
-  '<b>Duplicates cost extra:</b> every additional copy of the same weapon is pricier than the last (mortars especially). Diversify your arsenal.',
+  '<b>Duplicates cost extra:</b> every additional copy of the same weapon is pricier than the last (mortars and Extinction Cannons especially). Diversify your arsenal.',
 '<b>✈️ Air Strike</b> (from wave 50): jets carpet-bomb the ENTIRE zone in a rolling cluster-bomb wave — it one-shot-kills every dinosaur on the field (even flyers) and strips 25% off any boss. Max two calls per run, and the second costs more. Save them for boss waves or a swarm that\'s about to break through.',
   '<b>🦾 Omega</b> (from wave 75, once per run): unleashes a colossal robotic T-Rex that materialises at the exit and stomps up your busiest lane, one-shotting every dinosaur it touches. Each kill wears its armor down, so a big horde can destroy it — and bosses only lose 30% and keep coming. A pricey show-stopper; save it for a wave that\'s about to overwhelm you.',
   '<b>Targeting:</b> the selected weapon\'s "Target" button cycles FIRST / LAST / STRONG / CLOSE. Snipers on STRONG melt tanks; slows on FIRST hold the line.',
@@ -6367,8 +6372,8 @@ window.addEventListener('keydown', e => {
   if (G.state !== 'playing' || e.target.closest('input,textarea,select,[role="dialog"]')) return;
   if (e.key === ' ' && e.target.closest('button,a')) return;
   const keys = Object.keys(TOWERS);
-  if (e.key >= '1' && e.key <= String(keys.length)){
-    const k = keys[+e.key - 1];
+  if (/^[0-9]$/.test(e.key) && keys[(+e.key + 9) % 10]){
+    const k = keys[(+e.key + 9) % 10];
     if (towerUnlocked(k)){ G.placing = k; selectTower(null); updateHUD(); }
     else SFX.error();
   }

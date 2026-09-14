@@ -8,6 +8,7 @@ const GameAudioFX=(()=>{
   const specs={
     shot:[.27,.26,.028,0],dart:[.24,.18,.055,0],snipe:[1.05,.57,.10,1],
     flame:[.48,.25,.16,0],missile:[.67,.35,.09,1],thoomp:[.72,.48,.09,1],
+    novaCharge:[.85,.28,.40,1],novaLaunch:[1.05,.57,.10,2],novaImpact:[2.15,.65,.16,2],
     zap:[.46,.29,.085,1],arc:[.19,.10,.065,0],cryo:[.65,.30,.10,1],
     frost:[.58,.25,.10,1],pulse:[.90,.44,.12,1],gas:[.56,.22,.16,0],
     boom:[1.25,.56,.085,2],shellImpact:[1.65,.66,.12,2],impact:[.18,.10,.07,0],
@@ -102,6 +103,9 @@ const GameAudioFX=(()=>{
       case 'flame':metal(0,710,.12,.045);air(.014,.12,1.2,580,180,{noise:'low',a:.012});air(.035,.42,1.15,1250,460,{a:.025,decay:1.8,flutter:.6,rate:17});bass(.02,.37,.28,74,53,{a:.028,decay:3,harm:.38});chips(.10,10,.16,.29,2900);break;
       case 'missile':metal(0,640,.28,.07);air(.01,.09,.85,900,250,{noise:'low'});air(.045,.57,1.15,480,2800,{a:.025,decay:2.7,flutter:.3});bass(.02,.43,.46,85,150,{a:.025,decay:4,harm:.3});break;
       case 'thoomp':metal(0,310,.22,.065);bass(.006,.42,1.0,125,39,{harm:.3});air(.006,.22,1.4,600,130,{noise:'low'});air(.07,.50,.28,900,350);metal(.24,370,.11,.12);break;
+      case 'novaCharge':metal(0,420,.20,.12);bass(.03,.80,.45,58,175,{a:.25,decay:.2,harm:.4,flutter:.25,rate:29});layer({t:.04,d:.79,g:.36,f:220,end:1450,a:.35,decay:.1,fm:1.4,ratio:1.618});air(.12,.71,.65,600,3100,{a:.32,decay:.3});break;
+      case 'novaLaunch':air(0,.032,.80,4600,1000,{noise:'high'});bass(.005,.76,1.1,145,29,{harm:.45,decay:5});layer({t:.015,d:.63,g:.38,f:960,end:95,fm:2.3,ratio:1.618});air(.01,.48,1.15,1800,180,{noise:'low'});metal(.14,370,.24,.5);air(.26,.69,.25,2200,500);break;
+      case 'novaImpact':air(0,.10,.8,900,2800,{a:.035,decay:.6});bass(.11,1.65,1.1,91,25,{harm:.35,decay:5});air(.10,.05,1.0,4600,1500,{noise:'high'});air(.12,1.65,1.6,840,65,{noise:'low',decay:5});[220,349,523].forEach((f,i)=>metal(.14+i*.055,f,.23,1.15));chips(.30,25,.19,1.25,2400);air(.55,1.5,.25,1500,250,{a:.16,decay:3});break;
       case 'zap':
         air(0,.022,.7,3300,1700,{noise:'high'});for(let i=0;i<6;i++){const t=.025+i*.027+rand()*.012;air(t,.012+rand()*.02,.58-i*.055,2400+rand()*2800,1600,{noise:'high'});}
         bass(.004,.25,.32,98,54,{harm:.5,flutter:.8,rate:62});layer({t:.015,d:.20,g:.25,f:740,end:170,fm:3.1,ratio:1.414,decay:4});layer({t:.18,d:.23,g:.08,f:2450,end:650,decay:5});break;

@@ -40,7 +40,7 @@ let browser;const errors=[];
   assert.equal(await publicPage.locator('#armoryGuide,#creatureGuide').count(),0);
   assert.ok(await publicPage.evaluate(()=>['btnArsenal','btnFieldCreatures','btnCreatures'].every(id=>{const el=document.getElementById(id);return getComputedStyle(el).display==='none'&&el.onclick===null;})));
   if(!query){await publicPage.screenshot({path:path.join(out,'presentation-production-home.png')});await publicPage.evaluate(()=>{startLevel(0,'fresh',1);G.state='review';render(0);});await publicPage.screenshot({path:path.join(out,'presentation-production-game.png')});}
-  assert.ok(await publicPage.evaluate(()=>{G.paused=false;for(const id of ['btnArsenal','btnFieldCreatures','btnCreatures'])document.getElementById(id).click();return !G.paused&&!G.creatureInspection&&Creatures.available&&Object.keys(TOWERS).length===9;}));
+  assert.ok(await publicPage.evaluate(()=>{G.paused=false;for(const id of ['btnArsenal','btnFieldCreatures','btnCreatures'])document.getElementById(id).click();return !G.paused&&!G.creatureInspection&&Creatures.available&&Object.keys(TOWERS).length===10;}));
  }
  console.log('PASS: public origin hides every entry point, creates no inspection dialogs and ignores preview query flags; game art remains available');
  const fallback=await browser.newContext({serviceWorkers:'block'});await fallback.route('https://**/*',r=>r.abort());await fallback.addInitScript(()=>{const native=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(kind,...args){return /^webgl/.test(kind)?null:native.call(this,kind,...args);};});const f=await fallback.newPage();f.on('pageerror',e=>errors.push(e.message));await f.goto(base);await f.evaluate(()=>{G.state='review';save.settings.mute=true;});

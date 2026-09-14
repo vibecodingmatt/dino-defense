@@ -165,6 +165,9 @@ const Creatures = (() => {
       if(uEffect.x>1.5&&uEffect.x<2.5){color=mix(color,vec3(.46,.72,.80),.64)+vec3(.10,.15,.16)*grain;specular=.34;}
       if(uEffect.x>2.5&&uEffect.x<3.5){color=mat>1.5&&mat<2.5?vec3(.035,.045,.041):vec3(.73,.70,.59)*(.77+grain*.29);specular=.045;}
       if(uEffect.x>3.5&&uEffect.x<4.5){color=mix(color,vec3(.62,.88,.74),.83);specular=.12;}
+      float plasma=max(uEffect.w,step(5.5,uEffect.x));
+      float fracture=0.;
+      if(plasma>0.){fracture=1.-smoothstep(.025,.085,abs(noise(vRest.xy*12.+vRest.z*8.)-.51));color=mix(color,color*.24,plasma*.68);color+=vec3(1.,.34,.035)*fracture*plasma;specular=.13;}
       if(uEffect.y>0.&&(uEffect.x<1.5||uEffect.x>4.5)){
         float edge=uEffect.x<1.5?vRest.y/max(.1,uTop):noise(vRest.xy*17.+vRest.z*13.);
         if(edge<uEffect.y*.99+grain*.085)discard;
@@ -179,6 +182,7 @@ const Creatures = (() => {
       if(uStatus>0.)lit=mix(lit,uBody,uStatus);
       lit+=vec3(.18,.28,.43)*charge*(.3+rim*.7);
       if(uEffect.x>3.5&&uEffect.x<4.5)lit+=vec3(.14,.25,.20)*rim;
+      lit+=vec3(.85,.36,.075)*fracture*plasma;
       gl_FragColor=vec4(clamp(lit,0.,1.),1.);
     }`;
   let loc;
@@ -231,7 +235,7 @@ const Creatures = (() => {
     return {body:CreatureMeshes.rgb(p.body||base.body),belly:CreatureMeshes.rgb(p.belly||base.belly),mark:CreatureMeshes.rgb(p.accent||base.accent),override:['#f2f6ff','#ffffff','#303334','#80b4c3'].includes(p.body)?.55:0};
   }
   const quant=v=>Math.round(Math.max(0,Math.min(1,v||0))*16)/16;
-  function treatment(d){return [quant(d.fxHeat??Math.max(d.burnT>0?.8:0,(d.charT||0)*.7)),quant(d.fxFrost??(d.slowT>0?Math.min(1,d.slowT)*.85:0)),quant(d.zapT>0?Math.min(1,d.zapT*4):0),quant(d.poisonT),d.fxMaterial||0,quant(d.fxAmount),quant(d.fxHoles)];}
+  function treatment(d){return [quant(d.fxHeat??Math.max(d.burnT>0?.8:0,(d.charT||0)*.7)),quant(d.fxFrost??(d.slowT>0?Math.min(1,d.slowT)*.85:0)),quant(d.zapT>0?Math.min(1,d.zapT*4):0),quant(d.poisonT),d.fxMaterial||0,quant(d.fxAmount),quant(d.fxHoles),quant((d.plasmaT||0)/2.4)];}
   function renderTile(d,key,phase,yaw,col,row,cellW=CW,cellH=CH){
     const m=model(key),p=status(d,key),hidden=d.deathMask||{},mask=m.parts.map(k=>hidden[k]||k==='lowerJaw'&&hidden.head&&hidden.lowerJaw!==0||k==='sail'&&d.hideSail?1:0);
     gl.useProgram(program);gl.viewport(col*cellW,source.height-(row+1)*cellH,cellW,cellH);gl.scissor(col*cellW,source.height-(row+1)*cellH,cellW,cellH);gl.enable(gl.SCISSOR_TEST);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
@@ -241,7 +245,7 @@ const Creatures = (() => {
     const view=d.artView===undefined?GROUND:Math.max(0,Math.min(.8,d.artView));gl.uniform2f(loc.uView,view,Math.sqrt(1-view*view));
     gl.uniform3fv(loc.uBody,p.body);gl.uniform3fv(loc.uBelly,p.belly);gl.uniform3fv(loc.uMark,p.mark);gl.uniform4fv(loc.uStripe,key==='blue'?[1.18,.31,1.71,.97]:[1.10,.35,1.54,1.00]);gl.uniform1f(loc.uPattern,m.cfg.pattern||0);gl.uniform1f(loc.uStatus,p.override);
     const fx=treatment(d),body=m.anatomy?.body||[[-.6,1,.3,.3],[.5,1,.3,.3]],wide=body.reduce((a,b)=>a[3]>b[3]?a:b);
-    gl.uniform4fv(loc.uSurface,fx.slice(0,4));gl.uniform4f(loc.uEffect,fx[4],fx[5],fx[6],0);
+    gl.uniform4fv(loc.uSurface,fx.slice(0,4));gl.uniform4f(loc.uEffect,fx[4],fx[5],fx[6],fx[7]);
     gl.uniform4f(loc.uTorso,(body[0][0]+body.at(-1)[0])/2,(wide[1]+wide[2])/2,Math.max(.2,(body.at(-1)[0]-body[0][0])*.5),Math.max(.15,(wide[1]-wide[2])*.5));gl.uniform1f(loc.uTop,Math.max(...(m.anatomy?.head||body).map(p=>p[1])));
     gl.drawArrays(gl.TRIANGLES,0,m.count);
   }

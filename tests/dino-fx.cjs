@@ -25,7 +25,7 @@ const errors=[],results=[];let browser;const pass=(test,detail)=>{results.push({
    G.dinos=[];G.fx=[];G.corpses=[];spawnDino('trex',0,true);d=G.dinos[0];d.hp=1;damage(d,100,true,{key:'tesla',x:0,ulv:2});if(G.corpses.length!==1||G.fx.some(f=>f.kind==='weaponDeath'))throw Error('Boss finale replaced');
    G.dinos=[];G.fx=[];G.bolts=[];G.zapQ=[];G.links=[];spawnDino('pteranodon',0,false);d=G.dinos[0];d.dist=260;d.hp=1000;const source={key:'tesla',x:10,y:100,ulv:0},strike=DinoFX.anchor(d,dinoPos(d));G.zapQ=[{delay:0,dino:d,tower:source,def:TOWERS.tesla,st:{dmg:1}}];runZapQ(.01);const bolt=G.bolts[0];if(Math.abs(bolt.x2-strike.x)+Math.abs(bolt.y2-strike.y)>.001)throw Error('Tesla misses animated skin');
    return result;
- });assert.equal(combat.length,27);pass('All 27 weapon configurations retain unique kill credit, burn/gas finishers and bespoke boss finales',combat);
+ });assert.equal(combat.length,30);pass('All 30 weapon configurations retain unique kill credit, burn/gas finishers and bespoke boss finales',combat);
  const purity=await page.evaluate(()=>{
    const cv=document.createElement('canvas');cv.width=440;cv.height=340;const c=cv.getContext('2d');
    const d={...DINOS.velociraptor,key:'velociraptor',size:45,phase:.8,artHeading:.4,burnT:1,slowT:1,zapT:.2,charT:.8,poisonT:.5,sonicT:.3};const fx=[];
@@ -46,11 +46,11 @@ const errors=[],results=[];let browser;const pass=(test,detail)=>{results.push({
      const a=DinoFX.frame({...d,artHeading:.2,phase:.2}),b=DinoFX.frame({...d,artHeading:.2,phase:1.7});if(JSON.stringify(a.sites)===JSON.stringify(b.sites))throw Error('Frozen anchors '+key);
      for(const weapon of Object.keys(DinoFX.sequences)){const fx=[];DinoFX.death(fx,d,{x:190,y:230},{key:weapon,x:0,ulv:2});for(const t of [.1,.65,1.2,1.7]){fx[0].t=t;DinoFX.drawDeath(c,fx[0]);deaths++;}}
    }return {poses,deaths,cache:Creatures.cachedSprites,limit:Creatures.cacheLimit,textures:DinoFX.stats()};
- });assert.ok(anatomy.cache<=anatomy.limit);assert.ok(anatomy.textures.textureBytes<1e6);pass('All 33 exported skins animate finite surface anchors and all nine finishers at multiple beats',anatomy);
+ });assert.ok(anatomy.cache<=anatomy.limit);assert.ok(anatomy.textures.textureBytes<1e6);pass('All 33 exported skins animate finite surface anchors and all ten finishers at multiple beats',anatomy);
  const cache=await page.evaluate(()=>{
    const cv=document.createElement('canvas');cv.width=320;cv.height=300;const c=cv.getContext('2d');const d={...DINOS.trex,key:'trex',size:42,phase:.4,artHeading:.3};
    function snap(prepared){if(prepared)Creatures.prepare([d]);c.clearRect(0,0,320,300);drawDino(c,d,160,220,1,d.phase,1,0);return cv.toDataURL();}
-   const base=snap(true),treatments=[];for(const key of ['burnT','slowT','zapT','poisonT']){d[key]=1;const snapshot=snap(false),atlas=snap(true);if(snapshot===base||atlas===base)throw Error('Stale status '+key);treatments.push(key);d[key]=0;}
+   const base=snap(true),treatments=[];for(const key of ['burnT','slowT','zapT','poisonT','plasmaT']){d[key]=1;const snapshot=snap(false),atlas=snap(true);if(snapshot===base||atlas===base)throw Error('Stale status '+key);treatments.push(key);d[key]=0;}
    if(snap(true)!==base)throw Error('Status did not clear');
    G.dinos=[];G.fx=[];G.towers=[];G.corpses=[];G.tourists=[];G.clever=null;spawnDino('indominus',0,true);const boss=G.dinos[0];boss.dist=350;boss.noHurt=false;const p=dinoPos(boss),arcs=[];const arc=ctx.arc,status=DinoFX.status;let statusCalls=0;ctx.arc=function(x,y,r,...args){if(Math.abs(x-p.x)<.01&&Math.abs(y-p.y)<.01)arcs.push(r);return arc.call(this,x,y,r,...args);};DinoFX.status=function(...args){statusCalls++;return status(...args);};
    try{render(0);if(arcs.some(r=>Math.abs(r-boss.size*1.1)<.01))throw Error('Boss ring still rendered');boss.noHurt=true;arcs.length=0;render(0);if(!arcs.some(r=>Math.abs(r-boss.size*1.42)<.01))throw Error('Invulnerability cue lost');boss.cloaked=true;boss.revealT=0;boss.burnT=2;statusCalls=0;render(0);if(statusCalls)throw Error('Cloaked status revealed boss');}finally{ctx.arc=arc;DinoFX.status=status;}

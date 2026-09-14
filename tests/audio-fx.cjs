@@ -5,9 +5,9 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||require.resolve('playwright-core',{paths:[process.cwd(),path.resolve(__dirname,'../../war-survival')]}));
 const root=path.resolve(__dirname,'..'),out=path.resolve(root,'../../dino-perimeter-review/audio1650');fs.mkdirSync(out,{recursive:true});
 const raw=zlib.gunzipSync(fs.readFileSync(path.join(root,'assets/audio/effects-v1.bank.gz'))),headerSize=raw.readUInt32LE(),header=JSON.parse(raw.subarray(4,4+headerSize)),pcm=raw.subarray(4+headerSize),hashes=new Set();
-assert.equal(header.sampleRate,32000);assert.equal(header.entries.length,126);
+assert.equal(header.sampleRate,32000);assert.equal(header.entries.length,135);
 for(const e of header.entries){const b=pcm.subarray(e.offset,e.offset+e.length*2);assert.equal(b.length,e.length*2);let peak=0,energy=0,sum=0;for(let i=0;i<e.length;i++){const v=b.readInt16LE(i*2)/32767;peak=Math.max(peak,Math.abs(v));energy+=v*v;sum+=v;}assert.ok(peak>.1&&peak<.9,e.name+' peak');assert.ok(Math.sqrt(energy/e.length)>.02,e.name+' silent');assert.ok(Math.abs(sum/e.length)<.005,e.name+' DC');hashes.add(crypto.createHash('sha256').update(b).digest('hex'));}
-assert.equal(hashes.size,126);console.log('PASS: 42 original effects, three distinct performances each, finite PCM and transient headroom');
+assert.equal(hashes.size,135);console.log('PASS: 45 original effects, three distinct performances each, finite PCM and transient headroom');
 const server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+new URL(req.url,'http://localhost').pathname.replace(/\/$/,'/index.html'));if(path.relative(root,file).startsWith('..'))return res.writeHead(403).end();try{res.setHeader('Content-Type',({'.html':'text/html','.js':'text/javascript','.css':'text/css','.webp':'image/webp','.json':'application/json'})[path.extname(file)]||'application/octet-stream');res.end(fs.readFileSync(file));}catch{res.writeHead(404).end();}});
 const errors=[];let browser;
 (async()=>{
@@ -26,16 +26,17 @@ const errors=[];let browser;
      const t={key,x:240,y:201,ulv:2,cd:0,angle:0,mode:'first',invested:def.cost};G.towers=[t];
      for(let i=0;i<3;i++){spawnDino('velociraptor',0,false);const d=G.dinos.at(-1);d.dist=270+i*10;d.speed=0;d.hp=d.maxHp=50000;d.armor=0;}
      events.length=0;fireTower(t,.001);const launch=events[0]?.name;
-     for(let i=0;i<180;i++){updateProjs(1/120);runZapQ(1/120);updateClouds(1/120);}
+     for(let i=0;i<180;i++){if(key==='extinction')fireTower(t,1/120);updateProjs(1/120);runZapQ(1/120);updateClouds(1/120);}
      if(!events.length||events.some(e=>e.weapon!==key||e.lv!==2||!Number.isFinite(e.x)))throw Error('Lost position/mute/upgrade identity '+key);
      const all=[...new Set(events.map(e=>e.name))];result.push({key,launch,events:all});
      if(key==='cryo'&&(!all.includes('frost')||all.includes('boom')))throw Error('Cryo still explodes');
      if(key==='mortar'&&!all.includes('shellImpact'))throw Error('Artillery impact missing');
+     if(key==='extinction'&&!['novaCharge','novaLaunch','novaImpact'].every(n=>all.includes(n)))throw Error('Plasma sequence sound missing');
      if(key==='tesla'&&!all.includes('arc'))throw Error('Chain hops silent');
      save.settings.mutedWeapons[key]=true;events.length=0;t.cd=0;fireTower(t,.001);if(events.length)throw Error('Muted weapon fired audio '+key);save.settings.mutedWeapons[key]=false;
    }}finally{Object.assign(SFX,saved);G.towers=[];G.dinos=[];G.projs=[];G.zapQ=[];G.clouds=[];save.settings.mute=false;}
    return result;
- });assert.equal(new Set(routing.map(r=>r.launch)).size,9);console.log('PASS: all nine real weapons have unique firing sounds, correct impact cues and per-weapon gates',routing);
+ });assert.equal(new Set(routing.map(r=>r.launch)).size,10);console.log('PASS: all ten real weapons have unique firing sounds, correct impact cues and per-weapon gates',routing);
  const deaths=await p.evaluate(()=>{
    const saved={...SFX},random=Math.random,events=[],vocal=new Set(['screech','snarl','bellow','bossDie','roar','trexRoar','pteraWail']);let count=0;
    for(const name of Object.keys(SFX))SFX[name]=()=>events.push(name);

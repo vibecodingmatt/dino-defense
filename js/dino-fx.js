@@ -6,8 +6,8 @@ const DinoFX=(()=>{
   const TAU=Math.PI*2,clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v)),mix=(a,b,t)=>a+(b-a)*t;
   const rand=(s,i)=>{const n=Math.sin(s*17.13+i*127.1)*43758.5453;return n-Math.floor(n);};
   const smooth=t=>t*t*(3-2*t),textures=new Map(),MAX_TEXTURES=40;
-  const durations={gatling:1.65,flamer:2.25,sniper:2.2,cryo:2.2,tesla:1.9,sonic:1.7,missile:2.8,mortar:2.75,gas:2.65};
-  const sequences={gatling:'deflate',flamer:'ash',sniper:'ko',cryo:'iceblock',tesla:'bones',sonic:'notes',missile:'gibs',mortar:'punt',gas:'ghost'};
+  const durations={gatling:1.65,flamer:2.25,sniper:2.2,cryo:2.2,tesla:1.9,sonic:1.7,missile:2.8,mortar:2.75,gas:2.65,extinction:2.5};
+  const sequences={gatling:'deflate',flamer:'ash',sniper:'ko',cryo:'iceblock',tesla:'bones',sonic:'notes',missile:'gibs',mortar:'punt',gas:'ghost',extinction:'sunfall'};
   const beats={gatling:[[0,'deflate']],flamer:[[0,'sizzle']],sniper:[[0,'koBoing']],cryo:[[.95,'shatter']],tesla:[],sonic:[[.30,'notePop']],missile:[],mortar:[[0,'punt'],[1.24,'whistleIn'],[1.56,'thud']],gas:[[.45,'whoo']]};
   function noise(x,y){const ix=Math.floor(x),iy=Math.floor(y),a=smooth(x-ix),b=smooth(y-iy),h=(x,y)=>rand(x*3.17,y*7.13);return mix(mix(h(ix,iy),h(ix+1,iy),a),mix(h(ix,iy+1),h(ix+1,iy+1),a),b);}
   function fbm(x,y){return noise(x,y)*.57+noise(x*2.07+4,y*2.07+8)*.28+noise(x*4.17,y*4.17)*.15;}
@@ -47,7 +47,7 @@ const DinoFX=(()=>{
     c.save();c.globalAlpha*=alpha;c.globalCompositeOperation='lighter';path(c,points,'rgba(89,150,237,.18)',4);path(c,points,'rgba(130,189,255,.7)',1.2);path(c,points,'#e6f7ff',.45);c.restore();
   }
   function status(c,d,x,y,turn,phase,pitch,time){
-    if(!(d.burnT>0||d.slowT>0||d.zapT>0||d.charT>0||d.poisonT>0||d.sonicT>0))return;
+    if(!(d.burnT>0||d.slowT>0||d.zapT>0||d.charT>0||d.poisonT>0||d.sonicT>0||d.plasmaT>0))return;
     const s=d.size,F=frame(d,phase,turn),seed=(d.seedE||0)+s*.13,at=p=>world(p,d,x,y,turn,pitch),body=at(F.center);
     c.save();
     if(d.burnT>0){
@@ -59,6 +59,7 @@ const DinoFX=(()=>{
     if(d.zapT>0){const sites=F.sites.filter(p=>p.depth>=F.center.depth-.08),fade=clamp(d.zapT*5);for(let i=0;i<4&&sites.length>2;i++){const j=(i*7+Math.floor(time*14))%sites.length,a=at(sites[j]),b=at(sites[(j+5)%sites.length]);arc(c,a,b,time,seed+i,fade);}haze(c,body.x,body.y,s*.65,[109,171,255],fade*.12);}
     if(d.charT>0&&!(d.burnT>0)){for(let i=0;i<3;i++){const q=(time*.5+i*.3)%1;smoke(c,body.x+(i-1)*s*.24,body.y-s*(.15+q*.5),s*(.19+q*.16),time,seed+i,clamp(d.charT)*(1-q)*.2);}}
     if(d.poisonT>0){for(let i=0;i<3;i++){const q=(time*.4+i*.31)%1;haze(c,body.x+Math.sin(i*3+time*.6)*s*.45,body.y-s*q*.5,s*(.15+q*.1),[133,164,88],clamp(d.poisonT)*(1-q)*.09);}}
+    if(d.plasmaT>0){const fade=clamp(d.plasmaT/1.2),sites=F.sites.filter(p=>p.depth>=F.center.depth);for(let i=0;i<Math.min(10,sites.length);i++){const p=at(sites[i*7%sites.length]),q=((d.plasmaPhase||0)*.6+i*.17)%1;haze(c,p.x,p.y,s*.085,[255,183,74],fade*.5);path(c,[{x:p.x+Math.sin(i)*s*q*.18,y:p.y-s*q*.42},{x:p.x+Math.sin(i)*s*q*.18,y:p.y-s*q*.42-2}],`rgba(255,211,128,${fade*(1-q)*.65})`,.65);}if(!Creatures.available)haze(c,body.x,body.y,s*.65,[255,158,54],fade*.3);}
     if(d.sonicT>0){const fade=clamp(d.sonicT*2);for(const side of [-1,1]){c.save();c.globalCompositeOperation='screen';drawDino(c,{...d,fxNoShadow:true,fxMaterial:4,sonicT:0},x+side*Math.sin(time*35)*s*.045,y,turn,phase,fade*.12,pitch);c.restore();}}
     c.restore();
   }
@@ -150,6 +151,18 @@ const DinoFX=(()=>{
     const F=frame(f.d,f.phase,f.dir),s=f.r,t=f.t,k=clamp(t/f.dur),fade=clamp((f.dur-t)*3),gy=f.y+2,cx=f.x+F.center.x*s,cy=f.y+F.center.y*s,dir=f.dir,seed=f.seed;
     c.save();c.lineJoin='round';
     switch(f.weapon){
+      case 'extinction':{
+        const dissolve=clamp((t-.30)/1.15),rise=clamp((t-.30)/1.8);
+        ground(c,f.x,gy,s*.85,fade*.42,[26,25,24]);
+        if(dissolve<1)drawBody(c,f,F,{y:cy-rise*s*.45,alpha:Creatures.available?fade:fade*(1-dissolve),skin:{fxMaterial:6,fxAmount:dissolve,plasmaT:2.4}});
+        c.save();c.globalCompositeOperation='lighter';
+        for(let i=0;i<Math.min(64,F.sites.length);i++){
+          const p=F.sites[i],q=clamp((t-.28-rand(seed,i)*.45)/1.25);if(!q)continue;
+          const x=f.x+p.x*s+Math.sin(q*5+i)*s*q*.5,y=f.y+p.y*s-q*s*(1.3+rand(seed,i+80)),alpha=fade*(1-q);
+          haze(c,x,y,s*.075,[255,185,74],alpha*.45);path(c,[{x,y},{x:x+Math.sin(i)*s*.025,y:y-s*(.025+q*.05)}],`rgba(255,225,160,${alpha})`,Math.max(.7,s*.016));
+        }
+        c.restore();if(t>.55)for(let i=0;i<3;i++)smoke(c,cx+(i-1)*s*.25,cy-t*s*.30,s*(.30+t*.10),t,seed+i,fade*.17);break;
+      }
       case 'gatling':{
         if(t<.28)drawBody(c,f,F,{x:cx+Math.sin(t*65)*s*.025,y:cy,skin:{fxHoles:clamp(t/.25)}});
         else if(t<1.05){const q=(t-.28)/.77,x=cx+Math.sin(q*9+seed)*s*(.8+q*.8),y=cy-q*s*1.6+Math.sin(q*13+seed*2)*s*.5;drawBody(c,f,F,{x,y,rot:q*14*dir,sx:1-q*.72,sy:(1-q*.72)*(1-q*.64),skin:{fxHoles:1}});for(let i=0;i<3;i++){const b=q-.04-i*.04;if(b>0)smoke(c,cx+Math.sin(b*9+seed)*s*(.8+b*.8),cy-b*s*1.6+Math.sin(b*13+seed*2)*s*.5,s*.1,t,seed+i,(1-q)*.24,true);}}
