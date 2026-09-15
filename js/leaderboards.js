@@ -7,6 +7,7 @@ const Leaderboards = (() => {
   const cleanInitials = value => value.replace(/[^a-z0-9]/gi, '').toUpperCase().slice(0, 3);
   let profile = {}, result = null, entryScore = null, generation = 0, boardRequest = 0, entryRequest = 0;
   let posting = false, checking = false;
+  let run = null, wave = null, checkpoint = null, clockStarted = 0, savedElapsed = 0;
   try { profile = JSON.parse(localStorage.getItem(STORAGE)) || {}; } catch (_) {}
   if (!profile || typeof profile !== 'object' || Array.isArray(profile)) profile = {};
   if (!profile.pending || typeof profile.pending !== 'object') profile.pending = {};
@@ -14,7 +15,7 @@ const Leaderboards = (() => {
     s && Number.isInteger(s.map) && s.map >= 0 && s.map < LEVELS.length && String(s.map) === key
     && Number.isInteger(s.difficulty) && s.difficulty >= 1 && s.difficulty <= 1000
     && Number.isInteger(s.health) && s.health >= 0 && s.health <= 100 && s.wave === 100
-    && /^[a-f0-9-]{36}$/.test(s.runId || '') && s.cheated === false));
+    && /^[a-f0-9-]{36}$/.test(s.runId || '') && s.cheated === false && s.completedWaves === 100));
   function persistProfile() { try { localStorage.setItem(STORAGE, JSON.stringify(profile)); } catch (_) {} }
   function token() {
     if (!/^[a-f0-9]{64}$/.test(profile.token || '')) {
@@ -31,7 +32,11 @@ const Leaderboards = (() => {
         signal: controller.signal, cache: 'no-store', headers: {Authorization: 'Bearer ' + token(), ...(score ? {'Content-Type': 'application/json'} : {})},
         ...(score ? {body: JSON.stringify(score)} : {})});
       const data = await response.json();
-      if (!response.ok && response.status !== 409) throw Error(data.error || 'The leaderboard is temporarily unavailable.');
+      if (!response.ok && response.status !== 409) {
+        const error = Error(data.error || 'The leaderboard is temporarily unavailable.');
+        error.permanent = [400, 401, 413, 415, 422].includes(response.status);
+        throw error;
+      }
       return {...data, conflict: response.status === 409};
     } catch (error) {
       if (error.name === 'AbortError' || error instanceof TypeError) throw Error('Cannot reach the leaderboard. Please try again.');
@@ -52,17 +57,79 @@ const Leaderboards = (() => {
     el('leaderboards').classList.add('hidden');
     checking = false; result = null;
   }
-  function beginRun() {
+  function beginRun(map, difficulty, resume) {
     closeAll();
     el('victoryLeaderboard').classList.add('hidden');
-    // Older/insecure browsers can still play; only online ranking needs an ID.
-    try { return crypto.randomUUID(); } catch (_) { return null; }
+    wave = null; clockStarted = performance.now(); savedElapsed = resume?.elapsedMs || 0;
+    try {
+      run = resume ? {...resume} : {runId: crypto.randomUUID(), map, difficulty,
+        completedWaves: 0, spawned: 0, kills: 0, leaks: 0, activeMs: 0, elapsedMs: 0,
+        registered: false, invalid: false};
+      if (run.map !== map || run.difficulty !== difficulty || run.completedWaves !== G.wave) run.invalid = true;
+      run.maxLives = G.maxLives; run.lastLives = G.lives;
+      checkpoint = {...run};
+      const current = run;
+      // Check in without blocking play. Repeating a check-in never resets the
+      // server clock. An offline resume keeps its existing registration.
+      if (!run.invalid && !runDisqualified() && !new URLSearchParams(location.search).has('test')) {
+        request('/runs', {map, difficulty, runId: run.runId, version: VERSION, cheated: false})
+          .then(data => { if (run === current && data.registered) { run.registered = true; saveRun(); } })
+          .catch(() => {});
+      }
+      return run.runId;
+    } catch (_) { run = checkpoint = null; return null; }
+  }
+  function elapsed() { return Math.max(0, Math.round(savedElapsed + performance.now() - clockStarted)); }
+  function expectedSpawns(n) {
+    return Math.min(60, 8 + Math.floor(n * 0.7)) + ((G.level.bosses?.[n] || BOSS_WAVES[n])?.length || 0);
+  }
+  function startWave() {
+    if (!run) return;
+    if (wave || G.wave !== run.completedWaves + 1 || G.waveTotal !== expectedSpawns(G.wave)) run.invalid = true;
+    wave = {spawned: 0, kills: 0, leaks: 0, activeMs: 0};
+  }
+  function advance(dt) {
+    if (!run) return;
+    if (G.levelIdx !== run.map || G.difficulty !== run.difficulty || ![1, 2, 4, 10].includes(G.speed)
+        || !Number.isFinite(G.lives) || G.lives > run.lastLives || G.maxLives !== run.maxLives
+        || G.lives > G.maxLives || !Number.isFinite(dt) || dt <= 0 || dt > 0.051
+        || runDisqualified()) run.invalid = true;
+    run.lastLives = Math.min(run.lastLives, G.lives);
+    if (wave) wave.activeMs += dt * 1000;
+  }
+  function spawned() { if (wave) wave.spawned++; }
+  function resolved(killed) {
+    if (wave) wave[killed ? 'kills' : 'leaks']++;
+    if (run && !killed) run.lastLives = Math.min(run.lastLives, G.lives);
+  }
+  function endWave() {
+    if (!run) return;
+    if (!wave || G.wave !== run.completedWaves + 1 || G.spawnQ.length || G.dinos.length
+        || wave.spawned !== expectedSpawns(G.wave) || wave.kills + wave.leaks !== wave.spawned) run.invalid = true;
+    if (wave) for (const key of ['spawned', 'kills', 'leaks', 'activeMs']) run[key] += wave[key];
+    run.completedWaves = G.wave; wave = null; checkpoint = {...run};
+  }
+  function saveProgress() {
+    // A mid-wave save replays that wave. Keep only completed-wave totals, but
+    // retain wall time and any disqualification from the interrupted attempt.
+    return run && checkpoint ? {...checkpoint, registered: run.registered, invalid: run.invalid, elapsedMs: elapsed()} : null;
   }
   function recordVictory(score, disqualified) {
     result = null;
     el('victoryLeaderboard').classList.add('hidden');
     if (disqualified || !score.runId || new URLSearchParams(location.search).has('test') || score.wave !== 100) return;
-    result = {...score, cheated: false, version: VERSION};
+    if (!run || run.invalid || !run.registered || wave || run.completedWaves !== 100
+        || run.spawned !== 4074 || run.kills + run.leaks !== 4074 || run.activeMs < 1100000
+        || run.activeMs > elapsed() * 10 + 1000 || score.map !== run.map || score.difficulty !== run.difficulty
+        || G.lives <= 0 || !Number.isFinite(G.lives) || G.lives > run.lastLives || G.maxLives !== run.maxLives
+        || G.lives > G.maxLives || score.health !== Math.round(G.lives / G.maxLives * 100)) {
+      el('victoryLeaderboard').classList.remove('hidden');
+      el('vPostScore').classList.add('hidden');
+      text('victoryRankStatus', 'This run is not eligible for the worldwide board. Start a new run while connected to enter.');
+      return;
+    }
+    result = {...score, completedWaves: run.completedWaves, spawned: run.spawned, kills: run.kills,
+      leaks: run.leaks, activeMs: Math.round(run.activeMs), elapsedMs: elapsed(), cheated: false, version: VERSION};
     const previous = profile.pending[score.map];
     if (!previous || previous.difficulty < score.difficulty || (previous.difficulty === score.difficulty && previous.health < score.health)) {
       profile.pending[score.map] = result; persistProfile();
@@ -102,8 +169,10 @@ const Leaderboards = (() => {
       }
     } catch (error) {
       if (generation !== session) return;
-      text('victoryRankStatus', error.message + ' Your result is saved for later.');
-      el('vPostScore').classList.remove('hidden');
+      if (error.permanent) forget(score);
+      text('victoryRankStatus', error.message + (error.permanent ? '' : ' Your result is saved for later.'));
+      el('vPostScore').classList.toggle('hidden', !!error.permanent);
+      updatePending();
       if (!el('leaderboards').classList.contains('hidden')) text('leaderboardStatus', error.message);
     } finally {
       if (generation === session) { checking = false; el('vPostScore').disabled = false; }
@@ -181,7 +250,13 @@ const Leaderboards = (() => {
         entryScore = null;
         el('vPostScore').classList.add('hidden');
       }
-    } catch (error) { if (id === entryRequest) text('entryStatus', error.message + ' Your result is saved.'); }
+    } catch (error) {
+      if (error.permanent) { forget(score); updatePending(); }
+      if (id === entryRequest) {
+        text('entryStatus', error.message + (error.permanent ? '' : ' Your result is saved.'));
+        if (error.permanent) entryScore = null;
+      }
+    }
     finally { posting = false; updateInitials(); if (!entryScore) el('submitArcadeScore').disabled = true; }
   });
   for (const [index, level] of LEVELS.entries()) {
@@ -198,5 +273,5 @@ const Leaderboards = (() => {
   el('leaderboards').querySelector('.modalX').addEventListener('click', () => { boardRequest++; generation++; checking = false; });
   el('leaderboardEntry').querySelector('.modalX').addEventListener('click', closeEntry);
   el('skipArcadeEntry').onclick = closeEntry;
-  return {beginRun, recordVictory, showResult, closeAll};
+  return {beginRun, startWave, advance, spawned, resolved, endWave, saveProgress, recordVictory, showResult, closeAll};
 })();

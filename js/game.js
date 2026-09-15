@@ -1401,6 +1401,7 @@ function damage(d, amt, pierce, src){
   }
   if (d.hp <= 0){
     d.dead = true;
+    Leaderboards.resolved(true);
     const p = dinoPos(d);
     G.cash += d.bounty;
     if (G.stat){ G.stat.kills++; G.stat.cashEarned += d.bounty; }
@@ -1952,6 +1953,7 @@ function updateDinos(dt){
         // player can react, instead of staying sped up through more leaks
         if (G.speed > 1){ G.speed = 1; updateHUD(); }
       }
+      Leaderboards.resolved(false);
       SFX.leak();
       if (G.lives <= 0 && !G.over){ G.lives = 0; defeat(); }
     }
@@ -2447,6 +2449,7 @@ function startWave(){
   G.rushT = 0;
   G.spawnQ = G.pendingWave || buildWave(G.wave);
   G.waveTotal = G.spawnQ.length;
+  Leaderboards.startWave();
   G.pendingWave = G.wave < WAVES_PER_LEVEL ? buildWave(G.wave + 1) : null;
   G.nextPreview = waveSummary(G.pendingWave);
   // Dino Studio: each named design possesses ONE matching spawn this wave
@@ -2460,6 +2463,7 @@ function startWave(){
   updateHUD();
 }
 function endWave(){
+  Leaderboards.endWave();
   G.waveActive = false;
   const finalWave = G.wave >= WAVES_PER_LEVEL;
   const bonus = 40 + 3 * G.wave;
@@ -2527,6 +2531,7 @@ function saveRun(){
   s.dnaRun = G.dnaRun;
   s.runCheated = runDisqualified();
   s.leaderboardRunId = G.leaderboardRunId;
+  s.leaderboardProgress = Leaderboards.saveProgress();
   save.run = s;
   persist();
 }
@@ -2541,8 +2546,6 @@ function restoreSnapshot(s){
 /* mode: 'fresh' | 'resume' (saved run). diff = chosen difficulty level. */
 function startLevel(idx, mode, diff){
   WeaponInfo.close(true);
-  const leaderboardRunId = Leaderboards.beginRun();
-  G.leaderboardRunId = mode === 'resume' && save.run?.leaderboardRunId || leaderboardRunId;
   G.levelIdx = idx;
   G.level = LEVELS[idx];
   $('#stage').dataset.mapArt = G.level.art;
@@ -2578,14 +2581,17 @@ function startLevel(idx, mode, diff){
     G.lives = startLives(); G.airUsed = 0; G.omegaUsed = 0;
   }
   G.maxLives = startLives();
+  // Old saves still resume normally; their missing wave history cannot rank.
+  G.leaderboardRunId = Leaderboards.beginRun(idx, G.difficulty,
+    mode === 'resume' ? (save.run?.leaderboardProgress || {invalid: true}) : null);
   G.streak = 1; G.waveLeaked = false;
   G.pendingWave = G.wave < WAVES_PER_LEVEL ? buildWave(G.wave + 1) : null;
   G.nextPreview = waveSummary(G.pendingWave);
   G.rushT = 0; G.combo = null; G.slowmoT = 0; G.slowmoCd = 0;
   G.flow = G.level.maze ? mazeRebuild() : null;   // open-world routing grid
   G.stat = {dnaWaves: 0, dnaKills: 0, cashEarned: 0, kills: 0, streakMax: 1};
-  saveRun();
   G.state = 'playing';
+  saveRun();
   // Restored weapons count as deployed, including a save transferred before
   // wave one. The transient countdown is rebuilt from the restored map.
   beginFirstWaveCountdown();
@@ -4963,11 +4969,13 @@ function step(dt){
     if (G.voxAmb <= 0){ G.voxAmb = rand(5, 10); if (voxGate()) (Math.random() < 0.55 ? SFX.snarl : SFX.bellow)(); }
   }
   // spawn queue
+  Leaderboards.advance(dt);
   if (G.waveActive){
     G.spawnT += dt;
     while (G.spawnQ.length && G.spawnQ[0].at <= G.spawnT){
       const s = G.spawnQ.shift();
       spawnDino(s.key, s.pathI, s.boss);
+      Leaderboards.spawned();
       if (s.custom){                       // a Dino Studio original takes the field
         const d = G.dinos[G.dinos.length - 1];
         d.pal = {body: s.custom.body, belly: s.custom.belly, accent: d.pal.accent};
