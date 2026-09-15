@@ -6,12 +6,33 @@ separate maintained products. This is the browser handoff. Roblox starts at
 
 ## Production baseline
 
-Last verified runtime release: **1.75.0**, September 14, 2026; service-worker cache
-**dino-defense-v73**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
-from root `main`, commit `4e13f894b3d00d1c12a6573e9070d0f6c4cf048e`.
-[Pages run 34915492580 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34915492580).
+Last verified runtime release: **1.75.1**, September 14, 2026; service-worker cache
+**dino-defense-v74**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
+from root `main`, commit `cdcc6bf8ae4ddc7d0786dd4099f500fb4cd490b8`.
+[Pages run 34917093703 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34917093703).
 This is a recorded deployment baseline; inspect Git and the live version before
 the next release rather than assuming HEAD still equals this commit.
+
+The 1.75.1 release adds basic leaderboard plausibility checks: online run
+registration, server timing, complete wave/spawn/kill/leak totals, supported
+speed and health checks, and immutable submitted scores. New saves preserve
+their completed-wave ledger through resume. Old saves remain playable but do
+not qualify for new scores; ranked runs need an online start and expire after
+90 days. This is still a casual client-reported board, not cheat-proof play.
+Worker version `b185be8f-3e0a-450a-b4a2-20860a45f352` and migration `0002_runs.sql`
+are deployed. No new What's New bullet was added for these internal checks.
+
+The release passed the isolated API/browser leaderboard suite, full resumed
+100-wave completion, replay/concurrency checks, injected victory/health/speed
+rejection, save imports, endgame layouts and actual offline loading. Live
+verification checked all 89 committed asset hashes, gameplay, phone controls,
+rendered daily recap and cache v74, with zero browser JavaScript errors.
+The live API rejected an instant fabricated victory after a real check-in.
+It then accepted a full run after real server time elapsed; a phone posted its
+initials and an independent public read confirmed the score. The test player's
+score and check-in were removed, with zero remaining score rows confirmed.
+Current evidence is under
+`C:/Users/burns/dev/dino-perimeter-review/leaderboard/guards/`.
 
 The 1.75.0 release adds worldwide arcade leaderboards: top 50 per map, completed
 difficulty then health, three-character names, post-victory entry, and View
@@ -20,7 +41,7 @@ new saves retain run IDs and cheat history. The dedicated Cloudflare Worker/D1
 service is live. See [leaderboard operations](WEB_LEADERBOARD.md) for the API,
 identity, pending results, known score-authenticity limits and tests.
 
-Production verification checked HTTP 200 and committed SHA-256 for all 89 assets,
+The 1.75.0 production verification checked HTTP 200 and committed SHA-256 for all 89 assets,
 plus the full release gameplay/offline checks and seven-layout homepage suite.
 The leaderboard suite passed ranking/ties, concurrent last-place submissions,
 validation, duplicates, personal records, cheat/resume exclusion, keyboard and

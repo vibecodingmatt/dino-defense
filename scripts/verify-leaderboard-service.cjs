@@ -43,6 +43,10 @@ fs.mkdirSync(out,{recursive:true});let browser,player;
   const blocked=await fetch(api+'/scores',{method:'POST',headers:{Origin:new URL(base).origin,Authorization:'Bearer '+secret,'Content-Type':'application/json'},body:JSON.stringify(forged)});
   assert.equal(blocked.status,400,'Live server must reject an instant forged result');
   console.log('PASS: live server rejects instant fabricated victory after a real run check-in.');
+  // The ceremony normally auto-opens results after a few seconds. Freeze only
+  // that animation in this disposable test page so it cannot qualify the
+  // accelerated run before the real server clock has caught up.
+  await p.evaluate(()=>{window.leaderboardTestVictoryUpdate=updateVictory;updateVictory=()=>{};});
   const completed=await fixture.advanceWaves(p);
   assert.equal(completed.progress.completedWaves,100);assert.equal(completed.progress.spawned,4074);
   // Keep the production clock honest: wait for the real server age to catch up
@@ -52,6 +56,7 @@ fs.mkdirSync(out,{recursive:true});let browser,player;
     console.log('Waiting for real run timing: '+Math.ceil((readyAt-Date.now())/1000)+' seconds remain.');
     await new Promise(r=>setTimeout(r,Math.min(30000,readyAt-Date.now())));
   }
+  await p.evaluate(()=>{updateVictory=window.leaderboardTestVictoryUpdate;delete window.leaderboardTestVictoryUpdate;});
   await p.locator('#victorySkip').tap();await p.locator('#arcadeInitials').waitFor({state:'visible'});
   await p.locator('#arcadeInitials').fill('tst');await p.locator('#submitArcadeScore').tap();
   await p.waitForFunction(()=>document.querySelector('#leaderboardRows .your-score')?.textContent.includes('TST'));
@@ -66,7 +71,16 @@ fs.mkdirSync(out,{recursive:true});let browser,player;
   await browser?.close();
   if(player){
     assert.match(player,/^[a-f0-9]{64}$/);
-    execFileSync(process.execPath,[cli,'d1','execute','dino-defense-leaderboard','--remote','--command',`DELETE FROM scores WHERE player = '${player}'; DELETE FROM runs WHERE player = '${player}'`],{cwd:path.join(root,'leaderboard'),windowsHide:true,stdio:'pipe'});
+    for(let attempt=1;attempt<=3;attempt++){
+      try{
+        execFileSync(process.execPath,[cli,'d1','execute','dino-defense-leaderboard','--remote','--command',`DELETE FROM scores WHERE player = '${player}'; DELETE FROM runs WHERE player = '${player}'`],{cwd:path.join(root,'leaderboard'),windowsHide:true,stdio:'pipe',timeout:45000});
+        break;
+      }catch(error){
+        if(attempt===3)throw error;
+        console.log('Retrying cleanup of this verification player after a Cloudflare API error.');
+        await new Promise(r=>setTimeout(r,1000));
+      }
+    }
     console.log('Removed this verification player; the public board contains no test entry from this check.');
   }
 });
