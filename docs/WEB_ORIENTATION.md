@@ -6,22 +6,34 @@ separate maintained products. This is the browser handoff. Roblox starts at
 
 ## Production baseline
 
-Prepared browser release **1.75.0 / cache v73** adds worldwide arcade leaderboards:
-top 50 per map, completed difficulty then health, three-character names, post-victory
-entry and a homepage browser. The dedicated Cloudflare Worker/D1 service is deployed;
-local ranking/concurrency, desktop/phone/touch, saved-game, offline and live-service
-submission/readback checks passed. See [leaderboard operations](WEB_LEADERBOARD.md)
-for endpoints, identity, pending results, known score-authenticity limits and tests.
-The Pages release baseline below will be updated after publication verification.
-
-Last verified runtime release: **1.74.1**, September 14, 2026; service-worker cache
-**dino-defense-v72**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
-from root `main`, commit `c2ab2b8e52931add716dac7d8a878d91de7b709f`.
-[Pages run 34911239373 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34911239373).
+Last verified runtime release: **1.75.0**, September 14, 2026; service-worker cache
+**dino-defense-v73**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
+from root `main`, commit `4e13f894b3d00d1c12a6573e9070d0f6c4cf048e`.
+[Pages run 34915492580 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34915492580).
 This is a recorded deployment baseline; inspect Git and the live version before
 the next release rather than assuming HEAD still equals this commit.
 
-Live verification checked HTTP 200 and committed SHA-256 for 87 pages and
+The 1.75.0 release adds worldwide arcade leaderboards: top 50 per map, completed
+difficulty then health, three-character names, post-victory entry, and View
+Leaderboards on the homepage. Pending results survive connection failures, and
+new saves retain run IDs and cheat history. The dedicated Cloudflare Worker/D1
+service is live. See [leaderboard operations](WEB_LEADERBOARD.md) for the API,
+identity, pending results, known score-authenticity limits and tests.
+
+Production verification checked HTTP 200 and committed SHA-256 for all 89 assets,
+plus the full release gameplay/offline checks and seven-layout homepage suite.
+The leaderboard suite passed ranking/ties, concurrent last-place submissions,
+validation, duplicates, personal records, cheat/resume exclusion, keyboard and
+touch entry, narrow/landscape layouts, late responses and actual offline reloads.
+The real Cloudflare check submitted from a phone browser and confirmed independent
+public readback; its disposable player's row was removed. Screenshots of the
+entry form, board, homepage button and daily recap were reviewed. No browser
+JavaScript errors were found. Phone checks use Chrome emulation, not physical
+iOS/Safari. Evidence is under
+`C:/Users/burns/dev/dino-perimeter-review/leaderboard/` in `production/`,
+`production-service/`, `production-scenes/`, `production-home/` and `production-release/`.
+
+The previous 1.74.1 verification checked HTTP 200 and committed SHA-256 for 87 pages and
 dependencies, all 33 loaded dinosaur skins and polished jaw attachments,
 the guest renderer, hidden art menus,
 ascending weapon prices, matching number keys and Gas selection, actual kills

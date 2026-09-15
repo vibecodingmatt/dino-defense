@@ -24,6 +24,7 @@
 
 - API: `https://dino-defense-leaderboard.vibecodingmatt.workers.dev`
 - Worker: `dino-defense-leaderboard`, configured in `leaderboard/wrangler.jsonc`.
+- Verified Worker version: `3cce3b58-050e-4ff6-8d87-ea84bc65beee` (September 14, 2026).
 - D1 database: `dino-defense-leaderboard`, ID
   `df451046-ca8b-40f9-890f-3c4f0d990d35` (ENAM).
 - Account: `5448a82a740c95f92d6f39fff40a9031`. These IDs are not credentials.
