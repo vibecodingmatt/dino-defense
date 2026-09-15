@@ -6,23 +6,40 @@ separate maintained products. This is the browser handoff. Roblox starts at
 
 ## Production baseline
 
-Last verified runtime release: **1.74.0**, September 14, 2026; service-worker cache
-**dino-defense-v71**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
-from root `main`, commit `e4f3d86e9dfa3510cc92b740aec288b74e593b17`.
-[Pages run 34908907685 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34908907685).
+Last verified runtime release: **1.74.1**, September 14, 2026; service-worker cache
+**dino-defense-v72**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
+from root `main`, commit `c2ab2b8e52931add716dac7d8a878d91de7b709f`.
+[Pages run 34911239373 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34911239373).
 This is a recorded deployment baseline; inspect Git and the live version before
 the next release rather than assuming HEAD still equals this commit.
 
-Live verification checked HTTP 200 and committed SHA-256 for 86 pages and
+Live verification checked HTTP 200 and committed SHA-256 for 87 pages and
 dependencies, all 33 loaded dinosaur skins and polished jaw attachments,
 the guest renderer, hidden art menus,
 ascending weapon prices, matching number keys and Gas selection, actual kills
 with all ten finishers, surface effects and red-ring removal, resumed wave one
-with one weapon and zero cash, phone layout and offline loading under cache v71.
+with one weapon and zero cash, phone layout and offline loading under cache v72.
 It also checked the authored audio bank online/offline, larger Gennaro scale,
 and deaths of all 33 species and nine bosses without creature vocalizations.
 No browser JavaScript errors were found in those checks. Physical phone GPU
 performance and film-quality likeness were not established by headless tests.
+
+The 1.74.1 armory supports touch/pen long presses for weapon details, including
+locked gear. Phones use a full-width bottom sheet and tablets a centered card,
+with a weapon image, current price, targeting, upgrade count and shared description.
+Reading pauses play; dismissing restores the prior pause state and selection.
+Select weapon returns to placement without making a purchase.
+
+The focused suite passed on production in six phone/tablet viewport configurations
+(320–1366 px, portrait and landscape), using actual browser touch events. It checked
+release suppression, quick taps, movement cancellation, real vertical scrolling,
+multi-touch, resize, lifecycle cleanup, locked/duplicate prices, map purchases,
+all ten descriptions, mouse hover, keyboard focus, pen holds and offline use.
+The full release verifier and saved-game regressions passed. No browser errors
+were found. These are Chrome emulation checks, not physical iPad/Safari testing.
+Reviewed live captures and reports are under
+`C:/Users/burns/dev/dino-perimeter-review/weapon-info/production/` and
+`production-release/`; local checks and the rendered daily recap are in `local/`.
 
 The 1.74.0 Extinction Cannon unlocks at wave 40 for $2,600 and upgrades through
 Prometheus, Sunbreaker and the Extinction Engine. Mechanical charge petals hold
