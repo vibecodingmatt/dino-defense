@@ -6,6 +6,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
 const {createHash}=require('node:crypto'),{execFileSync}=require('node:child_process');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||require.resolve('playwright-core',{paths:[process.cwd(),path.resolve(__dirname,'../../war-survival')]}));
 const fixture=require('../tests/leaderboard-fixture.cjs');
+require('../js/leaderboard-rules.js');const Rules=globalThis.LeaderboardRules;
 const root=path.resolve(__dirname,'..'),base='https://vibecodingmatt.github.io/dino-defense/';
 const source=fs.readFileSync(path.join(root,'js/leaderboards.js'),'utf8'),api=source.match(/const API = '([^']+)'/)[1];
 const out=process.env.LEADERBOARD_SERVICE_REVIEW_DIR||path.resolve(root,'../../dino-perimeter-review/leaderboard/service');
@@ -38,10 +39,10 @@ fs.mkdirSync(out,{recursive:true});let browser,player;
   await p.evaluate(()=>{save.settings.mute=true;startLevel(0,'fresh',1);G.paused=true;});
   await p.waitForFunction(()=>Leaderboards.saveProgress()?.registered);
   const runId=await p.evaluate(()=>G.leaderboardRunId);
-  const forged={map:0,difficulty:1,health:100,wave:100,completedWaves:100,spawned:4074,kills:4074,leaks:0,
-    activeMs:1200000,elapsedMs:120000,runId,version:'1.75.1',cheated:false,initials:'TST'};
+  const forged={map:0,difficulty:1,health:100,wave:100,cleared:true,startWave:1,completedWaves:100,spawned:4074,kills:4074,leaks:0,
+    activeMs:1200000,elapsedMs:120000,runId,version:'1.76.0',cheated:false,initials:'TST'};
   const blocked=await fetch(api+'/scores',{method:'POST',headers:{Origin:new URL(base).origin,Authorization:'Bearer '+secret,'Content-Type':'application/json'},body:JSON.stringify(forged)});
-  assert.equal(blocked.status,400,'Live server must reject an instant forged result');
+  assert.equal(blocked.status,425,'Live server must hold an instant forged result');
   console.log('PASS: live server rejects instant fabricated victory after a real run check-in.');
   // The ceremony normally auto-opens results after a few seconds. Freeze only
   // that animation in this disposable test page so it cannot qualify the
@@ -51,7 +52,7 @@ fs.mkdirSync(out,{recursive:true});let browser,player;
   assert.equal(completed.progress.completedWaves,100);assert.equal(completed.progress.spawned,4074);
   // Keep the production clock honest: wait for the real server age to catch up
   // with test-accelerated gameplay. No production timestamps or rules change.
-  const readyAt=started+completed.progress.elapsedMs+2000;
+  const readyAt=started+Rules.minimumActiveMs(1,100)/10+2000;
   while(Date.now()<readyAt){
     console.log('Waiting for real run timing: '+Math.ceil((readyAt-Date.now())/1000)+' seconds remain.');
     await new Promise(r=>setTimeout(r,Math.min(30000,readyAt-Date.now())));
@@ -65,8 +66,21 @@ fs.mkdirSync(out,{recursive:true});let browser,player;
   const publicResponse=await fetch(api+'/leaderboard?map=0');const data=await publicResponse.json();
   assert.ok(data.entries.some(row=>row.initials==='TST'&&row.difficulty===1));
   assert.ok(data.entries.every(row=>row.you===false));assert.deepEqual(errors,[]);
-  fs.writeFileSync(path.join(out,'verification.json'),JSON.stringify({checkedAt:new Date().toISOString(),frontend:process.argv.includes('--live')?'published':'local at Pages origin',api,maps:7,touchSubmission:true,publicReadback:true,instantForgeryRejected:true,realElapsedMs:Date.now()-started,completedWaves:100,spawned:4074,errors},null,2));
-  console.log('PASS: live Cloudflare CORS, seven maps, phone submission and independent public readback.');
+  const victoryElapsedMs=Date.now()-started;
+  await p.locator('#closeLeaderboards').tap();await p.locator('#vMenu').tap();
+  await p.evaluate(()=>{startLevel(1,'fresh',1);G.paused=true;});
+  await p.waitForFunction(()=>Leaderboards.saveProgress()?.registered);
+  await fixture.advanceWaves(p,49);await fixture.loseNextWave(p);
+  console.log('Checking a live wave-50 defeat; early verification should retry automatically.');
+  await p.locator('#arcadeInitials').waitFor({state:'visible',timeout:90000});
+  assert.match(await p.locator('#entrySummary').innerText(),/wave 50/);
+  await p.locator('#arcadeInitials').fill('t50');await p.locator('#submitArcadeScore').tap();
+  await p.waitForFunction(()=>document.querySelector('#leaderboardPersonal').textContent.includes('Wave 50'));
+  const partial=await (await fetch(api+'/leaderboard?map=1')).json();
+  assert.ok(partial.entries.some(row=>row.initials==='T50'&&row.wave===50&&!row.cleared));
+  await p.screenshot({path:path.join(out,'real-service-wave-50-phone.png')});assert.deepEqual(errors,[]);
+  fs.writeFileSync(path.join(out,'verification.json'),JSON.stringify({checkedAt:new Date().toISOString(),frontend:process.argv.includes('--live')?'published':'local at Pages origin',api,maps:7,touchSubmission:true,publicReadback:true,instantForgeryHeld:true,victoryElapsedMs,completedWaves:100,spawned:4074,wave50Defeat:true,automaticRetry:true,errors},null,2));
+  console.log('PASS: live Cloudflare CORS, seven maps, phone victory/defeat submissions, automatic retry and independent public readback.');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{
   await browser?.close();
   if(player){

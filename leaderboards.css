@@ -18,6 +18,7 @@
 #leaderboardTable tr:nth-child(-n+3) { color:#ffe094; }
 #leaderboardTable td:nth-child(2) { letter-spacing:2px; }
 #leaderboardTable .your-score { background:#354b30; color:#caffbd; }
+#leaderboardTable .leaderboard-you { display:block; font-size:9px; line-height:1.3; letter-spacing:1px; color:#caffbd; }
 #leaderboardPersonal { margin:16px 0 0; color:#bdeba7; font:700 12px/1.8 Consolas,'Courier New',monospace; }
 .arcade-board .leaderboard-note { color:#96a99e; font-size:11px; line-height:1.6; }
 .arcade-entry { width:min(510px,94vw); text-align:center; }

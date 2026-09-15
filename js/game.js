@@ -2581,9 +2581,9 @@ function startLevel(idx, mode, diff){
     G.lives = startLives(); G.airUsed = 0; G.omegaUsed = 0;
   }
   G.maxLives = startLives();
-  // Old saves still resume normally; their missing wave history cannot rank.
+  // Old saves begin leaderboard tracking from the next wave on resume.
   G.leaderboardRunId = Leaderboards.beginRun(idx, G.difficulty,
-    mode === 'resume' ? (save.run?.leaderboardProgress || {invalid: true}) : null);
+    mode === 'resume' ? save.run : null);
   G.streak = 1; G.waveLeaked = false;
   G.pendingWave = G.wave < WAVES_PER_LEVEL ? buildWave(G.wave + 1) : null;
   G.nextPreview = waveSummary(G.pendingWave);
@@ -2670,7 +2670,7 @@ function victory(){
   const s = G.stat || {dnaWaves: 0, dnaKills: 0, cashEarned: 0, kills: 0, streakMax: G.streak};
   const earned = s.dnaWaves + s.dnaKills;                     // banked wave + kill DNA
   const healthPct = clamp(G.lives / (G.maxLives || 1), 0, 1);
-  Leaderboards.recordVictory({map:G.levelIdx, difficulty:D, health:Math.round(healthPct * 100), wave:G.wave, runId:G.leaderboardRunId}, cheated);
+  Leaderboards.recordResult({map:G.levelIdx, difficulty:D, health:Math.round(healthPct * 100), wave:G.wave, cleared:true, runId:G.leaderboardRunId}, cheated);
   const victoryBonus  = cheated ? 0 : Math.round(earned * VICTORY_PCT);
   const healthBonus   = cheated ? 0 : Math.round(earned * HEALTH_PCT * healthPct);
   const flawlessBonus = (!cheated && G.flawless) ? Math.round(earned * FLAWLESS_PCT) : 0;
@@ -2773,6 +2773,7 @@ function renderVictory(){
 }
 function defeat(){
   G.over = true;
+  Leaderboards.recordResult({map:G.levelIdx, difficulty:G.difficulty, health:0, wave:G.wave, cleared:false, runId:G.leaderboardRunId}, runDisqualified());
   $('#zoomBar').classList.add('hidden');
   clearRun();
   track('run_end', {result: 'loss', map_name: G.level.name, difficulty: G.difficulty, wave: G.wave,
@@ -2783,6 +2784,7 @@ function defeat(){
   $('#defeatText').innerHTML =
     `The perimeter fell on <b>wave ${G.wave}</b> of ${G.level.name} (Difficulty ${G.difficulty}).<br>` + banked;
   $('#gameover').classList.remove('hidden');
+  Leaderboards.showResult();
 }
 function toMenu(){
   WeaponInfo.close(true);

@@ -417,6 +417,7 @@
       <button id="goAch">🏆 Achievements</button>
       <button id="goStick">📖 Sticker Book</button>
       <button id="goMenu">🗺 Island Map</button>
+      <button id="goLeaderboard">View Leaderboards</button>
     </div>
   </div>
 </div>
@@ -482,7 +483,7 @@
     <button class="modalX" title="Close">×</button>
     <p class="arcade-kicker">DINO DEFENSE · WORLDWIDE TOP 50</p>
     <h2>HIGH SCORES</h2>
-    <p class="arcade-rules">Highest difficulty completed wins. More health breaks the tie.<br>Same score? The earlier entry keeps its place.</p>
+    <p class="arcade-rules">Difficulty first, then wave reached, then health remaining.<br>✓ means all 100 waves cleared. Earlier entries win exact ties.</p>
     <div class="leaderboard-controls">
       <label for="leaderboardMap">CHOOSE YOUR ZONE</label>
       <select id="leaderboardMap"></select>
@@ -492,7 +493,7 @@
     <div class="leaderboard-scroll" tabindex="0" aria-label="High scores, scroll to see more">
       <table id="leaderboardTable" class="hidden">
         <caption class="sr-only">Worldwide rankings for the selected zone</caption>
-        <thead><tr><th scope="col">RANK</th><th scope="col">NAME</th><th scope="col">LEVEL</th><th scope="col">HEALTH</th></tr></thead>
+        <thead><tr><th scope="col">#</th><th scope="col">INITIALS</th><th scope="col" aria-label="Difficulty">DIFF</th><th scope="col">WAVE</th><th scope="col" aria-label="Health remaining">HP</th></tr></thead>
         <tbody id="leaderboardRows"></tbody>
       </table>
     </div>
@@ -508,12 +509,12 @@
   <div class="modalBox arcade-board arcade-entry">
     <button class="modalX" title="Close">×</button>
     <p id="entryRank" class="arcade-kicker">YOU MADE THE TOP 50</p>
-    <h2>ENTER YOUR NAME</h2>
+    <h2>ENTER YOUR INITIALS</h2>
     <p id="entrySummary"></p>
     <form id="arcadeEntryForm">
-      <label for="arcadeInitials">YOUR THREE-CHARACTER ARCADE NAME</label>
+      <label for="arcadeInitials">YOUR THREE-CHARACTER INITIALS</label>
       <input id="arcadeInitials" type="text" maxlength="3" minlength="3" pattern="[A-Za-z0-9]{3}" required autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="initialsHint entryStatus">
-      <p id="initialsHint" class="leaderboard-note">Letters A–Z and numbers 0–9 only. Your name and score will be public.</p>
+      <p id="initialsHint" class="leaderboard-note">Letters A–Z and numbers 0–9 only. Your initials and score will be public.</p>
       <p id="entryStatus" class="leaderboard-status" role="status" aria-live="polite"></p>
       <div class="modalBtns">
         <button id="submitArcadeScore" class="primary" type="submit" disabled>POST HIGH SCORE</button>
@@ -549,6 +550,7 @@
 <script src="js/home-scenery.js"></script>
 <script src="js/endgame-fx.js"></script>
 <script src="js/weapon-info.js"></script>
+<script src="js/leaderboard-rules.js"></script>
 <script src="js/leaderboards.js"></script>
 <script src="js/game.js"></script>
 <script src="js/home.js"></script>

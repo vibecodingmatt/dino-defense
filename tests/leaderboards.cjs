@@ -5,6 +5,8 @@ const assert = require('node:assert/strict'), fs = require('node:fs'), path = re
 const http = require('node:http'), {randomBytes, randomUUID} = require('node:crypto');
 const {Miniflare} = require(process.env.MINIFLARE_MODULE || 'miniflare');
 const fixture = require('./leaderboard-fixture.cjs');
+require('../js/leaderboard-rules.js');
+const Rules = globalThis.LeaderboardRules;
 const {chromium} = require(process.env.PLAYWRIGHT_MODULE || require.resolve('playwright-core', {paths:[process.cwd(),path.resolve(__dirname,'../../war-survival')]}));
 const root = path.resolve(__dirname,'..'), out = process.env.LEADERBOARD_REVIEW_DIR || path.resolve(root,'../../dino-perimeter-review/leaderboard/local');
 fs.mkdirSync(out,{recursive:true});
@@ -18,8 +20,11 @@ const server = http.createServer((req,res) => {
 let mf, browser; const errors = [], report = {checks:[]};
 const pass = message => {report.checks.push(message); console.log('PASS: '+message);};
 const identity = () => randomBytes(32).toString('hex');
-const result = (changes = {}) => ({map:0,difficulty:10,health:80,wave:100,runId:randomUUID(),version:'1.75.1',cheated:false,initials:'ABC',
+const result = (changes = {}) => ({map:0,difficulty:10,health:80,wave:100,cleared:true,startWave:1,runId:randomUUID(),version:'1.76.0',cheated:false,initials:'ABC',
   completedWaves:100,spawned:4074,kills:4073,leaks:1,activeMs:1200000,elapsedMs:120000,...changes});
+const partial = (wave, changes={}) => result({wave,cleared:false,health:0,completedWaves:wave-1,
+  spawned:Rules.spawnTotal(1,wave-1)+1,kills:Rules.spawnTotal(1,wave-1),leaks:1,
+  activeMs:Rules.minimumActiveMs(1,wave-1)*2+500,...changes});
 (async () => {
   await new Promise(r=>server.listen(0,'127.0.0.1',r));
   const local = 'http://127.0.0.1:'+server.address().port, base = process.env.LEADERBOARD_REVIEW_URL || local;
@@ -44,7 +49,8 @@ const result = (changes = {}) => ({map:0,difficulty:10,health:80,wave:100,runId:
   assert.equal((await api('/leaderboard?map=0',null,identity(),{Origin:'https://other.example'})).status,403);
   for (const initials of ['AB','ABCD','A B','aBc','<X>','É12','😀A',123,['ABC']]) assert.equal((await api('/scores',result({initials}))).status,400);
   for (const changes of [{wave:99},{cheated:true},{difficulty:1001},{difficulty:1.5},{health:-1},{health:101},{map:7},{runId:'bad'},
-    {completedWaves:99},{spawned:4075},{kills:4074},{leaks:-1},{activeMs:1000000},{activeMs:1201001},{elapsedMs:1},{elapsedMs:null}]) assert.equal((await api('/scores',result(changes))).status,400);
+    {completedWaves:99},{spawned:4075},{kills:4074},{leaks:-1},{activeMs:500000},{activeMs:1450001},{elapsedMs:1},{elapsedMs:null},
+    {startWave:null},{cleared:1}]) assert.equal((await api('/scores',result(changes))).status,400);
   assert.equal((await api('/scores',result(),'bad')).status,401);
   const tooBig = await mf.dispatchFetch('https://rank.test/scores',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+identity()},body:'x'.repeat(2049)});
   assert.equal(tooBig.status,413);
@@ -54,13 +60,15 @@ const result = (changes = {}) => ({map:0,difficulty:10,health:80,wave:100,runId:
   const who=identity(), run=result();
   assert.equal((await api('/qualify',run,who)).status,422,'Unregistered result');
   assert.equal((await api('/runs',run,who)).status,200);
-  assert.equal((await api('/scores',run,who)).status,400,'Server clock rejects instant forged victory');
+  const early=await api('/scores',run,who);
+  assert.equal(early.status,425,'Server clock holds instant forged victory');assert.ok(early.data.retryAfter>0);
   assert.equal((await api('/runs',{...run,difficulty:11},who)).status,422);
   assert.equal((await api('/scores',run,identity())).status,422,'Another identity cannot reuse the run');
   assert.equal((await eligible('/qualify',run,who)).data.rank,1);
   assert.equal((await api('/scores',{...run,map:1},who)).status,422);
   assert.equal((await api('/scores',{...run,difficulty:11},who)).status,422);
-  assert.equal((await api('/scores',{...run,elapsedMs:4000000},who)).status,400,'Forged wall clock');
+  assert.equal((await api('/qualify',{...run,elapsedMs:4000000},who)).status,200,'Long pauses do not invalidate a run');
+  assert.equal((await api('/runs',{...run,startWave:2},who)).status,422);
   const expired=result(), expiredPlayer=identity(); await eligible('/qualify',expired,expiredPlayer);
   await db.prepare('UPDATE runs SET started = ?1 WHERE run_id = ?2').bind(Date.now()-91*86400000,expired.runId).run();
   assert.equal((await api('/scores',expired,expiredPlayer)).status,422);
@@ -81,7 +89,7 @@ const result = (changes = {}) => ({map:0,difficulty:10,health:80,wave:100,runId:
   pass('Personal best, health tiebreaker, map isolation, private identity and idempotent retries');
   await db.prepare('DELETE FROM scores').run();
   const seed = async n => {
-    for (let i=0;i<n;i++) await db.prepare('INSERT INTO scores VALUES (?1,0,?2,10,80,?3,?4,?5)')
+    for (let i=0;i<n;i++) await db.prepare('INSERT INTO scores (player,map,initials,difficulty,health,achieved,run_id,version) VALUES (?1,0,?2,10,80,?3,?4,?5)')
       .bind(identity(),('A'+i.toString(36).toUpperCase().padStart(2,'0')),1000+i,randomUUID(),'1.75.0').run();
   };
   await seed(49);
@@ -101,14 +109,33 @@ const result = (changes = {}) => ({map:0,difficulty:10,health:80,wave:100,runId:
   assert.equal((await api('/qualify',result(),who,{'CF-Connecting-IP':'rate-test'})).status,429);
   pass('Submission rate limiting');
   await db.prepare('DELETE FROM scores').run();
+  const survivor=identity();
+  assert.equal((await eligible('/scores',partial(50),survivor)).data.personal.wave,50);
+  assert.equal((await eligible('/scores',partial(49),survivor)).status,409);
+  assert.equal((await eligible('/scores',partial(51),survivor)).data.personal.wave,51);
+  assert.equal((await eligible('/scores',partial(100),survivor)).data.personal.cleared,false);
+  assert.equal((await eligible('/scores',result({health:0,kills:4000,leaks:74}),survivor)).data.personal.cleared,true,'Victory beats dying during wave 100 even with rounded zero health');
+  for (const changes of [{health:1},{completedWaves:50},{spawned:9999},{kills:0},{leaks:0}])
+    assert.equal((await api('/scores',partial(50,changes))).status,400);
+  const segment=result({startWave:100,spawned:Rules.spawnCount(100),kills:Rules.spawnCount(100),leaks:0,activeMs:30000,elapsedMs:3000});
+  assert.equal((await eligible('/scores',segment)).status,200,'An older save can finish its observed final wave');
+  assert.equal((await eligible('/qualify',result({activeMs:1143386,elapsedMs:114339})) ).data.qualifies,true,'The fastest theoretical 10x full run remains eligible');
+  pass('Wave-50 defeats, improving partial runs, victory versus wave-100 defeat, resumed legacy segments and fastest 10x timing');
+  await db.prepare('DELETE FROM scores').run();
   browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',args:['--enable-unsafe-swiftshader']});
   const context=await browser.newContext({viewport:{width:1440,height:1000},serviceWorkers:'block'});
-  let failNetwork=false, holdQualify=false, releaseQualify, submissions=0;
+  let failNetwork=false, failCheckinOnce=false, earlyCheckOnce=false, holdQualify=false, releaseQualify, submissions=0;
   const routeApi = async route => {
     const req=route.request(), url=new URL(req.url());
     if (url.hostname.endsWith('.workers.dev')) {
       if (failNetwork) return route.abort();
+      if (failCheckinOnce && url.pathname==='/runs') {failCheckinOnce=false;return route.abort();}
       if (holdQualify && url.pathname==='/qualify') await new Promise(r=>releaseQualify=r);
+      if (earlyCheckOnce && url.pathname==='/qualify') {
+        earlyCheckOnce=false;const s=JSON.parse(req.postData());
+        await db.prepare('UPDATE runs SET started = ?1 WHERE run_id = ?2')
+          .bind(Date.now()-Rules.minimumActiveMs(s.startWave,s.completedWaves)/10+1500,s.runId).run();
+      }
       if (url.pathname==='/scores') submissions++;
       const response=await mf.dispatchFetch('https://rank.test'+url.pathname+url.search,{method:req.method(),headers:{...req.headers(),origin:new URL(base).origin,'cf-connecting-ip':identity()},...(req.postData()?{body:req.postData()}:{})});
       if (url.pathname==='/runs' && response.ok) await db.prepare('UPDATE runs SET started = ?1 WHERE run_id = ?2').bind(Date.now()-3600000,JSON.parse(req.postData()).runId).run();
@@ -128,8 +155,10 @@ const result = (changes = {}) => ({map:0,difficulty:10,health:80,wave:100,runId:
   await p.keyboard.press('Escape');assert.equal(await p.evaluate(()=>document.activeElement.id),'btnLeaderboards');
   async function win(changes={}) {
     await fixture.installClock(p);
+    if(changes.firstCheckinFails){failCheckinOnce=true;earlyCheckOnce=true;}
     await p.evaluate(changes=>{startLevel(changes.map||0,'fresh',1);G.paused=true;},changes);
-    await p.waitForFunction(()=>Leaderboards.saveProgress()?.registered);
+    if(changes.firstCheckinFails)await p.waitForTimeout(200);
+    else await p.waitForFunction(()=>Leaderboards.saveProgress()?.registered);
     if(changes.resumeAt){
       await fixture.advanceWaves(p,changes.resumeAt);
       await p.evaluate(()=>{saveRun();toMenu();startLevel(0,'resume');G.paused=true;});
@@ -143,7 +172,7 @@ const result = (changes = {}) => ({map:0,difficulty:10,health:80,wave:100,runId:
   }
   await p.evaluate(()=>{startLevel(0,'fresh',1);G.paused=true;G.wave=100;victory();finishVictory();});
   assert.equal(await p.locator('#leaderboardEntry').isVisible(),false);
-  assert.match(await p.locator('#victoryRankStatus').innerText(),/not eligible/);
+  assert.match(await p.locator('#victoryRankStatus').innerText(),/could not be verified/);
   await p.evaluate(()=>toMenu());
   await fixture.installClock(p);
   await p.evaluate(()=>{startLevel(0,'fresh',1);G.paused=true;});
@@ -158,13 +187,42 @@ const result = (changes = {}) => ({map:0,difficulty:10,health:80,wave:100,runId:
   await p.evaluate(()=>toMenu());
   await p.evaluate(()=>{
     startLevel(0,'fresh',1);G.paused=true;
-    for(const speed of [1,2,4,10]){G.speed=speed;step(.01);}
+    for(const speed of [1,2,4,10]){G.speed=speed;step(0);step(.01);}
     if(Leaderboards.saveProgress().invalid)throw Error('Legal speeds rejected');
     G.lives-=1;step(.01);G.lives+=1;step(.01);saveRun();
   });
   assert.equal(await p.evaluate(()=>Leaderboards.saveProgress().invalid),true,'Injected health restoration rejected');
   await p.evaluate(()=>toMenu());
+  await p.evaluate(()=>{
+    startLevel(0,'fresh',1);G.paused=true;G.wave=2;saveRun();
+    save.run.leaderboardProgress.invalid=true;delete save.run.leaderboardProgress.ledgerVersion;persist();
+    toMenu();startLevel(0,'resume');G.paused=true;
+  });
+  assert.deepEqual(await p.evaluate(()=>{const s=Leaderboards.saveProgress();return [s.invalid,s.startWave,s.completedWaves,s.spawned];}),[false,3,2,0]);
+  await p.evaluate(()=>toMenu());
   pass('Injected instant victories rejected; real wave checkpoints survive mid-wave resume and excessive speed stays disqualified');
+  // A legal, very advanced Lab save: normal purchases, real bullets and real
+  // fireTower combat at 10x. No developer flags or direct damage() shortcuts.
+  const originalLab=await p.evaluate(()=>({...save.wlv}));
+  await p.evaluate(()=>{
+    save.wlv={...save.wlv,gatling:10000,base_hp:10000,start_cash:1000};persist();
+    startLevel(5,'fresh',1);G.paused=true;
+    for(let y=24;y<H-24;y+=24)for(let x=24;x<W-24;x+=24){
+      if(G.towers.length>=60)break;
+      const near=distToAnyPath(x,y);
+      if(near>=42&&near<=54&&canPlace(x,y))placeTower('gatling',x,y,false);
+    }
+    if(G.towers.length<5)throw Error('Could not build the powered-up test defense');
+  });
+  await p.waitForFunction(()=>Leaderboards.saveProgress()?.registered);
+  const powered=await fixture.advanceWaves(p,100,true);
+  assert.equal(powered.progress.invalid,false);assert.equal(powered.progress.spawned,4074);
+  assert.ok(await p.evaluate(()=>G.stat.kills>3000),'Real upgraded weapons must defeat most spawns');
+  await p.locator('#victorySkip').click();await p.locator('#arcadeInitials').waitFor({state:'visible'});
+  await p.screenshot({path:path.join(out,'powered-up-10x-win.png')});
+  await p.locator('#skipArcadeEntry').click();await p.locator('#vMenu').click();
+  await p.evaluate(lab=>{save.wlv=lab;persist();},originalLab);
+  pass('Difficulty 1 with powerful Lab upgrades and real weapon combat at 10x still prompts for initials');
   await win({resumeAt:37});await p.locator('#arcadeInitials').waitFor({state:'visible'});
   await p.locator('#arcadeInitials').fill('a!2');assert.equal(await p.locator('#arcadeInitials').inputValue(),'A2');
   assert.equal(await p.locator('#submitArcadeScore').isDisabled(),true);
@@ -179,7 +237,7 @@ const result = (changes = {}) => ({map:0,difficulty:10,health:80,wave:100,runId:
   await p.keyboard.press('Escape');
   pass('Homepage entry, seven maps, post-ceremony prompt, initials filtering, Enter submission, personal highlight and reload identity');
   await win({cheated:true});await p.waitForTimeout(250);assert.equal(await p.locator('#leaderboardEntry').isVisible(),false);
-  assert.equal(await p.locator('#victoryLeaderboard').isVisible(),false);await p.locator('#vMenu').click();
+  assert.match(await p.locator('#victoryRankStatus').innerText(),/developer cheats/);await p.locator('#vMenu').click();
   await p.evaluate(()=>{startLevel(0,'fresh',1);G.runCheated=true;saveRun();toMenu();startLevel(0,'resume');});
   assert.equal(await p.evaluate(()=>G.runCheated),true);await p.evaluate(()=>toMenu());
   await win();await p.waitForFunction(()=>document.querySelector('#victoryRankStatus').textContent.includes('personal best'));
@@ -192,6 +250,37 @@ const result = (changes = {}) => ({map:0,difficulty:10,health:80,wave:100,runId:
   holdQualify=true;await win({map:2});await p.waitForTimeout(100);await p.locator('#vMenu').click();
   holdQualify=false;releaseQualify();await p.waitForTimeout(200);assert.equal(await p.locator('#leaderboardEntry').isVisible(),false);
   pass('Late eligibility response cannot open a prompt over the homepage');
+  await win({map:5,firstCheckinFails:true});await p.locator('#arcadeInitials').waitFor({state:'visible'});
+  assert.match(await p.locator('#leaderboardEntry h2').innerText(),/INITIALS/);
+  await p.locator('#skipArcadeEntry').click();await p.locator('#vMenu').click();
+  // Imported/pre-leaderboard save: preserve actual progress, observe the rest.
+  await p.evaluate(()=>{
+    startLevel(6,'fresh',1);G.paused=true;G.wave=98;saveRun();
+    delete save.run.leaderboardProgress;delete save.run.leaderboardRunId;persist();
+    toMenu();startLevel(6,'resume');G.paused=true;
+  });
+  await p.waitForFunction(()=>Leaderboards.saveProgress()?.registered);
+  const legacy=await fixture.advanceWaves(p);
+  assert.equal(legacy.progress.startWave,99);assert.equal(legacy.progress.spawned,Rules.spawnTotal(99,100));
+  await p.evaluate(()=>{G.celebration.t=G.celebration.dur;updateVictory(.016);});
+  await p.locator('#arcadeInitials').waitFor({state:'visible'});
+  await p.locator('#skipArcadeEntry').click();await p.locator('#vMenu').click();
+  // A genuine leak during wave 50 opens initials above the defeat screen.
+  await p.evaluate(()=>{startLevel(4,'fresh',1);G.paused=true;});
+  await p.waitForFunction(()=>Leaderboards.saveProgress()?.registered);
+  await fixture.advanceWaves(p,49);await fixture.loseNextWave(p);
+  await p.locator('#arcadeInitials').waitFor({state:'visible'});
+  assert.match(await p.locator('#entrySummary').innerText(),/Reached wave 50/);
+  await p.locator('#arcadeInitials').fill('d50');await p.locator('#submitArcadeScore').click();
+  await p.waitForFunction(()=>document.querySelector('#leaderboardPersonal').textContent.includes('Wave 50'));
+  await p.screenshot({path:path.join(out,'wave-50-defeat-board.png')});
+  await p.locator('#closeLeaderboards').click();await p.locator('#goMenu').click();
+  holdQualify=true;await win({map:6});await p.waitForTimeout(100);await p.locator('#vLab').click();
+  holdQualify=false;releaseQualify();await p.waitForTimeout(100);
+  assert.equal(await p.locator('#leaderboardEntry').isVisible(),false);
+  await p.locator('#lab .modalX').click();await p.locator('#arcadeInitials').waitFor({state:'visible'});
+  await p.locator('#skipArcadeEntry').click();await p.locator('#vMenu').click();
+  pass('Failed check-in recovery, old saves, automatic ceremony completion, wave-50 death entry and deferred initials after closing the Lab');
   await seed(49);
   await p.locator('#btnLeaderboards').click();await p.waitForFunction(()=>document.querySelectorAll('#leaderboardRows tr').length===50);
   for(const [width,height] of [[1440,1000],[390,844],[320,568],[844,390]]) {
