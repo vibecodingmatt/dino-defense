@@ -28,6 +28,7 @@
 </script>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="home.css">
+<link rel="stylesheet" href="leaderboards.css">
 <link rel="preload" as="image" href="assets/maps/sector7-facility.webp">
 <link rel="icon" type="image/svg+xml" href="icons/favicon.svg">
 <!-- installable PWA: add-to-home-screen, full-screen, offline -->
@@ -199,6 +200,8 @@
         <button id="btnAch"><svg class="ui-icon fIco" aria-hidden="true"><use href="icons/interface.svg#trophy"></use></svg><span class="fName">Achievements</span><span class="fSub" id="fSubAch">Your milestones</span><svg class="ui-icon nav-arrow" aria-hidden="true"><use href="icons/interface.svg#chevron"></use></svg></button>
       </nav>
     </section>
+
+    <button id="btnLeaderboards" class="home-leaderboards"><svg class="ui-icon" aria-hidden="true"><use href="icons/interface.svg#trophy"></use></svg>View Leaderboards <span aria-hidden="true">→</span></button>
 
     <section id="zones" class="deck" aria-labelledby="zonesTitle" tabindex="-1">
       <div class="zone-heading">
@@ -458,13 +461,65 @@
   <div class="modalBox">
     <h2>🏆 ZONE SECURED</h2>
     <p id="victoryText"></p>
+    <div id="victoryLeaderboard" class="hidden">
+      <p id="victoryRankStatus" role="status"></p>
+      <button id="vPostScore" class="primary">Enter your initials</button>
+    </div>
     <div class="modalBtns">
       <button id="vNext" class="primary">➜ Next Difficulty</button>
       <button id="vLab">🧬 Spend DNA in the Lab</button>
       <button id="vAch">🏆 Achievements</button>
       <button id="vStick">📖 Sticker Book</button>
       <button id="vMenu">🗺 Island Map</button>
+      <button id="vLeaderboard">View Leaderboards</button>
     </div>
+  </div>
+</div>
+
+<!-- Worldwide arcade rankings. These share the homepage's modal focus stack. -->
+<div id="leaderboards" class="modal hidden">
+  <div class="modalBox arcade-board">
+    <button class="modalX" title="Close">×</button>
+    <p class="arcade-kicker">DINO DEFENSE · WORLDWIDE TOP 50</p>
+    <h2>HIGH SCORES</h2>
+    <p class="arcade-rules">Highest difficulty completed wins. More health breaks the tie.<br>Same score? The earlier entry keeps its place.</p>
+    <div class="leaderboard-controls">
+      <label for="leaderboardMap">CHOOSE YOUR ZONE</label>
+      <select id="leaderboardMap"></select>
+      <button id="refreshLeaderboards">Refresh</button>
+    </div>
+    <p id="leaderboardStatus" class="leaderboard-status" role="status" aria-live="polite"></p>
+    <div class="leaderboard-scroll" tabindex="0" aria-label="High scores, scroll to see more">
+      <table id="leaderboardTable" class="hidden">
+        <caption class="sr-only">Worldwide rankings for the selected zone</caption>
+        <thead><tr><th scope="col">RANK</th><th scope="col">NAME</th><th scope="col">LEVEL</th><th scope="col">HEALTH</th></tr></thead>
+        <tbody id="leaderboardRows"></tbody>
+      </table>
+    </div>
+    <p id="leaderboardPersonal"></p>
+    <p class="leaderboard-note">One best score per browser, per zone. Your player identity stays in this browser.</p>
+    <div class="modalBtns">
+      <button id="postPendingScore" class="primary hidden">Post saved result</button>
+      <button id="closeLeaderboards">Close</button>
+    </div>
+  </div>
+</div>
+<div id="leaderboardEntry" class="modal hidden">
+  <div class="modalBox arcade-board arcade-entry">
+    <button class="modalX" title="Close">×</button>
+    <p id="entryRank" class="arcade-kicker">YOU MADE THE TOP 50</p>
+    <h2>ENTER YOUR NAME</h2>
+    <p id="entrySummary"></p>
+    <form id="arcadeEntryForm">
+      <label for="arcadeInitials">YOUR THREE-CHARACTER ARCADE NAME</label>
+      <input id="arcadeInitials" type="text" maxlength="3" minlength="3" pattern="[A-Za-z0-9]{3}" required autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="initialsHint entryStatus">
+      <p id="initialsHint" class="leaderboard-note">Letters A–Z and numbers 0–9 only. Your name and score will be public.</p>
+      <p id="entryStatus" class="leaderboard-status" role="status" aria-live="polite"></p>
+      <div class="modalBtns">
+        <button id="submitArcadeScore" class="primary" type="submit" disabled>POST HIGH SCORE</button>
+        <button id="skipArcadeEntry" type="button">Maybe later</button>
+      </div>
+    </form>
   </div>
 </div>
 
@@ -494,6 +549,7 @@
 <script src="js/home-scenery.js"></script>
 <script src="js/endgame-fx.js"></script>
 <script src="js/weapon-info.js"></script>
+<script src="js/leaderboards.js"></script>
 <script src="js/game.js"></script>
 <script src="js/home.js"></script>
 <script src="js/armory-guide.js"></script>

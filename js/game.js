@@ -2525,6 +2525,8 @@ function saveRun(){
   s.levelIdx = G.levelIdx;
   s.difficulty = G.difficulty;
   s.dnaRun = G.dnaRun;
+  s.runCheated = runDisqualified();
+  s.leaderboardRunId = G.leaderboardRunId;
   save.run = s;
   persist();
 }
@@ -2539,6 +2541,8 @@ function restoreSnapshot(s){
 /* mode: 'fresh' | 'resume' (saved run). diff = chosen difficulty level. */
 function startLevel(idx, mode, diff){
   WeaponInfo.close(true);
+  const leaderboardRunId = Leaderboards.beginRun();
+  G.leaderboardRunId = mode === 'resume' && save.run?.leaderboardRunId || leaderboardRunId;
   G.levelIdx = idx;
   G.level = LEVELS[idx];
   $('#stage').dataset.mapArt = G.level.art;
@@ -2564,7 +2568,7 @@ function startLevel(idx, mode, diff){
   // a flawless run means zero base damage; resuming can't verify past waves,
   // so only a fresh run is eligible. Cheats used this run also disqualify it.
   G.flawless = (mode !== 'resume');
-  G.runCheated = cheatsActive();
+  G.runCheated = cheatsActive() || (mode === 'resume' && !!save.run?.runCheated);
   if (mode === 'resume' && save.run){
     restoreSnapshot(save.run);
     G.wave = save.run.wave; G.lives = save.run.lives;
@@ -2660,6 +2664,7 @@ function victory(){
   const s = G.stat || {dnaWaves: 0, dnaKills: 0, cashEarned: 0, kills: 0, streakMax: G.streak};
   const earned = s.dnaWaves + s.dnaKills;                     // banked wave + kill DNA
   const healthPct = clamp(G.lives / (G.maxLives || 1), 0, 1);
+  Leaderboards.recordVictory({map:G.levelIdx, difficulty:D, health:Math.round(healthPct * 100), wave:G.wave, runId:G.leaderboardRunId}, cheated);
   const victoryBonus  = cheated ? 0 : Math.round(earned * VICTORY_PCT);
   const healthBonus   = cheated ? 0 : Math.round(earned * HEALTH_PCT * healthPct);
   const flawlessBonus = (!cheated && G.flawless) ? Math.round(earned * FLAWLESS_PCT) : 0;
@@ -2740,7 +2745,10 @@ function finishVictory(){
   if (!G.celebration) return;
   G.celebration = null; G.fw = []; soundFX?.stop();
   $('#victoryShow').classList.add('hidden');
-  if (G.state === 'playing' || G.state === 'review') $('#victory').classList.remove('hidden');
+  if (G.state === 'playing' || G.state === 'review') {
+    $('#victory').classList.remove('hidden');
+    Leaderboards.showResult();
+  }
 }
 function updateVictory(dt){
   if (!G.celebration || document.hidden) return;
@@ -2772,6 +2780,7 @@ function defeat(){
 }
 function toMenu(){
   WeaponInfo.close(true);
+  Leaderboards.closeAll();
   soundFX?.stop();
   G.state = 'menu';
   G.runCheated = false;   // no run in progress — Lab actions here are eligible for trophies

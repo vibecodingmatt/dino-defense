@@ -6,6 +6,14 @@ separate maintained products. This is the browser handoff. Roblox starts at
 
 ## Production baseline
 
+Prepared browser release **1.75.0 / cache v73** adds worldwide arcade leaderboards:
+top 50 per map, completed difficulty then health, three-character names, post-victory
+entry and a homepage browser. The dedicated Cloudflare Worker/D1 service is deployed;
+local ranking/concurrency, desktop/phone/touch, saved-game, offline and live-service
+submission/readback checks passed. See [leaderboard operations](WEB_LEADERBOARD.md)
+for endpoints, identity, pending results, known score-authenticity limits and tests.
+The Pages release baseline below will be updated after publication verification.
+
 Last verified runtime release: **1.74.1**, September 14, 2026; service-worker cache
 **dino-defense-v72**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
 from root `main`, commit `c2ab2b8e52931add716dac7d8a878d91de7b709f`.
@@ -200,6 +208,7 @@ Audio authoring uses the [export instructions](../art/browser-audio/README.md).
 |---|---|
 | Rules, roster, tower stats, seven maps, version and What's New | `js/data.js` |
 | Homepage, shared dialog design, navigation/accessibility and social sharing | `index.html`, `home.css`, `js/home.js`; [homepage notes](WEB_HOME_REVIEW.md) |
+| Worldwide rankings, arcade name entry and pending scores | `js/leaderboards.js`, `leaderboards.css`, `leaderboard/worker.mjs`; [operations](WEB_LEADERBOARD.md) |
 | Saves/import/export, placement, first wave, combat, homepage actors | `js/game.js` |
 | Touch weapon descriptions, hold recognition and reading pause | `js/weapon-info.js`, shop gestures in `js/game.js`, `#weaponInfo` in `index.html`/`style.css` |
 | Homepage fence/outhouse paintings, debris and electrical effects | `js/home-scenery.js`; scene simulation in `js/game.js`; [homepage notes](WEB_HOME_REVIEW.md) |
@@ -316,6 +325,7 @@ not a runtime game dependency. Only creature topology checks need Node alone.
 | Wave-one Pteranodon pickup and guest attachment | Also `node tests/snatcher.cjs`; `SNATCH_REVIEW_URL` and `SNATCH_REVIEW_DIR` select live verification/evidence |
 | Homepage art, art-panel visibility | `node tests/presentation.cjs`; creature suite for shared rigs |
 | Homepage UI, dialogs, sharing, Play/Continue and social metadata | `node tests/homepage.cjs`; `node tests/presentation.cjs`; `node tests/resume.cjs` |
+| Leaderboard service, rankings, entry, saves and offline behavior | Node 22+: `node tests/leaderboards.cjs`; `node tests/homepage.cjs`; `node tests/resume.cjs`; `node tests/endgame.cjs`; [live-service check](WEB_LEADERBOARD.md) |
 | Homepage fence/outhouse art, breakup, electrical effects and phone framing | `node tests/home-scenery.cjs`; `node tests/homepage.cjs`; `node tests/presentation.cjs`; `node tests/tourists.cjs` |
 | Tourists, guest cameos, evacuation, bite effects | `node tests/tourists.cjs`; `node tests/presentation.cjs`; `node tests/resume.cjs` |
 | First-wave state, saved towers, cross-device transfers | `node tests/resume.cjs` |
