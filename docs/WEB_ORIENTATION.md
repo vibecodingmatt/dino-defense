@@ -6,33 +6,43 @@ separate maintained products. This is the browser handoff. Roblox starts at
 
 ## Production baseline
 
-Last verified runtime release: **1.75.1**, September 14, 2026; service-worker cache
-**dino-defense-v74**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
-from root `main`, commit `cdcc6bf8ae4ddc7d0786dd4099f500fb4cd490b8`.
-[Pages run 34917093703 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34917093703).
+Last verified runtime release: **1.76.0**, September 14, 2026; service-worker cache
+**dino-defense-v75**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
+from root `main`, commit `0e82ac5e2fa8bc3d4a48325b92841732c0957390`.
+[Pages run 34919595430 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34919595430).
 This is a recorded deployment baseline; inspect Git and the live version before
 the next release rather than assuming HEAD still equals this commit.
 
-The 1.75.1 release adds basic leaderboard plausibility checks: online run
-registration, server timing, complete wave/spawn/kill/leak totals, supported
-speed and health checks, and immutable submitted scores. New saves preserve
-their completed-wave ledger through resume. Old saves remain playable but do
-not qualify for new scores; ranked runs need an online start and expire after
-90 days. This is still a casual client-reported board, not cheat-proof play.
-Worker version `b185be8f-3e0a-450a-b4a2-20860a45f352` and migration `0002_runs.sql`
-are deployed. No new What's New bullet was added for these internal checks.
+The 1.76.0 release ranks victories and defeats: difficulty first, then wave
+reached, a completed zone ahead of a defeat during wave 100, then health.
+Three-character entry is labeled **initials** throughout. The same result
+card works on victory and defeat screens; the board has a wave column and
+marks fully cleared zones. Migration `0003_partial_runs.sql` preserves existing
+accepted scores as full victories. Worker version
+`4e439fcd-3ef8-4f3a-aa21-2abfee777895` is deployed.
 
-The release passed the isolated API/browser leaderboard suite, full resumed
-100-wave completion, replay/concurrency checks, injected victory/health/speed
-rejection, save imports, endgame layouts and actual offline loading. Live
-verification checked all 89 committed asset hashes, gameplay, phone controls,
-rendered daily recap and cache v74, with zero browser JavaScript errors.
-The live API rejected an instant fabricated victory after a real check-in.
-It then accepted a full run after real server time elapsed; a phone posted its
-initials and an independent public read confirmed the score. The test player's
-score and check-in were removed, with zero remaining score rows confirmed.
+Missed-prompt fixes cover failed initial check-ins, old saves, zero-duration
+animation frames and qualification while another dialog covers the results.
+Old saves start an observed segment at the next wave. New ledgers retain
+completed-wave counters across resumes; developer-cheat flags still exclude
+runs. Shared bounds in `js/leaderboard-rules.js` allow instant kills at 10x with
+generous timing slack, independent of weapon strength. A very late check-in
+returns retryable verification status and retains the score; posting remains
+an explicit player action. This is still a casual, client-reported leaderboard.
+
+The release passed API validation, replay/concurrency tests, wave-50 defeat
+entry, automatic timing retry, failed check-ins, legacy save recovery, deferred
+initials after closing the Lab, and a full Difficulty 1 run using heavily
+upgraded weapons with normal combat at 10x. Resume imports, the six-layout
+endgame suite, seven-layout homepage suite, narrow/touch initials entry and
+offline loading passed. Live verification checked all 90 committed assets,
+gameplay, mobile controls, rendered daily recap and cache v75, with zero
+browser JavaScript errors. The live service held an instant fabricated result,
+then accepted both a victory and a wave-50 defeat through a phone browser.
+Independent public reads confirmed both scores; the disposable player's scores
+and check-ins were removed. Physical iOS/Safari hardware was not tested.
 Current evidence is under
-`C:/Users/burns/dev/dino-perimeter-review/leaderboard/guards/`.
+`C:/Users/burns/dev/dino-perimeter-review/leaderboard/partial/`.
 
 The 1.75.0 release adds worldwide arcade leaderboards: top 50 per map, completed
 difficulty then health, three-character names, post-victory entry, and View
