@@ -1,7 +1,9 @@
 # Browser experience update — 1.77.0
 
-Local implementation on September 19, 2026. Not published. Production remains
-the baseline recorded in WEB_ORIENTATION.md.
+Published September 19, 2026 as runtime commit
+`e0b4888642b39c30a251e302c93c09f33eb80ab5`.
+[Pages run 35476845442 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/35476845442).
+The production baseline and verification are recorded in WEB_ORIENTATION.md.
 
 ## Player experience
 
@@ -87,6 +89,11 @@ they must not submit review scores to the production service.
 Evidence: `C:/Users/burns/dev/dino-perimeter-review/experience1770/`, with
 existing suites' output also retained in their normal evidence directories.
 The release audit checks version 1.77.0, cache v76 and the offline asset list.
+Live verification passed exact committed hashes for all 92 assets and the full
+release gameplay, mobile, saved-game and offline checks. The experience suite
+also passed against production at all five layouts with zero browser errors;
+captures are in `production-release/` and `production-experience/` under the
+evidence directory above. No review scores were submitted to the leaderboard.
 
 Balance sampling with a simple coverage-based automated purchaser used only
 earned cash and normal combat. It reached wave 20 on Perimeter, wave 15 on

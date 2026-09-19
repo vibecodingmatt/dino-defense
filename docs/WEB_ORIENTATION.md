@@ -6,21 +6,34 @@ separate maintained products. This is the browser handoff. Roblox starts at
 
 ## Production baseline
 
-**Local update prepared: 1.77.0 / cache v76 (September 19, 2026), not yet
-published.** The [experience review](WEB_EXPERIENCE_REVIEW.md) describes the
+Last verified runtime release: **1.77.0**, September 19, 2026; service-worker cache
+**dino-defense-v76**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
+from root `main`, commit `e0b4888642b39c30a251e302c93c09f33eb80ab5`.
+[Pages run 35476845442 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/35476845442).
+This is a recorded deployment baseline; inspect Git and the live version before
+the next release rather than assuming HEAD still equals this commit.
+
+The [experience review](WEB_EXPERIENCE_REVIEW.md) describes the
 larger portrait battlefield, compact armory/upgrade dock, guided first defense,
 route coverage and undo, chapter pacing, Gatling/Cryo specializations,
 research/debrief improvements and verification. `js/experience.js` and
 `experience.css` own the additions; run `node tests/experience.cjs` for their
-focused regression suite. The production baseline below remains authoritative
-until a separate deployment is verified.
+focused regression suite.
 
-Last verified runtime release: **1.76.0**, September 14, 2026; service-worker cache
-**dino-defense-v75**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
-from root `main`, commit `0e82ac5e2fa8bc3d4a48325b92841732c0957390`.
+Production verification checked HTTP 200 and exact committed SHA-256 for all
+92 assets, loaded skins/audio, all ten weapon finishers, zero-cash resume,
+desktop/phone pause controls and actual offline reload under cache v76.
+The experience suite also passed on the live site at five layouts: real
+placement and undo, prompt first contact, specializations, boss preparation,
+research, defeat reports, legacy saves and offline play. It checked all seven
+guided starts and 700 legal wave queues. No browser JavaScript errors occurred.
+Physical iOS/Safari hardware was not tested. Live captures were reviewed;
+evidence is under `C:/Users/burns/dev/dino-perimeter-review/experience1770/`
+in `production-release/` and `production-experience/`.
+
+The previous 1.76.0 runtime release, September 14, 2026, used cache v75 and
+commit `0e82ac5e2fa8bc3d4a48325b92841732c0957390`;
 [Pages run 34919595430 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/34919595430).
-This is a recorded deployment baseline; inspect Git and the live version before
-the next release rather than assuming HEAD still equals this commit.
 
 The 1.76.0 release ranks victories and defeats: difficulty first, then wave
 reached, a completed zone ahead of a defeat during wave 100, then health.
