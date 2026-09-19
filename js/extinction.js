@@ -17,7 +17,7 @@ const Extinction=(()=>{
     if(!(t.novaCharge>0))sound('novaCharge',t);
     t.novaCharge=clamp((t.novaCharge||0)+dt/chargeTime(st));
     if(t.novaCharge<1)return;
-    t.novaCharge=0;t.cd=1/st.rof;t.cdMax=t.cd;t.flash=.24;t.recoil=1;
+    t.hasFired=true;t.novaCharge=0;t.cd=1/st.rof;t.cdMax=t.cd;t.flash=.24;t.recoil=1;
     const p=dinoPos(target),m=Arsenal.anchor(t,0,true),dur=clamp(Math.hypot(p.x-m.x,p.y-m.y)/330,.28,.55);
     // Lock the ground location at release. Slowing a herd improves placement;
     // the bolt never homes onto a replacement after its target dies.

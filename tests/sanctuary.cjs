@@ -23,7 +23,7 @@ async function saveCanvas(p,name,expr='G.bg') {const png=await p.evaluate(expr=>
   browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',args:['--enable-unsafe-swiftshader']});
   const context=await browser.newContext({viewport:{width:1600,height:1040},serviceWorkers:'block'});await context.route('https://www.googletagmanager.com/**',r=>r.abort());
   const p=await context.newPage();monitor(p);await p.goto(base);await p.waitForFunction(()=>SanctuaryScene.status().every(s=>s.ready));
-  await p.evaluate(()=>{save.settings.mute=true;save.settings.music=false;});await p.screenshot({path:path.join(out,'home.png')});
+  await p.evaluate(()=>{save.settings.mute=true;save.settings.music=false;save.settings.fieldGuide=false;});await p.screenshot({path:path.join(out,'home.png')});
   await p.locator('#verChip').click();report.changelog=await p.locator('#clogList').innerText();await p.screenshot({path:path.join(out,'whats-new.png')});await p.locator('#clogClose').click();
   for(let i=1;i<7;i++){
     const state=await p.evaluate(async i=>{startLevel(i,'fresh',1);G.state='review';G.paused=false;G.sceneTime=18;G.time=18;save.settings.invincible=true;await Creatures.ready(['velociraptor','pteranodon','ichthyosaurus']);render(0);return {painted:G.sanctuaryScene?.painted,paths:G.level.paths.map(pts=>pts.map(p=>[p.x,p.y])),maze:!!G.level.maze,water:G.level.waterPaths||[]};},i);
@@ -59,12 +59,13 @@ async function saveCanvas(p,name,expr='G.bg') {const png=await p.evaluate(expr=>
   const voices=await p.evaluate(()=>{startLevel(0,'fresh',1);G.state='review';G.paused=false;G.waveActive=true;G.spawnQ=[];spawnDino('velociraptor',0,false);G.dinos[0].speed=0;G.dinos[0].entranceT=0;G.voxAmb=.0001;const saved={...SFX},events=[];for(const k of Object.keys(SFX))SFX[k]=()=>events.push(k);try{for(let i=0;i<200;i++)step(.05);render(0);return events.filter(k=>['snarl','bellow'].includes(k));}finally{Object.assign(SFX,saved);G.paused=true;}});assert.deepEqual(voices,[]);console.log('PASS: living raptors and decorative paddock produce no random Perimeter growls');
   await p.emulateMedia({reducedMotion:'reduce'});const reduced=await p.evaluate(()=>SanctuaryScene.keys.map(key=>{const c=document.createElement('canvas');c.width=1280;c.height=720;const g=c.getContext('2d'),s=t=>{g.clearRect(0,0,1280,720);SanctuaryScene.draw(g,key,t);SanctuaryScene.atmosphere(g,key,t);return c.toDataURL();};return s(0)===s(24);}));assert.ok(reduced.every(Boolean));report.reduced=reduced;console.log('PASS: all six scenes hold completely still under reduced motion');
   const phone=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true,serviceWorkers:'block'}),mobile=await phone.newPage();monitor(mobile);await mobile.goto(base);await mobile.waitForFunction(()=>SanctuaryScene.status().every(s=>s.ready));
+  await mobile.evaluate(()=>{save.settings.fieldGuide=false;});
   for(let i=1;i<7;i++){
     await mobile.evaluate(i=>{startLevel(i,'fresh',1);G.state='review';G.paused=false;G.sceneTime=18;render(0);},i);
     assert.equal(await mobile.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     const prompt=await mobile.locator('#startPrompt').boundingBox(),map=await mobile.locator('#game').boundingBox();assert.ok(prompt.height<55);assert.ok(prompt.y>map.y+map.height*.7);
     await mobile.screenshot({path:path.join(out,keys[i-1]+'-phone-arrival.png')});
-    await mobile.evaluate(()=>{G.state='playing';G.paused=true;});await mobile.locator('.shopCard[data-key="gatling"]').tap();
+    await mobile.evaluate(()=>{G.state='playing';G.paused=false;});await mobile.locator('#btnOverview').tap();await mobile.locator('.shopCard[data-key="gatling"]').tap();
     const touch=await mobile.evaluate(()=>{for(let y=220;y<560;y+=64)for(let x=256;x<1000;x+=64)if(canPlace(x,y)){const b=cv.getBoundingClientRect();return {x:b.x+(x-G.cam.x)*G.cam.zoom*b.width/W,y:b.y+(y-G.cam.y)*G.cam.zoom*b.height/H+PLACE_LIFT_PX};}throw Error('No touch placement');});
     await mobile.touchscreen.tap(touch.x,touch.y);await mobile.waitForFunction(()=>G.towers.length===1);
     await mobile.evaluate(()=>{G.state='review';G.paused=false;updateStartPrompt();render(0);});await mobile.screenshot({path:path.join(out,keys[i-1]+'-phone.png')});

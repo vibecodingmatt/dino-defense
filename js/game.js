@@ -1062,7 +1062,7 @@ function towerStats(t){
   const def = TOWERS[t.key];
   const L = wlv(t.key);            // persistent weapon level (the main power lever)
   const u = t.ulv || 0;           // in-run cash upgrades
-  return {
+  const stats = {
     dmg:   def.dmg   * Math.pow(UPG.mult.dmg, u)   * wlvDmgMult(L),
     rof:   def.rof   * Math.pow(UPG.mult.rof, u)   * wlvRofMult(L),
     // range doesn't grow with weapon LEVEL; only the Mortar's in-run upgrade
@@ -1073,6 +1073,7 @@ function towerStats(t){
       : def.range * (t.key === 'mortar' ? Math.pow(UPG.mult.range, u) : 1)) * rangeUpMult(t.key),
     splash: def.splash ? def.splash * (1 + (t.key === 'mortar' ? 0.35 : 0.15) * u) : 0,
   };
+  return FieldCommand.stats(t, stats);
 }
 
 /* ---------------- wave generation ---------------- */
@@ -1108,13 +1109,11 @@ function buildWave(wave){
   const q = [];
   const pool = poolFor(wave);
   const count = Math.min(60, 8 + Math.floor(wave * 0.7));
-  const nGroups = clamp(1 + Math.floor(wave / 8), 2, 4);
-  const species = [];
-  for (let i = 0; i < nGroups; i++) species.push(pickWeighted(pool));
+  const species = FieldCommand.waveSpecies(wave, pool);
   let t = 1.0;
   const gap = clamp(0.85 - wave * 0.004, 0.42, 0.85);
   for (let i = 0; i < count; i++){
-    const key = species[i % species.length];
+    const key = species[FieldCommand.queueIndex(i, count, species.length, wave)];
     q.push({at: t, key, pathI: pathForKey(key), boss: false});
     t += gap * rand(0.8, 1.2) * (DINOS[key].size < 12 ? 0.55 : 1);
   }
@@ -1394,8 +1393,9 @@ function damage(d, amt, pierce, src){
   // Blue is untouchable for the few seconds her "Clever girl!" scene runs
   if (d.noHurt) return;
   const eff = (pierce ? amt : Math.max(1, amt - d.armor)) * (d.plasmaT > 0 ? 1.20 : 1);
+  FieldCommand.damage(src, d, Math.min(Math.max(0, d.hp), eff), d.hp <= eff);
   d.hp -= eff;
-  if (eff >= 70){ // only truly big hits pop a damage number
+  if (eff >= 70 && !FieldCommand.essentialLabels()){
     const p = dinoPos(d);
     addText(p.x + rand(-8, 8), p.y - d.size - 4, '−' + Math.round(eff), 'rgba(255,235,200,0.95)', 12);
   }
@@ -1405,7 +1405,7 @@ function damage(d, amt, pierce, src){
     const p = dinoPos(d);
     G.cash += d.bounty;
     if (G.stat){ G.stat.kills++; G.stat.cashEarned += d.bounty; }
-    addText(p.x, p.y - d.size, '+$' + d.bounty, '#ffd24a');
+    if (!FieldCommand.essentialLabels() || d.boss) addText(p.x, p.y - d.size, '+$' + d.bounty, '#ffd24a');
     // DNA drops from every kill, scaled by difficulty (clean runs only)
     if (!runDisqualified()){
       const dna = d.bounty * DNA_PER_BOUNTY * diffDnaMult(G.difficulty) * (d.boss ? 12 : 1);
@@ -1481,12 +1481,12 @@ function damage(d, amt, pierce, src){
   }
 }
 function applyHit(d, t, st, def){
-  damage(d, st.dmg, def.pierce, t);
+  damage(d, st.dmg * FieldCommand.hitMultiplier(t, d), def.pierce, t);
   if (!d.dead && t.key === 'sonic') d.sonicT = .35;
   if (def.slow && !d.dead){
+    const slow = towerStats(t).slow ?? def.slow.f;
+    d.slowF = Math.min(d.slowT > 0 ? d.slowF : 1, slow);
     d.slowT = Math.max(d.slowT, def.slow.t);
-    d.slowF = Math.min(d.slowF === 1 || d.slowT <= 0 ? 1 : d.slowF, def.slow.f);
-    d.slowF = def.slow.f;
   }
   if (def.burn && !d.dead && !d.def.burnImmune){
     d.burnT = def.burn.t;
@@ -1514,6 +1514,7 @@ function fireTower(t, dt){
       if (hyp(t.x, t.y, p.x, p.y) <= st.range + d.size*0.4){ any = true; break; }
     }
     if (!any) return;
+    t.hasFired = true;
     t.cd = 1 / st.rof;
     t.cdMax = t.cd; t.flash = .12; t.recoil = .5;
     say('pulse');
@@ -1536,6 +1537,7 @@ function fireTower(t, dt){
   }
   if (t.key === 'gatling') t.spin = (t.spin || 0) + dt * (target ? 26 : 2);
   if (t.cd > 0 || !target) return;
+  t.hasFired = true;
   t.cd = 1 / st.rof;
   t.cdMax = t.cd;            // lets the tesla coil pace its charge-pulse visual
   t.flash = 0.12;
@@ -1943,6 +1945,7 @@ function updateDinos(dt){
     }
     if (atEnd){
       d.leaked = true;
+      FieldCommand.leak(d);
       G.waveLeaked = true; // a dino got through — breaks the clean-wave streak
       if (!save.settings.invincible){
         G.lives -= d.dmgToBase * (d.boss ? 1 : 1);
@@ -1955,7 +1958,7 @@ function updateDinos(dt){
       }
       Leaderboards.resolved(false);
       SFX.leak();
-      if (G.lives <= 0 && !G.over){ G.lives = 0; defeat(); }
+      if (G.lives <= 0 && !G.over){ G.lives = 0; defeat(); break; }
     }
   }
   G.dinos = G.dinos.filter(d => !d.dead && !d.leaked);
@@ -2433,6 +2436,7 @@ function waveSummary(q){
 }
 function beginFirstWaveCountdown(){
   if (G.wave !== 0 || G.waveActive || G.over || !G.towers.length || G.autoTimer > 0) return;
+  if (G.guide) return;
   G.autoTimer = FIRST_WAVE_DELAY;
   spawnTourists();
 }
@@ -2442,6 +2446,7 @@ function startWave(){
   // still get their head start (no-op if the countdown already sent them)
   if (G.wave === 0) spawnTourists();
   G.wave++;
+  FieldCommand.waveStarted();
   if (cheatsActive()) G.runCheated = true; // latch: cheating any wave forfeits this run's trophies
   G.waveLeaked = false; // fresh clean-wave chance for the streak
   G.waveActive = true;
@@ -2464,6 +2469,7 @@ function startWave(){
 }
 function endWave(){
   Leaderboards.endWave();
+  if (G.fieldEvidence) G.fieldEvidence.completed = G.wave;
   G.waveActive = false;
   const finalWave = G.wave >= WAVES_PER_LEVEL;
   const bonus = 40 + 3 * G.wave;
@@ -2497,8 +2503,9 @@ function endWave(){
     else victory();
     return;
   }
-  saveRun();
   if (save.settings.auto) G.autoTimer = 3;
+  FieldCommand.waveEnded();
+  saveRun();
   G.rushT = RUSH_WINDOW;   // the early-call bonus clock starts ticking
   updateHUD();
 }
@@ -2516,7 +2523,9 @@ function skipWave(){
 function snapshot(){
   return {
     wave: G.wave, cash: G.cash, lives: G.lives, airUsed: G.airUsed, omegaUsed: G.omegaUsed,
-    towers: G.towers.map(t => ({key: t.key, x: t.x, y: t.y, ulv: t.ulv, invested: t.invested, mode: t.mode})),
+    towers: G.towers.map(t => ({key: t.key, x: t.x, y: t.y, ulv: t.ulv, invested: t.invested, mode: t.mode,
+      spec: t.spec || null, damageDealt: t.damageDealt || 0, runKills: t.runKills || 0})),
+    fieldEvidence: G.fieldEvidence,
   };
 }
 
@@ -2539,13 +2548,16 @@ function clearRun(){ save.run = null; persist(); }
 function restoreSnapshot(s){
   migrateTowers(s.towers);
   G.wave = s.wave; G.cash = s.cash; G.lives = Math.max(s.lives, Math.round(startLives() * 0.5));
-  G.towers = s.towers.map(t => ({key: t.key, x: t.x, y: t.y, ulv: t.ulv || 0, invested: t.invested, mode: t.mode, cd: 0, angle: 0, flash: 0}));
+  G.towers = s.towers.map(t => ({key: t.key, x: t.x, y: t.y, ulv: t.ulv || 0, invested: t.invested, mode: t.mode,
+    spec: FieldCommand.validBranch(t.key,t.spec), damageDealt: Number.isFinite(t.damageDealt)?t.damageDealt:0,
+    runKills: Number.isFinite(t.runKills)?t.runKills:0, cd: 0, angle: 0, flash: 0}));
 }
 
 /* ---------------- level lifecycle ---------------- */
 /* mode: 'fresh' | 'resume' (saved run). diff = chosen difficulty level. */
 function startLevel(idx, mode, diff){
   WeaponInfo.close(true);
+  $('#app').classList.add('in-game');
   G.levelIdx = idx;
   G.level = LEVELS[idx];
   $('#stage').dataset.mapArt = G.level.art;
@@ -2581,6 +2593,7 @@ function startLevel(idx, mode, diff){
     G.lives = startLives(); G.airUsed = 0; G.omegaUsed = 0;
   }
   G.maxLives = startLives();
+  FieldCommand.begin(mode, save.run);
   // Old saves begin leaderboard tracking from the next wave on resume.
   G.leaderboardRunId = Leaderboards.beginRun(idx, G.difficulty,
     mode === 'resume' ? save.run : null);
@@ -2605,7 +2618,6 @@ function startLevel(idx, mode, diff){
   selectTower(null);
   resetCam();
   $('#zoomBar').classList.toggle('hidden', !IS_COARSE);   // zoom pill on touch devices only
-  G.pendingWave = G.wave < WAVES_PER_LEVEL ? buildWave(G.wave + 1) : null;
   updateHUD();
   G.runStartT = performance.now();
   track(mode === 'resume' ? 'run_resume' : 'run_start', {map_name: G.level.name, difficulty: G.difficulty});
@@ -2780,10 +2792,11 @@ function defeat(){
                     duration_sec: Math.round((performance.now() - (G.runStartT || performance.now())) / 1000)});
   const banked = runDisqualified()
     ? `<span class="dim">No DNA — a developer cheat was used this run.</span>`
-    : `You banked <b class="dna">+${fmt(G.dnaRun)} DNA</b> from the ${G.wave} wave${G.wave === 1 ? '' : 's'} you cleared — spend it in the Lab to level up, then try again.`;
+    : `You banked <b class="dna">+${fmt(G.dnaRun)} DNA</b>. ${G.fieldEvidence?.completed || 0} waves cleared — your DNA is safe for the next attempt.`;
   $('#defeatText').innerHTML =
     `The perimeter fell on <b>wave ${G.wave}</b> of ${G.level.name} (Difficulty ${G.difficulty}).<br>` + banked;
   $('#gameover').classList.remove('hidden');
+  FieldCommand.debrief();
   Leaderboards.showResult();
 }
 function toMenu(){
@@ -2791,6 +2804,8 @@ function toMenu(){
   Leaderboards.closeAll();
   soundFX?.stop();
   G.state = 'menu';
+  $('#app').classList.remove('in-game');
+  $('#missionRail').classList.add('hidden');
   G.runCheated = false;   // no run in progress — Lab actions here are eligible for trophies
   $('#hud').classList.add('hidden');
   $('#shop').classList.add('hidden');
@@ -2834,6 +2849,7 @@ function placeTower(key, x, y, force){
   if (G.level.maze){ const s = mazeSnap(x, y); x = s.x; y = s.y; }   // weapons sit exactly on their grid squares
   G.cash -= cost;
   G.towers.push({key, x, y, ulv: 0, cd: 0, angle: rand(0, 6.28), flash: 0, invested: cost, mode: 'first'});
+  if (!force) FieldCommand.placed(G.towers[G.towers.length - 1]);
   if (G.level.maze) G.flow = mazeRebuild();   // the walls just changed — reroute everyone
   SFX.build();
   addFx('ring', x, y, 10);
@@ -2846,6 +2862,7 @@ function placeTower(key, x, y, force){
 function selectTower(t){
   disarmSell();            // reset any pending sell-confirm when selection changes
   G.selected = t;
+  $('#main').classList.toggle('has-tower', !!t);
   const pop = $('#towerPop');
   if (!t){ pop.classList.add('hidden'); return; }
   pop.classList.remove('hidden');
@@ -2856,6 +2873,7 @@ function selectTower(t){
 function positionTowerPop(t){
   const pop = $('#towerPop');
   if (!t || pop.classList.contains('hidden')) return;
+  if (FieldCommand.portrait()) { pop.style.left = ''; pop.style.top = ''; pop.classList.remove('scroll'); return; }
   const stage = $('#stage'), cvEl = $('#game');
   const sr = stage.getBoundingClientRect(), cr = cvEl.getBoundingClientRect();
   if (!cr.width) return;
@@ -2927,6 +2945,7 @@ function renderTowerPanel(){
   muteBtn.classList.toggle('muted', muted);
   muteBtn.title = (muted ? 'Unmute' : 'Mute') + ' all ' + def.name + ' sounds';
   const sell = $('#tpSell'), refund = sellRefund(t);
+  FieldCommand.weaponPanel(t);
   sell.classList.toggle('confirm', sellArmed);
   sell.textContent = sellArmed ? `⚠ Tap to confirm sell` : `💰 Sell — $${refund}`;
   // NB: positioning is intentionally NOT done here. renderTowerPanel() runs
@@ -3271,6 +3290,7 @@ function updateHUD(){
   updateOmegaCard();
   // keep the upgrade button in sync with cash while a tower is selected
   if (G.selected) renderTowerPanel();
+  FieldCommand.hud();
 }
 /* onboarding banner: prompt to place a weapon before wave 1, then count it in */
 function updateStartPrompt(){
@@ -3294,6 +3314,7 @@ function updateStartPrompt(){
     el.querySelector('.sp-main').textContent = sector ? 'Hold the perimeter' : '🦖 Place a weapon to begin';
     el.querySelector('.sp-sub').textContent = sector ? 'Choose a weapon, then place it beside the road.' : 'Choose a weapon, then tap the map.';
   }
+  if (G.guide) el.classList.add('hidden');
 }
 function buildShop(){
   WeaponInfo.cancelHold(true);
@@ -3310,6 +3331,7 @@ function buildShop(){
     card.style.borderTop = `3px solid ${def.color}`;
     card.innerHTML = `<div class="ico"><canvas width="168" height="112" aria-hidden="true"></canvas></div><div class="nm">${def.shortName || def.name}</div><div class="cost">$${def.cost}</div>`;
     Arsenal.preview(card.querySelector('canvas'),key,0);
+    const role = document.createElement('span'); role.className = 'weapon-role'; role.textContent = FieldCommand.roles[key]; card.append(role);
     card.title = def.name + ': ' + def.desc + (def.air ? '' : '  (Cannot hit flying dinosaurs.)');
     // Drag a weapon onto the map (range preview follows) to drop it, or tap to
     // select then tap the map. A mostly-VERTICAL drag on a card just scrolls the
@@ -3325,6 +3347,8 @@ function buildShop(){
       if (!d.moved){
         if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 10) return;
         WeaponInfo.cancelHold();
+        if (e.pointerType === 'touch' && FieldCommand.portrait() && !$('#shop').classList.contains('expanded') &&
+            Math.abs(e.clientX-d.sx) > Math.abs(e.clientY-d.sy)) { card._drag=null; return; }
         if (!towerUnlocked(key)){ card._drag = null; return; }
         d.moved = true;                    // began a place-drag (browser didn't scroll)
         try { card.setPointerCapture(e.pointerId); } catch(_){}
@@ -4774,6 +4798,7 @@ function labRow(el, ico, name, tier, desc, cost, nextLabel, onBuy){
   const afford = save.dna >= cost;
   const row = document.createElement('div');
   row.className = 'labRow';
+  row.dataset.researchName = name; row.dataset.researchCost = cost;
   row.innerHTML =
     `<div class="labIco">${ico}</div>` +
     `<div class="labInfo"><b>${name}</b> <span class="tier">${tier}</span><br><small>${desc}</small></div>` +
@@ -4849,6 +4874,7 @@ function buildLab(){
         persist(); SFX.upgrade(); buildLab(); refreshLabDna();
       });
   }
+  FieldCommand.organizeLab();
 }
 /* ---------------- tips / field manual ---------------- */
 const TIPS = [
@@ -4915,6 +4941,7 @@ function syncSettings(){
   $('#optMusic').checked = save.settings.music;
   $('#optPreview').checked = save.settings.wavePreview;
   $('#optCallouts').checked = save.settings.killCallouts;
+  FieldCommand.syncSettings();
 }
 
 /* ---------------- main loop ---------------- */
@@ -6013,6 +6040,7 @@ function render(dt){
     }
   }
 
+  FieldCommand.drawGuide(ctx);
   // placing ghost
   if (G.placing && G.mouse.on){
     const def = TOWERS[G.placing];
@@ -6038,6 +6066,7 @@ function render(dt){
     ctx.strokeStyle = ok ? 'rgba(140,240,140,0.6)' : 'rgba(255,90,90,0.7)';
     ctx.fillStyle = ok ? 'rgba(140,240,140,0.12)' : 'rgba(255,90,90,0.12)';
     const rng = (G.level.maze ? mazeRange(G.placing, 0) : def.range) * rangeUpMult(G.placing);   // base range + any lab range unlock
+    FieldCommand.drawPlacement(ctx, px, py, G.placing, ok);
     ctx.beginPath(); ctx.arc(px, py, rng, 0, Math.PI*2); ctx.fill(); ctx.stroke();
     if (G.level.maze){
       // highlight the exact squares about to become wall
@@ -6221,14 +6250,24 @@ const CAM_MIN_ZOOM = 0.8, CAM_MAX_ZOOM = 2.6;
 const CAM_MARGIN = 160;      // how far past the map edges you can pan (dark margin)
 const PLACE_LIFT_PX = 60;    // how far above the fingertip the ghost floats (CSS px)
 
-function resetCam(){ G.cam = {x: 0, y: 0, zoom: 1}; G.gesture = null; syncZoomUI(); }
+function resetCam(){
+  G.cam = {x: 0, y: 0, zoom: 1}; G.gesture = null;
+  if (FieldCommand.portrait()) {
+    const p = G.guide ? FieldCommand.suggested() : G.towers[0];
+    if (p) G.cam.x = p.x - W/2;
+  }
+  clampCam();
+}
 // keep the camera showing the map (plus a little margin); re-anchor the popup
 function clampCam(){
   const c = G.cam;
   c.zoom = clamp(c.zoom, CAM_MIN_ZOOM, CAM_MAX_ZOOM);
   const vw = W / c.zoom, vh = H / c.zoom;             // viewport size in world units
-  const minX = -CAM_MARGIN, maxX = WORLD_W + CAM_MARGIN - vw;
-  const minY = -CAM_MARGIN, maxY = WORLD_H + CAM_MARGIN - vh;
+  const cr = cv.getBoundingClientRect(), sr = $('#stage').getBoundingClientRect();
+  const crop = cr.width > sr.width ? (cr.width-sr.width)/2 * W/cr.width/c.zoom : 0;
+  const margin = FieldCommand.portrait() ? 0 : CAM_MARGIN;
+  const minX = -margin-crop, maxX = WORLD_W + margin - vw+crop;
+  const minY = -margin, maxY = WORLD_H + margin - vh;
   c.x = (maxX >= minX) ? clamp(c.x, minX, maxX) : (WORLD_W - vw) / 2;   // centre if it all fits
   c.y = (maxY >= minY) ? clamp(c.y, minY, maxY) : (WORLD_H - vh) / 2;
   if (G.selected) positionTowerPop(G.selected);
@@ -6672,6 +6711,7 @@ initAnalytics();
 buildMenuFx();
 buildMenu();
 syncSettings();
+FieldCommand.init();
 requestAnimationFrame(frame);
 
 if (new URLSearchParams(location.search).has('dbg')){

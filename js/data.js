@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.76.0';
+const VERSION = '1.77.0';
 
 // Art inspection panels are local development tools. URL query flags must
 // never enable them on the public site. Node-based data audits default to off.
@@ -35,6 +35,16 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    Date each entry with the ACTUAL current calendar date — check it, never copy
    the entry above. Same-day reship: edit that day's entry and bump its `v`. */
 const CHANGELOG = [
+  {v: '1.77.0', date: 'Sep 19, 2026', items: [
+    '📱 A bigger phone battlefield, compact armory, and upgrade dock keep the action in view.',
+    '🧭 Learn your first defense with guided placement, road coverage highlights, and a quick placement undo.',
+    '🔭 Chapter objectives and incoming threats help you prepare, with breathing room around every boss.',
+    '🔧 Specialize upgraded Gatlings and Cryo Cannons for different threats and tactics.',
+    '🦖 Authored opening encounters and themed waves bring packs, herds, and armored pushes to each zone.',
+    '🧬 Research highlights your next affordable upgrade and keeps long-term goals within reach.',
+    '📋 Defeat reports show what escaped, your strongest weapons, and a practical plan for your next attempt.',
+    '✨ A refreshed combat interface and quieter labels keep important moments clear.',
+  ]},
   {v: '1.76.0', date: 'Sep 14, 2026', items: [
     '🏆 Win or fall, claim a worldwide top-50 spot with your initials and see how far everyone made it.',
     '🦕 Brachiosaurus gets a movie-inspired face with gentle eyes, a rounded snout, and a natural opening jaw.',

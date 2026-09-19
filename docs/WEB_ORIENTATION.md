@@ -6,6 +6,15 @@ separate maintained products. This is the browser handoff. Roblox starts at
 
 ## Production baseline
 
+**Local update prepared: 1.77.0 / cache v76 (September 19, 2026), not yet
+published.** The [experience review](WEB_EXPERIENCE_REVIEW.md) describes the
+larger portrait battlefield, compact armory/upgrade dock, guided first defense,
+route coverage and undo, chapter pacing, Gatling/Cryo specializations,
+research/debrief improvements and verification. `js/experience.js` and
+`experience.css` own the additions; run `node tests/experience.cjs` for their
+focused regression suite. The production baseline below remains authoritative
+until a separate deployment is verified.
+
 Last verified runtime release: **1.76.0**, September 14, 2026; service-worker cache
 **dino-defense-v75**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
 from root `main`, commit `0e82ac5e2fa8bc3d4a48325b92841732c0957390`.
@@ -253,6 +262,7 @@ Audio authoring uses the [export instructions](../art/browser-audio/README.md).
 | Homepage, shared dialog design, navigation/accessibility and social sharing | `index.html`, `home.css`, `js/home.js`; [homepage notes](WEB_HOME_REVIEW.md) |
 | Worldwide rankings, arcade name entry and pending scores | `js/leaderboards.js`, `leaderboards.css`, `leaderboard/worker.mjs`; [operations](WEB_LEADERBOARD.md) |
 | Saves/import/export, placement, first wave, combat, homepage actors | `js/game.js` |
+| Guided opening, encounter themes, specializations, mobile armory and run debrief | `js/experience.js`, `experience.css`; [experience review](WEB_EXPERIENCE_REVIEW.md) |
 | Touch weapon descriptions, hold recognition and reading pause | `js/weapon-info.js`, shop gestures in `js/game.js`, `#weaponInfo` in `index.html`/`style.css` |
 | Homepage fence/outhouse paintings, debris and electrical effects | `js/home-scenery.js`; scene simulation in `js/game.js`; [homepage notes](WEB_HOME_REVIEW.md) |
 | Shared 3D tourists, guest costumes, articulated poses and bounded sprite cache | `js/tourists.js`; look factories in `js/looks.js` |
@@ -282,6 +292,12 @@ port. The server binds only to loopback and needs no Python launcher or packages
 Check whether an old preview is still running; tests start their own servers.
 
 ## Behaviors to preserve
+
+- **Guided opening:** a new player's first wave waits for Start Wave; skipping
+  guidance restores the normal countdown. Transferred or resumed wave-zero
+  runs with existing weapons retain automatic startup. Placement guidance must
+  cover an early legal route and produce prompt first contact. Boss and chapter
+  preparation breaks remain optional in Settings.
 
 - **Weapon descriptions:** touch or pen holds open the public `#weaponInfo`
   sheet after 480 ms, including for locked/unaffordable gear. Tap selects and
@@ -372,6 +388,7 @@ not a runtime game dependency. Only creature topology checks need Node alone.
 | Homepage fence/outhouse art, breakup, electrical effects and phone framing | `node tests/home-scenery.cjs`; `node tests/homepage.cjs`; `node tests/presentation.cjs`; `node tests/tourists.cjs` |
 | Tourists, guest cameos, evacuation, bite effects | `node tests/tourists.cjs`; `node tests/presentation.cjs`; `node tests/resume.cjs` |
 | First-wave state, saved towers, cross-device transfers | `node tests/resume.cjs` |
+| Guided placement, compact armory, specializations, encounter pacing and debrief | `node tests/experience.cjs`; `node tests/resume.cjs`; `node tests/weapon-info.cjs` |
 | Weapons/upgrades/projectiles/effects | `node tests/arsenal.cjs`; `node tests/dino-fx.cjs` |
 | Touch weapon descriptions, bay gestures and reading pause | `node tests/weapon-info.cjs`; `node tests/resume.cjs`; `WEAPON_INFO_REVIEW_URL` and `WEAPON_INFO_REVIEW_DIR` select live checks/evidence |
 | Extinction Cannon economy, placement, upgrades, fracture and offline attack | Also `node tests/extinction.cjs`; `EXTINCTION_REVIEW_URL` and `EXTINCTION_REVIEW_DIR` select live verification/evidence |

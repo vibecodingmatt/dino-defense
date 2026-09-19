@@ -13,9 +13,9 @@ let browser;
   const context=await browser.newContext({viewport:{width,height},isMobile:touch,hasTouch:touch,serviceWorkers:'block'});await context.route('https://www.googletagmanager.com/**',r=>r.abort());
   if(canvas)await context.addInitScript(()=>{const get=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(k,...a){return /^webgl/.test(k)?null:get.call(this,k,...a);};});
   const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto(base);
-  await page.evaluate(()=>{save.settings.mute=true;startLevel(0,'fresh',1);G.wave=40;G.waveActive=true;G.spawnQ=[];G.cash=2600;G.paused=true;updateHUD();});
+  await page.evaluate(()=>{save.settings.mute=true;startLevel(0,'fresh',1);G.wave=39;G.waveActive=false;G.autoTimer=-1;G.spawnQ=[];G.cash=2600;G.paused=false;updateHUD();});
   await page.locator('.shopCard[data-key="extinction"]')[touch?'tap':'click']();await page.locator('#game').scrollIntoViewIfNeeded();
-  const place=await page.evaluate(touch=>{const r=cv.getBoundingClientRect();return {x:r.left+140*r.width/W,y:r.top+230*r.height/H+(touch?PLACE_LIFT_PX:0)};},touch);
+  const place=await page.evaluate(touch=>{const r=cv.getBoundingClientRect(),s=FieldCommand.suggested();return {x:r.left+(s.x-G.cam.x)*G.cam.zoom*r.width/W,y:r.top+(s.y-G.cam.y)*G.cam.zoom*r.height/H+(touch?PLACE_LIFT_PX:0)};},touch);
   if(touch)await page.touchscreen.tap(place.x,place.y);else await page.mouse.click(place.x,place.y);
   assert.deepEqual(await page.evaluate(()=>({count:G.towers.length,key:G.towers[0]?.key,cash:G.cash})),{count:1,key:'extinction',cash:0});
   const report=await page.evaluate(async name=>{

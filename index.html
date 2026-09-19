@@ -29,6 +29,7 @@
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="home.css">
 <link rel="stylesheet" href="leaderboards.css">
+<link rel="stylesheet" href="experience.css">
 <link rel="preload" as="image" href="assets/maps/sector7-facility.webp">
 <link rel="icon" type="image/svg+xml" href="icons/favicon.svg">
 <!-- installable PWA: add-to-home-screen, full-screen, offline -->
@@ -65,10 +66,18 @@
     <button id="btnMenu">☰ Menu</button>
   </div>
 
+  <div id="missionRail" class="hidden">
+    <div class="chapter-row"><b id="chapterTitle"></b><span id="chapterGoal"></span></div>
+    <p id="fieldThreat"></p>
+  </div>
+  <div id="fieldAnnouncement" class="sr-only" role="status" aria-live="polite"></div>
   <!-- game area -->
   <div id="main">
     <div id="stage">
       <canvas id="game" width="1280" height="720"></canvas>
+      <button id="btnOverview" type="button" aria-pressed="false">Overview</button>
+      <div id="fieldBrief" class="hidden"><p id="fieldBriefText"></p><button id="skipGuide" type="button">Skip guidance</button></div>
+      <div id="buildUndo" class="hidden"><button id="undoPlacement" type="button">Undo placement · full refund</button></div>
 
       <div id="pausePrompt" class="hidden">
         <div class="pause-title">Game paused</div>
@@ -94,19 +103,24 @@
         <button id="tpMute" title="Mute this weapon's sounds">🔊</button>
         <button id="tpClose" title="Close">✕</button>
         <div id="tpName"></div>
+        <p id="tpRole"></p>
         <div id="tpHardware"><canvas width="160" height="104" aria-hidden="true"></canvas><div><b></b><span></span></div></div>
         <div id="tpStats"></div>
+        <p id="tpContribution"></p>
+        <p id="tpUpgradePreview"></p>
         <button id="up_main"></button>
+        <div id="tpBranches"></div>
         <div class="tpRow">
           <button id="tpMode">Target: FIRST</button>
           <button id="tpSell">Sell</button>
         </div>
       </div>
     </div>
+    <div id="towerDock"></div>
 
     <!-- tower shop -->
     <div id="shop" class="hidden">
-      <h3>Armory</h3>
+      <div class="armory-heading"><h3>Armory</h3><button id="btnArmory" type="button" aria-expanded="false" aria-controls="shopCards">All weapons &amp; support</button></div>
       <p id="weaponHoldHint">Tap to select · Hold for details</p>
       <button id="btnArsenal" class="arsenal-open hidden">Inspect weapons &amp; upgrades <span>↗</span></button>
       <button id="btnFieldCreatures" class="arsenal-open hidden">Explore the dinosaurs <span>↗</span></button>
@@ -251,7 +265,8 @@
   <div class="modalBox">
     <button class="modalX" title="Close">✕</button>
     <h2>🧬 Research Lab</h2>
-    <div class="sub">This is where DNA gets spent. You have <b><span id="labDna">0 DNA</span></b> to level up your <b>base health</b>, <b>starting cash</b>, and every <b>weapon</b> — permanently, with no cap. Every kill drops DNA (more at higher difficulty). Aim to keep your weapon levels near the difficulty level you're playing: a few levels ahead and it's easy, a few behind and you'll be overrun.</div>
+    <div class="sub">You have <b><span id="labDna">0 DNA</span></b>. DNA stays with you, even when the perimeter falls. Invest in stronger weapons, more starting cash, or a tougher bunker. Your next affordable upgrade is highlighted.</div>
+    <div id="researchGoal"></div>
     <div id="labList"></div>
     <div class="modalBtns"><button id="labClose" class="primary">Done</button></div>
   </div>
@@ -347,8 +362,11 @@
     <div class="sub">Saved automatically.</div>
     <label class="optRow">
       <input type="checkbox" id="optAuto" checked>
-      <span>Auto-start waves <small>Next wave begins 3 seconds after the last one is cleared.</small></span>
+      <span>Auto-start waves <small>Regular waves begin after 3 seconds; preparation breaks wait for you.</small></span>
     </label>
+    <label class="optRow"><input type="checkbox" id="optChapterBreaks" checked><span>Boss preparation breaks <small>Build at your own pace before bosses and after each ten-wave chapter.</small></span></label>
+    <label class="optRow"><input type="checkbox" id="optFieldGuide" checked><span>Opening guidance <small>Learn placement and upgrades on your first defense.</small></span></label>
+    <label class="optRow"><span>Combat labels <small>Essential keeps threats and big moments clear. Full includes hit damage and cash pickups.</small></span><select id="optCombatLabels"><option value="essential">Essential</option><option value="full">Full</option></select></label>
     <label class="optRow">
       <input type="checkbox" id="optMusic" checked>
       <span>Music <small>A cinematic orchestral score under the action.</small></span>
@@ -411,6 +429,7 @@
   <div class="modalBox">
     <h2>☠ CONTAINMENT FAILED</h2>
     <p id="defeatText"></p>
+    <div id="defeatDebrief"></div>
     <div class="modalBtns">
       <button id="goRetry" class="primary">↻ Play Again</button>
       <button id="goLab">🧬 Spend DNA in the Lab</button>
@@ -552,6 +571,7 @@
 <script src="js/weapon-info.js"></script>
 <script src="js/leaderboard-rules.js"></script>
 <script src="js/leaderboards.js"></script>
+<script src="js/experience.js"></script>
 <script src="js/game.js"></script>
 <script src="js/home.js"></script>
 <script src="js/armory-guide.js"></script>

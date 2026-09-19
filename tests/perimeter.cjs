@@ -39,6 +39,7 @@ async function snap(page,name) {await page.screenshot({path:path.join(out,name+'
   const page = await context.newPage();monitor(page);
   await page.goto(base);
   await page.waitForFunction(() => PerimeterScene.ready);
+  await page.evaluate(()=>{save.settings.fieldGuide=false;}); // Terrain suite uses the optional unassisted opening.
   await page.locator('#levelCards .levelCard:not(.resume)').first().click();
   await freeze(page);
   await page.locator('#game').screenshot({path:path.join(out,'sector7-final-map.png')});
@@ -181,6 +182,7 @@ async function snap(page,name) {await page.screenshot({path:path.join(out,name+'
   const mobile=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:2,isMobile:true,hasTouch:true,serviceWorkers:'block'});
   await mobile.route('https://**/*',route=>route.abort());const phone=await mobile.newPage();monitor(phone);
   await phone.goto(base);await phone.waitForFunction(()=>PerimeterScene.ready);
+  await phone.evaluate(()=>{save.settings.fieldGuide=false;});
   await phone.locator('#levelCards .levelCard:not(.resume)').first().tap();await freeze(phone);
   assert.equal(await phone.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   const promptBox=await phone.locator('#startPrompt').boundingBox(),mapBox=await phone.locator('#game').boundingBox();
@@ -191,6 +193,7 @@ async function snap(page,name) {await page.screenshot({path:path.join(out,name+'
   pass('390px portrait and 844px landscape, map camera and paddock close-up render without horizontal overflow');
   await phone.setViewportSize({width:390,height:844});
   await phone.evaluate(()=>{resetCam();G.state='playing';G.paused=false;});
+  await phone.locator('#btnOverview').tap(); // The enlarged phone view pans; use overview for this fixed world position.
   await phone.locator('.shopCard[data-key="gatling"]').tap();
   const touchPoint=await phone.evaluate(()=>{const b=cv.getBoundingClientRect();return {x:b.x+(250-G.cam.x)*G.cam.zoom*b.width/W,y:b.y+(235-G.cam.y)*G.cam.zoom*b.height/H+PLACE_LIFT_PX};});
   await phone.touchscreen.tap(touchPoint.x,touchPoint.y);
