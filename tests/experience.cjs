@@ -47,14 +47,16 @@ let browser;const errors=[],report={layouts:[],errors};
   await p.locator('#tpClose').click();
   if(touch){await p.locator('#btnArmory').click();assert.equal(await p.locator('#airCard').isVisible(),true);await p.locator('#btnArmory').click();await p.locator('#btnOverview').click();assert.equal(await p.evaluate(()=>G.overview),true);await p.screenshot({path:path.join(out,name+'-overview.png')});await p.locator('#btnOverview').click();}
   await p.evaluate(()=>{G.wave=9;G.waveActive=true;G.spawnQ=[];G.dinos=[];G.pendingWave=buildWave(10);G.nextPreview=waveSummary(G.pendingWave);endWave();G.paused=false;updateHUD();});
-  assert.equal(await p.evaluate(()=>G.prepReason),'boss');assert.equal(await p.evaluate(()=>G.autoTimer),-1);
+  assert.ok(await p.evaluate(()=>G.autoTimer>0&&G.autoTimer<=3),'Boss approach must keep its automatic countdown');
   assert.match(await p.locator('#fieldThreat').innerText(),/Blue/);
-  await p.screenshot({path:path.join(out,name+'-boss-prep.png')});
+  await p.screenshot({path:path.join(out,name+'-boss-countdown.png')});
+  await p.locator('#btnPause').click();const countdown=await p.evaluate(()=>G.autoTimer);await p.waitForTimeout(400);assert.equal(await p.evaluate(()=>G.autoTimer),countdown,'Manual pause did not stop the countdown');
+  await p.locator('#btnResume').click();await p.waitForFunction(()=>G.wave===10&&G.waveActive,null,{timeout:6000});
   await p.locator('#btnMenu').click();assert.equal(await p.locator('#btnOverview').isVisible(),false);assert.equal(await p.locator('#fieldBrief').isVisible(),false);await p.locator('#btnLab').click();
   assert.equal(await p.locator('#researchGoal progress').count(),1);assert.equal(await p.locator('#labList details').getAttribute('open'),null);
   await p.screenshot({path:path.join(out,name+'-research.png')});
   await p.keyboard.press('Escape');
-  report.layouts.push({name,...layout});await context.close();console.log('PASS:',name,'guided placement, full-refund undo, manual wave, specialization, preparation, research');
+  report.layouts.push({name,...layout});await context.close();console.log('PASS:',name,'guided placement, full-refund undo, manual first wave, specialization, autoplay, manual pause, research');
  }
  const {context,p}=await setup(1440,1000);
  const rules=await p.evaluate(()=>{
@@ -87,8 +89,14 @@ let browser;const errors=[],report={layouts:[],errors};
   saveRun();const old=JSON.parse(JSON.stringify(save.run));startLevel(0,'resume');check(G.towers[0].spec==='skywatch','Specialization lost');check(G.towers[0].damageDealt===225,'Contribution lost');
   check(G.fieldEvidence.weapons.gatling.damage===225,'Run evidence lost');
   delete old.fieldEvidence;delete old.towers[0].spec;delete old.towers[0].damageDealt;save.run=old;startLevel(0,'resume');check(!G.towers[0].spec,'Old save got branch');check(G.autoTimer>0,'Old wave-zero save did not start');
-  G.wave=10;G.waveActive=true;G.spawnQ=[];G.dinos=[];endWave();check(G.prepReason==='chapter'&&G.autoTimer===-1,'Chapter break missing');
-  save.settings.chapterBreaks=false;G.wave=19;G.waveActive=true;endWave();check(G.autoTimer===3,'Break opt-out ignored');
+  // Old saved preferences must not resurrect the removed preparation pauses.
+  save.settings.chapterBreaks=true;save.settings.auto=true;
+  for(const cleared of [1,2,9,10,19,20,99]){
+   startLevel(0,'fresh',1);G.paused=true;G.guide=true;G.wave=cleared;G.waveActive=true;G.spawnQ=[];G.dinos=[];G.pendingWave=buildWave(cleared+1);
+   endWave();check(G.autoTimer===3,'Autoplay stopped after wave '+cleared);
+   for(let i=0;i<62&&!G.waveActive;i++)step(.05);
+   check(G.wave===cleared+1&&G.waveActive,'Next wave did not actually begin after '+cleared);
+  }
   save.settings.auto=false;G.wave=21;G.waveActive=true;G.autoTimer=-1;endWave();check(G.autoTimer===-1,'Auto off ignored');
   startLevel(0,'fresh',1);G.paused=true;G.wave=8;G.lives=1;spawnDino('pteranodon',0,false);const leak=G.dinos.at(-1);leak.dist=G.paths[0].len-1;updateDinos(.1);
   check(G.over,'Actual breach did not defeat');check(G.fieldEvidence.leaks.pteranodon.count===1,'Breach evidence missing');

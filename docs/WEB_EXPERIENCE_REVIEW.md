@@ -18,13 +18,14 @@ The production baseline and verification are recorded in WEB_ORIENTATION.md.
   road and warns about illegal or ineffective positions. The last placement
   can be undone at full cost for eight real-time seconds, until it fires,
   upgrades, is sold, or another wave starts. Maze routing is rebuilt on undo.
-- The first cleared wave offers upgrade guidance. Guidance can be skipped,
-  and older/transferred wave-zero saves with existing weapons keep their
+- Opening guidance can be skipped, and older/transferred wave-zero saves with existing weapons keep their
   automatic start. Existing save signatures and storage keys are unchanged.
 - The mission rail shows the current chapter, boss objective and next threat
-  on phones as well as desktop. Boss preparation waits before waves 10, 20,
-  etc.; chapter breaks wait after each boss. These breaks are optional in
-  Settings. Regular automatic waves retain their three-second countdown.
+  on phones as well as desktop. Every cleared wave keeps the normal three-second
+  autoplay countdown, including the guided opening and both sides of boss/chapter
+  boundaries. Players can pause whenever they want; the existing Auto-start waves
+  preference remains available. The removed preparation-break preference in older
+  saves has no effect.
 - The first 20 encounters have authored species combinations. Later encounters
   alternate fast packs, herds, flyers, armor, map pressure and mixed assaults.
   Aviary pressure favors flyers; maps with water introduce aquatic pressure.
@@ -107,7 +108,8 @@ placement undo. Both new runtime files are in the service-worker shell.
 horizontal tray swipes, first placement and full-refund undo, manual starts
 and a first kill within eight simulated seconds at the recommended opening,
 branches and their real hit/slow tradeoffs, all seven legal guided starts,
-700 legal encounter queues, boss schedules, real breach/defeat reporting,
+700 legal encounter queues, boss schedules, automatic progression through the
+opening/boss/chapter boundaries, manual pause, real breach/defeat reporting,
 research purchase, legacy saves, setting opt-outs and offline loading.
 `EXPERIENCE_REVIEW_URL` selects the public site for the same checks in isolated
 browser storage; `EXPERIENCE_REVIEW_DIR` selects the evidence folder. External

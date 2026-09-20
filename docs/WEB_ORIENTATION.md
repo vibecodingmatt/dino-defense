@@ -325,8 +325,10 @@ Check whether an old preview is still running; tests start their own servers.
 - **Guided opening:** a new player's first wave waits for Start Wave; skipping
   guidance restores the normal countdown. Transferred or resumed wave-zero
   runs with existing weapons retain automatic startup. Placement guidance must
-  cover an early legal route and produce prompt first contact. Boss and chapter
-  preparation breaks remain optional in Settings.
+  cover an early legal route and produce prompt first contact. Every cleared
+  wave retains the normal three-second autoplay countdown, including opening,
+  boss and chapter boundaries; players can pause manually. Old chapter-break
+  preferences must not interrupt autoplay.
 
 - **Weapon descriptions:** touch or pen holds open the public `#weaponInfo`
   sheet after 480 ms, including for locked/unaffordable gear. Tap selects and

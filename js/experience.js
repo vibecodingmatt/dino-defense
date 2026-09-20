@@ -119,7 +119,7 @@ const FieldCommand = (() => {
   function begin(mode,saved){
     G.fieldEvidence=newEvidence(mode==='resume'?saved?.fieldEvidence:null);
     G.guide=mode!=='resume' && save.settings.fieldGuide!==false && !save.settings.fieldGuideDone && !save.kills && !save.bestDiff;
-    G.prepReason='';G.lastBreach=null;G.overview=false;undoBuild=null;suggestion=null;lastPanel='';lastIntel='';overviewCam=null;
+    G.lastBreach=null;G.overview=false;undoBuild=null;suggestion=null;lastPanel='';lastIntel='';overviewCam=null;
     el('stage').classList.remove('map-overview');el('shop').classList.remove('expanded');
     el('btnArmory').setAttribute('aria-expanded','false');el('btnOverview').setAttribute('aria-pressed','false');text('btnOverview','Overview');
     G.fieldEvidence.completed=Math.max(G.fieldEvidence.completed,G.wave);
@@ -142,12 +142,8 @@ const FieldCommand = (() => {
   function waveEnded(){
     if(G.fieldEvidence)G.fieldEvidence.completed=G.wave;
     if(G.guide && G.wave>=3){save.settings.fieldGuideDone=true;G.guide=false;}
-    G.prepReason=G.guide&&G.wave===1?'upgrade':
-      save.settings.chapterBreaks!==false && G.wave%10===9?'boss':
-      save.settings.chapterBreaks!==false && G.wave%10===0?'chapter':'';
-    if(G.prepReason)G.autoTimer=-1;
   }
-  function waveStarted(){undoBuild=null;G.prepReason='';announce(`Wave ${G.wave}. ${theme(G.wave)}.`);}
+  function waveStarted(){undoBuild=null;announce(`Wave ${G.wave}. ${theme(G.wave)}.`);}
   function announce(message){text('fieldAnnouncement',message);}
   function coverage(x,y,key){
     const st=towerStats({key,ulv:0}),segments=[];
@@ -226,7 +222,7 @@ const FieldCommand = (() => {
     const next=Math.min(100,G.wave+1),chapter=Math.min(9,Math.floor((Math.max(1,G.waveActive?G.wave:next)-1)/10));
     text('chapterTitle',`${chapter+1}/10 · ${chapters[chapter]}`);
     text('chapterGoal',`Boss at wave ${(chapter+1)*10}`);
-    const info=intel(),stamp=JSON.stringify([G.wave,G.waveActive,G.prepReason,info.advice,save.settings.wavePreview,landscape()]);
+    const info=intel(),stamp=JSON.stringify([G.wave,G.waveActive,info.advice,save.settings.wavePreview,landscape()]);
     if(stamp!==lastIntel){
       lastIntel=stamp;
       text('fieldThreat',`${G.waveActive?'Next':'Wave '+next}: ${landscape()?'':theme(next)+' · '}${info.advice}`);
@@ -237,9 +233,6 @@ const FieldCommand = (() => {
     else if(G.placing&&G.mouse.on&&!G.level.maze&&!coverage(G.mouse.x,G.mouse.y,G.placing).covered)brief='No route in range. Move closer to the road before building.';
     else if(canUndo()&&undoBuild.outOfRange)brief='This weapon cannot reach the road. Undo and move it closer.';
     else if(G.guide&&G.wave===0)brief=G.towers.length?'Defense ready. Add more if you like, then press Start Wave.':'Choose the Gatling and cover the gold marker. Drag the map to look around.';
-    else if(G.prepReason==='upgrade')brief='First wave held! Select your weapon to compare its next upgrade, then start wave 2.';
-    else if(G.prepReason==='boss')brief=`Boss preparation · ${info.advice} Start when ready.`;
-    else if(G.prepReason==='chapter')brief=`Chapter secured. Your run is saved. ${chapters[chapter]} is next — start when ready.`;
     else if(G.lastBreach&&performance.now()<G.lastBreach.until)brief=`${DINOS[G.lastBreach.key].name} escaped · Route ${G.lastBreach.path+1}. ${G.lastBreach.advice}`;
     text('fieldBriefText',brief);el('fieldBrief').classList.toggle('hidden',!brief);
     el('skipGuide').classList.toggle('hidden',!G.guide);
@@ -319,15 +312,14 @@ const FieldCommand = (() => {
       clampCam();
     };
     el('undoPlacement').onclick=undo;
-    el('skipGuide').onclick=()=>{G.guide=false;save.settings.fieldGuideDone=true;if(G.prepReason==='upgrade'){G.prepReason='';if(save.settings.auto)G.autoTimer=3;}persist();beginFirstWaveCountdown();updateHUD();};
-    el('optChapterBreaks').onchange=e=>{save.settings.chapterBreaks=e.target.checked;persist();};
+    el('skipGuide').onclick=()=>{G.guide=false;save.settings.fieldGuideDone=true;persist();beginFirstWaveCountdown();updateHUD();};
     el('optFieldGuide').onchange=e=>{save.settings.fieldGuide=e.target.checked;if(e.target.checked)save.settings.fieldGuideDone=false;persist();};
     el('optCombatLabels').onchange=e=>{save.settings.combatLabels=e.target.value;persist();};
     window.addEventListener('resize',()=>{layout();if(G.state==='playing'){clampCam();updateHUD();}});
     new ResizeObserver(()=>{if(G.state==='playing'&&docked()){clampCam();frameSelected();}}).observe(el('stage'));
     layout();
   }
-  function syncSettings(){el('optChapterBreaks').checked=save.settings.chapterBreaks!==false;el('optFieldGuide').checked=save.settings.fieldGuide!==false;el('optCombatLabels').value=save.settings.combatLabels||'essential';}
+  function syncSettings(){el('optFieldGuide').checked=save.settings.fieldGuide!==false;el('optCombatLabels').value=save.settings.combatLabels||'essential';}
   return {roles,branches,validBranch,stats,hitMultiplier,choose,weaponPanel,waveSpecies,queueIndex,theme,begin,damage,leak,
     waveEnded,waveStarted,coverage,drawPlacement,drawGuide,suggested,placed,undo,canUndo,hud,layout,debrief,organizeLab,init,syncSettings,portrait,landscape,docked,essentialLabels};
 })();

@@ -4,7 +4,7 @@
    Dinosaurs, towers, levels, lab research.
    ========================================================= */
 
-const VERSION = '1.77.1';
+const VERSION = '1.77.2';
 
 // Art inspection panels are local development tools. URL query flags must
 // never enable them on the public site. Node-based data audits default to off.
@@ -35,10 +35,10 @@ const ANALYTICS_ID = 'G-3K739141RH'; // GA4 Measurement ID — analytics live
    Date each entry with the ACTUAL current calendar date — check it, never copy
    the entry above. Same-day reship: edit that day's entry and bump its `v`. */
 const CHANGELOG = [
-  {v: '1.77.1', date: 'Sep 19, 2026', items: [
+  {v: '1.77.2', date: 'Sep 19, 2026', items: [
     '📱 Bigger phone and tablet battlefields, compact armories, and docked upgrades keep both orientations clear.',
     '🧭 Learn your first defense with guided placement, road coverage highlights, and a quick placement undo.',
-    '🔭 Chapter objectives and incoming threats help you prepare, with breathing room around every boss.',
+    '🔭 Chapter objectives and incoming threats help you prepare while cleared waves keep advancing automatically.',
     '🔧 Specialize upgraded Gatlings and Cryo Cannons for different threats and tactics.',
     '🦖 Authored opening encounters and themed waves bring packs, herds, and armored pushes to each zone.',
     '🧬 Research highlights your next affordable upgrade and keeps long-term goals within reach.',
