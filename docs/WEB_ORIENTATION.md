@@ -6,12 +6,23 @@ separate maintained products. This is the browser handoff. Roblox starts at
 
 ## Production baseline
 
-Last verified runtime release: **1.77.1**, September 19, 2026; service-worker cache
-**dino-defense-v77**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
-from root `main`, commit `eaeb34078152aa5ecdcc90b29806392e902f3675`.
-[Pages run 35478108921 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/35478108921).
+Last verified runtime release: **1.77.2**, September 19, 2026; service-worker cache
+**dino-defense-v78**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
+from root `main`, commit `a293a828da2d5f3eb5c884ddac02ec9c902ead99`.
+[Pages run 35478494515 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/35478494515).
 This is a recorded deployment baseline; inspect Git and the live version before
 the next release rather than assuming HEAD still equals this commit.
+
+The autoplay correction removes the newly introduced upgrade, boss and chapter
+preparation stops. Every cleared wave uses the normal three-second countdown;
+manual pause and the existing Auto-start waves preference still work. The
+obsolete chapter-break setting is gone, and old saved values cannot restore it.
+Local experience and saved-run suites passed. Live verification checked all 92
+committed assets, five desktop/mobile layouts, real countdown-to-wave starts,
+manual pause, opening/boss/chapter boundaries, saves and offline cache v78,
+with zero browser errors. Evidence is under
+`C:/Users/burns/dev/dino-perimeter-review/autoplay1772/` in `production-release/`
+and `production-experience/`.
 
 The landscape follow-up gives phones and coarse-pointer tablets a 96 px weapon
 rail, compact HUD, a map that fills the stage, Overview, and a separate side

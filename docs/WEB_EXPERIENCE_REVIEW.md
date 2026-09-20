@@ -1,8 +1,8 @@
-# Browser experience update — 1.77.1
+# Browser experience update — 1.77.2
 
 Published September 19, 2026 as runtime commit
-`eaeb34078152aa5ecdcc90b29806392e902f3675`.
-[Pages run 35478108921 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/35478108921).
+`a293a828da2d5f3eb5c884ddac02ec9c902ead99`.
+[Pages run 35478494515 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/35478494515).
 The production baseline and verification are recorded in WEB_ORIENTATION.md.
 
 ## Player experience
@@ -12,7 +12,8 @@ The production baseline and verification are recorded in WEB_ORIENTATION.md.
   canvas retains its aspect ratio and crops horizontally; touch pan and the
   Overview button expose the entire map. Overview restores the previous camera
   when closed. A selected weapon opens in a scrollable bottom dock. Landscape
-  and desktop retain their side armory and anchored upgrade panels.
+  uses a narrow weapon rail and side upgrade dock; desktop keeps its side armory
+  and anchored upgrade panels.
 - A new player's opening waits for an explicit first-wave start. A legal gold
   marker suggests a useful early Gatling location. Placement highlights the covered
   road and warns about illegal or ineffective positions. The last placement
@@ -77,6 +78,22 @@ browser errors, including actual offline reload under cache v77. Live captures
 and reports are in `production-release/` and `production-landscape/` beneath
 the landscape evidence directory above; all 92 deployed assets matched Git.
 
+## Autoplay follow-up — 1.77.2
+
+The upgrade/boss/chapter preparation pauses and their setting were removed.
+Opening guidance only waits before the very first wave; each subsequent clear
+retains the existing three-second automatic countdown. The player's manual pause
+and Auto-start waves preference remain available. Old `chapterBreaks` values are
+ignored. No save migration is needed.
+
+The experience and resume suites passed locally. Production passed the full
+release verifier and five-layout experience suite, including actual next-wave
+starts, manual pause/resume, opening and boss/chapter boundaries, old saved
+preferences and offline cache v78, with zero browser errors. All 92 live assets
+matched the committed release. Evidence is under
+`C:/Users/burns/dev/dino-perimeter-review/autoplay1772/production-release/`
+and `production-experience/`.
+
 ## Specializations
 
 Optional, free, permanent for that tower, available after its first hardware
@@ -124,7 +141,7 @@ they must not submit review scores to the production service.
 
 Evidence: `C:/Users/burns/dev/dino-perimeter-review/experience1770/`, with
 existing suites' output also retained in their normal evidence directories.
-The current release audit checks version 1.77.1, cache v77 and the offline asset list.
+The current release audit checks version 1.77.2, cache v78 and the offline asset list.
 Live verification passed exact committed hashes for all 92 assets and the full
 release gameplay, mobile, saved-game and offline checks. The experience suite
 also passed against production at all five layouts with zero browser errors;
