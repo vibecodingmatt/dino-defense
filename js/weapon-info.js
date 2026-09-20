@@ -35,6 +35,9 @@ const WeaponInfo = (() => {
     updateHUD();
   }
   function close(reset = false) {
+    // A scene change can put a home button under the finger that began a hold.
+    // Consume that finger's release and compatibility click in the new scene.
+    if (reset && pending) { heldPointer = pending.id; swallowClick = true; }
     cancelHold(true);
     const previous = session;
     session = null;

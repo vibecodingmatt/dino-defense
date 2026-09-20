@@ -42,6 +42,36 @@ The production baseline and verification are recorded in WEB_ORIENTATION.md.
   labels are the default; Full labels restore per-hit damage and ordinary cash
   pickups. Physical effects, enemy statuses and boss moments are retained.
 
+## Landscape follow-up — 1.77.1
+
+Short landscape screens and landscape devices with a coarse pointer use a
+dedicated layout. A 96 px scrolling weapon rail leaves the map most of the
+screen; its sticky Armory control opens all weapons and support. The HUD and
+threat row take 72 px together, with 40 px primary controls. Upgrades replace
+the rail in a scrolling side dock and leave the remaining map unobstructed.
+Safe-area insets and dynamic viewport height account for mobile browser chrome.
+
+The canvas fills the available stage without stretching, cropping the excess
+along either axis. Panning and pinch zoom expose the rest; Overview fits the
+entire route and restores the previous view when closed. Camera bounds include
+both crop axes, and dock resizing/rotation keeps the selected tower visible.
+Portrait retains its bottom armory and upgrade dock; desktop retains its layout.
+
+At 844 × 390 the battlefield grows from approximately 536 × 302 visible pixels
+to 748 × 318: about 47% more visible map area, or 72% of the screen. This is a
+layout measurement, not a frame-rate claim.
+
+`node tests/landscape.cjs` checks six touch layouts from 568 × 320 to 1366 × 1024,
+real rail scrolling, support access, map pan/pinch, Overview, touch placement,
+upgrade branches, rotation with a selected tower, desktop isolation and offline
+loading. `LANDSCAPE_REVIEW_URL` and `LANDSCAPE_REVIEW_DIR` select the live target
+and external evidence directory. Local evidence is under
+`C:/Users/burns/dev/dino-perimeter-review/landscape1771/`.
+The landscape, experience, weapon-info, homepage, Extinction and endgame suites
+passed locally. The touch lifecycle check also caught and fixed a cancelled
+weapon hold clicking a homepage button after a scene change. Browser emulation
+does not establish physical iOS/Safari behavior or GPU performance.
+
 ## Specializations
 
 Optional, free, permanent for that tower, available after its first hardware

@@ -402,6 +402,7 @@ not a runtime game dependency. Only creature topology checks need Node alone.
 | Tourists, guest cameos, evacuation, bite effects | `node tests/tourists.cjs`; `node tests/presentation.cjs`; `node tests/resume.cjs` |
 | First-wave state, saved towers, cross-device transfers | `node tests/resume.cjs` |
 | Guided placement, compact armory, specializations, encounter pacing and debrief | `node tests/experience.cjs`; `node tests/resume.cjs`; `node tests/weapon-info.cjs` |
+| Landscape phone/tablet battlefield, armory rail, side upgrades and rotation | `node tests/landscape.cjs`; `node tests/experience.cjs`; `node tests/weapon-info.cjs` |
 | Weapons/upgrades/projectiles/effects | `node tests/arsenal.cjs`; `node tests/dino-fx.cjs` |
 | Touch weapon descriptions, bay gestures and reading pause | `node tests/weapon-info.cjs`; `node tests/resume.cjs`; `WEAPON_INFO_REVIEW_URL` and `WEAPON_INFO_REVIEW_DIR` select live checks/evidence |
 | Extinction Cannon economy, placement, upgrades, fracture and offline attack | Also `node tests/extinction.cjs`; `EXTINCTION_REVIEW_URL` and `EXTINCTION_REVIEW_DIR` select live verification/evidence |

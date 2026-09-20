@@ -14,7 +14,7 @@ let browser;const errors=[],reports=[];
   async function reset(paused=false){await page.evaluate(paused=>{save.settings.mute=true;startLevel(0,'fresh',1);G.speed=4;G.paused=paused;G.cash=180;updateHUD();},paused);}
   async function point(key){const card=page.locator('.shopCard[data-key="'+key+'"]');await card.scrollIntoViewIfNeeded();await page.waitForTimeout(60);const b=await card.boundingBox();return{x:b.x+b.width/2,y:b.y+b.height/2,id:1};}
   const touchEvent=(type,points=[])=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints:points});
-  async function hold(key){const pos=await point(key);await touchEvent('touchStart',[pos]);await page.waitForFunction(()=>WeaponInfo.isOpen);await touchEvent('touchEnd');await page.waitForTimeout(80);assert.equal(await page.locator('#weaponInfo').evaluate(el=>el.open),true,'Finger release closed the sheet');return pos;}
+  async function hold(key){const pos=await point(key);await touchEvent('touchStart',[pos]);try{await page.waitForFunction(()=>WeaponInfo.isOpen);}catch(error){await page.screenshot({path:path.join(out,`failed-hold-${width}x${height}-${key}.png`)});console.error('Hold failed',width,height,key,pos,await page.evaluate(pos=>({target:document.elementFromPoint(pos.x,pos.y)?.outerHTML,state:G.state,placing:G.placing,modal:document.querySelector('.modal:not(.hidden)')?.id}),pos));throw error;}await touchEvent('touchEnd');await page.waitForTimeout(80);assert.equal(await page.locator('#weaponInfo').evaluate(el=>el.open),true,'Finger release closed the sheet');return pos;}
   await reset();return{context,page,cdp,reset,point,touchEvent,hold};
  }
  for(const [name,width,height]of [['phone',390,844],['small-phone',320,568],['phone-landscape',844,390],['tablet',768,1024],['tablet-landscape',1024,768],['large-tablet',1366,1024]]){
@@ -39,7 +39,7 @@ let browser;const errors=[],reports=[];
   // Keep a stationary scene while testing inability to afford the next copy.
   await page.evaluate(()=>{G.paused=true;});await hold('gatling');assert.equal(await page.locator('#wiPrice').innerText(),'$207');assert.equal(await page.locator('#wiSelect').isDisabled(),true);await page.locator('#wiClose').tap();
   // Start a hold and navigate away; its timer cannot leak into another game.
-  await reset();const leave=await point('gatling');await touchEvent('touchStart',[leave]);await page.evaluate(()=>toMenu());await page.waitForTimeout(550);await touchEvent('touchEnd');assert.equal(await page.evaluate(()=>WeaponInfo.isOpen),false);
+  await reset();const leave=await point('gatling');await touchEvent('touchStart',[leave]);await page.evaluate(()=>toMenu());await page.waitForTimeout(550);await touchEvent('touchEnd');assert.equal(await page.evaluate(()=>WeaponInfo.isOpen),false);assert.equal(await page.evaluate(()=>document.querySelector('.modal:not(.hidden)')?.id||null),null,'Cancelled hold clicked a homepage button');
   await reset();await hold('gatling');await page.evaluate(()=>startLevel(1,'fresh',1));assert.equal(await page.evaluate(()=>!WeaponInfo.isOpen&&!G.paused),true);
   reports.push({name,width,height,hold:true,placement:true,pause:true,locked:true});console.log('PASS:',name,'real long press, release suppression, tap/drag, locked and duplicate prices, pause, explicit placement and lifecycle cleanup');await context.close();
  }

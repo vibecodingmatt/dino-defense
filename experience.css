@@ -126,13 +126,63 @@ button:focus-visible, select:focus-visible, summary:focus-visible { outline:3px 
   #skipGuide { padding-top:5px; }
   #towerDock #tpRole, #towerDock #tpContribution { display:none; }
 }
-@media(orientation:landscape) and (max-height:560px) {
-  #missionRail { padding:4px 10px; }
-  #chapterGoal { display:none; }
-  #fieldThreat { font-size:10px; margin:2px 0 0; }
-  #shop { width:174px; padding:7px; }
-  .weapon-role { font-size:8px; }
-  #towerPop { width:260px; padding:12px; }
-  #fieldBrief { padding:7px 12px; }
+@media(orientation:landscape) and (max-height:560px), (orientation:landscape) and (pointer:coarse) {
+  #app { height:100dvh; }
+  #app.in-game { padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right); padding-bottom:env(safe-area-inset-bottom); }
+  #hud { flex:0 0 48px; min-height:48px; padding:3px 8px; gap:5px; }
+  #hud #levelTitle, #hud #hDna, #hud #streakBadge, #speedBtns { display:none; }
+  #speedCycle { display:inline-block; }
+  #hud .stat { flex:none; font-size:11px; padding:5px 6px; }
+  #hud button { min-width:40px; min-height:40px; padding:5px 9px; font-size:11px; }
+  #missionRail { display:flex; align-items:center; gap:12px; flex:0 0 24px; height:24px; padding:3px 10px; overflow:hidden; }
+  #missionRail .chapter-row { flex:none; font-size:10px; }
+  #chapterTitle { display:none; }
+  #chapterGoal { display:block; }
+  #fieldThreat { min-width:0; font-size:11px; line-height:16px; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #main { position:relative; display:grid; grid-template-columns:minmax(0,1fr)96px; grid-template-rows:minmax(0,1fr); }
+  #stage { grid-column:1; grid-row:1; min-height:0; container-type:size; }
+  canvas#game { flex:none; width:max(100cqw, calc(100cqh * 16 / 9)); height:auto; max-width:none; max-height:none; }
+  #stage.map-overview canvas#game { width:min(100cqw, calc(100cqh * 16 / 9)); height:auto; }
+  #shop { grid-column:2; grid-row:1; width:100%; min-height:0; height:100%; padding:4px; gap:4px; border-left:1px solid var(--line); scroll-padding-top:48px; }
+  #shop .armory-heading { flex:none; position:sticky; top:0; z-index:2; background:var(--panel); }
+  #shop .armory-heading h3, #weaponHoldHint, #shop .hint { display:none; }
+  #btnArmory { display:block; width:100%; min-height:40px; padding:6px 3px; border:1px solid #536c64; border-radius:7px; background:#263c36; color:#f8dfad; font-size:11px; cursor:pointer; }
+  #shopCards { flex:none; grid-template-columns:1fr; gap:4px; }
+  #shopCards .shopCard { min-height:66px; padding:4px 3px; }
+  #shopCards .ico, #shopCards .ico canvas { height:26px; }
+  #shopCards .ico canvas { width:52px; margin:0 auto; }
+  #shopCards .nm { font-size:9px; margin-top:2px; }
+  #shopCards .cost { font-size:10px; margin:3px 0 0; }
+  #shop:not(.expanded) .weapon-role, #shop:not(.expanded) .arsenal-open, #shop:not(.expanded) > h3, #shop:not(.expanded) #airCard, #shop:not(.expanded) #omegaCard { display:none; }
+  #shop.expanded { position:absolute; grid-column:1/-1; z-index:20; inset:0 0 0 auto; width:min(300px,48%); box-shadow:-10px 0 25px #0006; padding:8px; }
+  #shop.expanded #shopCards { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  #shop.expanded .weapon-role { font-size:9px; min-height:24px; }
+  #shop.expanded .shopCard { min-height:100px; }
+  #shop.expanded #airCard, #shop.expanded #omegaCard { flex:none; min-height:48px; }
+  #main.has-tower { grid-template-columns:minmax(0,1fr)min(280px,44vw); }
+  #main.has-tower #shop { display:none; }
+  #main.has-tower #towerDock { display:block; grid-column:2; grid-row:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; background:#18282b; border-left:1px solid #526861; }
+  #towerDock #towerPop { position:relative; width:100%; max-height:none; left:auto!important; top:auto!important; border:0; border-radius:0; box-shadow:none; padding:12px; gap:9px; }
+  #towerDock #tpHardware { display:none; }
+  #towerDock #tpName { font-size:13px; padding-right:70px; min-height:32px; }
+  #towerDock #tpStats, #towerDock #tpContribution { font-size:10px; }
+  #towerDock #tpRole, #towerDock #tpUpgradePreview { font-size:11px; }
+  #towerDock #tpClose, #towerDock #tpMute { width:40px; height:40px; min-height:40px; top:7px; }
+  #towerDock #tpMute { right:50px; }
+  #towerDock #up_main, #towerDock .tpRow button, #towerDock .branch-choice { min-height:44px; }
+  #btnOverview { display:block; position:absolute; z-index:14; top:8px; left:8px; min-height:40px; padding:8px 11px; border:1px solid #6d8177; border-radius:20px; color:#eff3e8; background:#172a2bdd; font-size:11px; cursor:pointer; }
+  #stage[data-map-art] #zoomBar { padding:3px; gap:4px; }
+  #zoomBar .zBtn { width:36px; height:36px; }
+  #zoomSlider, #zoomBar .zIcon { display:none; }
+  #buildUndo { top:56px; left:8px; }
+  #fieldBrief { bottom:8px; width:min(520px,calc(100% - 16px)); padding:5px 10px; display:flex; align-items:center; gap:8px; border-radius:8px; }
+  #fieldBrief p { font-size:11px; line-height:1.35; }
+  #skipGuide { flex:none; max-width:70px; min-height:40px; padding:4px; font-size:10px; }
+  #pausePrompt .pause-title { margin-bottom:6px; }
+}
+@media(orientation:landscape) and (max-height:560px) and (max-width:700px) {
+  #hud { gap:3px; padding:3px 5px; }
+  #hud button { padding:5px 6px; }
+  #missionRail .chapter-row { display:none; }
 }
 @media(prefers-reduced-motion:reduce) { #waveTicker .tickWarn { animation:none; } }

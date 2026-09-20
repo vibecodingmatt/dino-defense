@@ -2873,7 +2873,7 @@ function selectTower(t){
 function positionTowerPop(t){
   const pop = $('#towerPop');
   if (!t || pop.classList.contains('hidden')) return;
-  if (FieldCommand.portrait()) { pop.style.left = ''; pop.style.top = ''; pop.classList.remove('scroll'); return; }
+  if (FieldCommand.docked()) { pop.style.left = ''; pop.style.top = ''; pop.classList.remove('scroll'); return; }
   const stage = $('#stage'), cvEl = $('#game');
   const sr = stage.getBoundingClientRect(), cr = cvEl.getBoundingClientRect();
   if (!cr.width) return;
@@ -6252,7 +6252,7 @@ const PLACE_LIFT_PX = 60;    // how far above the fingertip the ghost floats (CS
 
 function resetCam(){
   G.cam = {x: 0, y: 0, zoom: 1}; G.gesture = null;
-  if (FieldCommand.portrait()) {
+  if (FieldCommand.docked()) {
     const p = G.guide ? FieldCommand.suggested() : G.towers[0];
     if (p) G.cam.x = p.x - W/2;
   }
@@ -6265,9 +6265,10 @@ function clampCam(){
   const vw = W / c.zoom, vh = H / c.zoom;             // viewport size in world units
   const cr = cv.getBoundingClientRect(), sr = $('#stage').getBoundingClientRect();
   const crop = cr.width > sr.width ? (cr.width-sr.width)/2 * W/cr.width/c.zoom : 0;
-  const margin = FieldCommand.portrait() ? 0 : CAM_MARGIN;
+  const cropY = cr.height > sr.height ? (cr.height-sr.height)/2 * H/cr.height/c.zoom : 0;
+  const margin = FieldCommand.docked() ? 0 : CAM_MARGIN;
   const minX = -margin-crop, maxX = WORLD_W + margin - vw+crop;
-  const minY = -margin, maxY = WORLD_H + margin - vh;
+  const minY = -margin-cropY, maxY = WORLD_H + margin - vh+cropY;
   c.x = (maxX >= minX) ? clamp(c.x, minX, maxX) : (WORLD_W - vw) / 2;   // centre if it all fits
   c.y = (maxY >= minY) ? clamp(c.y, minY, maxY) : (WORLD_H - vh) / 2;
   if (G.selected) positionTowerPop(G.selected);

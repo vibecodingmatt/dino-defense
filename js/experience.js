@@ -32,6 +32,8 @@ const FieldCommand = (() => {
     'Apex territory','Nightmare patrol','Combined assault','Last perimeter','Extinction protocol'];
   const patterns = ['Regroup','Fast pack','Dense herd','Air patrol','Armored push','Fast pack','Zone pressure','Mixed assault','Boss approach','Boss encounter'];
   const portrait = () => matchMedia('(max-width: 920px) and (orientation: portrait)').matches;
+  const landscape = () => matchMedia('(orientation: landscape) and (max-height: 560px), (orientation: landscape) and (pointer: coarse)').matches;
+  const docked = () => portrait() || landscape();
   let undoBuild = null, suggestion = null, layoutPortrait = null, lastPanel = '', lastIntel = '', overviewCam = null;
   const el = id => document.getElementById(id);
   const text = (id, value) => {const node=el(id);if(node && node.textContent!==value)node.textContent=value;};
@@ -224,10 +226,10 @@ const FieldCommand = (() => {
     const next=Math.min(100,G.wave+1),chapter=Math.min(9,Math.floor((Math.max(1,G.waveActive?G.wave:next)-1)/10));
     text('chapterTitle',`${chapter+1}/10 · ${chapters[chapter]}`);
     text('chapterGoal',`Boss at wave ${(chapter+1)*10}`);
-    const info=intel(),stamp=JSON.stringify([G.wave,G.waveActive,G.prepReason,info.advice,save.settings.wavePreview]);
+    const info=intel(),stamp=JSON.stringify([G.wave,G.waveActive,G.prepReason,info.advice,save.settings.wavePreview,landscape()]);
     if(stamp!==lastIntel){
       lastIntel=stamp;
-      text('fieldThreat',`${G.waveActive?'Next':'Wave '+next}: ${theme(next)} · ${info.advice}`);
+      text('fieldThreat',`${G.waveActive?'Next':'Wave '+next}: ${landscape()?'':theme(next)+' · '}${info.advice}`);
       el('fieldThreat').classList.toggle('hidden',save.settings.wavePreview===false);
     }
     let brief='';
@@ -242,16 +244,26 @@ const FieldCommand = (() => {
     text('fieldBriefText',brief);el('fieldBrief').classList.toggle('hidden',!brief);
     el('skipGuide').classList.toggle('hidden',!G.guide);
     el('main').classList.toggle('has-tower',!!G.selected);
-    text('btnArmory',el('shop').classList.contains('expanded')?'Close armory':'All weapons & support');
+    text('btnArmory',el('shop').classList.contains('expanded')?'Close armory':landscape()?'Armory ▸':'All weapons & support');
     if(G.selected)weaponPanel(G.selected);
   }
   function layout(){
-    const mobile=portrait();
+    const mobile=docked();
     if(layoutPortrait!==mobile){
       layoutPortrait=mobile;
       (mobile?el('towerDock'):el('stage')).append(el('towerPop'));
       if(typeof G!=='undefined'&&G.selected)positionTowerPop(G.selected);
     }
+  }
+  function frameSelected(){
+    const t=G.selected;if(!t)return;
+    const cr=cv.getBoundingClientRect(),sr=el('stage').getBoundingClientRect(),scale=cr.width/W*G.cam.zoom;
+    if(!scale)return;
+    const inset=Math.min(56,sr.width/4,sr.height/4);
+    const x=cr.left+(t.x-G.cam.x)*scale,y=cr.top+(t.y-G.cam.y)*scale;
+    G.cam.x+=(x-Math.max(sr.left+inset,Math.min(sr.right-inset,x)))/scale;
+    G.cam.y+=(y-Math.max(sr.top+inset,Math.min(sr.bottom-inset,y)))/scale;
+    clampCam();
   }
   function debrief(){
     const evidence=G.fieldEvidence||newEvidence(), box=el('defeatDebrief');box.replaceChildren();
@@ -311,11 +323,11 @@ const FieldCommand = (() => {
     el('optChapterBreaks').onchange=e=>{save.settings.chapterBreaks=e.target.checked;persist();};
     el('optFieldGuide').onchange=e=>{save.settings.fieldGuide=e.target.checked;if(e.target.checked)save.settings.fieldGuideDone=false;persist();};
     el('optCombatLabels').onchange=e=>{save.settings.combatLabels=e.target.value;persist();};
-    window.addEventListener('resize',()=>{layout();if(G.state==='playing')clampCam();});
-    new ResizeObserver(()=>{if(G.state==='playing'&&portrait())clampCam();}).observe(el('stage'));
+    window.addEventListener('resize',()=>{layout();if(G.state==='playing'){clampCam();updateHUD();}});
+    new ResizeObserver(()=>{if(G.state==='playing'&&docked()){clampCam();frameSelected();}}).observe(el('stage'));
     layout();
   }
   function syncSettings(){el('optChapterBreaks').checked=save.settings.chapterBreaks!==false;el('optFieldGuide').checked=save.settings.fieldGuide!==false;el('optCombatLabels').value=save.settings.combatLabels||'essential';}
   return {roles,branches,validBranch,stats,hitMultiplier,choose,weaponPanel,waveSpecies,queueIndex,theme,begin,damage,leak,
-    waveEnded,waveStarted,coverage,drawPlacement,drawGuide,suggested,placed,undo,canUndo,hud,layout,debrief,organizeLab,init,syncSettings,portrait,essentialLabels};
+    waveEnded,waveStarted,coverage,drawPlacement,drawGuide,suggested,placed,undo,canUndo,hud,layout,debrief,organizeLab,init,syncSettings,portrait,landscape,docked,essentialLabels};
 })();

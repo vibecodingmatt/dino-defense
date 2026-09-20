@@ -42,10 +42,10 @@ let browser;const errors=[],report={layouts:[],errors};
   await p.locator('#up_main').click();await p.locator('.branch-choice').filter({hasText:'Skywatch'}).click();
   assert.equal(await p.evaluate(()=>G.towers[0].spec),'skywatch');assert.equal(await p.evaluate(()=>G.towers[0].mode),'air');
   const dock=await p.locator('#towerPop').boundingBox();assert.ok(dock.x>=0&&dock.x+dock.width<=width+1);assert.ok(dock.y>=0&&dock.y<height);
-  if(width<height)assert.equal(await p.evaluate(()=>document.querySelector('#towerPop').parentElement.id),'towerDock');
+  if(touch)assert.equal(await p.evaluate(()=>document.querySelector('#towerPop').parentElement.id),'towerDock');
   await p.screenshot({path:path.join(out,name+'-specialization.png')});
   await p.locator('#tpClose').click();
-  if(width<height){await p.locator('#btnArmory').click();assert.equal(await p.locator('#airCard').isVisible(),true);await p.locator('#btnArmory').click();await p.locator('#btnOverview').click();assert.equal(await p.evaluate(()=>G.overview),true);await p.screenshot({path:path.join(out,name+'-overview.png')});await p.locator('#btnOverview').click();}
+  if(touch){await p.locator('#btnArmory').click();assert.equal(await p.locator('#airCard').isVisible(),true);await p.locator('#btnArmory').click();await p.locator('#btnOverview').click();assert.equal(await p.evaluate(()=>G.overview),true);await p.screenshot({path:path.join(out,name+'-overview.png')});await p.locator('#btnOverview').click();}
   await p.evaluate(()=>{G.wave=9;G.waveActive=true;G.spawnQ=[];G.dinos=[];G.pendingWave=buildWave(10);G.nextPreview=waveSummary(G.pendingWave);endWave();G.paused=false;updateHUD();});
   assert.equal(await p.evaluate(()=>G.prepReason),'boss');assert.equal(await p.evaluate(()=>G.autoTimer),-1);
   assert.match(await p.locator('#fieldThreat').innerText(),/Blue/);
