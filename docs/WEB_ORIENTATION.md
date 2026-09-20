@@ -6,12 +6,28 @@ separate maintained products. This is the browser handoff. Roblox starts at
 
 ## Production baseline
 
-Last verified runtime release: **1.77.0**, September 19, 2026; service-worker cache
-**dino-defense-v76**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
-from root `main`, commit `e0b4888642b39c30a251e302c93c09f33eb80ab5`.
-[Pages run 35476845442 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/35476845442).
+Last verified runtime release: **1.77.1**, September 19, 2026; service-worker cache
+**dino-defense-v77**. Published to [Dino Defense](https://vibecodingmatt.github.io/dino-defense/)
+from root `main`, commit `eaeb34078152aa5ecdcc90b29806392e902f3675`.
+[Pages run 35478108921 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/35478108921).
 This is a recorded deployment baseline; inspect Git and the live version before
 the next release rather than assuming HEAD still equals this commit.
+
+The landscape follow-up gives phones and coarse-pointer tablets a 96 px weapon
+rail, compact HUD, a map that fills the stage, Overview, and a separate side
+upgrade dock. Panning accounts for horizontal and vertical cropping; rotation
+keeps the selected tower visible. At 844 × 390 this gives about 47% more visible
+map area. Portrait keeps its bottom dock. Cancelled weapon holds cannot click
+through onto the homepage after a scene change.
+
+The landscape, experience, weapon-info, homepage, Extinction and endgame suites
+passed locally. Production checked exact committed hashes for 92 assets and
+the full release verifier, plus real touch gestures/placement, side upgrades,
+support access, orientation changes and offline use at six emulated landscape
+sizes from 568 × 320 to 1366 × 1024. Cache v77 activated, with no browser errors.
+Physical iOS/Safari hardware was not available. Reviewed live evidence is in
+`C:/Users/burns/dev/dino-perimeter-review/landscape1771/production-release/`
+and `production-landscape/`. Run `node tests/landscape.cjs` for the focused suite.
 
 The [experience review](WEB_EXPERIENCE_REVIEW.md) describes the
 larger portrait battlefield, compact armory/upgrade dock, guided first defense,
@@ -20,7 +36,7 @@ research/debrief improvements and verification. `js/experience.js` and
 `experience.css` own the additions; run `node tests/experience.cjs` for their
 focused regression suite.
 
-Production verification checked HTTP 200 and exact committed SHA-256 for all
+The initial 1.77.0 production verification checked HTTP 200 and exact committed SHA-256 for all
 92 assets, loaded skins/audio, all ten weapon finishers, zero-cash resume,
 desktop/phone pause controls and actual offline reload under cache v76.
 The experience suite also passed on the live site at five layouts: real

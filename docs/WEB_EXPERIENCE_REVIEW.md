@@ -1,8 +1,8 @@
-# Browser experience update — 1.77.0
+# Browser experience update — 1.77.1
 
 Published September 19, 2026 as runtime commit
-`e0b4888642b39c30a251e302c93c09f33eb80ab5`.
-[Pages run 35476845442 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/35476845442).
+`eaeb34078152aa5ecdcc90b29806392e902f3675`.
+[Pages run 35478108921 succeeded](https://github.com/vibecodingmatt/dino-defense/actions/runs/35478108921).
 The production baseline and verification are recorded in WEB_ORIENTATION.md.
 
 ## Player experience
@@ -71,6 +71,10 @@ The landscape, experience, weapon-info, homepage, Extinction and endgame suites
 passed locally. The touch lifecycle check also caught and fixed a cancelled
 weapon hold clicking a homepage button after a scene change. Browser emulation
 does not establish physical iOS/Safari behavior or GPU performance.
+The full live release verifier and six-layout landscape suite passed with zero
+browser errors, including actual offline reload under cache v77. Live captures
+and reports are in `production-release/` and `production-landscape/` beneath
+the landscape evidence directory above; all 92 deployed assets matched Git.
 
 ## Specializations
 
@@ -118,7 +122,7 @@ they must not submit review scores to the production service.
 
 Evidence: `C:/Users/burns/dev/dino-perimeter-review/experience1770/`, with
 existing suites' output also retained in their normal evidence directories.
-The release audit checks version 1.77.0, cache v76 and the offline asset list.
+The current release audit checks version 1.77.1, cache v77 and the offline asset list.
 Live verification passed exact committed hashes for all 92 assets and the full
 release gameplay, mobile, saved-game and offline checks. The experience suite
 also passed against production at all five layouts with zero browser errors;
